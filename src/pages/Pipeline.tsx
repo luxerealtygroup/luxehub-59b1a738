@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Phone, Mail, Search, Trash2, Edit2, Loader2, DollarSign, Home, Users } from 'lucide-react';
+import { Plus, Phone, Mail, Search, Trash2, Edit2, Loader2, DollarSign, Home, Users, Calendar } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -15,6 +15,7 @@ import { FUBClientSearch } from '@/components/FUBClientSearch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { differenceInDays, format, parseISO } from 'date-fns';
 
 interface PipelineClient {
   id: string;
@@ -29,7 +30,25 @@ interface PipelineClient {
   client_type: 'buyer' | 'seller';
   projected_sale_amount: number | null;
   projected_gci: number | null;
+  expected_pending_date: string | null;
 }
+
+// Calculate stage based on days until expected pending date
+const calculateStageFromDate = (expectedPendingDate: string | null): number => {
+  if (!expectedPendingDate) return 5;
+  const daysUntil = differenceInDays(parseISO(expectedPendingDate), new Date());
+  
+  if (daysUntil <= 30) return 10;
+  if (daysUntil <= 60) return 9;
+  if (daysUntil <= 90) return 8;
+  if (daysUntil <= 120) return 7;
+  if (daysUntil <= 180) return 6;
+  if (daysUntil <= 270) return 5;
+  if (daysUntil <= 365) return 4;
+  if (daysUntil <= 540) return 3;
+  if (daysUntil <= 730) return 2;
+  return 1;
+};
 
 // Stage definitions with timeline descriptions
 const stageDefinitions: Record<number, { label: string; description: string; color: string }> = {
@@ -62,13 +81,13 @@ const Pipeline = () => {
     client_name: '',
     email: '',
     phone: '',
-    stage: '5',
     notes: '',
     property_interest: '',
     source: '',
     client_type: 'buyer' as 'buyer' | 'seller',
     projected_sale_amount: '',
-    projected_gci: ''
+    projected_gci: '',
+    expected_pending_date: ''
   });
 
   const fetchClients = async () => {
@@ -97,7 +116,7 @@ const Pipeline = () => {
       const firstName = nameParts[0] || '';
       const lastName = nameParts.slice(1).join(' ') || '';
       
-      const stageNum = parseInt(clientData.stage);
+      const stageNum = calculateStageFromDate(clientData.expected_pending_date || null);
       const stageTag = `pipeline_stage_${stageNum}`;
       const timelineTag = `timeline_${stageDefinitions[stageNum]?.description || 'unknown'}`;
       
@@ -129,6 +148,7 @@ const Pipeline = () => {
     if (!user) return;
     
     setSubmitting(true);
+    const calculatedStage = calculateStageFromDate(newClient.expected_pending_date || null);
 
     if (editClient) {
       const { error } = await supabase
@@ -137,13 +157,14 @@ const Pipeline = () => {
           client_name: newClient.client_name,
           email: newClient.email || null,
           phone: newClient.phone || null,
-          stage: parseInt(newClient.stage),
+          stage: calculatedStage,
           notes: newClient.notes || null,
           property_interest: newClient.property_interest || null,
           source: newClient.source || null,
           client_type: newClient.client_type,
           projected_sale_amount: parseFloat(newClient.projected_sale_amount) || 0,
-          projected_gci: parseFloat(newClient.projected_gci) || 0
+          projected_gci: parseFloat(newClient.projected_gci) || 0,
+          expected_pending_date: newClient.expected_pending_date || null
         })
         .eq('id', editClient.id);
 
@@ -160,13 +181,14 @@ const Pipeline = () => {
         client_name: newClient.client_name,
         email: newClient.email || null,
         phone: newClient.phone || null,
-        stage: parseInt(newClient.stage),
+        stage: calculatedStage,
         notes: newClient.notes || null,
         property_interest: newClient.property_interest || null,
         source: newClient.source || null,
         client_type: newClient.client_type,
         projected_sale_amount: parseFloat(newClient.projected_sale_amount) || 0,
-        projected_gci: parseFloat(newClient.projected_gci) || 0
+        projected_gci: parseFloat(newClient.projected_gci) || 0,
+        expected_pending_date: newClient.expected_pending_date || null
       });
 
       if (error) {
@@ -202,17 +224,17 @@ const Pipeline = () => {
     setEditClient(null);
     setSyncToFUB(true);
     setNewClient({ 
-      client_name: '', email: '', phone: '', stage: '5', notes: '', 
+      client_name: '', email: '', phone: '', notes: '', 
       property_interest: '', source: '', client_type: activeTab,
-      projected_sale_amount: '', projected_gci: ''
+      projected_sale_amount: '', projected_gci: '', expected_pending_date: ''
     });
   };
 
   const openAddDialog = () => {
     setNewClient({ 
-      client_name: '', email: '', phone: '', stage: '5', notes: '', 
+      client_name: '', email: '', phone: '', notes: '', 
       property_interest: '', source: '', client_type: activeTab,
-      projected_sale_amount: '', projected_gci: ''
+      projected_sale_amount: '', projected_gci: '', expected_pending_date: ''
     });
     setDialogOpen(true);
   };
@@ -223,26 +245,27 @@ const Pipeline = () => {
       client_name: client.client_name,
       email: client.email || '',
       phone: client.phone || '',
-      stage: client.stage.toString(),
       notes: client.notes || '',
       property_interest: client.property_interest || '',
       source: client.source || '',
       client_type: client.client_type,
       projected_sale_amount: client.projected_sale_amount?.toString() || '',
-      projected_gci: client.projected_gci?.toString() || ''
+      projected_gci: client.projected_gci?.toString() || '',
+      expected_pending_date: client.expected_pending_date || ''
     });
     setDialogOpen(true);
   };
 
-  const updateStage = async (clientId: string, newStage: number) => {
+  const updateExpectedPendingDate = async (clientId: string, newDate: string) => {
+    const newStage = calculateStageFromDate(newDate);
     const { error } = await supabase
       .from('pipeline_clients')
-      .update({ stage: newStage })
+      .update({ expected_pending_date: newDate, stage: newStage })
       .eq('id', clientId);
     
     if (!error) {
       fetchClients();
-      toast({ title: `Client moved to Stage ${newStage}` });
+      toast({ title: `Expected pending date updated` });
     }
   };
 
@@ -355,17 +378,21 @@ const Pipeline = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Timeline Stage</Label>
-                <Select value={newClient.stage} onValueChange={(v) => setNewClient({ ...newClient, stage: v })}>
-                  <SelectTrigger><SelectValue placeholder="Select stage" /></SelectTrigger>
-                  <SelectContent>
-                    {stageOrder.map(s => (
-                      <SelectItem key={s} value={s.toString()}>
-                        Stage {s} - {stageDefinitions[s].description}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Expected Pending Date</Label>
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="date"
+                    value={newClient.expected_pending_date}
+                    onChange={(e) => setNewClient({ ...newClient, expected_pending_date: e.target.value })}
+                    className="flex-1"
+                  />
+                </div>
+                {newClient.expected_pending_date && (
+                  <p className="text-xs text-muted-foreground">
+                    Auto-assigned to Stage {calculateStageFromDate(newClient.expected_pending_date)} ({stageDefinitions[calculateStageFromDate(newClient.expected_pending_date)]?.description})
+                  </p>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
@@ -594,19 +621,19 @@ const Pipeline = () => {
                             {client.source}
                           </Badge>
                         )}
+                        {client.expected_pending_date && (
+                          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            Pending: {format(parseISO(client.expected_pending_date), 'MMM d, yyyy')}
+                          </p>
+                        )}
                         <div className="mt-2">
-                          <Select value={client.stage.toString()} onValueChange={(v) => updateStage(client.id, parseInt(v))}>
-                            <SelectTrigger className="h-7 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {stageOrder.map(s => (
-                                <SelectItem key={s} value={s.toString()}>
-                                  Stage {s}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <Input
+                            type="date"
+                            value={client.expected_pending_date || ''}
+                            onChange={(e) => updateExpectedPendingDate(client.id, e.target.value)}
+                            className="h-7 text-xs"
+                          />
                         </div>
                       </div>
                     ))}
