@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Target, TrendingUp, DollarSign, Home, Edit2, Calendar } from 'lucide-react';
+import { Target, TrendingUp, DollarSign, Home, Edit2, Calendar, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface AnnualGoals {
@@ -18,6 +18,7 @@ interface AnnualGoals {
   avg_sale_price: number;
   commission_rate: number;
   split_percent: number;
+  fallout_rate: number;
 }
 
 interface ActualMetrics {
@@ -66,7 +67,8 @@ const Goals = () => {
     gci_goal: 0,
     avg_sale_price: 350000,
     commission_rate: 3,
-    split_percent: 70
+    split_percent: 70,
+    fallout_rate: 50
   });
   
   const [monthlyGoals, setMonthlyGoals] = useState<MonthlyGoal[]>(
@@ -85,7 +87,8 @@ const Goals = () => {
     gci_goal: '',
     avg_sale_price: '350000',
     commission_rate: '3',
-    split_percent: '70'
+    split_percent: '70',
+    fallout_rate: '50'
   });
 
   const currentYear = 2026;
@@ -122,7 +125,8 @@ const Goals = () => {
       const calcValues = savedCalcValues ? JSON.parse(savedCalcValues) : {
         avg_sale_price: 350000,
         commission_rate: 3,
-        split_percent: 70
+        split_percent: 70,
+        fallout_rate: 50
       };
       
       setAnnualGoals({
@@ -131,7 +135,8 @@ const Goals = () => {
         gci_goal: gciValue,
         avg_sale_price: calcValues.avg_sale_price,
         commission_rate: calcValues.commission_rate,
-        split_percent: calcValues.split_percent
+        split_percent: calcValues.split_percent,
+        fallout_rate: calcValues.fallout_rate ?? 50
       });
       
       setFormData({
@@ -139,7 +144,8 @@ const Goals = () => {
         gci_goal: gciValue?.toString() || '',
         avg_sale_price: calcValues.avg_sale_price.toString(),
         commission_rate: calcValues.commission_rate.toString(),
-        split_percent: calcValues.split_percent.toString()
+        split_percent: calcValues.split_percent.toString(),
+        fallout_rate: (calcValues.fallout_rate ?? 50).toString()
       });
       
       // Initialize monthly goals - check if saved in localStorage
@@ -284,13 +290,15 @@ const Goals = () => {
     const avgPrice = parseFloat(formData.avg_sale_price) || 350000;
     const commRate = parseFloat(formData.commission_rate) || 3;
     const splitPct = parseFloat(formData.split_percent) || 70;
+    const falloutRate = parseFloat(formData.fallout_rate) || 50;
     
     // Save calculation values to localStorage
     if (user) {
       localStorage.setItem(`goalCalcValues_${user.id}_${currentYear}`, JSON.stringify({
         avg_sale_price: avgPrice,
         commission_rate: commRate,
-        split_percent: splitPct
+        split_percent: splitPct,
+        fallout_rate: falloutRate
       }));
     }
     
@@ -299,7 +307,8 @@ const Goals = () => {
       gci_goal: gciTarget,
       avg_sale_price: avgPrice,
       commission_rate: commRate,
-      split_percent: splitPct
+      split_percent: splitPct,
+      fallout_rate: falloutRate
     });
     setShowSetup(false);
     toast({ title: 'Annual goals saved!' });
@@ -504,6 +513,55 @@ const Goals = () => {
                 Based on {formData.deals_goal || 0} deals × ${parseInt(formData.avg_sale_price || '0').toLocaleString()} × {formData.commission_rate || 0}% × {formData.split_percent || 0}% split
               </p>
             </div>
+
+            {/* Pipeline Fallout Rate */}
+            <div className="p-4 rounded-lg bg-background/50 border border-gold/20 space-y-3">
+              <div className="space-y-2">
+                <Label className="text-foreground">Pipeline Fallout Rate</Label>
+                <div className="flex items-center gap-3">
+                  <Target className="h-5 w-5 text-gold" />
+                  <Input
+                    type="number"
+                    step="1"
+                    placeholder="50"
+                    value={formData.fallout_rate}
+                    onChange={(e) => setFormData({ ...formData, fallout_rate: e.target.value })}
+                    className="text-lg w-24"
+                  />
+                  <span className="text-muted-foreground">%</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  What percentage of your pipeline leads do NOT convert to closed deals?
+                </p>
+              </div>
+              
+              {/* Pipeline Requirements Preview */}
+              {formData.deals_goal && (
+                <div className="pt-3 border-t border-gold/20 space-y-2">
+                  <p className="text-sm font-medium text-gold">Pipeline Names Required</p>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="p-2 rounded bg-card">
+                      <p className="text-xs text-muted-foreground">Annual</p>
+                      <p className="text-lg font-bold text-foreground">
+                        {Math.ceil((parseFloat(formData.deals_goal) || 0) / ((100 - (parseFloat(formData.fallout_rate) || 50)) / 100))}
+                      </p>
+                    </div>
+                    <div className="p-2 rounded bg-card">
+                      <p className="text-xs text-muted-foreground">Quarterly</p>
+                      <p className="text-lg font-bold text-foreground">
+                        {Math.ceil(((parseFloat(formData.deals_goal) || 0) / 4) / ((100 - (parseFloat(formData.fallout_rate) || 50)) / 100))}
+                      </p>
+                    </div>
+                    <div className="p-2 rounded bg-card">
+                      <p className="text-xs text-muted-foreground">Monthly</p>
+                      <p className="text-lg font-bold text-foreground">
+                        {Math.ceil(((parseFloat(formData.deals_goal) || 0) / 12) / ((100 - (parseFloat(formData.fallout_rate) || 50)) / 100))}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
             
             <Button 
               onClick={handleSaveGoals} 
@@ -586,6 +644,50 @@ const Goals = () => {
               </CardContent>
             </Card>
           </div>
+
+          {/* Pipeline Requirements Card */}
+          <Card className="border-gold/20 bg-gradient-to-br from-card to-primary/5">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg font-display text-foreground flex items-center gap-2">
+                <Users className="h-5 w-5 text-gold" />
+                Pipeline Requirements
+                <span className="text-xs font-normal text-muted-foreground ml-2">
+                  ({annualGoals.fallout_rate}% fallout rate)
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground mb-4">
+                Based on your {annualGoals.fallout_rate}% fallout rate, here's how many names you need in your pipeline:
+              </p>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="p-4 rounded-lg bg-background/50 border border-gold/20 text-center">
+                  <p className="text-xs text-muted-foreground mb-1">Annual</p>
+                  <p className="text-3xl font-bold text-gold">
+                    {Math.ceil(totalDealsGoal / ((100 - annualGoals.fallout_rate) / 100))}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">names needed</p>
+                </div>
+                <div className="p-4 rounded-lg bg-background/50 border border-gold/20 text-center">
+                  <p className="text-xs text-muted-foreground mb-1">Quarterly</p>
+                  <p className="text-3xl font-bold text-gold">
+                    {Math.ceil((totalDealsGoal / 4) / ((100 - annualGoals.fallout_rate) / 100))}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">names needed</p>
+                </div>
+                <div className="p-4 rounded-lg bg-background/50 border border-gold/20 text-center">
+                  <p className="text-xs text-muted-foreground mb-1">Monthly</p>
+                  <p className="text-3xl font-bold text-gold">
+                    {Math.ceil((totalDealsGoal / 12) / ((100 - annualGoals.fallout_rate) / 100))}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">names needed</p>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-4 text-center">
+                Conversion rate: {100 - annualGoals.fallout_rate}% (every {Math.round(100 / (100 - annualGoals.fallout_rate))} leads = 1 deal)
+              </p>
+            </CardContent>
+          </Card>
 
           {/* Goal Breakdown Section */}
           <Card className="border-gold/20 bg-card">
