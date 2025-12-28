@@ -20,6 +20,16 @@ interface DealWithSource {
   deal_value: number | null;
 }
 
+interface DealForForecast {
+  id: string;
+  client_name: string;
+  stage: string;
+  deal_value: number | null;
+  expected_close_date: string | null;
+  commission_rate: number | null;
+  company_split_percentage: number | null;
+}
+
 interface PipelineClient {
   id: string;
   client_name: string;
@@ -81,6 +91,9 @@ const Reports = () => {
   
   // Deals with source for source of business report
   const [dealsWithSource, setDealsWithSource] = useState<DealWithSource[]>([]);
+  
+  // Deals for commission forecast (pending and closed)
+  const [forecastDeals, setForecastDeals] = useState<DealForForecast[]>([]);
   
   // 411 data
   const [weekly411, setWeekly411] = useState<Weekly411 | null>(null);
@@ -173,6 +186,15 @@ const Reports = () => {
       .eq('user_id', user.id);
     
     setDealsWithSource((dealsData as DealWithSource[]) || []);
+    
+    // Fetch deals for commission forecast (pending and closed deals)
+    const { data: forecastDealsData } = await supabase
+      .from('deals')
+      .select('id, client_name, stage, deal_value, expected_close_date, commission_rate, company_split_percentage')
+      .eq('user_id', user.id)
+      .in('stage', ['under_contract', 'offer', 'closed']);
+    
+    setForecastDeals((forecastDealsData as DealForForecast[]) || []);
     // Fetch current week's 411
     const today = new Date();
     const dayOfWeek = today.getDay();
@@ -277,29 +299,38 @@ const Reports = () => {
   const buyers = pipelineClients.filter(c => c.client_type === 'buyer').length;
   const sellers = pipelineClients.filter(c => c.client_type === 'seller').length;
 
-  // Commission forecast by month
+  // Commission forecast by month (from actual pending/closed deals)
   const commissionsByMonth = monthNames.map((month, idx) => {
-    const monthGCI = pipelineClients
-      .filter(c => {
-        if (!c.expected_pending_date) return false;
-        const date = parseISO(c.expected_pending_date);
-        return date.getFullYear() === currentYear && date.getMonth() === idx;
-      })
-      .reduce((sum, c) => sum + (c.projected_gci || 0), 0);
-    
-    const clientCount = pipelineClients.filter(c => {
-      if (!c.expected_pending_date) return false;
-      const date = parseISO(c.expected_pending_date);
+    const monthDeals = forecastDeals.filter(d => {
+      if (!d.expected_close_date) return false;
+      const date = parseISO(d.expected_close_date);
       return date.getFullYear() === currentYear && date.getMonth() === idx;
-    }).length;
+    });
+    
+    const monthGCI = monthDeals.reduce((sum, d) => {
+      const dealValue = d.deal_value || 0;
+      const commissionRate = (d.commission_rate || 3) / 100;
+      const agentSplit = (100 - (d.company_split_percentage || 30)) / 100;
+      return sum + (dealValue * commissionRate * agentSplit);
+    }, 0);
+    
+    const pendingCount = monthDeals.filter(d => d.stage === 'under_contract' || d.stage === 'offer').length;
+    const closedCount = monthDeals.filter(d => d.stage === 'closed').length;
     
     return {
       month,
       gci: monthGCI,
-      clients: clientCount,
+      pending: pendingCount,
+      closed: closedCount,
+      total: monthDeals.length,
       goal: goalSettings.monthlyDeals[idx] * goalSettings.avg_sale_price * (goalSettings.commission_rate / 100) * (goalSettings.split_percent / 100)
     };
   });
+  
+  // Calculate totals for forecast summary
+  const totalForecastGCI = commissionsByMonth.reduce((sum, m) => sum + m.gci, 0);
+  const totalPendingDeals = forecastDeals.filter(d => d.stage === 'under_contract' || d.stage === 'offer').length;
+  const totalClosedDeals = forecastDeals.filter(d => d.stage === 'closed').length;
 
   const currentMonthIdx = new Date().getMonth();
 
@@ -641,7 +672,7 @@ const Reports = () => {
                   }}
                   labelStyle={{ color: 'hsl(var(--foreground))' }}
                   formatter={(value: number, name: string) => {
-                    if (name === 'gci') return [`$${value.toLocaleString()}`, 'Pipeline GCI'];
+                    if (name === 'gci') return [`$${value.toLocaleString()}`, 'Deal GCI'];
                     if (name === 'goal') return [`$${Math.round(value).toLocaleString()}`, 'Goal GCI'];
                     return [value, name];
                   }}
@@ -665,11 +696,11 @@ const Reports = () => {
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded" style={{ backgroundColor: 'hsl(45 93% 47%)' }} />
-              <span className="text-muted-foreground">Pipeline GCI (Future)</span>
+              <span className="text-muted-foreground">Future Deals</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded" style={{ backgroundColor: 'hsl(142 76% 36%)' }} />
-              <span className="text-muted-foreground">Past Months</span>
+              <span className="text-muted-foreground">Closed Deals</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded bg-primary" />
@@ -679,18 +710,16 @@ const Reports = () => {
           <div className="mt-4 p-3 rounded-lg bg-background/50 border border-gold/20">
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
-                <p className="text-xs text-muted-foreground">Total Pipeline GCI</p>
-                <p className="text-xl font-bold text-gold">${totalPipelineGCI.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">Total Forecast GCI</p>
+                <p className="text-xl font-bold text-gold">${Math.round(totalForecastGCI).toLocaleString()}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Avg per Client</p>
-                <p className="text-xl font-bold text-foreground">
-                  ${pipelineClients.length > 0 ? Math.round(totalPipelineGCI / pipelineClients.length).toLocaleString() : 0}
-                </p>
+                <p className="text-xs text-muted-foreground">Pending Deals</p>
+                <p className="text-xl font-bold text-amber-400">{totalPendingDeals}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Pipeline Volume</p>
-                <p className="text-xl font-bold text-foreground">${totalPipelineValue.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">Closed Deals</p>
+                <p className="text-xl font-bold text-green-400">{totalClosedDeals}</p>
               </div>
             </div>
           </div>
