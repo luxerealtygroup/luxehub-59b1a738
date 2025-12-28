@@ -441,6 +441,31 @@ const Pipeline = () => {
 
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+  // Get clients by quarter based on expected_pending_date
+  const getClientsInQuarter = (qIndex: number) => {
+    const currentYear = 2026;
+    const startMonth = qIndex * 3; // 0, 3, 6, 9
+    const endMonth = startMonth + 2; // 2, 5, 8, 11
+    
+    return clients.filter(c => {
+      if (!c.expected_pending_date) return false;
+      const date = parseISO(c.expected_pending_date);
+      const month = date.getMonth();
+      const year = date.getFullYear();
+      return year === currentYear && month >= startMonth && month <= endMonth;
+    }).length;
+  };
+
+  // Get clients by month based on expected_pending_date
+  const getClientsInMonth = (monthIndex: number) => {
+    const currentYear = 2026;
+    return clients.filter(c => {
+      if (!c.expected_pending_date) return false;
+      const date = parseISO(c.expected_pending_date);
+      return date.getFullYear() === currentYear && date.getMonth() === monthIndex;
+    }).length;
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -743,10 +768,18 @@ const Pipeline = () => {
                 {['Q1', 'Q2', 'Q3', 'Q4'].map((quarter, qIndex) => {
                   const quarterDeals = getQuarterlyDeals(qIndex);
                   const pipelineNeeded = getPipelineNeeded(quarterDeals);
+                  const currentInQuarter = getClientsInQuarter(qIndex);
+                  const isOnTrack = currentInQuarter >= pipelineNeeded;
                   return (
-                    <div key={quarter} className="p-3 rounded-lg bg-background/50 border border-gold/20 text-center">
+                    <div key={quarter} className={`p-3 rounded-lg border text-center ${isOnTrack ? 'bg-green-500/10 border-green-500/30' : 'bg-background/50 border-gold/20'}`}>
                       <p className="text-xs text-muted-foreground mb-1">{quarter}</p>
-                      <p className="text-xl font-bold text-gold">{pipelineNeeded}</p>
+                      <div className="flex items-center justify-center gap-1">
+                        <span className={`text-lg font-bold ${isOnTrack ? 'text-green-400' : 'text-amber-400'}`}>
+                          {currentInQuarter}
+                        </span>
+                        <span className="text-muted-foreground">/</span>
+                        <span className="text-lg font-bold text-gold">{pipelineNeeded}</span>
+                      </div>
                       <p className="text-xs text-muted-foreground">for {quarterDeals.toFixed(1)} deals</p>
                     </div>
                   );
@@ -761,10 +794,14 @@ const Pipeline = () => {
                 {monthNames.map((month, mIndex) => {
                   const monthDeals = goalSettings.monthlyDeals[mIndex] || 0;
                   const pipelineNeeded = getPipelineNeeded(monthDeals);
+                  const currentInMonth = getClientsInMonth(mIndex);
+                  const isOnTrack = currentInMonth >= pipelineNeeded;
                   return (
-                    <div key={month} className="p-2 rounded bg-background/50 border border-primary/10 text-center">
+                    <div key={month} className={`p-2 rounded border text-center ${isOnTrack ? 'bg-green-500/10 border-green-500/30' : 'bg-background/50 border-primary/10'}`}>
                       <p className="text-xs text-muted-foreground">{month}</p>
-                      <p className="text-sm font-bold text-gold">{pipelineNeeded}</p>
+                      <p className={`text-xs font-bold ${isOnTrack ? 'text-green-400' : 'text-amber-400'}`}>
+                        {currentInMonth}/{pipelineNeeded}
+                      </p>
                     </div>
                   );
                 })}
