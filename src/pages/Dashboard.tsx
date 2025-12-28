@@ -325,7 +325,78 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header with Motivational Message */}
+      {/* Daily Motivation Quote - TOP */}
+      <Card className="border-gold/10 bg-gradient-to-br from-card to-gold/5">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-gold font-display flex items-center gap-2">
+            <Flame className="h-5 w-5" /> Daily Motivation
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground italic">
+            "Success in real estate comes from building relationships one conversation at a time. Make those calls, set those appointments, and watch your business grow!"
+          </p>
+          <div className="mt-4 p-3 rounded-lg bg-gold/10 border border-gold/20">
+            <p className="text-sm text-foreground font-medium">💡 Pro Tip</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Agents who log their activities daily close 40% more deals. Keep tracking to stay ahead!
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Combined Progress Rings - SECOND */}
+      <Card className="border-gold/20 bg-gradient-to-br from-card via-card to-gold/5">
+        <CardContent className="p-6">
+          <div className="flex flex-col md:flex-row items-center justify-around gap-8">
+            <div className="text-center">
+              <ProgressRing progress={dealsProgress} color={dealsProgress >= 100 ? "hsl(142 71% 45%)" : "hsl(var(--gold))"} />
+              <p className="mt-3 text-sm font-medium text-foreground">Deals Goal</p>
+              <p className="text-xs text-muted-foreground">{stats.closedDeals} / {stats.dealsGoal}</p>
+            </div>
+            <div className="text-center">
+              <ProgressRing progress={gciProgress} color={gciProgress >= 100 ? "hsl(142 71% 45%)" : "hsl(var(--gold))"} />
+              <p className="mt-3 text-sm font-medium text-foreground">GCI Goal (Gross)</p>
+              <p className="text-xs text-muted-foreground">${stats.totalCommissions.toLocaleString()} / ${stats.gciGoal.toLocaleString()}</p>
+            </div>
+            <div className="text-center">
+              <ProgressRing 
+                progress={stats.gciGoal > 0 ? ((stats.totalCommissions + stats.pendingCommissions) / stats.gciGoal) * 100 : 0} 
+                color="hsl(43 74% 49%)" 
+              />
+              <p className="mt-3 text-sm font-medium text-foreground">Projected GCI</p>
+              <p className="text-xs text-muted-foreground">${(stats.totalCommissions + stats.pendingCommissions).toLocaleString()} total</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Quick Actions - THIRD */}
+      <Card className="border-gold/10 bg-card/50">
+        <CardHeader>
+          <CardTitle className="text-gold font-display">Quick Actions</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <a href="/dashboard/activities" className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center group">
+            <Phone className="h-6 w-6 mx-auto text-gold mb-2 group-hover:scale-110 transition-transform" />
+            <span className="text-sm text-foreground">Log Activity</span>
+          </a>
+          <a href="/dashboard/pipeline" className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center group">
+            <Users className="h-6 w-6 mx-auto text-gold mb-2 group-hover:scale-110 transition-transform" />
+            <span className="text-sm text-foreground">View Pipeline</span>
+          </a>
+          <a href="/dashboard/commissions" className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center group">
+            <DollarSign className="h-6 w-6 mx-auto text-gold mb-2 group-hover:scale-110 transition-transform" />
+            <span className="text-sm text-foreground">Commissions</span>
+          </a>
+          <a href="/dashboard/goals" className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center group">
+            <Target className="h-6 w-6 mx-auto text-gold mb-2 group-hover:scale-110 transition-transform" />
+            <span className="text-sm text-foreground">Set Goals</span>
+          </a>
+        </CardContent>
+      </Card>
+
+      {/* Header with Add Client Button */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-display font-bold text-foreground">
@@ -505,32 +576,6 @@ const Dashboard = () => {
         </Card>
       </div>
 
-      {/* Combined Progress Ring */}
-      <Card className="border-gold/20 bg-gradient-to-br from-card via-card to-gold/5">
-        <CardContent className="p-6">
-          <div className="flex flex-col md:flex-row items-center justify-around gap-8">
-            <div className="text-center">
-              <ProgressRing progress={dealsProgress} color={dealsProgress >= 100 ? "hsl(142 71% 45%)" : "hsl(var(--gold))"} />
-              <p className="mt-3 text-sm font-medium text-foreground">Deals Goal</p>
-              <p className="text-xs text-muted-foreground">{stats.closedDeals} / {stats.dealsGoal}</p>
-            </div>
-            <div className="text-center">
-              <ProgressRing progress={gciProgress} color={gciProgress >= 100 ? "hsl(142 71% 45%)" : "hsl(var(--gold))"} />
-              <p className="mt-3 text-sm font-medium text-foreground">GCI Goal (Gross)</p>
-              <p className="text-xs text-muted-foreground">${stats.totalCommissions.toLocaleString()} / ${stats.gciGoal.toLocaleString()}</p>
-            </div>
-            <div className="text-center">
-              <ProgressRing 
-                progress={stats.gciGoal > 0 ? ((stats.totalCommissions + stats.pendingCommissions) / stats.gciGoal) * 100 : 0} 
-                color="hsl(43 74% 49%)" 
-              />
-              <p className="mt-3 text-sm font-medium text-foreground">Projected GCI</p>
-              <p className="text-xs text-muted-foreground">${(stats.totalCommissions + stats.pendingCommissions).toLocaleString()} total</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* GCI Trend Chart */}
       <Card className="border-gold/20 bg-card">
         <CardHeader>
@@ -610,52 +655,6 @@ const Dashboard = () => {
             <DollarSign className="h-8 w-8 mx-auto text-green-500 mb-2" />
             <p className="text-2xl font-bold text-green-500">${stats.pendingCommissions.toLocaleString()}</p>
             <p className="text-xs text-muted-foreground">Pending GCI</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="border-gold/10 bg-card/50">
-          <CardHeader>
-            <CardTitle className="text-gold font-display">Quick Actions</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-3">
-            <a href="/dashboard/activities" className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center group">
-              <Phone className="h-6 w-6 mx-auto text-gold mb-2 group-hover:scale-110 transition-transform" />
-              <span className="text-sm text-foreground">Log Activity</span>
-            </a>
-            <a href="/dashboard/pipeline" className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center group">
-              <Users className="h-6 w-6 mx-auto text-gold mb-2 group-hover:scale-110 transition-transform" />
-              <span className="text-sm text-foreground">View Pipeline</span>
-            </a>
-            <a href="/dashboard/commissions" className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center group">
-              <DollarSign className="h-6 w-6 mx-auto text-gold mb-2 group-hover:scale-110 transition-transform" />
-              <span className="text-sm text-foreground">Commissions</span>
-            </a>
-            <a href="/dashboard/goals" className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center group">
-              <Target className="h-6 w-6 mx-auto text-gold mb-2 group-hover:scale-110 transition-transform" />
-              <span className="text-sm text-foreground">Set Goals</span>
-            </a>
-          </CardContent>
-        </Card>
-
-        <Card className="border-gold/10 bg-gradient-to-br from-card to-gold/5">
-          <CardHeader>
-            <CardTitle className="text-gold font-display flex items-center gap-2">
-              <Flame className="h-5 w-5" /> Daily Motivation
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground italic">
-              "Success in real estate comes from building relationships one conversation at a time. Make those calls, set those appointments, and watch your business grow!"
-            </p>
-            <div className="mt-4 p-3 rounded-lg bg-gold/10 border border-gold/20">
-              <p className="text-sm text-foreground font-medium">💡 Pro Tip</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Agents who log their activities daily close 40% more deals. Keep tracking to stay ahead!
-              </p>
-            </div>
           </CardContent>
         </Card>
       </div>
