@@ -108,32 +108,53 @@ export type Database = {
       }
       commissions: {
         Row: {
+          agent_split_percent: number | null
           amount: number
+          brokerage_split_percent: number | null
           created_at: string
           deal_id: string
+          gross_commission: number | null
           id: string
+          other_deductions: number | null
           paid_at: string | null
+          referral_amount: number | null
           status: string
+          team_split_percent: number | null
+          transaction_side: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          agent_split_percent?: number | null
           amount: number
+          brokerage_split_percent?: number | null
           created_at?: string
           deal_id: string
+          gross_commission?: number | null
           id?: string
+          other_deductions?: number | null
           paid_at?: string | null
+          referral_amount?: number | null
           status?: string
+          team_split_percent?: number | null
+          transaction_side?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          agent_split_percent?: number | null
           amount?: number
+          brokerage_split_percent?: number | null
           created_at?: string
           deal_id?: string
+          gross_commission?: number | null
           id?: string
+          other_deductions?: number | null
           paid_at?: string | null
+          referral_amount?: number | null
           status?: string
+          team_split_percent?: number | null
+          transaction_side?: string | null
           updated_at?: string
           user_id?: string
         }
