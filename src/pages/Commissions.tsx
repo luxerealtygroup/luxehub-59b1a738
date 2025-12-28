@@ -209,19 +209,12 @@ const Commissions = () => {
   const handleImportFUBDeals = async () => {
     setImportingFUB(true);
     try {
-      // Fetch deals from FUB (pending and closed)
+      // Fetch all deals from FUB (buyers and sellers)
       const response = await followUpBossApi.getDeals(100);
       if (response.success && response.data?.deals) {
-        // Filter for pending (under contract) and closed deals
-        const relevantDeals = response.data.deals.filter((d: FUBDeal) => 
-          d.stage?.toLowerCase().includes('pending') || 
-          d.stage?.toLowerCase().includes('closed') ||
-          d.stage?.toLowerCase().includes('under contract') ||
-          d.stage?.toLowerCase().includes('won')
-        );
-        setFubDeals(relevantDeals);
-        if (relevantDeals.length === 0) {
-          toast({ title: 'No pending or closed deals found in Follow Up Boss' });
+        setFubDeals(response.data.deals);
+        if (response.data.deals.length === 0) {
+          toast({ title: 'No deals found in Follow Up Boss' });
         }
       } else {
         toast({ title: 'Error', description: response.error || 'Could not fetch deals', variant: 'destructive' });
@@ -234,19 +227,15 @@ const Commissions = () => {
   };
 
   const importFUBDeal = (deal: FUBDeal) => {
-    const propertyAddress = [deal.propertyStreet, deal.propertyCity, deal.propertyState]
-      .filter(Boolean)
-      .join(', ');
+    const clientName = deal.people?.[0]?.name || deal.name || '';
     
     setNewDeal({
       ...initialDealState,
-      client_name: deal.person?.name || deal.name || '',
-      property_address: propertyAddress,
+      client_name: clientName,
+      property_address: deal.name || '',
       deal_value: deal.price?.toString() || '',
-      gross_commission: deal.commission?.toString() || '',
-      email: deal.person?.emails?.[0]?.value || '',
-      phone: deal.person?.phones?.[0]?.value || '',
-      stage: deal.stage?.toLowerCase().includes('closed') ? 'closed' : 'under_contract'
+      gross_commission: (deal.agentCommission || deal.commissionValue)?.toString() || '',
+      stage: deal.stageName?.toLowerCase().includes('closed') ? 'closed' : 'under_contract'
     });
     setShowFUBImport(false);
     setAddDealOpen(true);
@@ -301,20 +290,19 @@ const Commissions = () => {
                 </div>
               ) : fubDeals.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  <p>No pending or closed deals found in Follow Up Boss.</p>
-                  <p className="text-sm mt-2">Make sure you have deals with status "Pending", "Under Contract", "Closed", or "Won".</p>
+                  <p>No deals found in Follow Up Boss.</p>
                 </div>
               ) : (
                 <div className="space-y-2 max-h-80 overflow-y-auto">
                   {fubDeals.map((deal) => (
                     <div key={deal.id} className="p-3 rounded-lg bg-gold/5 border border-gold/10 flex justify-between items-center">
                       <div>
-                        <p className="font-medium">{deal.person?.name || deal.name}</p>
+                        <p className="font-medium">{deal.people?.[0]?.name || deal.name}</p>
                         <p className="text-sm text-muted-foreground">
-                          {deal.stage} {deal.price ? `• $${deal.price.toLocaleString()}` : ''}
+                          {deal.pipelineName} • {deal.stageName} {deal.price ? `• $${deal.price.toLocaleString()}` : ''}
                         </p>
-                        {deal.propertyStreet && (
-                          <p className="text-xs text-muted-foreground">{deal.propertyStreet}</p>
+                        {deal.agentCommission && (
+                          <p className="text-xs text-gold">Commission: ${deal.agentCommission.toLocaleString()}</p>
                         )}
                       </div>
                       <Button size="sm" onClick={() => importFUBDeal(deal)}>Import</Button>
