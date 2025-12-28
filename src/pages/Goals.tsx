@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
-import { Target, TrendingUp, DollarSign, Home, Edit2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Target, TrendingUp, DollarSign, Home, Edit2, Calendar } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface AnnualGoals {
@@ -23,11 +24,15 @@ interface ActualMetrics {
   gci_pending: number;
 }
 
+const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const quarterNames = ['Q1 (Jan-Mar)', 'Q2 (Apr-Jun)', 'Q3 (Jul-Sep)', 'Q4 (Oct-Dec)'];
+
 const Goals = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [showSetup, setShowSetup] = useState(false);
+  const [breakdownView, setBreakdownView] = useState<'monthly' | 'quarterly'>('monthly');
   
   const [annualGoals, setAnnualGoals] = useState<AnnualGoals>({
     deals_goal: 0,
@@ -191,6 +196,12 @@ const Goals = () => {
   const totalDeals = actualMetrics.deals_closed + actualMetrics.deals_pending;
   const totalGci = actualMetrics.gci_earned + actualMetrics.gci_pending;
 
+  // Calculate monthly and quarterly breakdowns
+  const monthlyDealsGoal = annualGoals.deals_goal / 12;
+  const monthlyGciGoal = annualGoals.gci_goal / 12;
+  const quarterlyDealsGoal = annualGoals.deals_goal / 4;
+  const quarterlyGciGoal = annualGoals.gci_goal / 4;
+
   if (loading) {
     return <div className="flex items-center justify-center h-64 text-gold animate-pulse">Loading goals...</div>;
   }
@@ -330,6 +341,77 @@ const Goals = () => {
               </CardContent>
             </Card>
           </div>
+
+          {/* Goal Breakdown Section */}
+          <Card className="border-gold/20 bg-card">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg font-display text-foreground flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-gold" />
+                  Goal Breakdown
+                </CardTitle>
+                <Select value={breakdownView} onValueChange={(v: 'monthly' | 'quarterly') => setBreakdownView(v)}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                    <SelectItem value="quarterly">Quarterly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {breakdownView === 'monthly' ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                  {monthNames.map((month, index) => (
+                    <div key={month} className="p-3 rounded-lg bg-background/50 border border-primary/10">
+                      <p className="text-sm font-medium text-foreground mb-2">{month}</p>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1">
+                          <Home className="h-3 w-3 text-gold" />
+                          <span className="text-xs text-muted-foreground">Deals:</span>
+                          <span className="text-xs font-medium text-gold">{monthlyDealsGoal.toFixed(1)}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <DollarSign className="h-3 w-3 text-green-400" />
+                          <span className="text-xs text-muted-foreground">GCI:</span>
+                          <span className="text-xs font-medium text-green-400">${Math.round(monthlyGciGoal).toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {quarterNames.map((quarter, index) => (
+                    <div key={quarter} className="p-4 rounded-lg bg-background/50 border border-primary/10">
+                      <p className="text-sm font-medium text-foreground mb-3">{quarter}</p>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1">
+                            <Home className="h-4 w-4 text-gold" />
+                            <span className="text-sm text-muted-foreground">Deals</span>
+                          </div>
+                          <span className="text-lg font-bold text-gold">{quarterlyDealsGoal.toFixed(1)}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1">
+                            <DollarSign className="h-4 w-4 text-green-400" />
+                            <span className="text-sm text-muted-foreground">GCI</span>
+                          </div>
+                          <span className="text-lg font-bold text-green-400">${Math.round(quarterlyGciGoal).toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground mt-4 text-center">
+                Based on your annual goal of {annualGoals.deals_goal} deals and ${annualGoals.gci_goal.toLocaleString()} GCI
+              </p>
+            </CardContent>
+          </Card>
 
           {/* Summary Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
