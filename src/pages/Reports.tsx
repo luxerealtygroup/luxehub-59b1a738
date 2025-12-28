@@ -26,8 +26,8 @@ interface DealForForecast {
   stage: string;
   deal_value: number | null;
   expected_close_date: string | null;
-  commission_rate: number | null;
-  company_split_percentage: number | null;
+  commission_amount: number | null; // Actual agent commission (net after splits)
+  gross_commission: number | null;
 }
 
 interface PipelineClient {
@@ -188,14 +188,35 @@ const Reports = () => {
     
     setDealsWithSource((dealsData as DealWithSource[]) || []);
     
-    // Fetch deals for commission forecast (pending and closed deals)
+    // Fetch deals with commissions for forecast (pending and closed deals)
     const { data: forecastDealsData } = await supabase
       .from('deals')
-      .select('id, client_name, stage, deal_value, expected_close_date, commission_rate, company_split_percentage')
+      .select(`
+        id, 
+        client_name, 
+        stage, 
+        deal_value, 
+        expected_close_date,
+        commissions (
+          amount,
+          gross_commission
+        )
+      `)
       .eq('user_id', user.id)
       .in('stage', ['under_contract', 'offer', 'closed']);
     
-    setForecastDeals((forecastDealsData as DealForForecast[]) || []);
+    // Transform the data to include commission amounts
+    const transformedDeals = (forecastDealsData || []).map((deal: any) => ({
+      id: deal.id,
+      client_name: deal.client_name,
+      stage: deal.stage,
+      deal_value: deal.deal_value,
+      expected_close_date: deal.expected_close_date,
+      commission_amount: deal.commissions?.[0]?.amount || null,
+      gross_commission: deal.commissions?.[0]?.gross_commission || null,
+    }));
+    
+    setForecastDeals(transformedDeals as DealForForecast[]);
     // Fetch current week's 411
     const today = new Date();
     const dayOfWeek = today.getDay();
@@ -300,7 +321,7 @@ const Reports = () => {
   const buyers = pipelineClients.filter(c => c.client_type === 'buyer').length;
   const sellers = pipelineClients.filter(c => c.client_type === 'seller').length;
 
-  // Commission forecast by month (from actual pending/closed deals)
+  // Commission forecast by month (from actual pending/closed deals with real commission amounts)
   const commissionsByMonth = monthNames.map((month, idx) => {
     const monthDeals = forecastDeals.filter(d => {
       if (!d.expected_close_date) return false;
@@ -308,11 +329,13 @@ const Reports = () => {
       return date.getFullYear() === currentYear && date.getMonth() === idx;
     });
     
+    // Use actual commission amounts (agent net after splits)
     const monthGCI = monthDeals.reduce((sum, d) => {
-      const dealValue = d.deal_value || 0;
-      const commissionRate = (d.commission_rate || 3) / 100;
-      const agentSplit = (100 - (d.company_split_percentage || 30)) / 100;
-      return sum + (dealValue * commissionRate * agentSplit);
+      return sum + (d.commission_amount || 0);
+    }, 0);
+    
+    const monthGross = monthDeals.reduce((sum, d) => {
+      return sum + (d.gross_commission || 0);
     }, 0);
     
     const pendingCount = monthDeals.filter(d => d.stage === 'under_contract' || d.stage === 'offer').length;
@@ -320,7 +343,8 @@ const Reports = () => {
     
     return {
       month,
-      gci: monthGCI,
+      gci: monthGCI, // Agent net commission
+      gross: monthGross,
       pending: pendingCount,
       closed: closedCount,
       total: monthDeals.length,
