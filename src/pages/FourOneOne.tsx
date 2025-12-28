@@ -59,6 +59,8 @@ interface SyncedGoals {
   gci_goal: number;
   monthly_deals: number[];
   monthly_gci: number[];
+  fallout_rate: number;
+  pipeline_by_month: number[];
 }
 
 const emptyWeekly: Weekly411 = {
@@ -111,6 +113,8 @@ const FourOneOne = () => {
     gci_goal: 0,
     monthly_deals: Array(12).fill(0),
     monthly_gci: Array(12).fill(0),
+    fallout_rate: 50,
+    pipeline_by_month: Array(12).fill(0),
   });
 
   const currentYear = 2026;
@@ -149,11 +153,32 @@ const FourOneOne = () => {
       .eq('period', 'yearly')
       .in('goal_type', ['deals_closed', 'revenue']);
     
+    // Fetch pipeline clients to count by month
+    const { data: pipelineClients } = await supabase
+      .from('pipeline_clients')
+      .select('expected_pending_date')
+      .eq('user_id', user.id);
+    
+    // Count clients per month based on expected_pending_date
+    const pipelineByMonth = Array(12).fill(0);
+    pipelineClients?.forEach(c => {
+      if (c.expected_pending_date) {
+        const date = new Date(c.expected_pending_date);
+        if (date.getFullYear() === currentYear) {
+          pipelineByMonth[date.getMonth()]++;
+        }
+      }
+    });
+    
     const dealsGoal = data?.find(g => g.goal_type === 'deals_closed');
     const gciGoal = data?.find(g => g.goal_type === 'revenue');
     
     const dealsValue = dealsGoal?.target_value || 0;
     const gciValue = gciGoal?.target_value || 0;
+    
+    // Load fallout rate from localStorage
+    const savedCalcValues = localStorage.getItem(`goalCalcValues_${user.id}_${currentYear}`);
+    const falloutRate = savedCalcValues ? JSON.parse(savedCalcValues).fallout_rate ?? 50 : 50;
     
     // Load monthly breakdown from localStorage (same as Goals page)
     const savedMonthlyGoals = localStorage.getItem(`monthlyGoals_${user.id}_${currentYear}`);
@@ -171,6 +196,8 @@ const FourOneOne = () => {
       gci_goal: gciValue,
       monthly_deals: monthlyDeals,
       monthly_gci: monthlyGci,
+      fallout_rate: falloutRate,
+      pipeline_by_month: pipelineByMonth,
     });
   };
 
@@ -318,30 +345,47 @@ const FourOneOne = () => {
       </div>
 
       {/* Goals Summary from Goals Page */}
-      {syncedGoals.deals_goal > 0 && (
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="py-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Annual Deals Goal</p>
-                <p className="text-2xl font-bold text-primary">{syncedGoals.deals_goal}</p>
+      {syncedGoals.deals_goal > 0 && (() => {
+        const conversionRate = (100 - syncedGoals.fallout_rate) / 100;
+        const getPipelineNeeded = (deals: number) => conversionRate > 0 ? Math.ceil(deals / conversionRate) : 0;
+        const monthlyPipelineNeeded = getPipelineNeeded(syncedGoals.monthly_deals[weekMonth]);
+        const monthlyPipelineCurrent = syncedGoals.pipeline_by_month[weekMonth];
+        const isOnTrack = monthlyPipelineCurrent >= monthlyPipelineNeeded;
+        
+        return (
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="py-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Annual Deals Goal</p>
+                  <p className="text-2xl font-bold text-primary">{syncedGoals.deals_goal}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Annual GCI Goal</p>
+                  <p className="text-2xl font-bold text-primary">${syncedGoals.gci_goal.toLocaleString()}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">{monthNames[weekMonth]} Deals</p>
+                  <p className="text-2xl font-bold text-foreground">{Math.round(syncedGoals.monthly_deals[weekMonth] * 10) / 10}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">{monthNames[weekMonth]} GCI</p>
+                  <p className="text-2xl font-bold text-foreground">${Math.round(syncedGoals.monthly_gci[weekMonth]).toLocaleString()}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">{monthNames[weekMonth]} Pipeline</p>
+                  <p className={`text-2xl font-bold ${isOnTrack ? 'text-green-500' : 'text-amber-500'}`}>
+                    {monthlyPipelineCurrent}/{monthlyPipelineNeeded}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {isOnTrack ? 'On track' : `Need ${monthlyPipelineNeeded - monthlyPipelineCurrent} more`}
+                  </p>
+                </div>
               </div>
-              <div className="text-center">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Annual GCI Goal</p>
-                <p className="text-2xl font-bold text-primary">${syncedGoals.gci_goal.toLocaleString()}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">{monthNames[weekMonth]} Deals</p>
-                <p className="text-2xl font-bold text-foreground">{Math.round(syncedGoals.monthly_deals[weekMonth] * 10) / 10}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">{monthNames[weekMonth]} GCI</p>
-                <p className="text-2xl font-bold text-foreground">${Math.round(syncedGoals.monthly_gci[weekMonth]).toLocaleString()}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       <Tabs defaultValue="weekly" className="space-y-6">
         <TabsList className="bg-muted">
@@ -366,11 +410,16 @@ const FourOneOne = () => {
               <h2 className="font-display text-lg font-semibold">
                 Week of {format(currentWeek, 'MMM d, yyyy')}
               </h2>
-              {syncedGoals.deals_goal > 0 && (
-                <p className="text-sm text-muted-foreground">
-                  {monthNames[weekMonth]} Goal: {Math.round(syncedGoals.monthly_deals[weekMonth] * 10) / 10} deals / ${Math.round(syncedGoals.monthly_gci[weekMonth]).toLocaleString()} GCI
-                </p>
-              )}
+              {syncedGoals.deals_goal > 0 && (() => {
+                const conversionRate = (100 - syncedGoals.fallout_rate) / 100;
+                const pipelineNeeded = conversionRate > 0 ? Math.ceil(syncedGoals.monthly_deals[weekMonth] / conversionRate) : 0;
+                const pipelineCurrent = syncedGoals.pipeline_by_month[weekMonth];
+                return (
+                  <p className="text-sm text-muted-foreground">
+                    {monthNames[weekMonth]}: {Math.round(syncedGoals.monthly_deals[weekMonth] * 10) / 10} deals • ${Math.round(syncedGoals.monthly_gci[weekMonth]).toLocaleString()} GCI • Pipeline: {pipelineCurrent}/{pipelineNeeded}
+                  </p>
+                );
+              })()}
             </div>
             <Button variant="outline" size="sm" onClick={() => setCurrentWeek(addWeeks(currentWeek, 1))}>
               Next <ChevronRight className="h-4 w-4 ml-1" />
