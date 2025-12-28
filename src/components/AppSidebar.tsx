@@ -6,7 +6,8 @@ import {
   Target,
   LogOut,
   Menu,
-  ClipboardList
+  ClipboardList,
+  FileText
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/hooks/useAuth';
@@ -32,6 +33,7 @@ const menuItems = [
   { title: 'Commissions', url: '/dashboard/commissions', icon: DollarSign },
   { title: 'Goals', url: '/dashboard/goals', icon: Target },
   { title: '4-1-1', url: '/dashboard/411', icon: ClipboardList },
+  { title: 'Reports', url: '/dashboard/reports', icon: FileText },
 ];
 
 export function AppSidebar() {
