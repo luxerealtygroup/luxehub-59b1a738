@@ -15,6 +15,16 @@ export interface FUBPerson {
   tags?: string[];
 }
 
+export interface FUBDealUser {
+  id: number;
+  name: string;
+  picture?: {
+    original?: string;
+    '60x60'?: string;
+    '40x40'?: string;
+  };
+}
+
 export interface FUBDeal {
   id: number;
   name: string;
@@ -23,8 +33,10 @@ export interface FUBDeal {
   price: number | null;
   commissionValue: number | null;
   agentCommission: number | null;
+  teamCommission: number | null;
   projectedCloseDate: string | null;
   people: { id: number; name: string; avatar?: string; source?: string }[];
+  users?: FUBDealUser[];
   propertyStreet?: string | null;
   propertyCity?: string | null;
   propertyState?: string | null;
