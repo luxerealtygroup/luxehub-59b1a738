@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogPortal, DialogOverlay } from '@/components/ui/dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Search, UserPlus, Phone, Mail, Loader2 } from 'lucide-react';
@@ -22,6 +22,7 @@ export const FUBClientSearch = ({ onSelectClient, trigger }: FUBClientSearchProp
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     if (!query.trim()) return;
 
     setLoading(true);
@@ -47,7 +48,10 @@ export const FUBClientSearch = ({ onSelectClient, trigger }: FUBClientSearchProp
     }
   };
 
-  const handleSelect = (person: FUBPerson) => {
+  const handleSelect = (person: FUBPerson, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     const primaryEmail = person.emails?.[0]?.value;
     const primaryPhone = person.phones?.[0]?.value;
     
@@ -63,79 +67,96 @@ export const FUBClientSearch = ({ onSelectClient, trigger }: FUBClientSearchProp
     setResults([]);
   };
 
+  const handleOpenChange = (newOpen: boolean) => {
+    setOpen(newOpen);
+    if (!newOpen) {
+      setQuery('');
+      setResults([]);
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
+    <Dialog open={open} onOpenChange={handleOpenChange} modal={true}>
+      <DialogTrigger asChild onClick={(e) => e.stopPropagation()}>
         {trigger || (
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" type="button">
             <Search className="h-4 w-4 mr-2" />
             Search FUB
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-lg border-primary/20 bg-card">
-        <DialogHeader>
-          <DialogTitle className="text-primary font-display flex items-center gap-2">
-            <UserPlus className="h-5 w-5" />
-            Import from Follow Up Boss
-          </DialogTitle>
-        </DialogHeader>
+      <DialogPortal>
+        <DialogOverlay className="bg-background/80" />
+        <DialogContent 
+          className="max-w-lg border-primary/20 bg-card z-[100]"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <DialogHeader>
+            <DialogTitle className="text-primary font-display flex items-center gap-2">
+              <UserPlus className="h-5 w-5" />
+              Import from Follow Up Boss
+            </DialogTitle>
+          </DialogHeader>
 
-        <form onSubmit={handleSearch} className="flex gap-2">
-          <Input
-            placeholder="Search clients by name, email, or phone..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="flex-1"
-          />
-          <Button type="submit" disabled={loading}>
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-          </Button>
-        </form>
+          <form onSubmit={handleSearch} className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+            <Input
+              placeholder="Search clients by name, email, or phone..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="flex-1"
+              autoFocus
+            />
+            <Button type="submit" disabled={loading}>
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+            </Button>
+          </form>
 
-        <div className="max-h-80 overflow-y-auto space-y-2">
-          {results.map((person) => (
-            <Card 
-              key={person.id} 
-              className="cursor-pointer hover:border-primary/50 transition-colors"
-              onClick={() => handleSelect(person)}
-            >
-              <CardContent className="p-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{person.name || `${person.firstName} ${person.lastName}`}</p>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
-                      {person.emails?.[0] && (
-                        <span className="flex items-center gap-1">
-                          <Mail className="h-3 w-3" />
-                          {person.emails[0].value}
-                        </span>
-                      )}
-                      {person.phones?.[0] && (
-                        <span className="flex items-center gap-1">
-                          <Phone className="h-3 w-3" />
-                          {person.phones[0].value}
-                        </span>
-                      )}
+          <div className="max-h-80 overflow-y-auto space-y-2">
+            {results.map((person) => (
+              <Card 
+                key={person.id} 
+                className="cursor-pointer hover:border-primary/50 transition-colors"
+                onClick={(e) => handleSelect(person, e)}
+              >
+                <CardContent className="p-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">{person.name || `${person.firstName} ${person.lastName}`}</p>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                        {person.emails?.[0] && (
+                          <span className="flex items-center gap-1">
+                            <Mail className="h-3 w-3" />
+                            {person.emails[0].value}
+                          </span>
+                        )}
+                        {person.phones?.[0] && (
+                          <span className="flex items-center gap-1">
+                            <Phone className="h-3 w-3" />
+                            {person.phones[0].value}
+                          </span>
+                        )}
+                      </div>
                     </div>
+                    {person.stage && (
+                      <Badge variant="outline" className="text-xs">
+                        {person.stage}
+                      </Badge>
+                    )}
                   </div>
-                  {person.stage && (
-                    <Badge variant="outline" className="text-xs">
-                      {person.stage}
-                    </Badge>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            ))}
 
-          {results.length === 0 && !loading && (
-            <p className="text-center text-muted-foreground py-8 text-sm">
-              Search for clients in Follow Up Boss
-            </p>
-          )}
-        </div>
-      </DialogContent>
+            {results.length === 0 && !loading && (
+              <p className="text-center text-muted-foreground py-8 text-sm">
+                Search for clients in Follow Up Boss
+              </p>
+            )}
+          </div>
+        </DialogContent>
+      </DialogPortal>
     </Dialog>
   );
 };
