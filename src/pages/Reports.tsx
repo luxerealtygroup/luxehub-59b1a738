@@ -155,21 +155,21 @@ const Reports = () => {
     
     const { data: paidCommissions } = await supabase
       .from('commissions')
-      .select('amount')
+      .select('gross_commission, amount')
       .eq('user_id', user.id)
       .eq('status', 'paid');
     
     const { data: pendingCommissions } = await supabase
       .from('commissions')
-      .select('amount')
+      .select('gross_commission, amount')
       .eq('user_id', user.id)
       .eq('status', 'pending');
     
     setActualMetrics({
       deals_closed: closedDeals?.length || 0,
       deals_pending: pendingDeals?.length || 0,
-      gci_earned: paidCommissions?.reduce((sum, c) => sum + (c.amount || 0), 0) || 0,
-      gci_pending: pendingCommissions?.reduce((sum, c) => sum + (c.amount || 0), 0) || 0
+      gci_earned: paidCommissions?.reduce((sum, c) => sum + (c.gross_commission || c.amount || 0), 0) || 0,
+      gci_pending: pendingCommissions?.reduce((sum, c) => sum + (c.gross_commission || c.amount || 0), 0) || 0
     });
     
     // Fetch pipeline clients
