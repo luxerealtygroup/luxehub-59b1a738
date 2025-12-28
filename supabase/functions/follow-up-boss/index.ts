@@ -52,16 +52,7 @@ serve(async (req) => {
         if (params?.limit) peopleParams.append('limit', params.limit.toString());
         if (params?.offset) peopleParams.append('offset', params.offset.toString());
         if (params?.sort) peopleParams.append('sort', params.sort);
-        if (params?.stage) peopleParams.append('stage', params.stage);
         endpoint = `/people?${peopleParams.toString()}`;
-        break;
-
-      case 'get_people_by_stage':
-        // Get people by their stage in FUB
-        const stageParams = new URLSearchParams();
-        stageParams.append('stage', params.stage);
-        if (params?.limit) stageParams.append('limit', params.limit.toString());
-        endpoint = `/people?${stageParams.toString()}`;
         break;
 
       case 'get_deals':

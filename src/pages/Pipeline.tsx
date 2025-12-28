@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Phone, Mail, Search, Trash2, Edit2, Loader2, DollarSign, Home, Users, Calendar, RefreshCw } from 'lucide-react';
+import { Plus, Phone, Mail, Search, Trash2, Edit2, Loader2, DollarSign, Home, Users, Calendar } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -31,16 +31,6 @@ interface PipelineClient {
   projected_sale_amount: number | null;
   projected_gci: number | null;
   expected_pending_date: string | null;
-}
-
-interface FUBPerson {
-  id: number;
-  firstName: string;
-  lastName: string;
-  stage: string;
-  emails: { value: string }[];
-  phones: { value: string }[];
-  created: string;
 }
 
 // Calculate stage based on days until expected pending date
@@ -120,11 +110,6 @@ const Pipeline = () => {
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<'buyer' | 'seller'>('buyer');
   
-  // FUB Active clients state
-  const [fubActiveBuyers, setFubActiveBuyers] = useState<FUBPerson[]>([]);
-  const [fubActiveSellers, setFubActiveSellers] = useState<FUBPerson[]>([]);
-  const [fubLoading, setFubLoading] = useState(false);
-  
   const [newClient, setNewClient] = useState({
     client_name: '',
     email: '',
@@ -163,41 +148,8 @@ const Pipeline = () => {
     setLoading(false);
   };
 
-  const fetchFUBActiveClients = async () => {
-    setFubLoading(true);
-    try {
-      // Fetch Active Buyers from FUB
-      const buyersResponse = await supabase.functions.invoke('follow-up-boss', {
-        body: {
-          action: 'get_people_by_stage',
-          params: { stage: 'Active Buyers', limit: 50 }
-        }
-      });
-      
-      if (buyersResponse.data?.success && buyersResponse.data?.data?.people) {
-        setFubActiveBuyers(buyersResponse.data.data.people);
-      }
-
-      // Fetch Active Listings (Sellers) from FUB
-      const sellersResponse = await supabase.functions.invoke('follow-up-boss', {
-        body: {
-          action: 'get_people_by_stage',
-          params: { stage: 'Active Listings', limit: 50 }
-        }
-      });
-      
-      if (sellersResponse.data?.success && sellersResponse.data?.data?.people) {
-        setFubActiveSellers(sellersResponse.data.data.people);
-      }
-    } catch (error) {
-      console.error('Error fetching FUB active clients:', error);
-    }
-    setFubLoading(false);
-  };
-
   useEffect(() => {
     fetchClients();
-    fetchFUBActiveClients();
   }, [user]);
 
   const syncClientToFUB = async (clientData: typeof newClient) => {
@@ -651,115 +603,6 @@ const Pipeline = () => {
                 <p className="text-lg font-bold text-emerald-400">${sellerGCI.toLocaleString()} GCI</p>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* FUB Active Clients Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="border-blue-500/20 bg-gradient-to-br from-card to-blue-500/5">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg font-display flex items-center gap-2">
-                <Users className="h-5 w-5 text-blue-400" />
-                Active Buyers
-                <Badge variant="outline" className="ml-2 border-blue-500/30 text-blue-400">
-                  FUB
-                </Badge>
-              </CardTitle>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8" 
-                onClick={fetchFUBActiveClients}
-                disabled={fubLoading}
-              >
-                <RefreshCw className={`h-4 w-4 ${fubLoading ? 'animate-spin' : ''}`} />
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">From Follow Up Boss "Active Buyers" stage</p>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-48">
-              {fubLoading ? (
-                <div className="flex items-center justify-center h-32">
-                  <Loader2 className="h-6 w-6 animate-spin text-blue-400" />
-                </div>
-              ) : fubActiveBuyers.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">No active buyers in FUB</p>
-              ) : (
-                <div className="space-y-2">
-                  {fubActiveBuyers.map((person) => (
-                    <div key={person.id} className="p-3 rounded-lg bg-background/50 border border-blue-500/10 hover:border-blue-500/30 transition-colors">
-                      <p className="font-medium text-sm">{person.firstName} {person.lastName}</p>
-                      {person.emails?.[0]?.value && (
-                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Mail className="h-3 w-3" /> {person.emails[0].value}
-                        </p>
-                      )}
-                      {person.phones?.[0]?.value && (
-                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Phone className="h-3 w-3" /> {person.phones[0].value}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </ScrollArea>
-          </CardContent>
-        </Card>
-
-        <Card className="border-emerald-500/20 bg-gradient-to-br from-card to-emerald-500/5">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg font-display flex items-center gap-2">
-                <Home className="h-5 w-5 text-emerald-400" />
-                Active Listings
-                <Badge variant="outline" className="ml-2 border-emerald-500/30 text-emerald-400">
-                  FUB
-                </Badge>
-              </CardTitle>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8" 
-                onClick={fetchFUBActiveClients}
-                disabled={fubLoading}
-              >
-                <RefreshCw className={`h-4 w-4 ${fubLoading ? 'animate-spin' : ''}`} />
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">From Follow Up Boss "Active Listings" stage</p>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-48">
-              {fubLoading ? (
-                <div className="flex items-center justify-center h-32">
-                  <Loader2 className="h-6 w-6 animate-spin text-emerald-400" />
-                </div>
-              ) : fubActiveSellers.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">No active listings in FUB</p>
-              ) : (
-                <div className="space-y-2">
-                  {fubActiveSellers.map((person) => (
-                    <div key={person.id} className="p-3 rounded-lg bg-background/50 border border-emerald-500/10 hover:border-emerald-500/30 transition-colors">
-                      <p className="font-medium text-sm">{person.firstName} {person.lastName}</p>
-                      {person.emails?.[0]?.value && (
-                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Mail className="h-3 w-3" /> {person.emails[0].value}
-                        </p>
-                      )}
-                      {person.phones?.[0]?.value && (
-                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Phone className="h-3 w-3" /> {person.phones[0].value}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </ScrollArea>
           </CardContent>
         </Card>
       </div>
