@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Building2, Phone, DollarSign, Target, Users, Search, Loader2, TrendingUp, Flame, Award, ArrowUp } from 'lucide-react';
+import { Building2, Phone, DollarSign, Target, Users, Search, Loader2, TrendingUp, Flame, Award, ArrowUp, CheckCircle, Clock } from 'lucide-react';
 import { FUBClientSearch } from '@/components/FUBClientSearch';
 import { followUpBossApi, FUBPerson } from '@/lib/api/followUpBoss';
 import { Button } from '@/components/ui/button';
@@ -436,54 +436,100 @@ const Dashboard = () => {
         </Dialog>
       </div>
 
-      {/* Main Progress Cards with Rings */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="border-gold/20 bg-gradient-to-br from-card via-card to-gold/5 overflow-hidden">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Building2 className="h-5 w-5 text-gold" />
-                  <h3 className="text-lg font-display font-semibold text-foreground">Deals Progress</h3>
-                </div>
-                <div>
-                  <p className="text-4xl font-bold text-foreground">{stats.closedDeals}</p>
-                  <p className="text-sm text-muted-foreground">of {stats.dealsGoal} deals goal</p>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Badge variant="outline" className="border-amber-500/30 text-amber-500 bg-amber-500/10">
-                    {stats.activeDeals} active
-                  </Badge>
-                </div>
+      {/* Deals Progress - Closed vs Active */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="border-green-500/20 bg-gradient-to-br from-card via-card to-green-500/5 overflow-hidden">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-green-500" />
+                <h3 className="text-sm font-medium text-muted-foreground">Closed Deals</h3>
               </div>
-              <ProgressRing progress={dealsProgress} />
+            </div>
+            <p className="text-3xl font-bold text-foreground">{stats.closedDeals}</p>
+            <p className="text-xs text-muted-foreground mt-1">of {stats.dealsGoal} goal</p>
+            <Progress value={dealsProgress} className="h-2 mt-3" />
+            <p className="text-xs text-green-500 mt-1">{Math.round(dealsProgress)}% complete</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-amber-500/20 bg-gradient-to-br from-card via-card to-amber-500/5 overflow-hidden">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Building2 className="h-5 w-5 text-amber-500" />
+                <h3 className="text-sm font-medium text-muted-foreground">Active Deals</h3>
+              </div>
+            </div>
+            <p className="text-3xl font-bold text-foreground">{stats.activeDeals}</p>
+            <p className="text-xs text-muted-foreground mt-1">in pipeline</p>
+            <div className="mt-3 flex items-center gap-2">
+              <Badge variant="outline" className="border-amber-500/30 text-amber-500 bg-amber-500/10 text-xs">
+                {stats.totalDeals} total deals
+              </Badge>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-gold/20 bg-gradient-to-br from-card via-card to-gold/5 overflow-hidden">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <DollarSign className="h-5 w-5 text-gold" />
-                  <h3 className="text-lg font-display font-semibold text-foreground">GCI Progress (Gross)</h3>
-                </div>
-                <div>
-                  <p className="text-4xl font-bold text-foreground">${stats.totalCommissions.toLocaleString()}</p>
-                  <p className="text-sm text-muted-foreground">of ${stats.gciGoal.toLocaleString()} goal</p>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Badge variant="outline" className="border-green-500/30 text-green-500 bg-green-500/10">
-                    +${stats.pendingCommissions.toLocaleString()} pending
-                  </Badge>
-                </div>
+        <Card className="border-green-500/20 bg-gradient-to-br from-card via-card to-green-500/5 overflow-hidden">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-green-500" />
+                <h3 className="text-sm font-medium text-muted-foreground">Earned GCI (Gross)</h3>
               </div>
-              <ProgressRing progress={gciProgress} color={gciProgress >= 100 ? "hsl(142 71% 45%)" : "hsl(var(--gold))"} />
+            </div>
+            <p className="text-3xl font-bold text-foreground">${stats.totalCommissions.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground mt-1">of ${stats.gciGoal.toLocaleString()} goal</p>
+            <Progress value={gciProgress} className="h-2 mt-3" />
+            <p className="text-xs text-green-500 mt-1">{Math.round(gciProgress)}% complete</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-gold/20 bg-gradient-to-br from-card via-card to-gold/5 overflow-hidden">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-gold" />
+                <h3 className="text-sm font-medium text-muted-foreground">Pending GCI (Gross)</h3>
+              </div>
+            </div>
+            <p className="text-3xl font-bold text-gold">${stats.pendingCommissions.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground mt-1">awaiting close</p>
+            <div className="mt-3 flex items-center gap-2">
+              <Badge variant="outline" className="border-gold/30 text-gold bg-gold/10 text-xs">
+                ${(stats.totalCommissions + stats.pendingCommissions).toLocaleString()} total
+              </Badge>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Combined Progress Ring */}
+      <Card className="border-gold/20 bg-gradient-to-br from-card via-card to-gold/5">
+        <CardContent className="p-6">
+          <div className="flex flex-col md:flex-row items-center justify-around gap-8">
+            <div className="text-center">
+              <ProgressRing progress={dealsProgress} color={dealsProgress >= 100 ? "hsl(142 71% 45%)" : "hsl(var(--gold))"} />
+              <p className="mt-3 text-sm font-medium text-foreground">Deals Goal</p>
+              <p className="text-xs text-muted-foreground">{stats.closedDeals} / {stats.dealsGoal}</p>
+            </div>
+            <div className="text-center">
+              <ProgressRing progress={gciProgress} color={gciProgress >= 100 ? "hsl(142 71% 45%)" : "hsl(var(--gold))"} />
+              <p className="mt-3 text-sm font-medium text-foreground">GCI Goal (Gross)</p>
+              <p className="text-xs text-muted-foreground">${stats.totalCommissions.toLocaleString()} / ${stats.gciGoal.toLocaleString()}</p>
+            </div>
+            <div className="text-center">
+              <ProgressRing 
+                progress={stats.gciGoal > 0 ? ((stats.totalCommissions + stats.pendingCommissions) / stats.gciGoal) * 100 : 0} 
+                color="hsl(43 74% 49%)" 
+              />
+              <p className="mt-3 text-sm font-medium text-foreground">Projected GCI</p>
+              <p className="text-xs text-muted-foreground">${(stats.totalCommissions + stats.pendingCommissions).toLocaleString()} total</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* GCI Trend Chart */}
       <Card className="border-gold/20 bg-card">
