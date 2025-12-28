@@ -15,6 +15,7 @@ import Commissions from "./pages/Commissions";
 import Goals from "./pages/Goals";
 import FourOneOne from "./pages/FourOneOne";
 import Reports from "./pages/Reports";
+import AdminReports from "./pages/AdminReports";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -42,6 +43,7 @@ const App = () => (
               <Route path="goals" element={<Goals />} />
               <Route path="411" element={<FourOneOne />} />
               <Route path="reports" element={<Reports />} />
+              <Route path="admin" element={<AdminReports />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
