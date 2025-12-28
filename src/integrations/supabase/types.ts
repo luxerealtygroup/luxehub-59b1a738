@@ -230,6 +230,45 @@ export type Database = {
         }
         Relationships: []
       }
+      production_goals: {
+        Row: {
+          annual_focus: string | null
+          annual_gci_goal: number | null
+          annual_units_goal: number | null
+          annual_volume_goal: number | null
+          created_at: string
+          id: string
+          monthly_goals: Json | null
+          updated_at: string
+          user_id: string
+          year: number
+        }
+        Insert: {
+          annual_focus?: string | null
+          annual_gci_goal?: number | null
+          annual_units_goal?: number | null
+          annual_volume_goal?: number | null
+          created_at?: string
+          id?: string
+          monthly_goals?: Json | null
+          updated_at?: string
+          user_id: string
+          year: number
+        }
+        Update: {
+          annual_focus?: string | null
+          annual_gci_goal?: number | null
+          annual_units_goal?: number | null
+          annual_volume_goal?: number | null
+          created_at?: string
+          id?: string
+          monthly_goals?: Json | null
+          updated_at?: string
+          user_id?: string
+          year?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -320,6 +359,90 @@ export type Database = {
           target_value?: number
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      weekly_411: {
+        Row: {
+          appointments_actual: number | null
+          appointments_goal: number | null
+          calls_actual: number | null
+          calls_goal: number | null
+          challenges: string | null
+          contracts_actual: number | null
+          contracts_goal: number | null
+          created_at: string
+          id: string
+          listings_actual: number | null
+          listings_goal: number | null
+          next_steps: string | null
+          notes: string | null
+          priority_1: string | null
+          priority_1_completed: boolean | null
+          priority_2: string | null
+          priority_2_completed: boolean | null
+          priority_3: string | null
+          priority_3_completed: boolean | null
+          priority_4: string | null
+          priority_4_completed: boolean | null
+          updated_at: string
+          user_id: string
+          week_start_date: string
+          wins: string | null
+        }
+        Insert: {
+          appointments_actual?: number | null
+          appointments_goal?: number | null
+          calls_actual?: number | null
+          calls_goal?: number | null
+          challenges?: string | null
+          contracts_actual?: number | null
+          contracts_goal?: number | null
+          created_at?: string
+          id?: string
+          listings_actual?: number | null
+          listings_goal?: number | null
+          next_steps?: string | null
+          notes?: string | null
+          priority_1?: string | null
+          priority_1_completed?: boolean | null
+          priority_2?: string | null
+          priority_2_completed?: boolean | null
+          priority_3?: string | null
+          priority_3_completed?: boolean | null
+          priority_4?: string | null
+          priority_4_completed?: boolean | null
+          updated_at?: string
+          user_id: string
+          week_start_date: string
+          wins?: string | null
+        }
+        Update: {
+          appointments_actual?: number | null
+          appointments_goal?: number | null
+          calls_actual?: number | null
+          calls_goal?: number | null
+          challenges?: string | null
+          contracts_actual?: number | null
+          contracts_goal?: number | null
+          created_at?: string
+          id?: string
+          listings_actual?: number | null
+          listings_goal?: number | null
+          next_steps?: string | null
+          notes?: string | null
+          priority_1?: string | null
+          priority_1_completed?: boolean | null
+          priority_2?: string | null
+          priority_2_completed?: boolean | null
+          priority_3?: string | null
+          priority_3_completed?: boolean | null
+          priority_4?: string | null
+          priority_4_completed?: boolean | null
+          updated_at?: string
+          user_id?: string
+          week_start_date?: string
+          wins?: string | null
         }
         Relationships: []
       }
