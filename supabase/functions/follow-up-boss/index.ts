@@ -62,6 +62,35 @@ serve(async (req) => {
         endpoint = `/deals?${dealParams.toString()}`;
         break;
 
+      case 'create_person':
+        // Create a new person in Follow Up Boss
+        method = 'POST';
+        endpoint = '/people';
+        body = {
+          firstName: params.firstName || '',
+          lastName: params.lastName || '',
+          emails: params.email ? [{ value: params.email, type: 'home' }] : [],
+          phones: params.phone ? [{ value: params.phone, type: 'mobile' }] : [],
+          source: params.source || 'Lovable Pipeline',
+          tags: params.tags || [],
+          ...(params.notes && { background: params.notes }),
+        };
+        break;
+
+      case 'update_person':
+        // Update an existing person in Follow Up Boss
+        method = 'PUT';
+        endpoint = `/people/${params.id}`;
+        const updateBody: Record<string, unknown> = {};
+        if (params.firstName) updateBody.firstName = params.firstName;
+        if (params.lastName) updateBody.lastName = params.lastName;
+        if (params.email) updateBody.emails = [{ value: params.email, type: 'home' }];
+        if (params.phone) updateBody.phones = [{ value: params.phone, type: 'mobile' }];
+        if (params.tags) updateBody.tags = params.tags;
+        if (params.notes) updateBody.background = params.notes;
+        body = updateBody;
+        break;
+
       default:
         return new Response(
           JSON.stringify({ success: false, error: 'Unknown action' }),
