@@ -18,23 +18,18 @@ export interface FUBPerson {
 export interface FUBDeal {
   id: number;
   name: string;
-  stage: string;
+  stageName: string;
+  pipelineName: string;
   price: number | null;
-  commission: number | null;
-  closingDate: string | null;
-  person: {
-    id: number;
-    name: string;
-    firstName: string;
-    lastName: string;
-    emails?: { value: string; type: string }[];
-    phones?: { value: string; type: string }[];
-  } | null;
-  propertyStreet: string | null;
-  propertyCity: string | null;
-  propertyState: string | null;
-  created: string;
-  updated: string;
+  commissionValue: number | null;
+  agentCommission: number | null;
+  projectedCloseDate: string | null;
+  people: { id: number; name: string; avatar?: string }[];
+  propertyStreet?: string | null;
+  propertyCity?: string | null;
+  propertyState?: string | null;
+  createdAt: string;
+  status: string;
 }
 
 export interface FUBResponse<T = any> {
