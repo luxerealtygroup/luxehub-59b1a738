@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Target, DollarSign, Home, Users, TrendingUp, Calendar, CheckCircle2, AlertCircle } from 'lucide-react';
 import { parseISO } from 'date-fns';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 interface MonthlyGoal {
   deals: number;
@@ -259,6 +260,32 @@ const Reports = () => {
   const hotLeads = pipelineClients.filter(c => c.stage >= 8).length;
   const buyers = pipelineClients.filter(c => c.client_type === 'buyer').length;
   const sellers = pipelineClients.filter(c => c.client_type === 'seller').length;
+
+  // Commission forecast by month
+  const commissionsByMonth = monthNames.map((month, idx) => {
+    const monthGCI = pipelineClients
+      .filter(c => {
+        if (!c.expected_pending_date) return false;
+        const date = parseISO(c.expected_pending_date);
+        return date.getFullYear() === currentYear && date.getMonth() === idx;
+      })
+      .reduce((sum, c) => sum + (c.projected_gci || 0), 0);
+    
+    const clientCount = pipelineClients.filter(c => {
+      if (!c.expected_pending_date) return false;
+      const date = parseISO(c.expected_pending_date);
+      return date.getFullYear() === currentYear && date.getMonth() === idx;
+    }).length;
+    
+    return {
+      month,
+      gci: monthGCI,
+      clients: clientCount,
+      goal: goalSettings.monthlyDeals[idx] * goalSettings.avg_sale_price * (goalSettings.commission_rate / 100) * (goalSettings.split_percent / 100)
+    };
+  });
+
+  const currentMonthIdx = new Date().getMonth();
 
   if (loading) {
     return <div className="flex items-center justify-center h-64 text-gold animate-pulse">Loading reports...</div>;
@@ -551,6 +578,93 @@ const Reports = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Upcoming Commissions Chart */}
+      <Card className="border-gold/20 bg-card">
+        <CardHeader>
+          <CardTitle className="text-lg font-display text-foreground flex items-center gap-2">
+            <DollarSign className="h-5 w-5 text-gold" />
+            Upcoming Commissions Forecast ({currentYear})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={commissionsByMonth} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+                <XAxis 
+                  dataKey="month" 
+                  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                  axisLine={{ stroke: 'hsl(var(--border))' }}
+                />
+                <YAxis 
+                  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                  axisLine={{ stroke: 'hsl(var(--border))' }}
+                  tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--card))', 
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px'
+                  }}
+                  labelStyle={{ color: 'hsl(var(--foreground))' }}
+                  formatter={(value: number, name: string) => {
+                    if (name === 'gci') return [`$${value.toLocaleString()}`, 'Pipeline GCI'];
+                    if (name === 'goal') return [`$${Math.round(value).toLocaleString()}`, 'Goal GCI'];
+                    return [value, name];
+                  }}
+                />
+                <Bar dataKey="goal" name="goal" fill="hsl(var(--muted))" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="gci" name="gci" radius={[4, 4, 0, 0]}>
+                  {commissionsByMonth.map((entry, index) => (
+                    <Cell 
+                      key={`cell-${index}`} 
+                      fill={index === currentMonthIdx ? 'hsl(var(--primary))' : index < currentMonthIdx ? 'hsl(142 76% 36%)' : 'hsl(45 93% 47%)'}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex items-center justify-center gap-6 mt-4 text-sm">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded bg-muted" />
+              <span className="text-muted-foreground">Goal GCI</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded" style={{ backgroundColor: 'hsl(45 93% 47%)' }} />
+              <span className="text-muted-foreground">Pipeline GCI (Future)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded" style={{ backgroundColor: 'hsl(142 76% 36%)' }} />
+              <span className="text-muted-foreground">Past Months</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded bg-primary" />
+              <span className="text-muted-foreground">Current Month</span>
+            </div>
+          </div>
+          <div className="mt-4 p-3 rounded-lg bg-background/50 border border-gold/20">
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <p className="text-xs text-muted-foreground">Total Pipeline GCI</p>
+                <p className="text-xl font-bold text-gold">${totalPipelineGCI.toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Avg per Client</p>
+                <p className="text-xl font-bold text-foreground">
+                  ${pipelineClients.length > 0 ? Math.round(totalPipelineGCI / pipelineClients.length).toLocaleString() : 0}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Pipeline Volume</p>
+                <p className="text-xl font-bold text-foreground">${totalPipelineValue.toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
