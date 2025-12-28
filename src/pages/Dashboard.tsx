@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Building2, Phone, DollarSign, Target, Users, Search, Loader2, Plus, UserPlus } from 'lucide-react';
+import { Building2, Phone, DollarSign, Target, Users, Search, Loader2, TrendingUp, Flame, Award, ArrowUp } from 'lucide-react';
 import { FUBClientSearch } from '@/components/FUBClientSearch';
 import { followUpBossApi, FUBPerson } from '@/lib/api/followUpBoss';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
+import { Progress } from '@/components/ui/progress';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
 
 interface Stats {
   totalDeals: number;
@@ -22,6 +24,14 @@ interface Stats {
   pendingCommissions: number;
   activitiesThisWeek: number;
   goalsProgress: number;
+  dealsGoal: number;
+  gciGoal: number;
+  closedDeals: number;
+}
+
+interface MonthlyData {
+  month: string;
+  gci: number;
 }
 
 const stageDefinitions: Record<number, { description: string }> = {
@@ -38,6 +48,50 @@ const stageDefinitions: Record<number, { description: string }> = {
 };
 
 const stageOrder = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
+const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const currentYear = new Date().getFullYear();
+
+// Circular Progress Ring Component
+const ProgressRing = ({ progress, size = 120, strokeWidth = 8, color = "hsl(var(--gold))" }: { 
+  progress: number; 
+  size?: number; 
+  strokeWidth?: number;
+  color?: string;
+}) => {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = radius * 2 * Math.PI;
+  const offset = circumference - (Math.min(progress, 100) / 100) * circumference;
+  
+  return (
+    <div className="relative" style={{ width: size, height: size }}>
+      <svg className="transform -rotate-90" width={size} height={size}>
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="hsl(var(--muted))"
+          strokeWidth={strokeWidth}
+          fill="none"
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={color}
+          strokeWidth={strokeWidth}
+          fill="none"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          className="transition-all duration-1000 ease-out"
+        />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span className="text-2xl font-bold text-foreground">{Math.round(progress)}%</span>
+      </div>
+    </div>
+  );
+};
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -48,8 +102,12 @@ const Dashboard = () => {
     totalCommissions: 0,
     pendingCommissions: 0,
     activitiesThisWeek: 0,
-    goalsProgress: 0
+    goalsProgress: 0,
+    dealsGoal: 0,
+    gciGoal: 0,
+    closedDeals: 0
   });
+  const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
   const [loading, setLoading] = useState(true);
   const [fubClients, setFubClients] = useState<FUBPerson[]>([]);
   const [fubLoading, setFubLoading] = useState(false);
@@ -75,9 +133,9 @@ const Dashboard = () => {
     const fetchStats = async () => {
       const [dealsRes, commissionsRes, activitiesRes, goalsRes] = await Promise.all([
         supabase.from('deals').select('*').eq('user_id', user.id),
-        supabase.from('commissions').select('*').eq('user_id', user.id),
+        supabase.from('commissions').select('gross_commission, amount, status, paid_at').eq('user_id', user.id),
         supabase.from('agent_activities').select('*').eq('user_id', user.id),
-        supabase.from('agent_goals').select('*').eq('user_id', user.id)
+        supabase.from('agent_goals').select('*').eq('user_id', user.id).eq('period', 'yearly')
       ]);
 
       const deals = dealsRes.data || [];
@@ -86,18 +144,38 @@ const Dashboard = () => {
 
       const activeStages = ['lead', 'contacted', 'showing', 'offer', 'under_contract'];
       const activeDeals = deals.filter(d => activeStages.includes(d.stage));
+      const closedDeals = deals.filter(d => d.stage === 'closed').length;
       
+      // Use gross_commission for totals (fallback to amount if not available)
       const totalCommissions = commissions
         .filter(c => c.status === 'paid')
-        .reduce((sum, c) => sum + Number(c.amount), 0);
+        .reduce((sum, c) => sum + Number(c.gross_commission || c.amount || 0), 0);
       
       const pendingCommissions = commissions
         .filter(c => c.status === 'pending')
-        .reduce((sum, c) => sum + Number(c.amount), 0);
+        .reduce((sum, c) => sum + Number(c.gross_commission || c.amount || 0), 0);
+
+      // Get goals
+      const dealsGoal = goals.find(g => g.goal_type === 'deals_closed')?.target_value || 0;
+      const gciGoal = goals.find(g => g.goal_type === 'revenue')?.target_value || 0;
 
       const avgGoalProgress = goals.length > 0
         ? goals.reduce((sum, g) => sum + (Number(g.current_value) / Number(g.target_value) * 100), 0) / goals.length
         : 0;
+
+      // Calculate monthly GCI data for chart
+      const monthlyGci = monthNames.map((month, idx) => {
+        const monthCommissions = commissions.filter(c => {
+          if (!c.paid_at) return false;
+          const date = new Date(c.paid_at);
+          return date.getFullYear() === currentYear && date.getMonth() === idx;
+        });
+        return {
+          month,
+          gci: monthCommissions.reduce((sum, c) => sum + Number(c.gross_commission || c.amount || 0), 0)
+        };
+      });
+      setMonthlyData(monthlyGci);
 
       setStats({
         totalDeals: deals.length,
@@ -105,7 +183,10 @@ const Dashboard = () => {
         totalCommissions,
         pendingCommissions,
         activitiesThisWeek: (activitiesRes.data || []).length,
-        goalsProgress: Math.round(avgGoalProgress)
+        goalsProgress: Math.round(avgGoalProgress),
+        dealsGoal: Number(dealsGoal),
+        gciGoal: Number(gciGoal),
+        closedDeals
       });
       setLoading(false);
     };
@@ -218,12 +299,21 @@ const Dashboard = () => {
     });
   };
 
-  const statCards = [
-    { title: 'Active Deals', value: stats.activeDeals, icon: Building2, subtitle: `${stats.totalDeals} total` },
-    { title: 'Activities', value: stats.activitiesThisWeek, icon: Phone, subtitle: 'This week' },
-    { title: 'Earned Commissions', value: `$${stats.totalCommissions.toLocaleString()}`, icon: DollarSign, subtitle: `$${stats.pendingCommissions.toLocaleString()} pending` },
-    { title: 'Goals Progress', value: `${stats.goalsProgress}%`, icon: Target, subtitle: 'Average completion' },
-  ];
+  // Calculate progress percentages
+  const dealsProgress = stats.dealsGoal > 0 ? (stats.closedDeals / stats.dealsGoal) * 100 : 0;
+  const gciProgress = stats.gciGoal > 0 ? (stats.totalCommissions / stats.gciGoal) * 100 : 0;
+
+  // Motivational message based on progress
+  const getMotivationalMessage = () => {
+    const avg = (dealsProgress + gciProgress) / 2;
+    if (avg >= 100) return { icon: Award, text: "Outstanding! You've crushed your goals! 🏆", color: "text-green-500" };
+    if (avg >= 75) return { icon: Flame, text: "You're on fire! Keep pushing to hit your targets!", color: "text-orange-500" };
+    if (avg >= 50) return { icon: TrendingUp, text: "Great momentum! You're halfway to your goals!", color: "text-gold" };
+    if (avg >= 25) return { icon: ArrowUp, text: "Building momentum! Every deal counts!", color: "text-blue-500" };
+    return { icon: Target, text: "Start strong! Your next deal is waiting!", color: "text-muted-foreground" };
+  };
+
+  const motivation = getMotivationalMessage();
 
   if (loading) {
     return (
@@ -235,150 +325,291 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-display font-bold text-foreground">
-          Welcome back{user?.user_metadata?.full_name ? `, ${user.user_metadata.full_name}` : ''}
-        </h1>
-        <p className="text-muted-foreground mt-1">Here's your real estate performance overview</p>
+      {/* Header with Motivational Message */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-display font-bold text-foreground">
+            Welcome back{user?.user_metadata?.full_name ? `, ${user.user_metadata.full_name}` : ''}
+          </h1>
+          <div className={`flex items-center gap-2 mt-2 ${motivation.color}`}>
+            <motivation.icon className="h-5 w-5" />
+            <p className="font-medium">{motivation.text}</p>
+          </div>
+        </div>
+        <Dialog open={addClientOpen} onOpenChange={setAddClientOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-gold text-primary-foreground hover:bg-gold/90 shadow-gold">
+              <Users className="h-4 w-4 mr-2" /> Add New Client
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="border-primary/20 bg-card max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-primary font-display">Add Client to Pipeline</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleAddClient} className="space-y-4">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Client name *"
+                  value={newClient.client_name}
+                  onChange={(e) => setNewClient({ ...newClient, client_name: e.target.value })}
+                  required
+                  className="flex-1"
+                />
+                <FUBClientSearch 
+                  onSelectClient={handleFUBClientSelect}
+                  trigger={
+                    <Button type="button" variant="outline" size="icon" title="Import from Follow Up Boss">
+                      <Search className="h-4 w-4" />
+                    </Button>
+                  }
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  type="email"
+                  placeholder="Email"
+                  value={newClient.email}
+                  onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
+                />
+                <Input
+                  type="tel"
+                  placeholder="Phone"
+                  value={newClient.phone}
+                  onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Buying Timeline Stage</Label>
+                <Select value={newClient.stage} onValueChange={(v) => setNewClient({ ...newClient, stage: v })}>
+                  <SelectTrigger><SelectValue placeholder="Select stage" /></SelectTrigger>
+                  <SelectContent>
+                    {stageOrder.map(s => (
+                      <SelectItem key={s} value={s.toString()}>
+                        Stage {s} - {stageDefinitions[s].description}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Input
+                placeholder="Property interest (e.g., 3BR in Downtown)"
+                value={newClient.property_interest}
+                onChange={(e) => setNewClient({ ...newClient, property_interest: e.target.value })}
+              />
+              <Input
+                placeholder="Source (e.g., Referral, Open House)"
+                value={newClient.source}
+                onChange={(e) => setNewClient({ ...newClient, source: e.target.value })}
+              />
+              <Textarea
+                placeholder="Notes"
+                value={newClient.notes}
+                onChange={(e) => setNewClient({ ...newClient, notes: e.target.value })}
+                rows={3}
+              />
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="sync-fub-dashboard" 
+                  checked={syncToFUB} 
+                  onCheckedChange={(checked) => setSyncToFUB(checked === true)}
+                />
+                <Label htmlFor="sync-fub-dashboard" className="text-sm text-muted-foreground cursor-pointer">
+                  Also add to Follow Up Boss
+                </Label>
+              </div>
+              <Button 
+                type="submit" 
+                className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    {syncToFUB ? 'Adding & Syncing...' : 'Adding...'}
+                  </>
+                ) : (
+                  'Add Client'
+                )}
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {statCards.map((stat) => (
-          <Card key={stat.title} className="border-gold/10 bg-card/50 backdrop-blur hover:border-gold/30 transition-colors">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {stat.title}
-              </CardTitle>
-              <stat.icon className="h-5 w-5 text-gold" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-foreground">{stat.value}</div>
-              <p className="text-xs text-muted-foreground mt-1">{stat.subtitle}</p>
-            </CardContent>
-          </Card>
-        ))}
+      {/* Main Progress Cards with Rings */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="border-gold/20 bg-gradient-to-br from-card via-card to-gold/5 overflow-hidden">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5 text-gold" />
+                  <h3 className="text-lg font-display font-semibold text-foreground">Deals Progress</h3>
+                </div>
+                <div>
+                  <p className="text-4xl font-bold text-foreground">{stats.closedDeals}</p>
+                  <p className="text-sm text-muted-foreground">of {stats.dealsGoal} deals goal</p>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Badge variant="outline" className="border-amber-500/30 text-amber-500 bg-amber-500/10">
+                    {stats.activeDeals} active
+                  </Badge>
+                </div>
+              </div>
+              <ProgressRing progress={dealsProgress} />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-gold/20 bg-gradient-to-br from-card via-card to-gold/5 overflow-hidden">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-5 w-5 text-gold" />
+                  <h3 className="text-lg font-display font-semibold text-foreground">GCI Progress (Gross)</h3>
+                </div>
+                <div>
+                  <p className="text-4xl font-bold text-foreground">${stats.totalCommissions.toLocaleString()}</p>
+                  <p className="text-sm text-muted-foreground">of ${stats.gciGoal.toLocaleString()} goal</p>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Badge variant="outline" className="border-green-500/30 text-green-500 bg-green-500/10">
+                    +${stats.pendingCommissions.toLocaleString()} pending
+                  </Badge>
+                </div>
+              </div>
+              <ProgressRing progress={gciProgress} color={gciProgress >= 100 ? "hsl(142 71% 45%)" : "hsl(var(--gold))"} />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
+      {/* GCI Trend Chart */}
+      <Card className="border-gold/20 bg-card">
+        <CardHeader>
+          <CardTitle className="text-lg font-display text-foreground flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-gold" />
+            {currentYear} GCI Trend (Gross)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-48">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={monthlyData}>
+                <defs>
+                  <linearGradient id="gciGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(43 74% 49%)" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="hsl(43 74% 49%)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis 
+                  dataKey="month" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                  tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                />
+                <Tooltip 
+                  formatter={(value: number) => [`$${value.toLocaleString()}`, 'Gross GCI']}
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--card))', 
+                    borderColor: 'hsl(var(--border))',
+                    borderRadius: '8px'
+                  }}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="gci" 
+                  stroke="hsl(43 74% 49%)" 
+                  strokeWidth={2}
+                  fill="url(#gciGradient)" 
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Quick Stats Row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className="border-gold/10 bg-card/50 hover:border-gold/30 transition-colors">
+          <CardContent className="p-4 text-center">
+            <Phone className="h-8 w-8 mx-auto text-gold mb-2" />
+            <p className="text-2xl font-bold text-foreground">{stats.activitiesThisWeek}</p>
+            <p className="text-xs text-muted-foreground">Activities Logged</p>
+          </CardContent>
+        </Card>
+        <Card className="border-gold/10 bg-card/50 hover:border-gold/30 transition-colors">
+          <CardContent className="p-4 text-center">
+            <Target className="h-8 w-8 mx-auto text-gold mb-2" />
+            <p className="text-2xl font-bold text-foreground">{stats.goalsProgress}%</p>
+            <p className="text-xs text-muted-foreground">Goals Progress</p>
+          </CardContent>
+        </Card>
+        <Card className="border-gold/10 bg-card/50 hover:border-gold/30 transition-colors">
+          <CardContent className="p-4 text-center">
+            <Building2 className="h-8 w-8 mx-auto text-gold mb-2" />
+            <p className="text-2xl font-bold text-foreground">{stats.totalDeals}</p>
+            <p className="text-xs text-muted-foreground">Total Deals</p>
+          </CardContent>
+        </Card>
+        <Card className="border-gold/10 bg-card/50 hover:border-gold/30 transition-colors">
+          <CardContent className="p-4 text-center">
+            <DollarSign className="h-8 w-8 mx-auto text-green-500 mb-2" />
+            <p className="text-2xl font-bold text-green-500">${stats.pendingCommissions.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">Pending GCI</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="border-gold/10 bg-card/50">
           <CardHeader>
             <CardTitle className="text-gold font-display">Quick Actions</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-3">
-            <a href="/dashboard/activities" className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center">
-              <Phone className="h-6 w-6 mx-auto text-gold mb-2" />
+            <a href="/dashboard/activities" className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center group">
+              <Phone className="h-6 w-6 mx-auto text-gold mb-2 group-hover:scale-110 transition-transform" />
               <span className="text-sm text-foreground">Log Activity</span>
             </a>
-            <Dialog open={addClientOpen} onOpenChange={setAddClientOpen}>
-              <DialogTrigger asChild>
-                <button className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center w-full">
-                  <UserPlus className="h-6 w-6 mx-auto text-gold mb-2" />
-                  <span className="text-sm text-foreground">Add Client</span>
-                </button>
-              </DialogTrigger>
-              <DialogContent className="border-primary/20 bg-card max-w-md">
-                <DialogHeader>
-                  <DialogTitle className="text-primary font-display">Add Client to Pipeline</DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleAddClient} className="space-y-4">
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Client name *"
-                      value={newClient.client_name}
-                      onChange={(e) => setNewClient({ ...newClient, client_name: e.target.value })}
-                      required
-                      className="flex-1"
-                    />
-                    <FUBClientSearch 
-                      onSelectClient={handleFUBClientSelect}
-                      trigger={
-                        <Button type="button" variant="outline" size="icon" title="Import from Follow Up Boss">
-                          <Search className="h-4 w-4" />
-                        </Button>
-                      }
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Input
-                      type="email"
-                      placeholder="Email"
-                      value={newClient.email}
-                      onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
-                    />
-                    <Input
-                      type="tel"
-                      placeholder="Phone"
-                      value={newClient.phone}
-                      onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Buying Timeline Stage</Label>
-                    <Select value={newClient.stage} onValueChange={(v) => setNewClient({ ...newClient, stage: v })}>
-                      <SelectTrigger><SelectValue placeholder="Select stage" /></SelectTrigger>
-                      <SelectContent>
-                        {stageOrder.map(s => (
-                          <SelectItem key={s} value={s.toString()}>
-                            Stage {s} - {stageDefinitions[s].description}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Input
-                    placeholder="Property interest (e.g., 3BR in Downtown)"
-                    value={newClient.property_interest}
-                    onChange={(e) => setNewClient({ ...newClient, property_interest: e.target.value })}
-                  />
-                  <Input
-                    placeholder="Source (e.g., Referral, Open House)"
-                    value={newClient.source}
-                    onChange={(e) => setNewClient({ ...newClient, source: e.target.value })}
-                  />
-                  <Textarea
-                    placeholder="Notes"
-                    value={newClient.notes}
-                    onChange={(e) => setNewClient({ ...newClient, notes: e.target.value })}
-                    rows={3}
-                  />
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="sync-fub-dashboard" 
-                      checked={syncToFUB} 
-                      onCheckedChange={(checked) => setSyncToFUB(checked === true)}
-                    />
-                    <Label htmlFor="sync-fub-dashboard" className="text-sm text-muted-foreground cursor-pointer">
-                      Also add to Follow Up Boss
-                    </Label>
-                  </div>
-                  <Button 
-                    type="submit" 
-                    className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
-                    disabled={submitting}
-                  >
-                    {submitting ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        {syncToFUB ? 'Adding & Syncing...' : 'Adding...'}
-                      </>
-                    ) : (
-                      'Add Client'
-                    )}
-                  </Button>
-                </form>
-              </DialogContent>
-            </Dialog>
+            <a href="/dashboard/pipeline" className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center group">
+              <Users className="h-6 w-6 mx-auto text-gold mb-2 group-hover:scale-110 transition-transform" />
+              <span className="text-sm text-foreground">View Pipeline</span>
+            </a>
+            <a href="/dashboard/commissions" className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center group">
+              <DollarSign className="h-6 w-6 mx-auto text-gold mb-2 group-hover:scale-110 transition-transform" />
+              <span className="text-sm text-foreground">Commissions</span>
+            </a>
+            <a href="/dashboard/goals" className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center group">
+              <Target className="h-6 w-6 mx-auto text-gold mb-2 group-hover:scale-110 transition-transform" />
+              <span className="text-sm text-foreground">Set Goals</span>
+            </a>
           </CardContent>
         </Card>
 
-        <Card className="border-gold/10 bg-card/50">
+        <Card className="border-gold/10 bg-gradient-to-br from-card to-gold/5">
           <CardHeader>
-            <CardTitle className="text-gold font-display">Performance Tip</CardTitle>
+            <CardTitle className="text-gold font-display flex items-center gap-2">
+              <Flame className="h-5 w-5" /> Daily Motivation
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground">
-              Agents who log their activities daily close 40% more deals. Keep tracking your calls and appointments to stay on top of your pipeline!
+            <p className="text-muted-foreground italic">
+              "Success in real estate comes from building relationships one conversation at a time. Make those calls, set those appointments, and watch your business grow!"
             </p>
+            <div className="mt-4 p-3 rounded-lg bg-gold/10 border border-gold/20">
+              <p className="text-sm text-foreground font-medium">💡 Pro Tip</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Agents who log their activities daily close 40% more deals. Keep tracking to stay ahead!
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
