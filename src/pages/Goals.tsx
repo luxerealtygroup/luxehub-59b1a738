@@ -24,8 +24,20 @@ interface ActualMetrics {
   gci_pending: number;
 }
 
+interface MonthlyGoal {
+  deals: number;
+  gci: number;
+}
+
 const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const quarterNames = ['Q1 (Jan-Mar)', 'Q2 (Apr-Jun)', 'Q3 (Jul-Sep)', 'Q4 (Oct-Dec)'];
+
+const createDefaultMonthlyGoals = (dealsGoal: number, gciGoal: number): MonthlyGoal[] => {
+  return monthNames.map(() => ({
+    deals: dealsGoal / 12,
+    gci: gciGoal / 12
+  }));
+};
 
 const Goals = () => {
   const { user } = useAuth();
@@ -33,11 +45,17 @@ const Goals = () => {
   const [loading, setLoading] = useState(true);
   const [showSetup, setShowSetup] = useState(false);
   const [breakdownView, setBreakdownView] = useState<'monthly' | 'quarterly'>('monthly');
+  const [editingMonth, setEditingMonth] = useState<number | null>(null);
+  const [editingQuarter, setEditingQuarter] = useState<number | null>(null);
   
   const [annualGoals, setAnnualGoals] = useState<AnnualGoals>({
     deals_goal: 0,
     gci_goal: 0
   });
+  
+  const [monthlyGoals, setMonthlyGoals] = useState<MonthlyGoal[]>(
+    createDefaultMonthlyGoals(0, 0)
+  );
   
   const [actualMetrics, setActualMetrics] = useState<ActualMetrics>({
     deals_closed: 0,
@@ -67,16 +85,27 @@ const Goals = () => {
       const dealsGoal = data.find(g => g.goal_type === 'deals_closed');
       const gciGoal = data.find(g => g.goal_type === 'revenue');
       
+      const dealsValue = dealsGoal?.target_value || 0;
+      const gciValue = gciGoal?.target_value || 0;
+      
       setAnnualGoals({
         id: dealsGoal?.id || gciGoal?.id,
-        deals_goal: dealsGoal?.target_value || 0,
-        gci_goal: gciGoal?.target_value || 0
+        deals_goal: dealsValue,
+        gci_goal: gciValue
       });
       
       setFormData({
-        deals_goal: dealsGoal?.target_value?.toString() || '',
-        gci_goal: gciGoal?.target_value?.toString() || ''
+        deals_goal: dealsValue?.toString() || '',
+        gci_goal: gciValue?.toString() || ''
       });
+      
+      // Initialize monthly goals - check if saved in localStorage
+      const savedMonthlyGoals = localStorage.getItem(`monthlyGoals_${user.id}_${currentYear}`);
+      if (savedMonthlyGoals) {
+        setMonthlyGoals(JSON.parse(savedMonthlyGoals));
+      } else {
+        setMonthlyGoals(createDefaultMonthlyGoals(dealsValue, gciValue));
+      }
     }
   };
 
@@ -196,11 +225,33 @@ const Goals = () => {
   const totalDeals = actualMetrics.deals_closed + actualMetrics.deals_pending;
   const totalGci = actualMetrics.gci_earned + actualMetrics.gci_pending;
 
-  // Calculate monthly and quarterly breakdowns
-  const monthlyDealsGoal = annualGoals.deals_goal / 12;
-  const monthlyGciGoal = annualGoals.gci_goal / 12;
-  const quarterlyDealsGoal = annualGoals.deals_goal / 4;
-  const quarterlyGciGoal = annualGoals.gci_goal / 4;
+  // Calculate quarterly breakdowns from monthly goals
+  const getQuarterlyGoals = (quarterIndex: number) => {
+    const startMonth = quarterIndex * 3;
+    const quarterMonths = monthlyGoals.slice(startMonth, startMonth + 3);
+    return {
+      deals: quarterMonths.reduce((sum, m) => sum + m.deals, 0),
+      gci: quarterMonths.reduce((sum, m) => sum + m.gci, 0)
+    };
+  };
+
+  const updateMonthlyGoal = (monthIndex: number, field: 'deals' | 'gci', value: number) => {
+    const updated = [...monthlyGoals];
+    updated[monthIndex] = { ...updated[monthIndex], [field]: value };
+    setMonthlyGoals(updated);
+    if (user) {
+      localStorage.setItem(`monthlyGoals_${user.id}_${currentYear}`, JSON.stringify(updated));
+    }
+  };
+
+  const resetToEvenDistribution = () => {
+    const newGoals = createDefaultMonthlyGoals(annualGoals.deals_goal, annualGoals.gci_goal);
+    setMonthlyGoals(newGoals);
+    if (user) {
+      localStorage.setItem(`monthlyGoals_${user.id}_${currentYear}`, JSON.stringify(newGoals));
+    }
+    toast({ title: 'Goals reset to even distribution' });
+  };
 
   if (loading) {
     return <div className="flex items-center justify-center h-64 text-gold animate-pulse">Loading goals...</div>;
@@ -345,70 +396,161 @@ const Goals = () => {
           {/* Goal Breakdown Section */}
           <Card className="border-gold/20 bg-card">
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <CardTitle className="text-lg font-display text-foreground flex items-center gap-2">
                   <Calendar className="h-5 w-5 text-gold" />
                   Goal Breakdown
                 </CardTitle>
-                <Select value={breakdownView} onValueChange={(v: 'monthly' | 'quarterly') => setBreakdownView(v)}>
-                  <SelectTrigger className="w-[140px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                    <SelectItem value="quarterly">Quarterly</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={resetToEvenDistribution}
+                    className="text-xs"
+                  >
+                    Reset to Even
+                  </Button>
+                  <Select value={breakdownView} onValueChange={(v: 'monthly' | 'quarterly') => setBreakdownView(v)}>
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                      <SelectItem value="quarterly">Quarterly</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
+              <p className="text-xs text-muted-foreground mt-2">Click on any value to edit it</p>
             </CardHeader>
             <CardContent>
               {breakdownView === 'monthly' ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
                   {monthNames.map((month, index) => (
-                    <div key={month} className="p-3 rounded-lg bg-background/50 border border-primary/10">
+                    <div 
+                      key={month} 
+                      className="p-3 rounded-lg bg-background/50 border border-primary/10 hover:border-gold/30 transition-colors cursor-pointer"
+                      onClick={() => setEditingMonth(editingMonth === index ? null : index)}
+                    >
                       <p className="text-sm font-medium text-foreground mb-2">{month}</p>
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-1">
-                          <Home className="h-3 w-3 text-gold" />
-                          <span className="text-xs text-muted-foreground">Deals:</span>
-                          <span className="text-xs font-medium text-gold">{monthlyDealsGoal.toFixed(1)}</span>
+                      {editingMonth === index ? (
+                        <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+                          <div className="space-y-1">
+                            <label className="text-xs text-muted-foreground">Deals</label>
+                            <Input
+                              type="number"
+                              step="0.1"
+                              value={monthlyGoals[index]?.deals || 0}
+                              onChange={(e) => updateMonthlyGoal(index, 'deals', parseFloat(e.target.value) || 0)}
+                              className="h-7 text-xs"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs text-muted-foreground">GCI</label>
+                            <Input
+                              type="number"
+                              value={Math.round(monthlyGoals[index]?.gci || 0)}
+                              onChange={(e) => updateMonthlyGoal(index, 'gci', parseFloat(e.target.value) || 0)}
+                              className="h-7 text-xs"
+                            />
+                          </div>
+                          <Button 
+                            size="sm" 
+                            className="w-full h-6 text-xs mt-1"
+                            onClick={() => setEditingMonth(null)}
+                          >
+                            Done
+                          </Button>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <DollarSign className="h-3 w-3 text-green-400" />
-                          <span className="text-xs text-muted-foreground">GCI:</span>
-                          <span className="text-xs font-medium text-green-400">${Math.round(monthlyGciGoal).toLocaleString()}</span>
+                      ) : (
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1">
+                            <Home className="h-3 w-3 text-gold" />
+                            <span className="text-xs text-muted-foreground">Deals:</span>
+                            <span className="text-xs font-medium text-gold">{(monthlyGoals[index]?.deals || 0).toFixed(1)}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <DollarSign className="h-3 w-3 text-green-400" />
+                            <span className="text-xs text-muted-foreground">GCI:</span>
+                            <span className="text-xs font-medium text-green-400">${Math.round(monthlyGoals[index]?.gci || 0).toLocaleString()}</span>
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   ))}
                 </div>
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {quarterNames.map((quarter, index) => (
-                    <div key={quarter} className="p-4 rounded-lg bg-background/50 border border-primary/10">
-                      <p className="text-sm font-medium text-foreground mb-3">{quarter}</p>
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1">
-                            <Home className="h-4 w-4 text-gold" />
-                            <span className="text-sm text-muted-foreground">Deals</span>
+                  {quarterNames.map((quarter, index) => {
+                    const quarterGoals = getQuarterlyGoals(index);
+                    return (
+                      <div 
+                        key={quarter} 
+                        className="p-4 rounded-lg bg-background/50 border border-primary/10 hover:border-gold/30 transition-colors cursor-pointer"
+                        onClick={() => setEditingQuarter(editingQuarter === index ? null : index)}
+                      >
+                        <p className="text-sm font-medium text-foreground mb-3">{quarter}</p>
+                        {editingQuarter === index ? (
+                          <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
+                            <p className="text-xs text-muted-foreground">Edit individual months in Monthly view</p>
+                            <div className="space-y-2">
+                              {[0, 1, 2].map((monthOffset) => {
+                                const monthIndex = index * 3 + monthOffset;
+                                return (
+                                  <div key={monthIndex} className="flex items-center gap-2">
+                                    <span className="text-xs w-8">{monthNames[monthIndex]}</span>
+                                    <Input
+                                      type="number"
+                                      step="0.1"
+                                      placeholder="Deals"
+                                      value={monthlyGoals[monthIndex]?.deals || 0}
+                                      onChange={(e) => updateMonthlyGoal(monthIndex, 'deals', parseFloat(e.target.value) || 0)}
+                                      className="h-6 text-xs flex-1"
+                                    />
+                                    <Input
+                                      type="number"
+                                      placeholder="GCI"
+                                      value={Math.round(monthlyGoals[monthIndex]?.gci || 0)}
+                                      onChange={(e) => updateMonthlyGoal(monthIndex, 'gci', parseFloat(e.target.value) || 0)}
+                                      className="h-6 text-xs flex-1"
+                                    />
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <Button 
+                              size="sm" 
+                              className="w-full h-6 text-xs"
+                              onClick={() => setEditingQuarter(null)}
+                            >
+                              Done
+                            </Button>
                           </div>
-                          <span className="text-lg font-bold text-gold">{quarterlyDealsGoal.toFixed(1)}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1">
-                            <DollarSign className="h-4 w-4 text-green-400" />
-                            <span className="text-sm text-muted-foreground">GCI</span>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1">
+                                <Home className="h-4 w-4 text-gold" />
+                                <span className="text-sm text-muted-foreground">Deals</span>
+                              </div>
+                              <span className="text-lg font-bold text-gold">{quarterGoals.deals.toFixed(1)}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1">
+                                <DollarSign className="h-4 w-4 text-green-400" />
+                                <span className="text-sm text-muted-foreground">GCI</span>
+                              </div>
+                              <span className="text-lg font-bold text-green-400">${Math.round(quarterGoals.gci).toLocaleString()}</span>
+                            </div>
                           </div>
-                          <span className="text-lg font-bold text-green-400">${Math.round(quarterlyGciGoal).toLocaleString()}</span>
-                        </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
               <p className="text-xs text-muted-foreground mt-4 text-center">
-                Based on your annual goal of {annualGoals.deals_goal} deals and ${annualGoals.gci_goal.toLocaleString()} GCI
+                Total: {monthlyGoals.reduce((sum, m) => sum + m.deals, 0).toFixed(1)} deals / ${Math.round(monthlyGoals.reduce((sum, m) => sum + m.gci, 0)).toLocaleString()} GCI
               </p>
             </CardContent>
           </Card>
