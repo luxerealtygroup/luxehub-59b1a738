@@ -54,6 +54,13 @@ interface ProductionGoals {
   monthly_goals: { month: number; focus: string; target: string }[];
 }
 
+interface SyncedGoals {
+  deals_goal: number;
+  gci_goal: number;
+  monthly_deals: number[];
+  monthly_gci: number[];
+}
+
 const emptyWeekly: Weekly411 = {
   week_start_date: '',
   calls_goal: 50,
@@ -99,9 +106,19 @@ const FourOneOne = () => {
     annual_focus: '',
     monthly_goals: [],
   });
+  const [syncedGoals, setSyncedGoals] = useState<SyncedGoals>({
+    deals_goal: 0,
+    gci_goal: 0,
+    monthly_deals: Array(12).fill(0),
+    monthly_gci: Array(12).fill(0),
+  });
 
+  const currentYear = 2026;
   const currentMonth = new Date().getMonth();
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  
+  // Get the month index for the current week
+  const weekMonth = currentWeek.getMonth();
 
   const fetchWeeklyData = async () => {
     if (!user) return;
@@ -121,15 +138,50 @@ const FourOneOne = () => {
     }
   };
 
+  const fetchSyncedGoals = async () => {
+    if (!user) return;
+    
+    // Fetch from agent_goals (same as Goals page)
+    const { data } = await supabase
+      .from('agent_goals')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('period', 'yearly')
+      .in('goal_type', ['deals_closed', 'revenue']);
+    
+    const dealsGoal = data?.find(g => g.goal_type === 'deals_closed');
+    const gciGoal = data?.find(g => g.goal_type === 'revenue');
+    
+    const dealsValue = dealsGoal?.target_value || 0;
+    const gciValue = gciGoal?.target_value || 0;
+    
+    // Load monthly breakdown from localStorage (same as Goals page)
+    const savedMonthlyGoals = localStorage.getItem(`monthlyGoals_${user.id}_${currentYear}`);
+    let monthlyDeals = Array(12).fill(dealsValue / 12);
+    let monthlyGci = Array(12).fill(gciValue / 12);
+    
+    if (savedMonthlyGoals) {
+      const parsed = JSON.parse(savedMonthlyGoals);
+      monthlyDeals = parsed.map((m: { deals: number }) => m.deals || 0);
+      monthlyGci = parsed.map((m: { gci: number }) => m.gci || 0);
+    }
+    
+    setSyncedGoals({
+      deals_goal: dealsValue,
+      gci_goal: gciValue,
+      monthly_deals: monthlyDeals,
+      monthly_gci: monthlyGci,
+    });
+  };
+
   const fetchAnnualGoals = async () => {
     if (!user) return;
-    const year = 2026;
     
     const { data } = await supabase
       .from('production_goals')
       .select('*')
       .eq('user_id', user.id)
-      .eq('year', year)
+      .eq('year', currentYear)
       .maybeSingle();
 
     if (data) {
@@ -144,6 +196,7 @@ const FourOneOne = () => {
   useEffect(() => {
     fetchWeeklyData();
     fetchAnnualGoals();
+    fetchSyncedGoals();
   }, [user, currentWeek]);
 
   const saveWeeklyData = async () => {
@@ -264,6 +317,32 @@ const FourOneOne = () => {
         </div>
       </div>
 
+      {/* Goals Summary from Goals Page */}
+      {syncedGoals.deals_goal > 0 && (
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="py-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Annual Deals Goal</p>
+                <p className="text-2xl font-bold text-primary">{syncedGoals.deals_goal}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Annual GCI Goal</p>
+                <p className="text-2xl font-bold text-primary">${syncedGoals.gci_goal.toLocaleString()}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">{monthNames[weekMonth]} Deals</p>
+                <p className="text-2xl font-bold text-foreground">{Math.round(syncedGoals.monthly_deals[weekMonth] * 10) / 10}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">{monthNames[weekMonth]} GCI</p>
+                <p className="text-2xl font-bold text-foreground">${Math.round(syncedGoals.monthly_gci[weekMonth]).toLocaleString()}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Tabs defaultValue="weekly" className="space-y-6">
         <TabsList className="bg-muted">
           <TabsTrigger value="weekly" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
@@ -283,9 +362,16 @@ const FourOneOne = () => {
             <Button variant="outline" size="sm" onClick={() => setCurrentWeek(subWeeks(currentWeek, 1))}>
               <ChevronLeft className="h-4 w-4 mr-1" /> Previous
             </Button>
-            <h2 className="font-display text-lg font-semibold">
-              Week of {format(currentWeek, 'MMM d, yyyy')}
-            </h2>
+            <div className="text-center">
+              <h2 className="font-display text-lg font-semibold">
+                Week of {format(currentWeek, 'MMM d, yyyy')}
+              </h2>
+              {syncedGoals.deals_goal > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  {monthNames[weekMonth]} Goal: {Math.round(syncedGoals.monthly_deals[weekMonth] * 10) / 10} deals / ${Math.round(syncedGoals.monthly_gci[weekMonth]).toLocaleString()} GCI
+                </p>
+              )}
+            </div>
             <Button variant="outline" size="sm" onClick={() => setCurrentWeek(addWeeks(currentWeek, 1))}>
               Next <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
