@@ -50,6 +50,39 @@ const calculateStageFromDate = (expectedPendingDate: string | null): number => {
   return 1;
 };
 
+// Convert month/year to first day of that month as date string
+const monthYearToDateString = (month: string, year: string): string => {
+  if (!month || !year) return '';
+  return `${year}-${month.padStart(2, '0')}-01`;
+};
+
+// Parse date string to get month and year
+const getMonthYearFromDate = (dateStr: string | null): { month: string; year: string } => {
+  if (!dateStr) return { month: '', year: '' };
+  const date = parseISO(dateStr);
+  return {
+    month: (date.getMonth() + 1).toString(),
+    year: date.getFullYear().toString()
+  };
+};
+
+const months = [
+  { value: '1', label: 'January' },
+  { value: '2', label: 'February' },
+  { value: '3', label: 'March' },
+  { value: '4', label: 'April' },
+  { value: '5', label: 'May' },
+  { value: '6', label: 'June' },
+  { value: '7', label: 'July' },
+  { value: '8', label: 'August' },
+  { value: '9', label: 'September' },
+  { value: '10', label: 'October' },
+  { value: '11', label: 'November' },
+  { value: '12', label: 'December' }
+];
+
+const years = ['2025', '2026', '2027', '2028', '2029', '2030'];
+
 // Stage definitions with timeline descriptions
 const stageDefinitions: Record<number, { label: string; description: string; color: string }> = {
   10: { label: '10', description: 'Next 30 days', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
@@ -378,15 +411,36 @@ const Pipeline = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Expected Pending Date</Label>
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="date"
-                    value={newClient.expected_pending_date}
-                    onChange={(e) => setNewClient({ ...newClient, expected_pending_date: e.target.value })}
-                    className="flex-1"
-                  />
+                <Label>Expected Pending Month</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Select 
+                    value={getMonthYearFromDate(newClient.expected_pending_date).month} 
+                    onValueChange={(m) => {
+                      const { year } = getMonthYearFromDate(newClient.expected_pending_date);
+                      setNewClient({ ...newClient, expected_pending_date: monthYearToDateString(m, year || '2025') });
+                    }}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Month" /></SelectTrigger>
+                    <SelectContent>
+                      {months.map(m => (
+                        <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select 
+                    value={getMonthYearFromDate(newClient.expected_pending_date).year} 
+                    onValueChange={(y) => {
+                      const { month } = getMonthYearFromDate(newClient.expected_pending_date);
+                      setNewClient({ ...newClient, expected_pending_date: monthYearToDateString(month || '1', y) });
+                    }}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Year" /></SelectTrigger>
+                    <SelectContent>
+                      {years.map(y => (
+                        <SelectItem key={y} value={y}>{y}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 {newClient.expected_pending_date && (
                   <p className="text-xs text-muted-foreground">
@@ -624,16 +678,38 @@ const Pipeline = () => {
                         {client.expected_pending_date && (
                           <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                             <Calendar className="h-3 w-3" />
-                            Pending: {format(parseISO(client.expected_pending_date), 'MMM d, yyyy')}
+                            Pending: {format(parseISO(client.expected_pending_date), 'MMM yyyy')}
                           </p>
                         )}
-                        <div className="mt-2">
-                          <Input
-                            type="date"
-                            value={client.expected_pending_date || ''}
-                            onChange={(e) => updateExpectedPendingDate(client.id, e.target.value)}
-                            className="h-7 text-xs"
-                          />
+                        <div className="mt-2 grid grid-cols-2 gap-1">
+                          <Select 
+                            value={getMonthYearFromDate(client.expected_pending_date).month} 
+                            onValueChange={(m) => {
+                              const { year } = getMonthYearFromDate(client.expected_pending_date);
+                              updateExpectedPendingDate(client.id, monthYearToDateString(m, year || '2025'));
+                            }}
+                          >
+                            <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="Mo" /></SelectTrigger>
+                            <SelectContent>
+                              {months.map(mo => (
+                                <SelectItem key={mo.value} value={mo.value}>{mo.label.slice(0, 3)}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Select 
+                            value={getMonthYearFromDate(client.expected_pending_date).year} 
+                            onValueChange={(y) => {
+                              const { month } = getMonthYearFromDate(client.expected_pending_date);
+                              updateExpectedPendingDate(client.id, monthYearToDateString(month || '1', y));
+                            }}
+                          >
+                            <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="Yr" /></SelectTrigger>
+                            <SelectContent>
+                              {years.map(yr => (
+                                <SelectItem key={yr} value={yr}>{yr}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
                     ))}
