@@ -42,10 +42,10 @@ const initialDealState = {
   property_address: '',
   deal_value: '',
   gross_commission: '',
-  brokerage_split_percent: '30',
+  brokerage_split_percent: '20',
   transaction_side: 'buyer',
   commission_status: 'pending',
-  stage: 'closed',
+  stage: 'pending',
   notes: '',
   email: '',
   phone: ''
@@ -390,9 +390,9 @@ const Commissions = () => {
                     <Select value={newDeal.stage} onValueChange={(v) => setNewDeal({ ...newDeal, stage: v })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="offer">Conditional</SelectItem>
+                        <SelectItem value="under_contract">Pending</SelectItem>
                         <SelectItem value="closed">Closed</SelectItem>
-                        <SelectItem value="under_contract">Under Contract</SelectItem>
-                        <SelectItem value="offer">Offer</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
