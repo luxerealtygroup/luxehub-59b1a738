@@ -7,13 +7,14 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Phone, Mail, Search, Trash2, Edit2, Loader2 } from 'lucide-react';
+import { Plus, Phone, Mail, Search, Trash2, Edit2, Loader2, DollarSign, Home, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { FUBClientSearch } from '@/components/FUBClientSearch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface PipelineClient {
   id: string;
@@ -25,6 +26,9 @@ interface PipelineClient {
   property_interest: string | null;
   source: string | null;
   created_at: string;
+  client_type: 'buyer' | 'seller';
+  projected_sale_amount: number | null;
+  projected_gci: number | null;
 }
 
 // Stage definitions with timeline descriptions
@@ -52,6 +56,7 @@ const Pipeline = () => {
   const [editClient, setEditClient] = useState<PipelineClient | null>(null);
   const [syncToFUB, setSyncToFUB] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState<'buyer' | 'seller'>('buyer');
   
   const [newClient, setNewClient] = useState({
     client_name: '',
@@ -60,7 +65,10 @@ const Pipeline = () => {
     stage: '5',
     notes: '',
     property_interest: '',
-    source: ''
+    source: '',
+    client_type: 'buyer' as 'buyer' | 'seller',
+    projected_sale_amount: '',
+    projected_gci: ''
   });
 
   const fetchClients = async () => {
@@ -85,7 +93,6 @@ const Pipeline = () => {
 
   const syncClientToFUB = async (clientData: typeof newClient) => {
     try {
-      // Parse name into first and last
       const nameParts = clientData.client_name.trim().split(' ');
       const firstName = nameParts[0] || '';
       const lastName = nameParts.slice(1).join(' ') || '';
@@ -103,7 +110,7 @@ const Pipeline = () => {
             email: clientData.email || undefined,
             phone: clientData.phone || undefined,
             source: clientData.source || 'Lovable Pipeline',
-            tags: [stageTag, timelineTag, 'pipeline_client'],
+            tags: [stageTag, timelineTag, 'pipeline_client', clientData.client_type],
             notes: [clientData.notes, clientData.property_interest].filter(Boolean).join(' | ')
           }
         }
@@ -124,7 +131,6 @@ const Pipeline = () => {
     setSubmitting(true);
 
     if (editClient) {
-      // Update existing client
       const { error } = await supabase
         .from('pipeline_clients')
         .update({
@@ -134,7 +140,10 @@ const Pipeline = () => {
           stage: parseInt(newClient.stage),
           notes: newClient.notes || null,
           property_interest: newClient.property_interest || null,
-          source: newClient.source || null
+          source: newClient.source || null,
+          client_type: newClient.client_type,
+          projected_sale_amount: parseFloat(newClient.projected_sale_amount) || 0,
+          projected_gci: parseFloat(newClient.projected_gci) || 0
         })
         .eq('id', editClient.id);
 
@@ -146,7 +155,6 @@ const Pipeline = () => {
         fetchClients();
       }
     } else {
-      // Insert new client
       const { error } = await supabase.from('pipeline_clients').insert({
         user_id: user.id,
         client_name: newClient.client_name,
@@ -155,7 +163,10 @@ const Pipeline = () => {
         stage: parseInt(newClient.stage),
         notes: newClient.notes || null,
         property_interest: newClient.property_interest || null,
-        source: newClient.source || null
+        source: newClient.source || null,
+        client_type: newClient.client_type,
+        projected_sale_amount: parseFloat(newClient.projected_sale_amount) || 0,
+        projected_gci: parseFloat(newClient.projected_gci) || 0
       });
 
       if (error) {
@@ -164,7 +175,6 @@ const Pipeline = () => {
         return;
       }
       
-      // Sync to Follow Up Boss if enabled
       if (syncToFUB) {
         const fubResult = await syncClientToFUB(newClient);
         if (fubResult.success) {
@@ -191,7 +201,20 @@ const Pipeline = () => {
     setDialogOpen(false);
     setEditClient(null);
     setSyncToFUB(true);
-    setNewClient({ client_name: '', email: '', phone: '', stage: '5', notes: '', property_interest: '', source: '' });
+    setNewClient({ 
+      client_name: '', email: '', phone: '', stage: '5', notes: '', 
+      property_interest: '', source: '', client_type: activeTab,
+      projected_sale_amount: '', projected_gci: ''
+    });
+  };
+
+  const openAddDialog = () => {
+    setNewClient({ 
+      client_name: '', email: '', phone: '', stage: '5', notes: '', 
+      property_interest: '', source: '', client_type: activeTab,
+      projected_sale_amount: '', projected_gci: ''
+    });
+    setDialogOpen(true);
   };
 
   const openEditDialog = (client: PipelineClient) => {
@@ -203,7 +226,10 @@ const Pipeline = () => {
       stage: client.stage.toString(),
       notes: client.notes || '',
       property_interest: client.property_interest || '',
-      source: client.source || ''
+      source: client.source || '',
+      client_type: client.client_type,
+      projected_sale_amount: client.projected_sale_amount?.toString() || '',
+      projected_gci: client.projected_gci?.toString() || ''
     });
     setDialogOpen(true);
   };
@@ -246,13 +272,24 @@ const Pipeline = () => {
     return <div className="flex items-center justify-center h-64 text-primary animate-pulse">Loading pipeline...</div>;
   }
 
+  const buyers = clients.filter(c => c.client_type === 'buyer');
+  const sellers = clients.filter(c => c.client_type === 'seller');
+  const activeClients = activeTab === 'buyer' ? buyers : sellers;
+
   const clientsByStage = stageOrder.reduce((acc, stage) => {
-    acc[stage] = clients.filter(c => c.stage === stage);
+    acc[stage] = activeClients.filter(c => c.stage === stage);
     return acc;
   }, {} as Record<number, PipelineClient[]>);
 
-  const totalClients = clients.length;
-  const hotLeads = clients.filter(c => c.stage >= 8).length;
+  // Calculate totals
+  const totalProjectedVolume = clients.reduce((sum, c) => sum + (c.projected_sale_amount || 0), 0);
+  const totalProjectedGCI = clients.reduce((sum, c) => sum + (c.projected_gci || 0), 0);
+  const buyerVolume = buyers.reduce((sum, c) => sum + (c.projected_sale_amount || 0), 0);
+  const buyerGCI = buyers.reduce((sum, c) => sum + (c.projected_gci || 0), 0);
+  const sellerVolume = sellers.reduce((sum, c) => sum + (c.projected_sale_amount || 0), 0);
+  const sellerGCI = sellers.reduce((sum, c) => sum + (c.projected_gci || 0), 0);
+
+  const hotLeads = activeClients.filter(c => c.stage >= 8).length;
 
   return (
     <div className="space-y-6">
@@ -260,22 +297,32 @@ const Pipeline = () => {
         <div>
           <h1 className="text-3xl font-display font-bold text-foreground">Client Pipeline</h1>
           <p className="text-muted-foreground mt-1">
-            {totalClients} clients in pipeline • <span className="text-primary font-semibold">{hotLeads} hot leads</span>
+            {clients.length} clients in pipeline • {buyers.length} buyers • {sellers.length} sellers
           </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) closeDialog(); else setDialogOpen(true); }}>
+        <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) closeDialog(); else openAddDialog(); }}>
           <DialogTrigger asChild>
             <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
               <Plus className="h-4 w-4 mr-2" /> Add Client
             </Button>
           </DialogTrigger>
-          <DialogContent className="border-primary/20 bg-card max-w-md">
+          <DialogContent className="border-primary/20 bg-card max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-primary font-display">
                 {editClient ? 'Edit Client' : 'Add Client to Pipeline'}
               </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label>Client Type</Label>
+                <Select value={newClient.client_type} onValueChange={(v: 'buyer' | 'seller') => setNewClient({ ...newClient, client_type: v })}>
+                  <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="buyer">Buyer</SelectItem>
+                    <SelectItem value="seller">Seller</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="flex gap-2">
                 <Input
                   placeholder="Client name *"
@@ -308,7 +355,7 @@ const Pipeline = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Buying Timeline Stage</Label>
+                <Label>Timeline Stage</Label>
                 <Select value={newClient.stage} onValueChange={(v) => setNewClient({ ...newClient, stage: v })}>
                   <SelectTrigger><SelectValue placeholder="Select stage" /></SelectTrigger>
                   <SelectContent>
@@ -319,6 +366,26 @@ const Pipeline = () => {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Projected Sale Amount</Label>
+                  <Input
+                    type="number"
+                    placeholder="e.g., 500000"
+                    value={newClient.projected_sale_amount}
+                    onChange={(e) => setNewClient({ ...newClient, projected_sale_amount: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Projected GCI</Label>
+                  <Input
+                    type="number"
+                    placeholder="e.g., 15000"
+                    value={newClient.projected_gci}
+                    onChange={(e) => setNewClient({ ...newClient, projected_gci: e.target.value })}
+                  />
+                </div>
               </div>
               <Input
                 placeholder="Property interest (e.g., 3BR in Downtown)"
@@ -367,104 +434,192 @@ const Pipeline = () => {
         </Dialog>
       </div>
 
-      {/* Stage Legend */}
-      <div className="flex flex-wrap gap-2">
-        {stageOrder.map(stage => (
-          <Badge key={stage} className={`${stageDefinitions[stage].color} text-xs`}>
-            {stage}: {stageDefinitions[stage].description}
-          </Badge>
-        ))}
+      {/* Pipeline Summary */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className="border-gold/20 bg-gradient-to-br from-card to-gold/5">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-gold/10">
+                <Home className="h-5 w-5 text-gold" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Total Volume</p>
+                <p className="text-xl font-bold text-gold">${totalProjectedVolume.toLocaleString()}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="border-gold/20 bg-gradient-to-br from-card to-gold/5">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-gold/10">
+                <DollarSign className="h-5 w-5 text-gold" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Total Projected GCI</p>
+                <p className="text-xl font-bold text-gold">${totalProjectedGCI.toLocaleString()}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="border-primary/10 bg-card/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-blue-500/10">
+                <Users className="h-5 w-5 text-blue-400" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Buyers ({buyers.length})</p>
+                <p className="text-lg font-bold text-blue-400">${buyerGCI.toLocaleString()} GCI</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="border-primary/10 bg-card/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-emerald-500/10">
+                <Home className="h-5 w-5 text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Sellers ({sellers.length})</p>
+                <p className="text-lg font-bold text-emerald-400">${sellerGCI.toLocaleString()} GCI</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Pipeline Grid */}
-      <ScrollArea className="w-full">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-5 gap-4 min-w-[800px] pb-4">
-          {stageOrder.map((stage) => (
-            <Card key={stage} className="border-primary/10 bg-card/50">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center justify-between">
-                  <div>
-                    <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full mr-2 text-xs font-bold ${stageDefinitions[stage].color}`}>
-                      {stage}
-                    </span>
-                    <span className="text-muted-foreground text-xs">{stageDefinitions[stage].description}</span>
-                  </div>
-                  <Badge variant="outline" className="border-primary/30 text-primary">
-                    {clientsByStage[stage].length}
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {clientsByStage[stage].map((client) => (
-                  <div 
-                    key={client.id} 
-                    className="p-3 rounded-lg bg-background/50 border border-primary/10 hover:border-primary/30 transition-colors group"
-                  >
-                    <div className="flex items-start justify-between">
-                      <p className="font-medium text-foreground text-sm truncate flex-1">{client.client_name}</p>
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button 
-                          size="icon" 
-                          variant="ghost" 
-                          className="h-6 w-6"
-                          onClick={() => openEditDialog(client)}
-                        >
-                          <Edit2 className="h-3 w-3" />
-                        </Button>
-                        <Button 
-                          size="icon" 
-                          variant="ghost" 
-                          className="h-6 w-6 text-destructive hover:text-destructive"
-                          onClick={() => deleteClient(client.id)}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
+      {/* Buyer/Seller Tabs */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'buyer' | 'seller')}>
+        <TabsList className="bg-muted/50">
+          <TabsTrigger value="buyer" className="data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-400">
+            Buyers ({buyers.length})
+          </TabsTrigger>
+          <TabsTrigger value="seller" className="data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400">
+            Sellers ({sellers.length})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value={activeTab} className="mt-4 space-y-4">
+          {/* Stage Legend */}
+          <div className="flex flex-wrap gap-2">
+            {stageOrder.map(stage => (
+              <Badge key={stage} className={`${stageDefinitions[stage].color} text-xs`}>
+                {stage}: {stageDefinitions[stage].description}
+              </Badge>
+            ))}
+          </div>
+
+          {/* Hot leads indicator */}
+          <p className="text-sm text-muted-foreground">
+            <span className="text-primary font-semibold">{hotLeads} hot leads</span> (Stage 8+)
+          </p>
+
+          {/* Pipeline Grid */}
+          <ScrollArea className="w-full">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-5 gap-4 min-w-[800px] pb-4">
+              {stageOrder.map((stage) => (
+                <Card key={stage} className="border-primary/10 bg-card/50">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium flex items-center justify-between">
+                      <div>
+                        <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full mr-2 text-xs font-bold ${stageDefinitions[stage].color}`}>
+                          {stage}
+                        </span>
+                        <span className="text-muted-foreground text-xs">{stageDefinitions[stage].description}</span>
                       </div>
-                    </div>
-                    {client.email && (
-                      <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
-                        <Mail className="h-3 w-3" /> {client.email}
-                      </p>
-                    )}
-                    {client.phone && (
-                      <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
-                        <Phone className="h-3 w-3" /> {client.phone}
-                      </p>
-                    )}
-                    {client.property_interest && (
-                      <p className="text-xs text-primary mt-1 truncate">
-                        {client.property_interest}
-                      </p>
-                    )}
-                    {client.source && (
-                      <Badge variant="outline" className="text-xs mt-1">
-                        {client.source}
+                      <Badge variant="outline" className="border-primary/30 text-primary">
+                        {clientsByStage[stage].length}
                       </Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {clientsByStage[stage].map((client) => (
+                      <div 
+                        key={client.id} 
+                        className="p-3 rounded-lg bg-background/50 border border-primary/10 hover:border-primary/30 transition-colors group"
+                      >
+                        <div className="flex items-start justify-between">
+                          <p className="font-medium text-foreground text-sm truncate flex-1">{client.client_name}</p>
+                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              className="h-6 w-6"
+                              onClick={() => openEditDialog(client)}
+                            >
+                              <Edit2 className="h-3 w-3" />
+                            </Button>
+                            <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              className="h-6 w-6 text-destructive hover:text-destructive"
+                              onClick={() => deleteClient(client.id)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                        {client.projected_sale_amount && client.projected_sale_amount > 0 && (
+                          <p className="text-xs text-gold font-medium">
+                            ${client.projected_sale_amount.toLocaleString()}
+                          </p>
+                        )}
+                        {client.projected_gci && client.projected_gci > 0 && (
+                          <p className="text-xs text-green-400">
+                            GCI: ${client.projected_gci.toLocaleString()}
+                          </p>
+                        )}
+                        {client.email && (
+                          <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                            <Mail className="h-3 w-3" /> {client.email}
+                          </p>
+                        )}
+                        {client.phone && (
+                          <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                            <Phone className="h-3 w-3" /> {client.phone}
+                          </p>
+                        )}
+                        {client.property_interest && (
+                          <p className="text-xs text-primary mt-1 truncate">
+                            {client.property_interest}
+                          </p>
+                        )}
+                        {client.source && (
+                          <Badge variant="outline" className="text-xs mt-1">
+                            {client.source}
+                          </Badge>
+                        )}
+                        <div className="mt-2">
+                          <Select value={client.stage.toString()} onValueChange={(v) => updateStage(client.id, parseInt(v))}>
+                            <SelectTrigger className="h-7 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {stageOrder.map(s => (
+                                <SelectItem key={s} value={s.toString()}>
+                                  Stage {s}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    ))}
+                    {clientsByStage[stage].length === 0 && (
+                      <p className="text-xs text-muted-foreground text-center py-4">No clients</p>
                     )}
-                    <div className="mt-2">
-                      <Select value={client.stage.toString()} onValueChange={(v) => updateStage(client.id, parseInt(v))}>
-                        <SelectTrigger className="h-7 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {stageOrder.map(s => (
-                            <SelectItem key={s} value={s.toString()} className="text-xs">
-                              Stage {s} - {stageDefinitions[s].description}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                ))}
-                {clientsByStage[stage].length === 0 && (
-                  <p className="text-xs text-muted-foreground text-center py-4">No clients</p>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </ScrollArea>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </ScrollArea>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

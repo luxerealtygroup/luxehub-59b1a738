@@ -257,11 +257,14 @@ export type Database = {
       pipeline_clients: {
         Row: {
           client_name: string
+          client_type: string
           created_at: string
           email: string | null
           id: string
           notes: string | null
           phone: string | null
+          projected_gci: number | null
+          projected_sale_amount: number | null
           property_interest: string | null
           source: string | null
           stage: number
@@ -270,11 +273,14 @@ export type Database = {
         }
         Insert: {
           client_name: string
+          client_type?: string
           created_at?: string
           email?: string | null
           id?: string
           notes?: string | null
           phone?: string | null
+          projected_gci?: number | null
+          projected_sale_amount?: number | null
           property_interest?: string | null
           source?: string | null
           stage?: number
@@ -283,11 +289,14 @@ export type Database = {
         }
         Update: {
           client_name?: string
+          client_type?: string
           created_at?: string
           email?: string | null
           id?: string
           notes?: string | null
           phone?: string | null
+          projected_gci?: number | null
+          projected_sale_amount?: number | null
           property_interest?: string | null
           source?: string | null
           stage?: number
