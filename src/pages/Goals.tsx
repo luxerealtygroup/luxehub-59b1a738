@@ -652,40 +652,58 @@ const Goals = () => {
                 <Users className="h-5 w-5 text-gold" />
                 Pipeline Requirements
                 <span className="text-xs font-normal text-muted-foreground ml-2">
-                  ({annualGoals.fallout_rate}% fallout rate)
+                  ({annualGoals.fallout_rate}% fallout rate = {100 - annualGoals.fallout_rate}% conversion)
                 </span>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="text-xs text-muted-foreground mb-4">
+            <CardContent className="space-y-4">
+              <p className="text-xs text-muted-foreground">
                 Based on your {annualGoals.fallout_rate}% fallout rate, here's how many names you need in your pipeline:
               </p>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="p-4 rounded-lg bg-background/50 border border-gold/20 text-center">
-                  <p className="text-xs text-muted-foreground mb-1">Annual</p>
-                  <p className="text-3xl font-bold text-gold">
-                    {Math.ceil(totalDealsGoal / ((100 - annualGoals.fallout_rate) / 100))}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">names needed</p>
-                </div>
-                <div className="p-4 rounded-lg bg-background/50 border border-gold/20 text-center">
-                  <p className="text-xs text-muted-foreground mb-1">Quarterly</p>
-                  <p className="text-3xl font-bold text-gold">
-                    {Math.ceil((totalDealsGoal / 4) / ((100 - annualGoals.fallout_rate) / 100))}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">names needed</p>
-                </div>
-                <div className="p-4 rounded-lg bg-background/50 border border-gold/20 text-center">
-                  <p className="text-xs text-muted-foreground mb-1">Monthly</p>
-                  <p className="text-3xl font-bold text-gold">
-                    {Math.ceil((totalDealsGoal / 12) / ((100 - annualGoals.fallout_rate) / 100))}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">names needed</p>
+              
+              {/* Annual Total */}
+              <div className="p-4 rounded-lg bg-gold/10 border border-gold/30 text-center">
+                <p className="text-sm font-medium text-gold mb-1">Annual Total</p>
+                <p className="text-4xl font-bold text-gold">
+                  {Math.ceil(totalDealsGoal / ((100 - annualGoals.fallout_rate) / 100))}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">names needed for {totalDealsGoal.toFixed(1)} deals</p>
+              </div>
+
+              {/* Quarterly Breakdown */}
+              <div>
+                <p className="text-sm font-medium text-foreground mb-2">Quarterly Breakdown</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {['Q1', 'Q2', 'Q3', 'Q4'].map((quarter, qIndex) => {
+                    const quarterDeals = getQuarterlyGoals(qIndex).deals;
+                    const pipelineNeeded = Math.ceil(quarterDeals / ((100 - annualGoals.fallout_rate) / 100));
+                    return (
+                      <div key={quarter} className="p-3 rounded-lg bg-background/50 border border-gold/20 text-center">
+                        <p className="text-xs text-muted-foreground mb-1">{quarter}</p>
+                        <p className="text-xl font-bold text-gold">{pipelineNeeded}</p>
+                        <p className="text-xs text-muted-foreground">for {quarterDeals.toFixed(1)} deals</p>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground mt-4 text-center">
-                Conversion rate: {100 - annualGoals.fallout_rate}% (every {Math.round(100 / (100 - annualGoals.fallout_rate))} leads = 1 deal)
-              </p>
+
+              {/* Monthly Breakdown */}
+              <div>
+                <p className="text-sm font-medium text-foreground mb-2">Monthly Breakdown</p>
+                <div className="grid grid-cols-6 md:grid-cols-12 gap-1">
+                  {monthNames.map((month, mIndex) => {
+                    const monthDeals = monthlyGoals[mIndex]?.deals || 0;
+                    const pipelineNeeded = Math.ceil(monthDeals / ((100 - annualGoals.fallout_rate) / 100));
+                    return (
+                      <div key={month} className="p-2 rounded bg-background/50 border border-primary/10 text-center">
+                        <p className="text-xs text-muted-foreground">{month}</p>
+                        <p className="text-sm font-bold text-gold">{pipelineNeeded}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </CardContent>
           </Card>
 
