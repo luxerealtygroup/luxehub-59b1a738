@@ -347,9 +347,15 @@ const Goals = () => {
     };
   };
 
-  const updateMonthlyGoal = (monthIndex: number, field: 'deals' | 'gci', value: number) => {
+  // Calculate GCI from deals using saved rates
+  const calculateGciFromDeals = (deals: number) => {
+    return deals * annualGoals.avg_sale_price * (annualGoals.commission_rate / 100) * (annualGoals.split_percent / 100);
+  };
+
+  const updateMonthlyGoal = (monthIndex: number, deals: number) => {
     const updated = [...monthlyGoals];
-    updated[monthIndex] = { ...updated[monthIndex], [field]: value };
+    const calculatedGci = calculateGciFromDeals(deals);
+    updated[monthIndex] = { ...updated[monthIndex], deals, gci: calculatedGci };
     setMonthlyGoals(updated);
     if (user) {
       localStorage.setItem(`monthlyGoals_${user.id}_${currentYear}`, JSON.stringify(updated));
@@ -693,18 +699,15 @@ const Goals = () => {
                               type="number"
                               step="0.1"
                               value={monthlyGoals[index]?.deals || 0}
-                              onChange={(e) => updateMonthlyGoal(index, 'deals', parseFloat(e.target.value) || 0)}
+                              onChange={(e) => updateMonthlyGoal(index, parseFloat(e.target.value) || 0)}
                               className="h-7 text-xs"
                             />
                           </div>
-                          <div className="space-y-1">
-                            <label className="text-xs text-muted-foreground">GCI</label>
-                            <Input
-                              type="number"
-                              value={Math.round(monthlyGoals[index]?.gci || 0)}
-                              onChange={(e) => updateMonthlyGoal(index, 'gci', parseFloat(e.target.value) || 0)}
-                              className="h-7 text-xs"
-                            />
+                          <div className="p-2 rounded bg-green-500/10 border border-green-500/20">
+                            <p className="text-xs text-muted-foreground">Auto GCI</p>
+                            <p className="text-sm font-bold text-green-400">
+                              ${Math.round(calculateGciFromDeals(monthlyGoals[index]?.deals || 0)).toLocaleString()}
+                            </p>
                           </div>
                           <Button 
                             size="sm" 
@@ -758,10 +761,11 @@ const Goals = () => {
                         <p className="text-sm font-medium text-foreground mb-3">{quarter}</p>
                         {editingQuarter === index ? (
                           <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
-                            <p className="text-xs text-muted-foreground">Edit individual months in Monthly view</p>
+                            <p className="text-xs text-muted-foreground">Edit deals per month (GCI auto-calculates)</p>
                             <div className="space-y-2">
                               {[0, 1, 2].map((monthOffset) => {
                                 const monthIndex = index * 3 + monthOffset;
+                                const monthDeals = monthlyGoals[monthIndex]?.deals || 0;
                                 return (
                                   <div key={monthIndex} className="flex items-center gap-2">
                                     <span className="text-xs w-8">{monthNames[monthIndex]}</span>
@@ -769,17 +773,13 @@ const Goals = () => {
                                       type="number"
                                       step="0.1"
                                       placeholder="Deals"
-                                      value={monthlyGoals[monthIndex]?.deals || 0}
-                                      onChange={(e) => updateMonthlyGoal(monthIndex, 'deals', parseFloat(e.target.value) || 0)}
+                                      value={monthDeals}
+                                      onChange={(e) => updateMonthlyGoal(monthIndex, parseFloat(e.target.value) || 0)}
                                       className="h-6 text-xs flex-1"
                                     />
-                                    <Input
-                                      type="number"
-                                      placeholder="GCI"
-                                      value={Math.round(monthlyGoals[monthIndex]?.gci || 0)}
-                                      onChange={(e) => updateMonthlyGoal(monthIndex, 'gci', parseFloat(e.target.value) || 0)}
-                                      className="h-6 text-xs flex-1"
-                                    />
+                                    <span className="text-xs text-green-400 w-20 text-right">
+                                      ${Math.round(calculateGciFromDeals(monthDeals)).toLocaleString()}
+                                    </span>
                                   </div>
                                 );
                               })}
