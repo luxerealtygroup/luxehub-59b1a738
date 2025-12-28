@@ -42,11 +42,7 @@ const initialDealState = {
   property_address: '',
   deal_value: '',
   gross_commission: '',
-  agent_split_percent: '70',
-  team_split_percent: '0',
   brokerage_split_percent: '30',
-  referral_amount: '0',
-  other_deductions: '0',
   transaction_side: 'buyer',
   commission_status: 'pending',
   stage: 'closed',
@@ -95,16 +91,10 @@ const Commissions = () => {
 
   const calculateNetCommission = (deal: typeof newDeal) => {
     const gross = parseFloat(deal.gross_commission) || 0;
-    const agentPercent = parseFloat(deal.agent_split_percent) || 0;
-    const teamPercent = parseFloat(deal.team_split_percent) || 0;
     const brokeragePercent = parseFloat(deal.brokerage_split_percent) || 0;
-    const referral = parseFloat(deal.referral_amount) || 0;
-    const other = parseFloat(deal.other_deductions) || 0;
     
-    // Calculate: gross - brokerage cut - team cut - referral - other = agent net
-    const afterBrokerage = gross * (1 - brokeragePercent / 100);
-    const afterTeam = afterBrokerage * (1 - teamPercent / 100);
-    const netCommission = (afterTeam * agentPercent / 100) - referral - other;
+    // Calculate: gross - brokerage cut = agent net
+    const netCommission = gross * (1 - brokeragePercent / 100);
     
     return Math.max(0, netCommission);
   };
@@ -165,11 +155,7 @@ const Commissions = () => {
       deal_id: dealData.id,
       amount: netCommission,
       gross_commission: parseFloat(newDeal.gross_commission) || null,
-      agent_split_percent: parseFloat(newDeal.agent_split_percent) || null,
-      team_split_percent: parseFloat(newDeal.team_split_percent) || null,
       brokerage_split_percent: parseFloat(newDeal.brokerage_split_percent) || null,
-      referral_amount: parseFloat(newDeal.referral_amount) || null,
-      other_deductions: parseFloat(newDeal.other_deductions) || null,
       transaction_side: newDeal.transaction_side,
       status: newDeal.commission_status
     });
@@ -381,53 +367,13 @@ const Commissions = () => {
                       required
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2">
-                      <Label>Brokerage Split (%)</Label>
-                      <Input
-                        type="number"
-                        placeholder="30"
-                        value={newDeal.brokerage_split_percent}
-                        onChange={(e) => setNewDeal({ ...newDeal, brokerage_split_percent: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Team Split (%)</Label>
-                      <Input
-                        type="number"
-                        placeholder="0"
-                        value={newDeal.team_split_percent}
-                        onChange={(e) => setNewDeal({ ...newDeal, team_split_percent: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2">
-                      <Label>Your Split (%)</Label>
-                      <Input
-                        type="number"
-                        placeholder="70"
-                        value={newDeal.agent_split_percent}
-                        onChange={(e) => setNewDeal({ ...newDeal, agent_split_percent: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Referral Fee ($)</Label>
-                      <Input
-                        type="number"
-                        placeholder="0"
-                        value={newDeal.referral_amount}
-                        onChange={(e) => setNewDeal({ ...newDeal, referral_amount: e.target.value })}
-                      />
-                    </div>
-                  </div>
                   <div className="space-y-2">
-                    <Label>Other Deductions ($)</Label>
+                    <Label>Brokerage Split (%)</Label>
                     <Input
                       type="number"
-                      placeholder="TC fees, marketing, etc."
-                      value={newDeal.other_deductions}
-                      onChange={(e) => setNewDeal({ ...newDeal, other_deductions: e.target.value })}
+                      placeholder="30"
+                      value={newDeal.brokerage_split_percent}
+                      onChange={(e) => setNewDeal({ ...newDeal, brokerage_split_percent: e.target.value })}
                     />
                   </div>
                   <div className="pt-2 border-t border-gold/20">
