@@ -66,6 +66,7 @@ export type Database = {
       }
       agent_goals: {
         Row: {
+          category: string
           created_at: string
           current_value: number
           end_date: string | null
@@ -78,6 +79,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          category?: string
           created_at?: string
           current_value?: number
           end_date?: string | null
@@ -90,6 +92,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          category?: string
           created_at?: string
           current_value?: number
           end_date?: string | null
@@ -377,6 +380,12 @@ export type Database = {
           listings_goal: number | null
           next_steps: string | null
           notes: string | null
+          personal_priority_1: string | null
+          personal_priority_1_completed: boolean | null
+          personal_priority_2: string | null
+          personal_priority_2_completed: boolean | null
+          personal_priority_3: string | null
+          personal_priority_3_completed: boolean | null
           priority_1: string | null
           priority_1_completed: boolean | null
           priority_2: string | null
@@ -404,6 +413,12 @@ export type Database = {
           listings_goal?: number | null
           next_steps?: string | null
           notes?: string | null
+          personal_priority_1?: string | null
+          personal_priority_1_completed?: boolean | null
+          personal_priority_2?: string | null
+          personal_priority_2_completed?: boolean | null
+          personal_priority_3?: string | null
+          personal_priority_3_completed?: boolean | null
           priority_1?: string | null
           priority_1_completed?: boolean | null
           priority_2?: string | null
@@ -431,6 +446,12 @@ export type Database = {
           listings_goal?: number | null
           next_steps?: string | null
           notes?: string | null
+          personal_priority_1?: string | null
+          personal_priority_1_completed?: boolean | null
+          personal_priority_2?: string | null
+          personal_priority_2_completed?: boolean | null
+          personal_priority_3?: string | null
+          personal_priority_3_completed?: boolean | null
           priority_1?: string | null
           priority_1_completed?: boolean | null
           priority_2?: string | null
