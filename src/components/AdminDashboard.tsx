@@ -66,12 +66,18 @@ const AdminDashboard = () => {
           d.stageName?.toLowerCase().includes('won')
         );
         
-        // Pending deals = not closed/won and not lost
+        // Pending deals = only deals with stage "Pending" (under contract awaiting close)
         const pendingDeals = deals.filter((d: FUBDeal) => 
+          d.stageName?.toLowerCase() === 'pending'
+        );
+        
+        // Active deals = everything else that's not closed/won/lost
+        const activeDeals = deals.filter((d: FUBDeal) => 
           d.status?.toLowerCase() !== 'won' && 
           d.status?.toLowerCase() !== 'lost' &&
           !d.stageName?.toLowerCase().includes('closed') &&
-          !d.stageName?.toLowerCase().includes('lost')
+          !d.stageName?.toLowerCase().includes('won') &&
+          d.stageName?.toLowerCase() !== 'pending'
         );
 
         // Total GCI = full commission value from closed deals (no splits)
