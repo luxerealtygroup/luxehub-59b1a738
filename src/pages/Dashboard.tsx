@@ -2,11 +2,18 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Building2, Phone, DollarSign, Target, Users, Search, Loader2 } from 'lucide-react';
+import { Building2, Phone, DollarSign, Target, Users, Search, Loader2, Plus, UserPlus } from 'lucide-react';
 import { FUBClientSearch } from '@/components/FUBClientSearch';
 import { followUpBossApi, FUBPerson } from '@/lib/api/followUpBoss';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useToast } from '@/hooks/use-toast';
 
 interface Stats {
   totalDeals: number;
@@ -17,8 +24,24 @@ interface Stats {
   goalsProgress: number;
 }
 
+const stageDefinitions: Record<number, { description: string }> = {
+  10: { description: 'Next 30 days' },
+  9: { description: 'Next 60 days' },
+  8: { description: 'Next 90 days' },
+  7: { description: 'Next 120 days' },
+  6: { description: 'Next 6 months' },
+  5: { description: 'Next 9 months' },
+  4: { description: 'Next 12 months' },
+  3: { description: '12-18 months' },
+  2: { description: '18-24 months' },
+  1: { description: '24+ months' },
+};
+
+const stageOrder = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
+
 const Dashboard = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [stats, setStats] = useState<Stats>({
     totalDeals: 0,
     activeDeals: 0,
@@ -31,6 +54,20 @@ const Dashboard = () => {
   const [fubClients, setFubClients] = useState<FUBPerson[]>([]);
   const [fubLoading, setFubLoading] = useState(false);
   const [fubError, setFubError] = useState<string | null>(null);
+  
+  // Add client dialog state
+  const [addClientOpen, setAddClientOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [syncToFUB, setSyncToFUB] = useState(true);
+  const [newClient, setNewClient] = useState({
+    client_name: '',
+    email: '',
+    phone: '',
+    stage: '5',
+    notes: '',
+    property_interest: '',
+    source: ''
+  });
 
   useEffect(() => {
     if (!user) return;
@@ -95,6 +132,92 @@ const Dashboard = () => {
     fetchFUBClients();
   }, [user]);
 
+  const syncClientToFUB = async (clientData: typeof newClient) => {
+    try {
+      const nameParts = clientData.client_name.trim().split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+      
+      const stageNum = parseInt(clientData.stage);
+      const stageTag = `pipeline_stage_${stageNum}`;
+      const timelineTag = `timeline_${stageDefinitions[stageNum]?.description || 'unknown'}`;
+      
+      const { data, error } = await supabase.functions.invoke('follow-up-boss', {
+        body: {
+          action: 'create_person',
+          params: {
+            firstName,
+            lastName,
+            email: clientData.email || undefined,
+            phone: clientData.phone || undefined,
+            source: clientData.source || 'Lovable Pipeline',
+            tags: [stageTag, timelineTag, 'pipeline_client'],
+            notes: [clientData.notes, clientData.property_interest].filter(Boolean).join(' | ')
+          }
+        }
+      });
+      
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error syncing to FUB:', error);
+      return { success: false, error };
+    }
+  };
+
+  const handleAddClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    
+    setSubmitting(true);
+
+    const { error } = await supabase.from('pipeline_clients').insert({
+      user_id: user.id,
+      client_name: newClient.client_name,
+      email: newClient.email || null,
+      phone: newClient.phone || null,
+      stage: parseInt(newClient.stage),
+      notes: newClient.notes || null,
+      property_interest: newClient.property_interest || null,
+      source: newClient.source || null
+    });
+
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      setSubmitting(false);
+      return;
+    }
+    
+    if (syncToFUB) {
+      const fubResult = await syncClientToFUB(newClient);
+      if (fubResult.success) {
+        toast({ title: 'Client added & synced to Follow Up Boss!' });
+      } else {
+        toast({ 
+          title: 'Client added to pipeline', 
+          description: 'Note: Could not sync to Follow Up Boss',
+        });
+      }
+    } else {
+      toast({ title: 'Client added to pipeline!' });
+    }
+    
+    setAddClientOpen(false);
+    setNewClient({ client_name: '', email: '', phone: '', stage: '5', notes: '', property_interest: '', source: '' });
+    setSyncToFUB(true);
+    setSubmitting(false);
+  };
+
+  const handleFUBClientSelect = (client: { name: string; email?: string; phone?: string }) => {
+    setNewClient({
+      ...newClient,
+      client_name: client.name,
+      email: client.email || newClient.email,
+      phone: client.phone || newClient.phone,
+      source: 'Follow Up Boss'
+    });
+  };
+
   const statCards = [
     { title: 'Active Deals', value: stats.activeDeals, icon: Building2, subtitle: `${stats.totalDeals} total` },
     { title: 'Activities', value: stats.activitiesThisWeek, icon: Phone, subtitle: 'This week' },
@@ -146,10 +269,105 @@ const Dashboard = () => {
               <Phone className="h-6 w-6 mx-auto text-gold mb-2" />
               <span className="text-sm text-foreground">Log Activity</span>
             </a>
-            <a href="/dashboard/pipeline" className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center">
-              <Building2 className="h-6 w-6 mx-auto text-gold mb-2" />
-              <span className="text-sm text-foreground">Add Deal</span>
-            </a>
+            <Dialog open={addClientOpen} onOpenChange={setAddClientOpen}>
+              <DialogTrigger asChild>
+                <button className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center w-full">
+                  <UserPlus className="h-6 w-6 mx-auto text-gold mb-2" />
+                  <span className="text-sm text-foreground">Add Client</span>
+                </button>
+              </DialogTrigger>
+              <DialogContent className="border-primary/20 bg-card max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="text-primary font-display">Add Client to Pipeline</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleAddClient} className="space-y-4">
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Client name *"
+                      value={newClient.client_name}
+                      onChange={(e) => setNewClient({ ...newClient, client_name: e.target.value })}
+                      required
+                      className="flex-1"
+                    />
+                    <FUBClientSearch 
+                      onSelectClient={handleFUBClientSelect}
+                      trigger={
+                        <Button type="button" variant="outline" size="icon" title="Import from Follow Up Boss">
+                          <Search className="h-4 w-4" />
+                        </Button>
+                      }
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input
+                      type="email"
+                      placeholder="Email"
+                      value={newClient.email}
+                      onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
+                    />
+                    <Input
+                      type="tel"
+                      placeholder="Phone"
+                      value={newClient.phone}
+                      onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Buying Timeline Stage</Label>
+                    <Select value={newClient.stage} onValueChange={(v) => setNewClient({ ...newClient, stage: v })}>
+                      <SelectTrigger><SelectValue placeholder="Select stage" /></SelectTrigger>
+                      <SelectContent>
+                        {stageOrder.map(s => (
+                          <SelectItem key={s} value={s.toString()}>
+                            Stage {s} - {stageDefinitions[s].description}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Input
+                    placeholder="Property interest (e.g., 3BR in Downtown)"
+                    value={newClient.property_interest}
+                    onChange={(e) => setNewClient({ ...newClient, property_interest: e.target.value })}
+                  />
+                  <Input
+                    placeholder="Source (e.g., Referral, Open House)"
+                    value={newClient.source}
+                    onChange={(e) => setNewClient({ ...newClient, source: e.target.value })}
+                  />
+                  <Textarea
+                    placeholder="Notes"
+                    value={newClient.notes}
+                    onChange={(e) => setNewClient({ ...newClient, notes: e.target.value })}
+                    rows={3}
+                  />
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="sync-fub-dashboard" 
+                      checked={syncToFUB} 
+                      onCheckedChange={(checked) => setSyncToFUB(checked === true)}
+                    />
+                    <Label htmlFor="sync-fub-dashboard" className="text-sm text-muted-foreground cursor-pointer">
+                      Also add to Follow Up Boss
+                    </Label>
+                  </div>
+                  <Button 
+                    type="submit" 
+                    className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+                    disabled={submitting}
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        {syncToFUB ? 'Adding & Syncing...' : 'Adding...'}
+                      </>
+                    ) : (
+                      'Add Client'
+                    )}
+                  </Button>
+                </form>
+              </DialogContent>
+            </Dialog>
           </CardContent>
         </Card>
 
