@@ -7,10 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Building2, DollarSign, Users, UserPlus } from 'lucide-react';
+import { Plus, Building2, DollarSign, Users, UserPlus, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { FUBClientSearch } from '@/components/FUBClientSearch';
 
 type DealStage = 'lead' | 'contacted' | 'showing' | 'offer' | 'under_contract' | 'closed' | 'lost';
 
@@ -221,12 +222,23 @@ const Pipeline = () => {
               <DialogTitle className="text-primary font-display">Add New Deal</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <Input
-                placeholder="Client name *"
-                value={newDeal.client_name}
-                onChange={(e) => setNewDeal({ ...newDeal, client_name: e.target.value })}
-                required
-              />
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Client name *"
+                  value={newDeal.client_name}
+                  onChange={(e) => setNewDeal({ ...newDeal, client_name: e.target.value })}
+                  required
+                  className="flex-1"
+                />
+                <FUBClientSearch 
+                  onSelectClient={(client) => setNewDeal({ ...newDeal, client_name: client.name })}
+                  trigger={
+                    <Button type="button" variant="outline" size="icon" title="Import from Follow Up Boss">
+                      <Search className="h-4 w-4" />
+                    </Button>
+                  }
+                />
+              </div>
               <Input
                 placeholder="Property address"
                 value={newDeal.property_address}
