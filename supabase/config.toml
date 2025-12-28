@@ -1,1 +1,4 @@
 project_id = "sxpfxmlxegpmfamlmjyg"
+
+[functions.follow-up-boss]
+verify_jwt = false
