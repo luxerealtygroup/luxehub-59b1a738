@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Building2, Phone, DollarSign, Target } from 'lucide-react';
+import { Building2, Phone, DollarSign, Target, Users, Search, Loader2 } from 'lucide-react';
+import { FUBClientSearch } from '@/components/FUBClientSearch';
+import { followUpBossApi, FUBPerson } from '@/lib/api/followUpBoss';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 interface Stats {
   totalDeals: number;
@@ -24,6 +28,9 @@ const Dashboard = () => {
     goalsProgress: 0
   });
   const [loading, setLoading] = useState(true);
+  const [fubClients, setFubClients] = useState<FUBPerson[]>([]);
+  const [fubLoading, setFubLoading] = useState(false);
+  const [fubError, setFubError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -66,7 +73,26 @@ const Dashboard = () => {
       setLoading(false);
     };
 
+    const fetchFUBClients = async () => {
+      setFubLoading(true);
+      setFubError(null);
+      try {
+        const response = await followUpBossApi.getPeople(10);
+        if (response.success && response.data?.people) {
+          setFubClients(response.data.people);
+        } else {
+          setFubError(response.error || 'Could not load Follow Up Boss clients');
+        }
+      } catch (error) {
+        console.error('FUB error:', error);
+        setFubError('Failed to connect to Follow Up Boss');
+      } finally {
+        setFubLoading(false);
+      }
+    };
+
     fetchStats();
+    fetchFUBClients();
   }, [user]);
 
   const statCards = [
@@ -138,6 +164,65 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Follow Up Boss Section */}
+      <Card className="border-gold/10 bg-card/50">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-gold" />
+            <CardTitle className="text-gold font-display">Follow Up Boss Clients</CardTitle>
+          </div>
+          <FUBClientSearch 
+            onSelectClient={(client) => console.log('Selected:', client)}
+            trigger={
+              <Button variant="outline" size="sm" className="border-gold/30 text-gold hover:bg-gold/10">
+                <Search className="h-4 w-4 mr-2" /> Search Clients
+              </Button>
+            }
+          />
+        </CardHeader>
+        <CardContent>
+          {fubLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 text-gold animate-spin" />
+              <span className="ml-2 text-muted-foreground">Loading clients...</span>
+            </div>
+          ) : fubError ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">{fubError}</p>
+              <p className="text-xs text-muted-foreground mt-2">Make sure your Follow Up Boss API key is configured</p>
+            </div>
+          ) : fubClients.length === 0 ? (
+            <div className="text-center py-8">
+              <Users className="h-10 w-10 mx-auto text-gold/30 mb-2" />
+              <p className="text-muted-foreground">No clients found</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {fubClients.slice(0, 6).map((client) => (
+                <div 
+                  key={client.id}
+                  className="p-3 rounded-lg bg-gold/5 border border-gold/10 hover:border-gold/30 transition-colors"
+                >
+                  <p className="font-medium text-foreground truncate">
+                    {client.name || `${client.firstName} ${client.lastName}`}
+                  </p>
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-xs text-muted-foreground truncate">
+                      {client.emails?.[0]?.value || client.phones?.[0]?.value || 'No contact'}
+                    </span>
+                    {client.stage && (
+                      <Badge variant="outline" className="text-xs border-gold/30 text-gold">
+                        {client.stage}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };
