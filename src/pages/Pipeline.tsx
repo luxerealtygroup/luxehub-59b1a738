@@ -7,12 +7,13 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Plus, User, Phone, Mail, Search, Trash2, Edit2 } from 'lucide-react';
+import { Plus, Phone, Mail, Search, Trash2, Edit2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { FUBClientSearch } from '@/components/FUBClientSearch';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface PipelineClient {
   id: string;
@@ -49,6 +50,8 @@ const Pipeline = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editClient, setEditClient] = useState<PipelineClient | null>(null);
+  const [syncToFUB, setSyncToFUB] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   
   const [newClient, setNewClient] = useState({
     client_name: '',
@@ -80,9 +83,45 @@ const Pipeline = () => {
     fetchClients();
   }, [user]);
 
+  const syncClientToFUB = async (clientData: typeof newClient) => {
+    try {
+      // Parse name into first and last
+      const nameParts = clientData.client_name.trim().split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+      
+      const stageNum = parseInt(clientData.stage);
+      const stageTag = `pipeline_stage_${stageNum}`;
+      const timelineTag = `timeline_${stageDefinitions[stageNum]?.description || 'unknown'}`;
+      
+      const { data, error } = await supabase.functions.invoke('follow-up-boss', {
+        body: {
+          action: 'create_person',
+          params: {
+            firstName,
+            lastName,
+            email: clientData.email || undefined,
+            phone: clientData.phone || undefined,
+            source: clientData.source || 'Lovable Pipeline',
+            tags: [stageTag, timelineTag, 'pipeline_client'],
+            notes: [clientData.notes, clientData.property_interest].filter(Boolean).join(' | ')
+          }
+        }
+      });
+      
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error syncing to FUB:', error);
+      return { success: false, error };
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+    
+    setSubmitting(true);
 
     if (editClient) {
       // Update existing client
@@ -121,17 +160,37 @@ const Pipeline = () => {
 
       if (error) {
         toast({ title: 'Error', description: error.message, variant: 'destructive' });
+        setSubmitting(false);
+        return;
+      }
+      
+      // Sync to Follow Up Boss if enabled
+      if (syncToFUB) {
+        const fubResult = await syncClientToFUB(newClient);
+        if (fubResult.success) {
+          toast({ title: 'Client added & synced to Follow Up Boss!' });
+        } else {
+          toast({ 
+            title: 'Client added to pipeline', 
+            description: 'Note: Could not sync to Follow Up Boss',
+            variant: 'default'
+          });
+        }
       } else {
         toast({ title: 'Client added to pipeline!' });
-        closeDialog();
-        fetchClients();
       }
+      
+      closeDialog();
+      fetchClients();
     }
+    
+    setSubmitting(false);
   };
 
   const closeDialog = () => {
     setDialogOpen(false);
     setEditClient(null);
+    setSyncToFUB(true);
     setNewClient({ client_name: '', email: '', phone: '', stage: '5', notes: '', property_interest: '', source: '' });
   };
 
@@ -277,8 +336,31 @@ const Pipeline = () => {
                 onChange={(e) => setNewClient({ ...newClient, notes: e.target.value })}
                 rows={3}
               />
-              <Button type="submit" className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
-                {editClient ? 'Update Client' : 'Add Client'}
+              {!editClient && (
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="sync-fub" 
+                    checked={syncToFUB} 
+                    onCheckedChange={(checked) => setSyncToFUB(checked === true)}
+                  />
+                  <Label htmlFor="sync-fub" className="text-sm text-muted-foreground cursor-pointer">
+                    Also add to Follow Up Boss
+                  </Label>
+                </div>
+              )}
+              <Button 
+                type="submit" 
+                className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    {syncToFUB ? 'Adding & Syncing...' : 'Adding...'}
+                  </>
+                ) : (
+                  editClient ? 'Update Client' : 'Add Client'
+                )}
               </Button>
             </form>
           </DialogContent>
