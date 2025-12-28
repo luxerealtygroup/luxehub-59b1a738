@@ -15,6 +15,9 @@ interface AnnualGoals {
   id?: string;
   deals_goal: number;
   gci_goal: number;
+  avg_sale_price: number;
+  commission_rate: number;
+  split_percent: number;
 }
 
 interface ActualMetrics {
@@ -60,7 +63,10 @@ const Goals = () => {
   
   const [annualGoals, setAnnualGoals] = useState<AnnualGoals>({
     deals_goal: 0,
-    gci_goal: 0
+    gci_goal: 0,
+    avg_sale_price: 350000,
+    commission_rate: 3,
+    split_percent: 70
   });
   
   const [monthlyGoals, setMonthlyGoals] = useState<MonthlyGoal[]>(
@@ -76,7 +82,10 @@ const Goals = () => {
   
   const [formData, setFormData] = useState({
     deals_goal: '',
-    gci_goal: ''
+    gci_goal: '',
+    avg_sale_price: '350000',
+    commission_rate: '3',
+    split_percent: '70'
   });
 
   const currentYear = 2026;
@@ -108,15 +117,29 @@ const Goals = () => {
       const dealsValue = dealsGoal?.target_value || 0;
       const gciValue = gciGoal?.target_value || 0;
       
+      // Load saved calculation values from localStorage
+      const savedCalcValues = localStorage.getItem(`goalCalcValues_${user.id}_${currentYear}`);
+      const calcValues = savedCalcValues ? JSON.parse(savedCalcValues) : {
+        avg_sale_price: 350000,
+        commission_rate: 3,
+        split_percent: 70
+      };
+      
       setAnnualGoals({
         id: dealsGoal?.id || gciGoal?.id,
         deals_goal: dealsValue,
-        gci_goal: gciValue
+        gci_goal: gciValue,
+        avg_sale_price: calcValues.avg_sale_price,
+        commission_rate: calcValues.commission_rate,
+        split_percent: calcValues.split_percent
       });
       
       setFormData({
         deals_goal: dealsValue?.toString() || '',
-        gci_goal: gciValue?.toString() || ''
+        gci_goal: gciValue?.toString() || '',
+        avg_sale_price: calcValues.avg_sale_price.toString(),
+        commission_rate: calcValues.commission_rate.toString(),
+        split_percent: calcValues.split_percent.toString()
       });
       
       // Initialize monthly goals - check if saved in localStorage
@@ -258,7 +281,26 @@ const Goals = () => {
       });
     }
     
-    setAnnualGoals({ deals_goal: dealsTarget, gci_goal: gciTarget });
+    const avgPrice = parseFloat(formData.avg_sale_price) || 350000;
+    const commRate = parseFloat(formData.commission_rate) || 3;
+    const splitPct = parseFloat(formData.split_percent) || 70;
+    
+    // Save calculation values to localStorage
+    if (user) {
+      localStorage.setItem(`goalCalcValues_${user.id}_${currentYear}`, JSON.stringify({
+        avg_sale_price: avgPrice,
+        commission_rate: commRate,
+        split_percent: splitPct
+      }));
+    }
+    
+    setAnnualGoals({ 
+      deals_goal: dealsTarget, 
+      gci_goal: gciTarget,
+      avg_sale_price: avgPrice,
+      commission_rate: commRate,
+      split_percent: splitPct
+    });
     setShowSetup(false);
     toast({ title: 'Annual goals saved!' });
     fetchAnnualGoals();
@@ -285,9 +327,14 @@ const Goals = () => {
   const getQuarterlyGoals = (quarterIndex: number) => {
     const startMonth = quarterIndex * 3;
     const quarterMonths = monthlyGoals.slice(startMonth, startMonth + 3);
+    // Collect 411 goals for this quarter
+    const quarterFocuses = quarterMonths
+      .map((m, idx) => ({ month: monthNames[startMonth + idx], focus: m.focus, target: m.target }))
+      .filter(m => m.focus || m.target);
     return {
       deals: quarterMonths.reduce((sum, m) => sum + m.deals, 0),
-      gci: quarterMonths.reduce((sum, m) => sum + m.gci, 0)
+      gci: quarterMonths.reduce((sum, m) => sum + m.gci, 0),
+      fourOneOneGoals: quarterFocuses
     };
   };
 
@@ -336,6 +383,85 @@ const Goals = () => {
             <DialogTitle className="text-gold font-display text-xl">Set Your {currentYear} Goals</DialogTitle>
           </DialogHeader>
           <div className="space-y-6 pt-4">
+            {/* Calculation inputs section */}
+            <div className="p-4 rounded-lg bg-background/50 border border-gold/20 space-y-4">
+              <p className="text-sm font-medium text-gold">Calculate GCI from deals</p>
+              
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Avg Sale Price</Label>
+                  <div className="flex items-center">
+                    <span className="text-muted-foreground mr-1">$</span>
+                    <Input
+                      type="number"
+                      placeholder="350000"
+                      value={formData.avg_sale_price}
+                      onChange={(e) => {
+                        const newFormData = { ...formData, avg_sale_price: e.target.value };
+                        // Auto-calculate GCI
+                        const deals = parseFloat(newFormData.deals_goal) || 0;
+                        const price = parseFloat(e.target.value) || 0;
+                        const commission = parseFloat(newFormData.commission_rate) || 0;
+                        const split = parseFloat(newFormData.split_percent) || 0;
+                        const calculatedGci = deals * price * (commission / 100) * (split / 100);
+                        newFormData.gci_goal = Math.round(calculatedGci).toString();
+                        setFormData(newFormData);
+                      }}
+                      className="text-sm"
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Commission %</Label>
+                  <div className="flex items-center">
+                    <Input
+                      type="number"
+                      step="0.1"
+                      placeholder="3"
+                      value={formData.commission_rate}
+                      onChange={(e) => {
+                        const newFormData = { ...formData, commission_rate: e.target.value };
+                        const deals = parseFloat(newFormData.deals_goal) || 0;
+                        const price = parseFloat(newFormData.avg_sale_price) || 0;
+                        const commission = parseFloat(e.target.value) || 0;
+                        const split = parseFloat(newFormData.split_percent) || 0;
+                        const calculatedGci = deals * price * (commission / 100) * (split / 100);
+                        newFormData.gci_goal = Math.round(calculatedGci).toString();
+                        setFormData(newFormData);
+                      }}
+                      className="text-sm"
+                    />
+                    <span className="text-muted-foreground ml-1">%</span>
+                  </div>
+                </div>
+                
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Your Split %</Label>
+                  <div className="flex items-center">
+                    <Input
+                      type="number"
+                      step="1"
+                      placeholder="70"
+                      value={formData.split_percent}
+                      onChange={(e) => {
+                        const newFormData = { ...formData, split_percent: e.target.value };
+                        const deals = parseFloat(newFormData.deals_goal) || 0;
+                        const price = parseFloat(newFormData.avg_sale_price) || 0;
+                        const commission = parseFloat(newFormData.commission_rate) || 0;
+                        const split = parseFloat(e.target.value) || 0;
+                        const calculatedGci = deals * price * (commission / 100) * (split / 100);
+                        newFormData.gci_goal = Math.round(calculatedGci).toString();
+                        setFormData(newFormData);
+                      }}
+                      className="text-sm"
+                    />
+                    <span className="text-muted-foreground ml-1">%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
             <div className="space-y-2">
               <Label className="text-foreground">Annual Deals Goal</Label>
               <div className="flex items-center gap-3">
@@ -344,7 +470,17 @@ const Goals = () => {
                   type="number"
                   placeholder="e.g., 24"
                   value={formData.deals_goal}
-                  onChange={(e) => setFormData({ ...formData, deals_goal: e.target.value })}
+                  onChange={(e) => {
+                    const newFormData = { ...formData, deals_goal: e.target.value };
+                    // Auto-calculate GCI
+                    const deals = parseFloat(e.target.value) || 0;
+                    const price = parseFloat(newFormData.avg_sale_price) || 0;
+                    const commission = parseFloat(newFormData.commission_rate) || 0;
+                    const split = parseFloat(newFormData.split_percent) || 0;
+                    const calculatedGci = deals * price * (commission / 100) * (split / 100);
+                    newFormData.gci_goal = Math.round(calculatedGci).toString();
+                    setFormData(newFormData);
+                  }}
                   className="text-lg"
                 />
                 <span className="text-muted-foreground">deals</span>
@@ -353,7 +489,7 @@ const Goals = () => {
             </div>
             
             <div className="space-y-2">
-              <Label className="text-foreground">Annual GCI Goal</Label>
+              <Label className="text-foreground">Annual GCI Goal (auto-calculated)</Label>
               <div className="flex items-center gap-3">
                 <DollarSign className="h-5 w-5 text-gold" />
                 <Input
@@ -364,7 +500,9 @@ const Goals = () => {
                   className="text-lg"
                 />
               </div>
-              <p className="text-xs text-muted-foreground">What's your target gross commission income?</p>
+              <p className="text-xs text-muted-foreground">
+                Based on {formData.deals_goal || 0} deals × ${parseInt(formData.avg_sale_price || '0').toLocaleString()} × {formData.commission_rate || 0}% × {formData.split_percent || 0}% split
+              </p>
             </div>
             
             <Button 
@@ -612,6 +750,22 @@ const Goals = () => {
                               </div>
                               <span className="text-lg font-bold text-green-400">${Math.round(quarterGoals.gci).toLocaleString()}</span>
                             </div>
+                            {quarterGoals.fourOneOneGoals.length > 0 && (
+                              <div className="mt-3 pt-2 border-t border-primary/10 space-y-1">
+                                <p className="text-xs font-medium text-muted-foreground mb-1">411 Goals</p>
+                                {quarterGoals.fourOneOneGoals.map((goal, idx) => (
+                                  <div key={idx} className="text-xs">
+                                    <span className="text-muted-foreground">{goal.month}:</span>
+                                    {goal.focus && (
+                                      <p className="text-primary truncate pl-2" title={goal.focus}>📌 {goal.focus}</p>
+                                    )}
+                                    {goal.target && (
+                                      <p className="text-muted-foreground truncate pl-2" title={goal.target}>🎯 {goal.target}</p>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
