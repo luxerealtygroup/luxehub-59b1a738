@@ -9,7 +9,7 @@ import { followUpBossApi, FUBPerson } from '@/lib/api/followUpBoss';
 import { useToast } from '@/hooks/use-toast';
 
 interface FUBClientSearchProps {
-  onSelectClient: (client: { name: string; email?: string; phone?: string }) => void;
+  onSelectClient: (client: { name: string; email?: string; phone?: string; source?: string }) => void;
   trigger?: React.ReactNode;
 }
 
@@ -59,6 +59,7 @@ export const FUBClientSearch = ({ onSelectClient, trigger }: FUBClientSearchProp
       name: person.name || `${person.firstName} ${person.lastName}`,
       email: primaryEmail,
       phone: primaryPhone,
+      source: person.source || undefined,
     });
     
     toast({ title: 'Client selected', description: `${person.name} imported from Follow Up Boss` });

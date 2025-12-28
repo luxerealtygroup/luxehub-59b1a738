@@ -39,6 +39,7 @@ interface PipelineClient {
   projected_gci: number | null;
   expected_pending_date: string | null;
   status: string | null;
+  source: string | null;
 }
 
 interface Weekly411 {
@@ -334,7 +335,7 @@ const Reports = () => {
 
   const currentMonthIdx = new Date().getMonth();
 
-  // Source of Business report data
+  // Source of Business report data (from deals)
   const sourceOfBusinessData = dealsWithSource.reduce((acc, deal) => {
     const source = deal.source || 'Unknown';
     if (!acc[source]) {
@@ -344,6 +345,21 @@ const Reports = () => {
     acc[source].volume += deal.deal_value || 0;
     return acc;
   }, {} as Record<string, { count: number; volume: number }>);
+
+  // Pipeline Source report data
+  const pipelineSourceData = pipelineClients.reduce((acc, client) => {
+    const source = client.source || 'Unknown';
+    if (!acc[source]) {
+      acc[source] = { count: 0, gci: 0 };
+    }
+    acc[source].count++;
+    acc[source].gci += client.projected_gci || 0;
+    return acc;
+  }, {} as Record<string, { count: number; gci: number }>);
+
+  const pipelineSourceArray = Object.entries(pipelineSourceData)
+    .map(([source, data]) => ({ source, ...data }))
+    .sort((a, b) => b.count - a.count);
 
   const sourceOfBusinessArray = Object.entries(sourceOfBusinessData)
     .map(([source, data]) => ({ source, ...data }))
@@ -731,7 +747,7 @@ const Reports = () => {
         <CardHeader>
           <CardTitle className="text-lg font-display text-foreground flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-gold" />
-            Source of Business
+            Source of Business (Deals)
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -795,6 +811,81 @@ const Reports = () => {
                     <p className="text-xl font-bold text-foreground">
                       ${dealsWithSource.reduce((sum, d) => sum + (d.deal_value || 0), 0).toLocaleString()}
                     </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Pipeline Source Report */}
+      <Card className="border-gold/20 bg-card">
+        <CardHeader>
+          <CardTitle className="text-lg font-display text-foreground flex items-center gap-2">
+            <Users className="h-5 w-5 text-gold" />
+            Pipeline by Source
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {pipelineSourceArray.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">
+              No pipeline clients yet. Add clients to see source breakdown.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {pipelineSourceArray.map((item, idx) => {
+                  const percentage = pipelineClients.length > 0 
+                    ? Math.round((item.count / pipelineClients.length) * 100) 
+                    : 0;
+                  const colors = [
+                    'bg-blue-500/20 border-blue-500/40 text-blue-400',
+                    'bg-emerald-500/20 border-emerald-500/40 text-emerald-400',
+                    'bg-purple-500/20 border-purple-500/40 text-purple-400',
+                    'bg-gold/20 border-gold/40 text-gold',
+                    'bg-amber-500/20 border-amber-500/40 text-amber-400',
+                    'bg-rose-500/20 border-rose-500/40 text-rose-400',
+                  ];
+                  const colorClass = colors[idx % colors.length];
+                  
+                  return (
+                    <div 
+                      key={item.source} 
+                      className={`p-4 rounded-lg border ${colorClass.split(' ').slice(0, 2).join(' ')}`}
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <p className="font-medium text-foreground">{item.source}</p>
+                        <span className={`text-lg font-bold ${colorClass.split(' ')[2]}`}>{percentage}%</span>
+                      </div>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Clients</span>
+                          <span className="font-medium">{item.count}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Projected GCI</span>
+                          <span className="font-medium">${item.gci.toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              
+              <div className="p-3 rounded-lg bg-background/50 border border-gold/20">
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Total Pipeline</p>
+                    <p className="text-xl font-bold text-gold">{pipelineClients.length}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Unique Sources</p>
+                    <p className="text-xl font-bold text-foreground">{pipelineSourceArray.length}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Total Pipeline GCI</p>
+                    <p className="text-xl font-bold text-foreground">${totalPipelineGCI.toLocaleString()}</p>
                   </div>
                 </div>
               </div>
