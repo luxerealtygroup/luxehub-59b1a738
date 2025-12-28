@@ -5,10 +5,11 @@ import { followUpBossApi, FUBDeal, FUBDealUser } from '@/lib/api/followUpBoss';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Building2, DollarSign, Users, TrendingUp, Target, Loader2, BarChart3 } from 'lucide-react';
+import { Building2, DollarSign, Users, TrendingUp, Target, Loader2, BarChart3, Calendar } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, AreaChart, Area, Legend } from 'recharts';
+import { format, parseISO, startOfMonth } from 'date-fns';
 
 interface AgentData {
   id: string;
@@ -51,6 +52,22 @@ interface FUBAgentStats {
   dealCount: number;
 }
 
+interface MonthlyRevenueData {
+  month: string;
+  monthLabel: string;
+  earned: number;
+  pending: number;
+}
+
+interface MonthlyPipelineData {
+  month: string;
+  monthLabel: string;
+  buyers: number;
+  sellers: number;
+  total: number;
+  projectedGci: number;
+}
+
 const COLORS = ['hsl(43, 74%, 49%)', 'hsl(142, 71%, 45%)', 'hsl(217, 91%, 60%)', 'hsl(280, 67%, 60%)', 'hsl(350, 89%, 60%)'];
 
 const AdminDashboard = () => {
@@ -58,6 +75,8 @@ const AdminDashboard = () => {
   const [stats, setStats] = useState<CompanyStats | null>(null);
   const [fubStats, setFubStats] = useState<FUBStats | null>(null);
   const [fubAgents, setFubAgents] = useState<FUBAgentStats[]>([]);
+  const [monthlyRevenue, setMonthlyRevenue] = useState<MonthlyRevenueData[]>([]);
+  const [monthlyPipeline, setMonthlyPipeline] = useState<MonthlyPipelineData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
@@ -157,6 +176,39 @@ const AdminDashboard = () => {
         const sortedAgents = Array.from(agentMap.values())
           .sort((a, b) => (b.totalGci + b.pendingGci) - (a.totalGci + a.pendingGci));
         setFubAgents(sortedAgents);
+
+        // Build monthly revenue data from FUB deals
+        const revenueByMonth = new Map<string, { earned: number; pending: number }>();
+        deals.forEach((deal: FUBDeal) => {
+          const closeDate = deal.projectedCloseDate || deal.createdAt;
+          if (!closeDate) return;
+          
+          const monthKey = format(startOfMonth(parseISO(closeDate)), 'yyyy-MM');
+          const existing = revenueByMonth.get(monthKey) || { earned: 0, pending: 0 };
+          
+          const isClosedDeal = deal.status?.toLowerCase() === 'won' || 
+            deal.stageName?.toLowerCase().includes('closed') ||
+            deal.stageName?.toLowerCase().includes('won');
+          const isPendingDeal = deal.stageName?.toLowerCase() === 'pending';
+          
+          if (isClosedDeal) {
+            existing.earned += deal.teamCommission || 0;
+          } else if (isPendingDeal) {
+            existing.pending += deal.teamCommission || 0;
+          }
+          
+          revenueByMonth.set(monthKey, existing);
+        });
+        
+        const monthlyRevenueData = Array.from(revenueByMonth.entries())
+          .map(([month, data]) => ({
+            month,
+            monthLabel: format(parseISO(month + '-01'), 'MMM yyyy'),
+            earned: data.earned,
+            pending: data.pending,
+          }))
+          .sort((a, b) => a.month.localeCompare(b.month));
+        setMonthlyRevenue(monthlyRevenueData);
       }
 
       // Fetch all profiles
@@ -236,6 +288,38 @@ const AdminDashboard = () => {
       };
 
       setStats(companyStats);
+
+      // Build monthly pipeline data
+      const pipelineByMonth = new Map<string, { buyers: number; sellers: number; projectedGci: number }>();
+      (pipelineClients || []).forEach((client: { expected_pending_date?: string; created_at: string; client_type: string; projected_gci?: number }) => {
+        const targetDate = client.expected_pending_date || client.created_at;
+        if (!targetDate) return;
+        
+        const monthKey = format(startOfMonth(parseISO(targetDate)), 'yyyy-MM');
+        const existing = pipelineByMonth.get(monthKey) || { buyers: 0, sellers: 0, projectedGci: 0 };
+        
+        if (client.client_type === 'buyer') {
+          existing.buyers += 1;
+        } else {
+          existing.sellers += 1;
+        }
+        existing.projectedGci += Number(client.projected_gci || 0);
+        
+        pipelineByMonth.set(monthKey, existing);
+      });
+      
+      const monthlyPipelineData = Array.from(pipelineByMonth.entries())
+        .map(([month, data]) => ({
+          month,
+          monthLabel: format(parseISO(month + '-01'), 'MMM yyyy'),
+          buyers: data.buyers,
+          sellers: data.sellers,
+          total: data.buyers + data.sellers,
+          projectedGci: data.projectedGci,
+        }))
+        .sort((a, b) => a.month.localeCompare(b.month));
+      setMonthlyPipeline(monthlyPipelineData);
+
       setLoading(false);
     };
 
@@ -448,6 +532,76 @@ const AdminDashboard = () => {
                       <Bar dataKey="active" name="Active" fill="hsl(217 91% 60%)" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Monthly Charts */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Company Revenue by Month */}
+            <Card className="border-blue-500/10">
+              <CardHeader>
+                <CardTitle className="text-blue-500 font-display flex items-center gap-2">
+                  <Calendar className="h-5 w-5" /> Company Revenue by Month
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-64">
+                  {monthlyRevenue.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={monthlyRevenue}>
+                        <XAxis dataKey="monthLabel" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
+                        <YAxis tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                        <Tooltip
+                          formatter={(value: number) => [`$${value.toLocaleString()}`, '']}
+                          contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }}
+                        />
+                        <Legend />
+                        <Area type="monotone" dataKey="earned" name="Earned" stackId="1" stroke="hsl(142 71% 45%)" fill="hsl(142 71% 45% / 0.5)" />
+                        <Area type="monotone" dataKey="pending" name="Pending" stackId="1" stroke="hsl(43 74% 49%)" fill="hsl(43 74% 49% / 0.5)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-muted-foreground">
+                      No revenue data available
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Pipeline by Month */}
+            <Card className="border-purple-500/10">
+              <CardHeader>
+                <CardTitle className="text-purple-500 font-display flex items-center gap-2">
+                  <Users className="h-5 w-5" /> Pipeline by Month
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-64">
+                  {monthlyPipeline.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={monthlyPipeline}>
+                        <XAxis dataKey="monthLabel" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
+                        <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }}
+                          formatter={(value: number, name: string) => [
+                            name === 'projectedGci' ? `$${value.toLocaleString()}` : value,
+                            name === 'projectedGci' ? 'Projected GCI' : name
+                          ]}
+                        />
+                        <Legend />
+                        <Bar dataKey="buyers" name="Buyers" fill="hsl(217 91% 60%)" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="sellers" name="Sellers" fill="hsl(280 67% 60%)" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-muted-foreground">
+                      No pipeline data available
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
