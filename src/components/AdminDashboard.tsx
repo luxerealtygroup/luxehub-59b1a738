@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
-import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
+import { followUpBossApi, FUBDeal, FUBDealUser } from '@/lib/api/followUpBoss';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Building2, DollarSign, Users, TrendingUp, Target, Loader2, BarChart3 } from 'lucide-react';
@@ -34,9 +35,20 @@ interface CompanyStats {
 interface FUBStats {
   totalGci: number;
   pendingGci: number;
-  companyRevenue: number;
+  companyRevenueEarned: number;
+  companyRevenuePending: number;
   closedDeals: number;
   pendingDeals: number;
+}
+
+interface FUBAgentStats {
+  id: number;
+  name: string;
+  picture?: string;
+  totalGci: number;
+  pendingGci: number;
+  teamCommission: number;
+  dealCount: number;
 }
 
 const COLORS = ['hsl(43, 74%, 49%)', 'hsl(142, 71%, 45%)', 'hsl(217, 91%, 60%)', 'hsl(280, 67%, 60%)', 'hsl(350, 89%, 60%)'];
@@ -45,6 +57,7 @@ const AdminDashboard = () => {
   const { isAdmin, isLoading: roleLoading } = useUserRole();
   const [stats, setStats] = useState<CompanyStats | null>(null);
   const [fubStats, setFubStats] = useState<FUBStats | null>(null);
+  const [fubAgents, setFubAgents] = useState<FUBAgentStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
@@ -90,23 +103,60 @@ const AdminDashboard = () => {
           sum + (d.commissionValue || 0), 0
         );
 
-        // Company Revenue = sum of (commission - agent commission) which is effectively the team split
-        // If agentCommission is available, team split = commissionValue - agentCommission
-        // Otherwise we'll use a default calculation
-        const companyRevenue = closedDeals.reduce((sum: number, d: FUBDeal) => {
-          const commission = d.commissionValue || 0;
-          const agentCut = d.agentCommission || 0;
-          // Team split is the difference (what the company keeps)
-          return sum + (commission - agentCut);
-        }, 0);
+        // Company Revenue Earned = teamCommission from closed deals
+        const companyRevenueEarned = closedDeals.reduce((sum: number, d: FUBDeal) => 
+          sum + (d.teamCommission || 0), 0
+        );
+
+        // Company Revenue Pending = teamCommission from pending deals
+        const companyRevenuePending = pendingDeals.reduce((sum: number, d: FUBDeal) => 
+          sum + (d.teamCommission || 0), 0
+        );
 
         setFubStats({
           totalGci,
           pendingGci,
-          companyRevenue,
+          companyRevenueEarned,
+          companyRevenuePending,
           closedDeals: closedDeals.length,
           pendingDeals: pendingDeals.length,
         });
+
+        // Build agent leaderboard from FUB deals
+        const agentMap = new Map<number, FUBAgentStats>();
+        deals.forEach((deal: FUBDeal) => {
+          deal.users?.forEach((user: FUBDealUser) => {
+            const existing = agentMap.get(user.id) || {
+              id: user.id,
+              name: user.name,
+              picture: user.picture?.['60x60'] || user.picture?.original,
+              totalGci: 0,
+              pendingGci: 0,
+              teamCommission: 0,
+              dealCount: 0,
+            };
+            
+            const isClosedDeal = deal.status?.toLowerCase() === 'won' || 
+              deal.stageName?.toLowerCase().includes('closed') ||
+              deal.stageName?.toLowerCase().includes('won');
+            const isPendingDeal = deal.stageName?.toLowerCase() === 'pending';
+            
+            if (isClosedDeal) {
+              existing.totalGci += deal.commissionValue || 0;
+              existing.teamCommission += deal.teamCommission || 0;
+            } else if (isPendingDeal) {
+              existing.pendingGci += deal.commissionValue || 0;
+              existing.teamCommission += deal.teamCommission || 0;
+            }
+            existing.dealCount += 1;
+            
+            agentMap.set(user.id, existing);
+          });
+        });
+        
+        const sortedAgents = Array.from(agentMap.values())
+          .sort((a, b) => (b.totalGci + b.pendingGci) - (a.totalGci + a.pendingGci));
+        setFubAgents(sortedAgents);
       }
 
       // Fetch all profiles
@@ -277,9 +327,11 @@ const AdminDashboard = () => {
               <span className="text-sm text-muted-foreground">Company Revenue</span>
             </div>
             <p className="text-3xl font-bold text-blue-500">
-              ${(fubStats?.companyRevenue || 0).toLocaleString()}
+              ${((fubStats?.companyRevenueEarned || 0) + (fubStats?.companyRevenuePending || 0)).toLocaleString()}
             </p>
-            <p className="text-xs text-muted-foreground mt-1">Team split from FUB deals</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              ${(fubStats?.companyRevenueEarned || 0).toLocaleString()} earned / ${(fubStats?.companyRevenuePending || 0).toLocaleString()} pending
+            </p>
           </CardContent>
         </Card>
 
@@ -296,6 +348,53 @@ const AdminDashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Agent Leaderboard */}
+      {fubAgents.length > 0 && (
+        <Card className="border-gold/20 bg-gradient-to-br from-card to-gold/5">
+          <CardHeader>
+            <CardTitle className="text-gold font-display flex items-center gap-2">
+              <Target className="h-5 w-5" /> Agent Leaderboard
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {fubAgents.map((agent, idx) => (
+                <div 
+                  key={agent.id} 
+                  className={`flex items-center gap-4 p-4 rounded-lg border ${
+                    idx === 0 ? 'border-gold/40 bg-gold/10' : 
+                    idx === 1 ? 'border-gray-400/30 bg-gray-400/5' : 
+                    idx === 2 ? 'border-amber-700/30 bg-amber-700/5' : 'border-border'
+                  }`}
+                >
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted text-lg font-bold">
+                    {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1}
+                  </div>
+                  <Avatar className="h-12 w-12 border-2 border-gold/30">
+                    <AvatarImage src={agent.picture} alt={agent.name} />
+                    <AvatarFallback className="bg-gold/20 text-gold font-semibold">
+                      {agent.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <p className="font-semibold text-foreground">{agent.name}</p>
+                    <p className="text-sm text-muted-foreground">{agent.dealCount} deals</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-lg font-bold text-green-500">
+                      ${(agent.totalGci + agent.pendingGci).toLocaleString()}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      ${agent.totalGci.toLocaleString()} earned / ${agent.pendingGci.toLocaleString()} pending
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList className="bg-card border border-border">
