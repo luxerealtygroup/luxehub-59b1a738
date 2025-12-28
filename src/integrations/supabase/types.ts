@@ -233,6 +233,48 @@ export type Database = {
         }
         Relationships: []
       }
+      pipeline_clients: {
+        Row: {
+          client_name: string
+          created_at: string
+          email: string | null
+          id: string
+          notes: string | null
+          phone: string | null
+          property_interest: string | null
+          source: string | null
+          stage: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          client_name: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          notes?: string | null
+          phone?: string | null
+          property_interest?: string | null
+          source?: string | null
+          stage?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          client_name?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          notes?: string | null
+          phone?: string | null
+          property_interest?: string | null
+          source?: string | null
+          stage?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       production_goals: {
         Row: {
           annual_focus: string | null
