@@ -15,6 +15,28 @@ export interface FUBPerson {
   tags?: string[];
 }
 
+export interface FUBDeal {
+  id: number;
+  name: string;
+  stage: string;
+  price: number | null;
+  commission: number | null;
+  closingDate: string | null;
+  person: {
+    id: number;
+    name: string;
+    firstName: string;
+    lastName: string;
+    emails?: { value: string; type: string }[];
+    phones?: { value: string; type: string }[];
+  } | null;
+  propertyStreet: string | null;
+  propertyCity: string | null;
+  propertyState: string | null;
+  created: string;
+  updated: string;
+}
+
 export interface FUBResponse<T = any> {
   success: boolean;
   error?: string;
@@ -47,6 +69,17 @@ export const followUpBossApi = {
   async getPerson(id: number): Promise<FUBResponse<FUBPerson>> {
     const { data, error } = await supabase.functions.invoke('follow-up-boss', {
       body: { action: 'get_person', params: { id } },
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+    return data;
+  },
+
+  async getDeals(limit = 50, offset = 0, stage?: string): Promise<FUBResponse<{ deals: FUBDeal[] }>> {
+    const { data, error } = await supabase.functions.invoke('follow-up-boss', {
+      body: { action: 'get_deals', params: { limit, offset, stage } },
     });
 
     if (error) {

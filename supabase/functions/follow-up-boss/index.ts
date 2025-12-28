@@ -59,6 +59,8 @@ serve(async (req) => {
         // Get deals from FUB
         const dealParams = new URLSearchParams();
         if (params?.limit) dealParams.append('limit', params.limit.toString());
+        if (params?.offset) dealParams.append('offset', params.offset.toString());
+        if (params?.stage) dealParams.append('stage', params.stage);
         endpoint = `/deals?${dealParams.toString()}`;
         break;
 
