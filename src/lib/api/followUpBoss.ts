@@ -24,12 +24,13 @@ export interface FUBDeal {
   commissionValue: number | null;
   agentCommission: number | null;
   projectedCloseDate: string | null;
-  people: { id: number; name: string; avatar?: string }[];
+  people: { id: number; name: string; avatar?: string; source?: string }[];
   propertyStreet?: string | null;
   propertyCity?: string | null;
   propertyState?: string | null;
   createdAt: string;
   status: string;
+  source?: string | null;
 }
 
 export interface FUBResponse<T = any> {

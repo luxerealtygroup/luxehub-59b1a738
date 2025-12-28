@@ -49,7 +49,8 @@ const initialDealState = {
   closing_date: '',
   notes: '',
   email: '',
-  phone: ''
+  phone: '',
+  source: ''
 };
 
 const Commissions = () => {
@@ -143,7 +144,8 @@ const Commissions = () => {
       deal_value: newDeal.deal_value ? parseFloat(newDeal.deal_value) : null,
       expected_close_date: newDeal.closing_date || null,
       stage: newDeal.stage as 'lead' | 'contacted' | 'showing' | 'offer' | 'under_contract' | 'closed' | 'lost',
-      notes: newDeal.notes || null
+      notes: newDeal.notes || null,
+      source: newDeal.source || null
     }).select().single();
 
     if (dealError) {
@@ -222,6 +224,9 @@ const Commissions = () => {
       ? deal.projectedCloseDate.split('T')[0] 
       : '';
     
+    // Get source from deal or first person
+    const dealSource = deal.source || deal.people?.[0]?.source || deal.pipelineName || 'Follow Up Boss';
+    
     setNewDeal({
       ...initialDealState,
       client_name: clientName,
@@ -229,7 +234,8 @@ const Commissions = () => {
       deal_value: deal.price?.toString() || '',
       gross_commission: (deal.agentCommission || deal.commissionValue)?.toString() || '',
       closing_date: closingDate,
-      stage: deal.stageName?.toLowerCase().includes('closed') ? 'closed' : 'under_contract'
+      stage: deal.stageName?.toLowerCase().includes('closed') ? 'closed' : 'under_contract',
+      source: dealSource
     });
     setShowFUBImport(false);
     setAddDealOpen(true);
@@ -288,20 +294,26 @@ const Commissions = () => {
                 </div>
               ) : (
                 <div className="space-y-2 max-h-80 overflow-y-auto">
-                  {fubDeals.map((deal) => (
-                    <div key={deal.id} className="p-3 rounded-lg bg-gold/5 border border-gold/10 flex justify-between items-center">
-                      <div>
-                        <p className="font-medium">{deal.people?.[0]?.name || deal.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {deal.pipelineName} • {deal.stageName} {deal.price ? `• $${deal.price.toLocaleString()}` : ''}
-                        </p>
-                        {deal.agentCommission && (
-                          <p className="text-xs text-gold">Commission: ${deal.agentCommission.toLocaleString()}</p>
-                        )}
+                  {fubDeals.map((deal) => {
+                    const dealSource = deal.source || deal.people?.[0]?.source || deal.pipelineName;
+                    return (
+                      <div key={deal.id} className="p-3 rounded-lg bg-gold/5 border border-gold/10 flex justify-between items-center">
+                        <div>
+                          <p className="font-medium">{deal.people?.[0]?.name || deal.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {deal.pipelineName} • {deal.stageName} {deal.price ? `• $${deal.price.toLocaleString()}` : ''}
+                          </p>
+                          {dealSource && (
+                            <p className="text-xs text-blue-400">Source: {dealSource}</p>
+                          )}
+                          {deal.agentCommission && (
+                            <p className="text-xs text-gold">Commission: ${deal.agentCommission.toLocaleString()}</p>
+                          )}
+                        </div>
+                        <Button size="sm" onClick={() => importFUBDeal(deal)}>Import</Button>
                       </div>
-                      <Button size="sm" onClick={() => importFUBDeal(deal)}>Import</Button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </DialogContent>
@@ -422,6 +434,14 @@ const Commissions = () => {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Lead Source</Label>
+                  <Input
+                    placeholder="e.g., Zillow, Referral, Open House"
+                    value={newDeal.source}
+                    onChange={(e) => setNewDeal({ ...newDeal, source: e.target.value })}
+                  />
                 </div>
                 <Textarea
                   placeholder="Notes (optional)"

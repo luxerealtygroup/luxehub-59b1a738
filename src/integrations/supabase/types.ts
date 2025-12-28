@@ -220,6 +220,7 @@ export type Database = {
           id: string
           notes: string | null
           property_address: string | null
+          source: string | null
           stage: Database["public"]["Enums"]["deal_stage"]
           updated_at: string
           user_id: string
@@ -234,6 +235,7 @@ export type Database = {
           id?: string
           notes?: string | null
           property_address?: string | null
+          source?: string | null
           stage?: Database["public"]["Enums"]["deal_stage"]
           updated_at?: string
           user_id: string
@@ -248,6 +250,7 @@ export type Database = {
           id?: string
           notes?: string | null
           property_address?: string | null
+          source?: string | null
           stage?: Database["public"]["Enums"]["deal_stage"]
           updated_at?: string
           user_id?: string
