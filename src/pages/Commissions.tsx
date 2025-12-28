@@ -46,6 +46,7 @@ const initialDealState = {
   transaction_side: 'buyer',
   commission_status: 'pending',
   stage: 'pending',
+  closing_date: '',
   notes: '',
   email: '',
   phone: ''
@@ -140,6 +141,7 @@ const Commissions = () => {
       client_name: newDeal.client_name,
       property_address: newDeal.property_address || null,
       deal_value: newDeal.deal_value ? parseFloat(newDeal.deal_value) : null,
+      expected_close_date: newDeal.closing_date || null,
       stage: newDeal.stage as 'lead' | 'contacted' | 'showing' | 'offer' | 'under_contract' | 'closed' | 'lost',
       notes: newDeal.notes || null
     }).select().single();
@@ -215,12 +217,18 @@ const Commissions = () => {
   const importFUBDeal = (deal: FUBDeal) => {
     const clientName = deal.people?.[0]?.name || deal.name || '';
     
+    // Parse closing date from FUB
+    const closingDate = deal.projectedCloseDate 
+      ? deal.projectedCloseDate.split('T')[0] 
+      : '';
+    
     setNewDeal({
       ...initialDealState,
       client_name: clientName,
       property_address: deal.name || '',
       deal_value: deal.price?.toString() || '',
       gross_commission: (deal.agentCommission || deal.commissionValue)?.toString() || '',
+      closing_date: closingDate,
       stage: deal.stageName?.toLowerCase().includes('closed') ? 'closed' : 'under_contract'
     });
     setShowFUBImport(false);
@@ -343,16 +351,24 @@ const Commissions = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Transaction Side</Label>
-                    <Select value={newDeal.transaction_side} onValueChange={(v) => setNewDeal({ ...newDeal, transaction_side: v })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="buyer">Buyer Side</SelectItem>
-                        <SelectItem value="seller">Seller Side</SelectItem>
-                        <SelectItem value="both">Both Sides</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label>Closing Date</Label>
+                    <Input
+                      type="date"
+                      value={newDeal.closing_date}
+                      onChange={(e) => setNewDeal({ ...newDeal, closing_date: e.target.value })}
+                    />
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Transaction Side</Label>
+                  <Select value={newDeal.transaction_side} onValueChange={(v) => setNewDeal({ ...newDeal, transaction_side: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="buyer">Buyer Side</SelectItem>
+                      <SelectItem value="seller">Seller Side</SelectItem>
+                      <SelectItem value="both">Both Sides</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 
                 <div className="border border-gold/20 rounded-lg p-4 space-y-3 bg-gold/5">
