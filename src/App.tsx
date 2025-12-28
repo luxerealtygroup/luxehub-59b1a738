@@ -14,6 +14,7 @@ import Pipeline from "./pages/Pipeline";
 import Commissions from "./pages/Commissions";
 import Goals from "./pages/Goals";
 import FourOneOne from "./pages/FourOneOne";
+import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,6 +41,7 @@ const App = () => (
               <Route path="commissions" element={<Commissions />} />
               <Route path="goals" element={<Goals />} />
               <Route path="411" element={<FourOneOne />} />
+              <Route path="reports" element={<Reports />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

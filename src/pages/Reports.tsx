@@ -1,0 +1,558 @@
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Target, DollarSign, Home, Users, TrendingUp, Calendar, CheckCircle2, AlertCircle } from 'lucide-react';
+import { parseISO } from 'date-fns';
+
+interface MonthlyGoal {
+  deals: number;
+  gci: number;
+  focus?: string;
+  target?: string;
+}
+
+interface PipelineClient {
+  id: string;
+  client_name: string;
+  stage: number;
+  client_type: 'buyer' | 'seller';
+  projected_sale_amount: number | null;
+  projected_gci: number | null;
+  expected_pending_date: string | null;
+  status: string | null;
+}
+
+interface Weekly411 {
+  calls_goal: number | null;
+  calls_actual: number | null;
+  appointments_goal: number | null;
+  appointments_actual: number | null;
+  listings_goal: number | null;
+  listings_actual: number | null;
+  contracts_goal: number | null;
+  contracts_actual: number | null;
+  priority_1: string | null;
+  priority_1_completed: boolean | null;
+  priority_2: string | null;
+  priority_2_completed: boolean | null;
+  priority_3: string | null;
+  priority_3_completed: boolean | null;
+  priority_4: string | null;
+  priority_4_completed: boolean | null;
+}
+
+const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const currentYear = 2026;
+
+const Reports = () => {
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  
+  // Goal data
+  const [goalSettings, setGoalSettings] = useState({
+    deals_goal: 0,
+    gci_goal: 0,
+    avg_sale_price: 350000,
+    commission_rate: 3,
+    split_percent: 70,
+    fallout_rate: 50,
+    monthlyDeals: Array(12).fill(0) as number[]
+  });
+  
+  // Actual metrics
+  const [actualMetrics, setActualMetrics] = useState({
+    deals_closed: 0,
+    deals_pending: 0,
+    gci_earned: 0,
+    gci_pending: 0
+  });
+  
+  // Pipeline data
+  const [pipelineClients, setPipelineClients] = useState<PipelineClient[]>([]);
+  
+  // 411 data
+  const [weekly411, setWeekly411] = useState<Weekly411 | null>(null);
+
+  const fetchAllData = async () => {
+    if (!user) return;
+    
+    // Fetch goal settings
+    const savedCalcValues = localStorage.getItem(`goalCalcValues_${user.id}_${currentYear}`);
+    const calcValues = savedCalcValues ? JSON.parse(savedCalcValues) : {
+      avg_sale_price: 350000,
+      commission_rate: 3,
+      split_percent: 70,
+      fallout_rate: 50
+    };
+    
+    // Fetch annual goals from agent_goals
+    const { data: goalsData } = await supabase
+      .from('agent_goals')
+      .select('target_value, goal_type')
+      .eq('user_id', user.id)
+      .eq('period', 'yearly')
+      .in('goal_type', ['deals_closed', 'revenue']);
+    
+    const dealsGoal = goalsData?.find(g => g.goal_type === 'deals_closed')?.target_value || 0;
+    const gciGoal = goalsData?.find(g => g.goal_type === 'revenue')?.target_value || 0;
+    
+    // Fetch monthly goals
+    const savedMonthlyGoals = localStorage.getItem(`monthlyGoals_${user.id}_${currentYear}`);
+    let monthlyDeals = Array(12).fill(dealsGoal / 12);
+    if (savedMonthlyGoals) {
+      const parsed = JSON.parse(savedMonthlyGoals);
+      monthlyDeals = parsed.map((m: MonthlyGoal) => m.deals || 0);
+    }
+    
+    setGoalSettings({
+      deals_goal: dealsGoal,
+      gci_goal: gciGoal,
+      avg_sale_price: calcValues.avg_sale_price,
+      commission_rate: calcValues.commission_rate,
+      split_percent: calcValues.split_percent,
+      fallout_rate: calcValues.fallout_rate ?? 50,
+      monthlyDeals
+    });
+    
+    // Fetch actual metrics
+    const { data: closedDeals } = await supabase
+      .from('deals')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('stage', 'closed');
+    
+    const { data: pendingDeals } = await supabase
+      .from('deals')
+      .select('id')
+      .eq('user_id', user.id)
+      .in('stage', ['under_contract', 'offer']);
+    
+    const { data: paidCommissions } = await supabase
+      .from('commissions')
+      .select('amount')
+      .eq('user_id', user.id)
+      .eq('status', 'paid');
+    
+    const { data: pendingCommissions } = await supabase
+      .from('commissions')
+      .select('amount')
+      .eq('user_id', user.id)
+      .eq('status', 'pending');
+    
+    setActualMetrics({
+      deals_closed: closedDeals?.length || 0,
+      deals_pending: pendingDeals?.length || 0,
+      gci_earned: paidCommissions?.reduce((sum, c) => sum + (c.amount || 0), 0) || 0,
+      gci_pending: pendingCommissions?.reduce((sum, c) => sum + (c.amount || 0), 0) || 0
+    });
+    
+    // Fetch pipeline clients
+    const { data: clients } = await supabase
+      .from('pipeline_clients')
+      .select('*')
+      .eq('user_id', user.id);
+    
+    setPipelineClients((clients as PipelineClient[]) || []);
+    
+    // Fetch current week's 411
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const monday = new Date(today);
+    monday.setDate(today.getDate() + mondayOffset);
+    const weekStart = monday.toISOString().split('T')[0];
+    
+    const { data: weeklyData } = await supabase
+      .from('weekly_411')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('week_start_date', weekStart)
+      .maybeSingle();
+    
+    setWeekly411(weeklyData as Weekly411 | null);
+    
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchAllData();
+  }, [user]);
+
+  // Calculations
+  const totalDealsGoal = goalSettings.monthlyDeals.reduce((sum, d) => sum + d, 0);
+  const totalGciGoal = goalSettings.monthlyDeals.reduce((sum, d) => {
+    return sum + (d * goalSettings.avg_sale_price * (goalSettings.commission_rate / 100) * (goalSettings.split_percent / 100));
+  }, 0);
+  
+  const dealsProgress = totalDealsGoal > 0 
+    ? Math.min(100, Math.round((actualMetrics.deals_closed / totalDealsGoal) * 100))
+    : 0;
+  
+  const gciProgress = totalGciGoal > 0 
+    ? Math.min(100, Math.round((actualMetrics.gci_earned / totalGciGoal) * 100))
+    : 0;
+
+  const conversionRate = (100 - goalSettings.fallout_rate) / 100;
+  const getPipelineNeeded = (deals: number) => {
+    if (conversionRate <= 0) return 0;
+    return Math.ceil(deals / conversionRate);
+  };
+
+  const getQuarterlyDeals = (qIndex: number) => {
+    const startMonth = qIndex * 3;
+    return goalSettings.monthlyDeals.slice(startMonth, startMonth + 3).reduce((sum, d) => sum + d, 0);
+  };
+
+  const getClientsInQuarter = (qIndex: number) => {
+    const startMonth = qIndex * 3;
+    const endMonth = startMonth + 2;
+    return pipelineClients.filter(c => {
+      if (!c.expected_pending_date) return false;
+      const date = parseISO(c.expected_pending_date);
+      const month = date.getMonth();
+      const year = date.getFullYear();
+      return year === currentYear && month >= startMonth && month <= endMonth;
+    }).length;
+  };
+
+  // 411 calculations
+  const get411Progress = () => {
+    if (!weekly411) return { activities: 0, priorities: 0 };
+    
+    const callsProgress = (weekly411.calls_goal || 0) > 0 
+      ? ((weekly411.calls_actual || 0) / weekly411.calls_goal!) * 100 : 0;
+    const apptProgress = (weekly411.appointments_goal || 0) > 0 
+      ? ((weekly411.appointments_actual || 0) / weekly411.appointments_goal!) * 100 : 0;
+    const listingsProgress = (weekly411.listings_goal || 0) > 0 
+      ? ((weekly411.listings_actual || 0) / weekly411.listings_goal!) * 100 : 0;
+    const contractsProgress = (weekly411.contracts_goal || 0) > 0 
+      ? ((weekly411.contracts_actual || 0) / weekly411.contracts_goal!) * 100 : 0;
+    
+    const activities = Math.round((callsProgress + apptProgress + listingsProgress + contractsProgress) / 4);
+    
+    const prioritiesCompleted = [
+      weekly411.priority_1_completed,
+      weekly411.priority_2_completed,
+      weekly411.priority_3_completed,
+      weekly411.priority_4_completed
+    ].filter(Boolean).length;
+    
+    const prioritiesTotal = [
+      weekly411.priority_1,
+      weekly411.priority_2,
+      weekly411.priority_3,
+      weekly411.priority_4
+    ].filter(Boolean).length;
+    
+    const priorities = prioritiesTotal > 0 ? Math.round((prioritiesCompleted / prioritiesTotal) * 100) : 0;
+    
+    return { activities, priorities };
+  };
+
+  const progress411 = get411Progress();
+
+  // Pipeline summary
+  const totalPipelineValue = pipelineClients.reduce((sum, c) => sum + (c.projected_sale_amount || 0), 0);
+  const totalPipelineGCI = pipelineClients.reduce((sum, c) => sum + (c.projected_gci || 0), 0);
+  const hotLeads = pipelineClients.filter(c => c.stage >= 8).length;
+  const buyers = pipelineClients.filter(c => c.client_type === 'buyer').length;
+  const sellers = pipelineClients.filter(c => c.client_type === 'seller').length;
+
+  if (loading) {
+    return <div className="flex items-center justify-center h-64 text-gold animate-pulse">Loading reports...</div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-display font-bold text-foreground">{currentYear} Performance Report</h1>
+        <p className="text-muted-foreground mt-1">Complete overview of your goals, pipeline, and weekly progress</p>
+      </div>
+
+      {/* Goal Progress Section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card className="border-gold/20 bg-gradient-to-br from-card to-gold/5">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg font-display text-foreground flex items-center gap-2">
+                <Home className="h-5 w-5 text-gold" />
+                Deals Progress
+              </CardTitle>
+              <span className={`text-2xl font-bold ${dealsProgress >= 100 ? 'text-green-400' : 'text-gold'}`}>
+                {dealsProgress}%
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Progress value={dealsProgress} className="h-3" />
+            <div className="flex justify-between text-sm">
+              <div>
+                <span className="text-2xl font-bold text-foreground">{actualMetrics.deals_closed}</span>
+                <span className="text-muted-foreground ml-2">/ {totalDealsGoal.toFixed(0)} goal</span>
+              </div>
+              <div className="text-right">
+                <p className="text-amber-400 font-medium">+{actualMetrics.deals_pending} pending</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-gold/20 bg-gradient-to-br from-card to-gold/5">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg font-display text-foreground flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-gold" />
+                GCI Progress
+              </CardTitle>
+              <span className={`text-2xl font-bold ${gciProgress >= 100 ? 'text-green-400' : 'text-gold'}`}>
+                {gciProgress}%
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Progress value={gciProgress} className="h-3" />
+            <div className="flex justify-between text-sm">
+              <div>
+                <span className="text-2xl font-bold text-foreground">${actualMetrics.gci_earned.toLocaleString()}</span>
+                <span className="text-muted-foreground ml-2">/ ${Math.round(totalGciGoal).toLocaleString()}</span>
+              </div>
+              <div className="text-right">
+                <p className="text-amber-400 font-medium">+${actualMetrics.gci_pending.toLocaleString()} pending</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Pipeline Summary */}
+      <Card className="border-gold/20 bg-card">
+        <CardHeader>
+          <CardTitle className="text-lg font-display text-foreground flex items-center gap-2">
+            <Users className="h-5 w-5 text-gold" />
+            Pipeline Summary
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+            <div className="p-3 rounded-lg bg-background/50 border border-gold/20 text-center">
+              <p className="text-xs text-muted-foreground">Total Clients</p>
+              <p className="text-2xl font-bold text-gold">{pipelineClients.length}</p>
+            </div>
+            <div className="p-3 rounded-lg bg-background/50 border border-blue-500/20 text-center">
+              <p className="text-xs text-muted-foreground">Buyers</p>
+              <p className="text-2xl font-bold text-blue-400">{buyers}</p>
+            </div>
+            <div className="p-3 rounded-lg bg-background/50 border border-emerald-500/20 text-center">
+              <p className="text-xs text-muted-foreground">Sellers</p>
+              <p className="text-2xl font-bold text-emerald-400">{sellers}</p>
+            </div>
+            <div className="p-3 rounded-lg bg-background/50 border border-amber-500/20 text-center">
+              <p className="text-xs text-muted-foreground">Hot Leads (8+)</p>
+              <p className="text-2xl font-bold text-amber-400">{hotLeads}</p>
+            </div>
+            <div className="p-3 rounded-lg bg-background/50 border border-green-500/20 text-center">
+              <p className="text-xs text-muted-foreground">Pipeline GCI</p>
+              <p className="text-2xl font-bold text-green-400">${totalPipelineGCI.toLocaleString()}</p>
+            </div>
+          </div>
+
+          {/* Pipeline Requirements by Quarter */}
+          <div>
+            <p className="text-sm font-medium text-foreground mb-3">
+              Pipeline vs Required by Quarter 
+              <span className="text-xs text-muted-foreground ml-2">({goalSettings.fallout_rate}% fallout rate)</span>
+            </p>
+            <div className="grid grid-cols-4 gap-3">
+              {['Q1', 'Q2', 'Q3', 'Q4'].map((quarter, qIndex) => {
+                const quarterDeals = getQuarterlyDeals(qIndex);
+                const pipelineNeeded = getPipelineNeeded(quarterDeals);
+                const currentInQuarter = getClientsInQuarter(qIndex);
+                const isOnTrack = currentInQuarter >= pipelineNeeded;
+                return (
+                  <div key={quarter} className={`p-3 rounded-lg border text-center ${isOnTrack ? 'bg-green-500/10 border-green-500/30' : 'bg-amber-500/10 border-amber-500/30'}`}>
+                    <p className="text-sm font-medium text-foreground mb-1">{quarter}</p>
+                    <div className="flex items-center justify-center gap-1">
+                      {isOnTrack ? (
+                        <CheckCircle2 className="h-4 w-4 text-green-400" />
+                      ) : (
+                        <AlertCircle className="h-4 w-4 text-amber-400" />
+                      )}
+                      <span className={`text-lg font-bold ${isOnTrack ? 'text-green-400' : 'text-amber-400'}`}>
+                        {currentInQuarter}
+                      </span>
+                      <span className="text-muted-foreground">/</span>
+                      <span className="text-lg font-bold text-foreground">{pipelineNeeded}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">for {quarterDeals.toFixed(1)} deals</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Weekly 411 Progress */}
+      <Card className="border-gold/20 bg-card">
+        <CardHeader>
+          <CardTitle className="text-lg font-display text-foreground flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-gold" />
+            This Week's 4-1-1 Progress
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {weekly411 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Activity Progress */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-foreground">Activity Goals</p>
+                  <span className={`text-lg font-bold ${progress411.activities >= 80 ? 'text-green-400' : progress411.activities >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
+                    {progress411.activities}%
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Calls</span>
+                    <span className="text-foreground">{weekly411.calls_actual || 0} / {weekly411.calls_goal || 0}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Appointments</span>
+                    <span className="text-foreground">{weekly411.appointments_actual || 0} / {weekly411.appointments_goal || 0}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Listings</span>
+                    <span className="text-foreground">{weekly411.listings_actual || 0} / {weekly411.listings_goal || 0}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Contracts</span>
+                    <span className="text-foreground">{weekly411.contracts_actual || 0} / {weekly411.contracts_goal || 0}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Priorities Progress */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-foreground">Business Priorities</p>
+                  <span className={`text-lg font-bold ${progress411.priorities >= 80 ? 'text-green-400' : progress411.priorities >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
+                    {progress411.priorities}%
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {[1, 2, 3, 4].map((num) => {
+                    const priority = weekly411[`priority_${num}` as keyof Weekly411] as string | null;
+                    const completed = weekly411[`priority_${num}_completed` as keyof Weekly411] as boolean | null;
+                    if (!priority) return null;
+                    return (
+                      <div key={num} className="flex items-center gap-2 text-sm">
+                        {completed ? (
+                          <CheckCircle2 className="h-4 w-4 text-green-400 flex-shrink-0" />
+                        ) : (
+                          <div className="h-4 w-4 rounded-full border border-muted-foreground flex-shrink-0" />
+                        )}
+                        <span className={completed ? 'text-muted-foreground line-through' : 'text-foreground'}>
+                          {priority}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-center py-4">No 4-1-1 data for this week. Start tracking in the 4-1-1 page.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Monthly Goal Breakdown */}
+      <Card className="border-gold/20 bg-card">
+        <CardHeader>
+          <CardTitle className="text-lg font-display text-foreground flex items-center gap-2">
+            <Target className="h-5 w-5 text-gold" />
+            Monthly Goal Breakdown
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-2">
+            {monthNames.map((month, index) => {
+              const deals = goalSettings.monthlyDeals[index] || 0;
+              const gci = deals * goalSettings.avg_sale_price * (goalSettings.commission_rate / 100) * (goalSettings.split_percent / 100);
+              return (
+                <div key={month} className="p-2 rounded-lg bg-background/50 border border-primary/10 text-center">
+                  <p className="text-xs font-medium text-foreground mb-1">{month}</p>
+                  <p className="text-sm font-bold text-gold">{deals.toFixed(1)}</p>
+                  <p className="text-xs text-green-400">${Math.round(gci / 1000)}k</p>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Key Metrics Summary */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className="border-gold/10 bg-card/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-gold/10">
+                <TrendingUp className="h-5 w-5 text-gold" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Avg Sale Price</p>
+                <p className="text-lg font-bold text-gold">${goalSettings.avg_sale_price.toLocaleString()}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="border-gold/10 bg-card/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-gold/10">
+                <DollarSign className="h-5 w-5 text-gold" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Commission Rate</p>
+                <p className="text-lg font-bold text-gold">{goalSettings.commission_rate}%</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="border-gold/10 bg-card/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-gold/10">
+                <Users className="h-5 w-5 text-gold" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Your Split</p>
+                <p className="text-lg font-bold text-gold">{goalSettings.split_percent}%</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="border-gold/10 bg-card/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-amber-500/10">
+                <Target className="h-5 w-5 text-amber-400" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Fallout Rate</p>
+                <p className="text-lg font-bold text-amber-400">{goalSettings.fallout_rate}%</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+export default Reports;
