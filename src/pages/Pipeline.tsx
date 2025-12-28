@@ -101,7 +101,7 @@ const months = [
   { value: '12', label: 'December' }
 ];
 
-const years = ['2025', '2026', '2027', '2028', '2029', '2030'];
+const years = ['2026', '2027', '2028', '2029', '2030'];
 
 // Stage definitions with timeline descriptions
 const stageDefinitions: Record<number, { label: string; description: string; color: string }> = {
@@ -548,7 +548,7 @@ const Pipeline = () => {
                     value={getMonthYearFromDate(newClient.expected_pending_date).month} 
                     onValueChange={(m) => {
                       const { year } = getMonthYearFromDate(newClient.expected_pending_date);
-                      setNewClient({ ...newClient, expected_pending_date: monthYearToDateString(m, year || '2025') });
+                      setNewClient({ ...newClient, expected_pending_date: monthYearToDateString(m, year || '2026') });
                     }}
                   >
                     <SelectTrigger><SelectValue placeholder="Month" /></SelectTrigger>
@@ -931,7 +931,7 @@ const Pipeline = () => {
                             value={getMonthYearFromDate(client.expected_pending_date).month} 
                             onValueChange={(m) => {
                               const { year } = getMonthYearFromDate(client.expected_pending_date);
-                              updateExpectedPendingDate(client.id, monthYearToDateString(m, year || '2025'));
+                              updateExpectedPendingDate(client.id, monthYearToDateString(m, year || '2026'));
                             }}
                           >
                             <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="Mo" /></SelectTrigger>
