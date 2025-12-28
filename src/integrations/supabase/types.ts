@@ -144,10 +144,52 @@ export type Database = {
           },
         ]
       }
+      deal_participants: {
+        Row: {
+          created_at: string
+          deal_id: string
+          id: string
+          notes: string | null
+          role: string
+          split_percentage: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          deal_id: string
+          id?: string
+          notes?: string | null
+          role?: string
+          split_percentage?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          deal_id?: string
+          id?: string
+          notes?: string | null
+          role?: string
+          split_percentage?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_participants_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deals: {
         Row: {
           client_name: string
           commission_rate: number | null
+          company_split_percentage: number | null
           created_at: string
           deal_value: number | null
           expected_close_date: string | null
@@ -161,6 +203,7 @@ export type Database = {
         Insert: {
           client_name: string
           commission_rate?: number | null
+          company_split_percentage?: number | null
           created_at?: string
           deal_value?: number | null
           expected_close_date?: string | null
@@ -174,6 +217,7 @@ export type Database = {
         Update: {
           client_name?: string
           commission_rate?: number | null
+          company_split_percentage?: number | null
           created_at?: string
           deal_value?: number | null
           expected_close_date?: string | null
