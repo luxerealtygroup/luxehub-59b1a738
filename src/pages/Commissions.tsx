@@ -243,9 +243,13 @@ const Commissions = () => {
 
   const totalEarned = commissions
     .filter(c => c.status === 'paid')
-    .reduce((sum, c) => sum + c.amount, 0);
+    .reduce((sum, c) => sum + (c.gross_commission || c.amount), 0);
 
   const totalPending = commissions
+    .filter(c => c.status === 'pending')
+    .reduce((sum, c) => sum + (c.gross_commission || c.amount), 0);
+
+  const totalNetPending = commissions
     .filter(c => c.status === 'pending')
     .reduce((sum, c) => sum + c.amount, 0);
 
@@ -255,7 +259,7 @@ const Commissions = () => {
       const now = new Date();
       return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
     })
-    .reduce((sum, c) => sum + c.amount, 0);
+    .reduce((sum, c) => sum + (c.gross_commission || c.amount), 0);
 
   const netPreview = calculateNetCommission(newDeal);
 
@@ -406,7 +410,7 @@ const Commissions = () => {
                   </div>
                   <div className="pt-2 border-t border-gold/20">
                     <div className="flex justify-between items-center">
-                      <span className="font-medium">Your Net Commission:</span>
+                      <span className="font-medium">Net After Cap:</span>
                       <span className="text-xl font-bold text-gold">${netPreview.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   </div>
@@ -482,7 +486,7 @@ const Commissions = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="border-gold/10 bg-card/50">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Earned</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Earned (Gross)</CardTitle>
             <CheckCircle className="h-5 w-5 text-green-400" />
           </CardHeader>
           <CardContent>
@@ -492,11 +496,12 @@ const Commissions = () => {
 
         <Card className="border-gold/10 bg-card/50">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Pending (Gross)</CardTitle>
             <Clock className="h-5 w-5 text-amber-400" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-amber-400">${totalPending.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground mt-1">Net after cap: ${totalNetPending.toLocaleString()}</p>
           </CardContent>
         </Card>
 

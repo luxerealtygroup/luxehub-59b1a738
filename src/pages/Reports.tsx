@@ -329,13 +329,14 @@ const Reports = () => {
       return date.getFullYear() === currentYear && date.getMonth() === idx;
     });
     
-    // Use actual commission amounts (agent net after splits)
-    const monthGCI = monthDeals.reduce((sum, d) => {
-      return sum + (d.commission_amount || 0);
-    }, 0);
-    
+    // Use gross commission as primary metric
     const monthGross = monthDeals.reduce((sum, d) => {
       return sum + (d.gross_commission || 0);
+    }, 0);
+    
+    // Net after cap
+    const monthNet = monthDeals.reduce((sum, d) => {
+      return sum + (d.commission_amount || 0);
     }, 0);
     
     const pendingCount = monthDeals.filter(d => d.stage === 'under_contract' || d.stage === 'offer').length;
@@ -343,8 +344,8 @@ const Reports = () => {
     
     return {
       month,
-      gci: monthGCI, // Agent net commission
-      gross: monthGross,
+      gci: monthGross, // Gross agent commission
+      net: monthNet,   // Net after cap
       pending: pendingCount,
       closed: closedCount,
       total: monthDeals.length,
@@ -352,8 +353,9 @@ const Reports = () => {
     };
   });
   
-  // Calculate totals for forecast summary
-  const totalForecastGCI = commissionsByMonth.reduce((sum, m) => sum + m.gci, 0);
+  // Calculate totals for forecast summary (using gross)
+  const totalForecastGross = commissionsByMonth.reduce((sum, m) => sum + m.gci, 0);
+  const totalForecastNet = commissionsByMonth.reduce((sum, m) => sum + m.net, 0);
   const totalPendingDeals = forecastDeals.filter(d => d.stage === 'under_contract' || d.stage === 'offer').length;
   const totalClosedDeals = forecastDeals.filter(d => d.stage === 'closed').length;
 
@@ -712,7 +714,7 @@ const Reports = () => {
                   }}
                   labelStyle={{ color: 'hsl(var(--foreground))' }}
                   formatter={(value: number, name: string) => {
-                    if (name === 'gci') return [`$${value.toLocaleString()}`, 'Deal GCI'];
+                    if (name === 'gci') return [`$${value.toLocaleString()}`, 'Gross Commission'];
                     if (name === 'goal') return [`$${Math.round(value).toLocaleString()}`, 'Goal GCI'];
                     return [value, name];
                   }}
@@ -736,7 +738,7 @@ const Reports = () => {
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded" style={{ backgroundColor: 'hsl(45 93% 47%)' }} />
-              <span className="text-muted-foreground">Future Deals</span>
+              <span className="text-muted-foreground">Gross Commission (Future)</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded" style={{ backgroundColor: 'hsl(142 76% 36%)' }} />
@@ -748,10 +750,14 @@ const Reports = () => {
             </div>
           </div>
           <div className="mt-4 p-3 rounded-lg bg-background/50 border border-gold/20">
-            <div className="grid grid-cols-3 gap-4 text-center">
+            <div className="grid grid-cols-4 gap-4 text-center">
               <div>
-                <p className="text-xs text-muted-foreground">Total Forecast GCI</p>
-                <p className="text-xl font-bold text-gold">${Math.round(totalForecastGCI).toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">Total Gross Commission</p>
+                <p className="text-xl font-bold text-gold">${Math.round(totalForecastGross).toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Net After Cap</p>
+                <p className="text-xl font-bold text-foreground">${Math.round(totalForecastNet).toLocaleString()}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Pending Deals</p>
