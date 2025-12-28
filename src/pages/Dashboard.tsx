@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Building2, Phone, DollarSign, Target, Users, Search, Loader2, TrendingUp, Flame, Award, ArrowUp, CheckCircle, Clock } from 'lucide-react';
 import { FUBClientSearch } from '@/components/FUBClientSearch';
 import { followUpBossApi, FUBPerson } from '@/lib/api/followUpBoss';
+import GoogleCalendarWidget from '@/components/GoogleCalendarWidget';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -659,7 +660,9 @@ const Dashboard = () => {
         </Card>
       </div>
 
-      {/* Follow Up Boss Section */}
+      {/* Google Calendar & Follow Up Boss Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <GoogleCalendarWidget />
       <Card className="border-gold/10 bg-card/50">
         <CardHeader className="flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
@@ -717,6 +720,7 @@ const Dashboard = () => {
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 };
