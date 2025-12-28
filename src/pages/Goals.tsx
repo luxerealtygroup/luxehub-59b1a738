@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
-import { Plus, Target, TrendingUp, Award } from 'lucide-react';
+import { Plus, Target, TrendingUp, Award, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Goal {
@@ -21,9 +21,16 @@ interface Goal {
   category: string;
 }
 
+interface ActualMetrics {
+  deals_closed: number;
+  deals_pending: number;
+  revenue: number;
+  revenue_pending: number;
+}
+
 const businessGoalTypes = [
   { value: 'deals_closed', label: 'Deals Closed' },
-  { value: 'revenue', label: 'Revenue Generated' },
+  { value: 'revenue', label: 'GCI (Commission)' },
   { value: 'calls', label: 'Calls Made' },
   { value: 'appointments', label: 'Appointments Set' },
   { value: 'showings', label: 'Showings Completed' },
@@ -45,6 +52,12 @@ const Goals = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<'business' | 'personal'>('business');
+  const [actualMetrics, setActualMetrics] = useState<ActualMetrics>({
+    deals_closed: 0,
+    deals_pending: 0,
+    revenue: 0,
+    revenue_pending: 0
+  });
   
   const [newGoal, setNewGoal] = useState({
     goal_type: 'deals_closed',
@@ -64,8 +77,76 @@ const Goals = () => {
     setLoading(false);
   };
 
+  const fetchActualMetrics = async () => {
+    if (!user) return;
+    
+    // Fetch closed deals count and commission
+    const { data: closedDeals } = await supabase
+      .from('deals')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('stage', 'closed');
+    
+    // Fetch pending/under contract deals
+    const { data: pendingDeals } = await supabase
+      .from('deals')
+      .select('id')
+      .eq('user_id', user.id)
+      .in('stage', ['under_contract', 'offer']);
+    
+    // Fetch paid commissions (actual revenue)
+    const { data: paidCommissions } = await supabase
+      .from('commissions')
+      .select('amount')
+      .eq('user_id', user.id)
+      .eq('status', 'paid');
+    
+    // Fetch pending commissions
+    const { data: pendingCommissions } = await supabase
+      .from('commissions')
+      .select('amount')
+      .eq('user_id', user.id)
+      .eq('status', 'pending');
+    
+    const paidTotal = paidCommissions?.reduce((sum, c) => sum + (c.amount || 0), 0) || 0;
+    const pendingTotal = pendingCommissions?.reduce((sum, c) => sum + (c.amount || 0), 0) || 0;
+    
+    setActualMetrics({
+      deals_closed: closedDeals?.length || 0,
+      deals_pending: pendingDeals?.length || 0,
+      revenue: paidTotal,
+      revenue_pending: pendingTotal
+    });
+  };
+
+  const syncGoalsWithActuals = async () => {
+    if (!user) return;
+    
+    // Update goals that can be auto-synced
+    for (const goal of goals) {
+      let newValue = goal.current_value;
+      
+      if (goal.goal_type === 'deals_closed') {
+        newValue = actualMetrics.deals_closed;
+      } else if (goal.goal_type === 'revenue') {
+        newValue = actualMetrics.revenue;
+      }
+      
+      if (newValue !== goal.current_value) {
+        await supabase
+          .from('agent_goals')
+          .update({ current_value: newValue })
+          .eq('id', goal.id);
+      }
+    }
+    
+    await fetchGoals();
+    toast({ title: 'Goals synced with actual data!' });
+  };
+
   useEffect(() => {
     fetchGoals();
+    fetchActualMetrics();
   }, [user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -123,59 +204,97 @@ const Goals = () => {
           <h1 className="text-3xl font-display font-bold text-foreground">Goals</h1>
           <p className="text-muted-foreground mt-1">Track your targets and celebrate wins</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-gold text-gold-foreground hover:bg-gold/90">
-              <Plus className="h-4 w-4 mr-2" /> Set Goal
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="border-gold/20 bg-card">
-            <DialogHeader>
-              <DialogTitle className="text-gold font-display">Set New Goal</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <Select value={newGoal.category} onValueChange={(v: 'business' | 'personal') => setNewGoal({ 
-                ...newGoal, 
-                category: v,
-                goal_type: v === 'business' ? 'deals_closed' : 'health_fitness'
-              })}>
-                <SelectTrigger><SelectValue placeholder="Category" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="business">Business</SelectItem>
-                  <SelectItem value="personal">Personal</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={newGoal.goal_type} onValueChange={(v) => setNewGoal({ ...newGoal, goal_type: v })}>
-                <SelectTrigger><SelectValue placeholder="Goal type" /></SelectTrigger>
-                <SelectContent>
-                  {(newGoal.category === 'business' ? businessGoalTypes : personalGoalTypes).map(t => (
-                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Input
-                type="number"
-                placeholder="Target value"
-                value={newGoal.target_value}
-                onChange={(e) => setNewGoal({ ...newGoal, target_value: e.target.value })}
-                required
-              />
-              <Select value={newGoal.period} onValueChange={(v) => setNewGoal({ ...newGoal, period: v })}>
-                <SelectTrigger><SelectValue placeholder="Period" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="weekly">Weekly</SelectItem>
-                  <SelectItem value="monthly">Monthly</SelectItem>
-                  <SelectItem value="quarterly">Quarterly</SelectItem>
-                  <SelectItem value="yearly">Yearly</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button type="submit" className="w-full bg-gold text-gold-foreground hover:bg-gold/90">
-                Create Goal
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            className="border-gold/30 text-gold hover:bg-gold/10"
+            onClick={syncGoalsWithActuals}
+          >
+            <RefreshCw className="h-4 w-4 mr-2" /> Sync Actuals
+          </Button>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-gold text-gold-foreground hover:bg-gold/90">
+                <Plus className="h-4 w-4 mr-2" /> Set Goal
               </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="border-gold/20 bg-card">
+              <DialogHeader>
+                <DialogTitle className="text-gold font-display">Set New Goal</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <Select value={newGoal.category} onValueChange={(v: 'business' | 'personal') => setNewGoal({ 
+                  ...newGoal, 
+                  category: v,
+                  goal_type: v === 'business' ? 'deals_closed' : 'health_fitness'
+                })}>
+                  <SelectTrigger><SelectValue placeholder="Category" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="business">Business</SelectItem>
+                    <SelectItem value="personal">Personal</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={newGoal.goal_type} onValueChange={(v) => setNewGoal({ ...newGoal, goal_type: v })}>
+                  <SelectTrigger><SelectValue placeholder="Goal type" /></SelectTrigger>
+                  <SelectContent>
+                    {(newGoal.category === 'business' ? businessGoalTypes : personalGoalTypes).map(t => (
+                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  type="number"
+                  placeholder="Target value"
+                  value={newGoal.target_value}
+                  onChange={(e) => setNewGoal({ ...newGoal, target_value: e.target.value })}
+                  required
+                />
+                <Select value={newGoal.period} onValueChange={(v) => setNewGoal({ ...newGoal, period: v })}>
+                  <SelectTrigger><SelectValue placeholder="Period" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                    <SelectItem value="quarterly">Quarterly</SelectItem>
+                    <SelectItem value="yearly">Yearly</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button type="submit" className="w-full bg-gold text-gold-foreground hover:bg-gold/90">
+                  Create Goal
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
+
+      {/* Actual Metrics Summary */}
+      {activeCategory === 'business' && (
+        <Card className="border-gold/20 bg-gold/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gold">Your Actual Performance</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div>
+                <p className="text-muted-foreground">Deals Closed</p>
+                <p className="text-xl font-bold text-foreground">{actualMetrics.deals_closed}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Deals Pending</p>
+                <p className="text-xl font-bold text-amber-400">{actualMetrics.deals_pending}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">GCI Earned</p>
+                <p className="text-xl font-bold text-green-400">${actualMetrics.revenue.toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">GCI Pending</p>
+                <p className="text-xl font-bold text-amber-400">${actualMetrics.revenue_pending.toLocaleString()}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Category Tabs */}
       <div className="flex gap-2">
@@ -242,15 +361,29 @@ const Goals = () => {
           </Card>
         ) : (
           filteredGoals.map((goal) => {
-            const progress = Math.min(100, Math.round((goal.current_value / goal.target_value) * 100));
+            // Use actual metrics for auto-synced goals
+            let displayValue = goal.current_value;
+            if (goal.goal_type === 'deals_closed') {
+              displayValue = actualMetrics.deals_closed;
+            } else if (goal.goal_type === 'revenue') {
+              displayValue = actualMetrics.revenue;
+            }
+            
+            const progress = Math.min(100, Math.round((displayValue / goal.target_value) * 100));
             const isComplete = progress >= 100;
             const goalLabel = goalTypes.find(t => t.value === goal.goal_type)?.label || goal.goal_type;
+            const isAutoSynced = goal.goal_type === 'deals_closed' || goal.goal_type === 'revenue';
             
             return (
               <Card key={goal.id} className={`border-gold/10 bg-card/50 ${isComplete ? 'ring-2 ring-green-500/30' : ''}`}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg font-display text-foreground">{goalLabel}</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-lg font-display text-foreground">{goalLabel}</CardTitle>
+                      {isAutoSynced && (
+                        <span className="text-xs bg-gold/20 text-gold px-1.5 py-0.5 rounded">Auto</span>
+                      )}
+                    </div>
                     <span className={`text-sm font-medium px-2 py-1 rounded ${
                       isComplete ? 'bg-green-500/20 text-green-400' : 'bg-gold/20 text-gold'
                     }`}>
@@ -261,7 +394,10 @@ const Goals = () => {
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">
-                      {goal.current_value} / {goal.target_value}
+                      {goal.goal_type === 'revenue' 
+                        ? `$${displayValue.toLocaleString()} / $${goal.target_value.toLocaleString()}`
+                        : `${displayValue} / ${goal.target_value}`
+                      }
                     </span>
                     <span className={isComplete ? 'text-green-400 font-semibold' : 'text-gold'}>
                       {progress}%
