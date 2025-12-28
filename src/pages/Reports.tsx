@@ -14,6 +14,12 @@ interface MonthlyGoal {
   target?: string;
 }
 
+interface DealWithSource {
+  id: string;
+  source: string | null;
+  deal_value: number | null;
+}
+
 interface PipelineClient {
   id: string;
   client_name: string;
@@ -72,6 +78,9 @@ const Reports = () => {
   
   // Pipeline data
   const [pipelineClients, setPipelineClients] = useState<PipelineClient[]>([]);
+  
+  // Deals with source for source of business report
+  const [dealsWithSource, setDealsWithSource] = useState<DealWithSource[]>([]);
   
   // 411 data
   const [weekly411, setWeekly411] = useState<Weekly411 | null>(null);
@@ -157,6 +166,13 @@ const Reports = () => {
     
     setPipelineClients((clients as PipelineClient[]) || []);
     
+    // Fetch deals with source for source of business report
+    const { data: dealsData } = await supabase
+      .from('deals')
+      .select('id, source, deal_value')
+      .eq('user_id', user.id);
+    
+    setDealsWithSource((dealsData as DealWithSource[]) || []);
     // Fetch current week's 411
     const today = new Date();
     const dayOfWeek = today.getDay();
@@ -286,6 +302,21 @@ const Reports = () => {
   });
 
   const currentMonthIdx = new Date().getMonth();
+
+  // Source of Business report data
+  const sourceOfBusinessData = dealsWithSource.reduce((acc, deal) => {
+    const source = deal.source || 'Unknown';
+    if (!acc[source]) {
+      acc[source] = { count: 0, volume: 0 };
+    }
+    acc[source].count++;
+    acc[source].volume += deal.deal_value || 0;
+    return acc;
+  }, {} as Record<string, { count: number; volume: number }>);
+
+  const sourceOfBusinessArray = Object.entries(sourceOfBusinessData)
+    .map(([source, data]) => ({ source, ...data }))
+    .sort((a, b) => b.count - a.count);
 
   if (loading) {
     return <div className="flex items-center justify-center h-64 text-gold animate-pulse">Loading reports...</div>;
@@ -663,6 +694,83 @@ const Reports = () => {
               </div>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Source of Business Report */}
+      <Card className="border-gold/20 bg-card">
+        <CardHeader>
+          <CardTitle className="text-lg font-display text-foreground flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-gold" />
+            Source of Business
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {sourceOfBusinessArray.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">
+              No deals with source data yet. Import deals from Follow Up Boss or add source when creating deals.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {sourceOfBusinessArray.map((item, idx) => {
+                  const percentage = dealsWithSource.length > 0 
+                    ? Math.round((item.count / dealsWithSource.length) * 100) 
+                    : 0;
+                  const colors = [
+                    'bg-gold/20 border-gold/40 text-gold',
+                    'bg-blue-500/20 border-blue-500/40 text-blue-400',
+                    'bg-emerald-500/20 border-emerald-500/40 text-emerald-400',
+                    'bg-purple-500/20 border-purple-500/40 text-purple-400',
+                    'bg-amber-500/20 border-amber-500/40 text-amber-400',
+                    'bg-rose-500/20 border-rose-500/40 text-rose-400',
+                  ];
+                  const colorClass = colors[idx % colors.length];
+                  
+                  return (
+                    <div 
+                      key={item.source} 
+                      className={`p-4 rounded-lg border ${colorClass.split(' ').slice(0, 2).join(' ')}`}
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <p className="font-medium text-foreground">{item.source}</p>
+                        <span className={`text-lg font-bold ${colorClass.split(' ')[2]}`}>{percentage}%</span>
+                      </div>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Deals</span>
+                          <span className="font-medium">{item.count}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Volume</span>
+                          <span className="font-medium">${item.volume.toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              
+              <div className="p-3 rounded-lg bg-background/50 border border-gold/20">
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Total Deals</p>
+                    <p className="text-xl font-bold text-gold">{dealsWithSource.length}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Unique Sources</p>
+                    <p className="text-xl font-bold text-foreground">{sourceOfBusinessArray.length}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Total Volume</p>
+                    <p className="text-xl font-bold text-foreground">
+                      ${dealsWithSource.reduce((sum, d) => sum + (d.deal_value || 0), 0).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
