@@ -46,7 +46,7 @@ const Goals = () => {
     gci_goal: ''
   });
 
-  const currentYear = new Date().getFullYear();
+  const currentYear = 2026;
 
   const fetchAnnualGoals = async () => {
     if (!user) return;
