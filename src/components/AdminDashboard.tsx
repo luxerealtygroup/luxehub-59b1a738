@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
 import { followUpBossApi, FUBDeal, FUBDealUser } from '@/lib/api/followUpBoss';
@@ -10,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, AreaChart, Area, Legend } from 'recharts';
 import { format, parseISO, startOfMonth } from 'date-fns';
+import TeamGoals from './TeamGoals';
 
 interface AgentData {
   id: string;
@@ -71,6 +73,7 @@ interface MonthlyPipelineData {
 const COLORS = ['hsl(43, 74%, 49%)', 'hsl(142, 71%, 45%)', 'hsl(217, 91%, 60%)', 'hsl(280, 67%, 60%)', 'hsl(350, 89%, 60%)'];
 
 const AdminDashboard = () => {
+  const navigate = useNavigate();
   const { isAdmin, isLoading: roleLoading } = useUserRole();
   const [stats, setStats] = useState<CompanyStats | null>(null);
   const [fubStats, setFubStats] = useState<FUBStats | null>(null);
@@ -432,6 +435,9 @@ const AdminDashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Team Goals */}
+      <TeamGoals />
 
       {/* Agent Leaderboard */}
       {fubAgents.length > 0 && (

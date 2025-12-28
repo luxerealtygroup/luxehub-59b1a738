@@ -168,6 +168,48 @@ export type Database = {
           },
         ]
       }
+      company_goals: {
+        Row: {
+          annual_deals_goal: number | null
+          annual_gci_goal: number | null
+          annual_revenue_goal: number | null
+          annual_volume_goal: number | null
+          created_at: string
+          created_by: string
+          id: string
+          monthly_goals: Json | null
+          notes: string | null
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          annual_deals_goal?: number | null
+          annual_gci_goal?: number | null
+          annual_revenue_goal?: number | null
+          annual_volume_goal?: number | null
+          created_at?: string
+          created_by: string
+          id?: string
+          monthly_goals?: Json | null
+          notes?: string | null
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          annual_deals_goal?: number | null
+          annual_gci_goal?: number | null
+          annual_revenue_goal?: number | null
+          annual_volume_goal?: number | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          monthly_goals?: Json | null
+          notes?: string | null
+          updated_at?: string
+          year?: number
+        }
+        Relationships: []
+      }
       deal_participants: {
         Row: {
           created_at: string

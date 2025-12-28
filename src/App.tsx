@@ -16,6 +16,7 @@ import Goals from "./pages/Goals";
 import FourOneOne from "./pages/FourOneOne";
 import Reports from "./pages/Reports";
 import AdminReports from "./pages/AdminReports";
+import AgentProfile from "./pages/AgentProfile";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -44,6 +45,7 @@ const App = () => (
               <Route path="411" element={<FourOneOne />} />
               <Route path="reports" element={<Reports />} />
               <Route path="admin" element={<AdminReports />} />
+              <Route path="admin/agent/:agentId" element={<AgentProfile />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
