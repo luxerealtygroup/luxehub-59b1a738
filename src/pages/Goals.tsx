@@ -18,14 +18,24 @@ interface Goal {
   period: string;
   start_date: string;
   end_date: string | null;
+  category: string;
 }
 
-const goalTypes = [
+const businessGoalTypes = [
   { value: 'deals_closed', label: 'Deals Closed' },
   { value: 'revenue', label: 'Revenue Generated' },
   { value: 'calls', label: 'Calls Made' },
   { value: 'appointments', label: 'Appointments Set' },
   { value: 'showings', label: 'Showings Completed' },
+];
+
+const personalGoalTypes = [
+  { value: 'health_fitness', label: 'Health & Fitness' },
+  { value: 'family_time', label: 'Family Time' },
+  { value: 'learning', label: 'Learning & Development' },
+  { value: 'savings', label: 'Savings Goal' },
+  { value: 'hobbies', label: 'Hobbies & Interests' },
+  { value: 'wellness', label: 'Wellness & Self-Care' },
 ];
 
 const Goals = () => {
@@ -34,11 +44,13 @@ const Goals = () => {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [activeCategory, setActiveCategory] = useState<'business' | 'personal'>('business');
   
   const [newGoal, setNewGoal] = useState({
     goal_type: 'deals_closed',
     target_value: '',
-    period: 'monthly'
+    period: 'monthly',
+    category: 'business' as 'business' | 'personal'
   });
 
   const fetchGoals = async () => {
@@ -65,7 +77,8 @@ const Goals = () => {
       goal_type: newGoal.goal_type,
       target_value: parseFloat(newGoal.target_value),
       current_value: 0,
-      period: newGoal.period
+      period: newGoal.period,
+      category: newGoal.category
     });
 
     if (error) {
@@ -73,7 +86,8 @@ const Goals = () => {
     } else {
       toast({ title: 'Goal created!' });
       setDialogOpen(false);
-      setNewGoal({ goal_type: 'deals_closed', target_value: '', period: 'monthly' });
+      setActiveCategory(newGoal.category);
+      setNewGoal({ goal_type: 'deals_closed', target_value: '', period: 'monthly', category: 'business' });
       fetchGoals();
     }
   };
@@ -94,9 +108,13 @@ const Goals = () => {
     return <div className="flex items-center justify-center h-64 text-gold animate-pulse">Loading goals...</div>;
   }
 
-  const avgProgress = goals.length > 0
-    ? Math.round(goals.reduce((sum, g) => sum + (g.current_value / g.target_value * 100), 0) / goals.length)
+  const filteredGoals = goals.filter(g => g.category === activeCategory);
+  
+  const avgProgress = filteredGoals.length > 0
+    ? Math.round(filteredGoals.reduce((sum, g) => sum + (g.current_value / g.target_value * 100), 0) / filteredGoals.length)
     : 0;
+
+  const goalTypes = activeCategory === 'business' ? businessGoalTypes : personalGoalTypes;
 
   return (
     <div className="space-y-6">
@@ -116,10 +134,21 @@ const Goals = () => {
               <DialogTitle className="text-gold font-display">Set New Goal</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
+              <Select value={newGoal.category} onValueChange={(v: 'business' | 'personal') => setNewGoal({ 
+                ...newGoal, 
+                category: v,
+                goal_type: v === 'business' ? 'deals_closed' : 'health_fitness'
+              })}>
+                <SelectTrigger><SelectValue placeholder="Category" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="business">Business</SelectItem>
+                  <SelectItem value="personal">Personal</SelectItem>
+                </SelectContent>
+              </Select>
               <Select value={newGoal.goal_type} onValueChange={(v) => setNewGoal({ ...newGoal, goal_type: v })}>
                 <SelectTrigger><SelectValue placeholder="Goal type" /></SelectTrigger>
                 <SelectContent>
-                  {goalTypes.map(t => (
+                  {(newGoal.category === 'business' ? businessGoalTypes : personalGoalTypes).map(t => (
                     <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                   ))}
                 </SelectContent>
@@ -148,14 +177,34 @@ const Goals = () => {
         </Dialog>
       </div>
 
+      {/* Category Tabs */}
+      <div className="flex gap-2">
+        <Button
+          variant={activeCategory === 'business' ? 'default' : 'outline'}
+          onClick={() => setActiveCategory('business')}
+          className={activeCategory === 'business' ? 'bg-gold text-gold-foreground' : 'border-gold/30 text-gold'}
+        >
+          Business Goals
+        </Button>
+        <Button
+          variant={activeCategory === 'personal' ? 'default' : 'outline'}
+          onClick={() => setActiveCategory('personal')}
+          className={activeCategory === 'personal' ? 'bg-primary text-primary-foreground' : 'border-primary/30 text-primary'}
+        >
+          Personal Goals
+        </Button>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="border-gold/10 bg-card/50">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Active Goals</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              {activeCategory === 'business' ? 'Business' : 'Personal'} Goals
+            </CardTitle>
             <Target className="h-5 w-5 text-gold" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">{goals.length}</div>
+            <div className="text-2xl font-bold text-foreground">{filteredGoals.length}</div>
           </CardContent>
         </Card>
 
@@ -183,16 +232,16 @@ const Goals = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {goals.length === 0 ? (
+        {filteredGoals.length === 0 ? (
           <Card className="col-span-full border-gold/10 bg-card/50">
             <CardContent className="text-center py-12">
               <Target className="h-12 w-12 mx-auto text-gold/30 mb-4" />
-              <p className="text-muted-foreground">No goals set yet</p>
-              <p className="text-sm text-muted-foreground mt-1">Create your first goal to start tracking!</p>
+              <p className="text-muted-foreground">No {activeCategory} goals set yet</p>
+              <p className="text-sm text-muted-foreground mt-1">Create your first {activeCategory} goal to start tracking!</p>
             </CardContent>
           </Card>
         ) : (
-          goals.map((goal) => {
+          filteredGoals.map((goal) => {
             const progress = Math.min(100, Math.round((goal.current_value / goal.target_value) * 100));
             const isComplete = progress >= 100;
             const goalLabel = goalTypes.find(t => t.value === goal.goal_type)?.label || goal.goal_type;

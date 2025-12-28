@@ -32,6 +32,12 @@ interface Weekly411 {
   priority_3_completed: boolean;
   priority_4: string;
   priority_4_completed: boolean;
+  personal_priority_1: string;
+  personal_priority_1_completed: boolean;
+  personal_priority_2: string;
+  personal_priority_2_completed: boolean;
+  personal_priority_3: string;
+  personal_priority_3_completed: boolean;
   wins: string;
   challenges: string;
   next_steps: string;
@@ -66,6 +72,12 @@ const emptyWeekly: Weekly411 = {
   priority_3_completed: false,
   priority_4: '',
   priority_4_completed: false,
+  personal_priority_1: '',
+  personal_priority_1_completed: false,
+  personal_priority_2: '',
+  personal_priority_2_completed: false,
+  personal_priority_3: '',
+  personal_priority_3_completed: false,
   wins: '',
   challenges: '',
   next_steps: '',
@@ -279,10 +291,10 @@ const FourOneOne = () => {
             </CardContent>
           </Card>
 
-          {/* 4 Weekly Priorities */}
+          {/* Business Priorities */}
           <Card className="border-primary/10">
             <CardHeader>
-              <CardTitle className="text-lg font-display">4 Weekly Priorities</CardTitle>
+              <CardTitle className="text-lg font-display">4 Business Priorities</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {[1, 2, 3, 4].map((num) => (
@@ -294,10 +306,36 @@ const FourOneOne = () => {
                     }
                   />
                   <Input
-                    placeholder={`Priority ${num}`}
+                    placeholder={`Business Priority ${num}`}
                     value={weeklyData[`priority_${num}` as keyof Weekly411] as string || ''}
                     onChange={(e) => setWeeklyData({ ...weeklyData, [`priority_${num}`]: e.target.value })}
                     className={weeklyData[`priority_${num}_completed` as keyof Weekly411] ? 'line-through text-muted-foreground' : ''}
+                  />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* Personal Priorities */}
+          <Card className="border-green-500/20">
+            <CardHeader>
+              <CardTitle className="text-lg font-display text-green-500">3 Personal Priorities</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {[1, 2, 3].map((num) => (
+                <div key={num} className="flex items-center gap-3">
+                  <Checkbox
+                    checked={weeklyData[`personal_priority_${num}_completed` as keyof Weekly411] as boolean}
+                    onCheckedChange={(checked) => 
+                      setWeeklyData({ ...weeklyData, [`personal_priority_${num}_completed`]: checked })
+                    }
+                    className="border-green-500/50 data-[state=checked]:bg-green-500"
+                  />
+                  <Input
+                    placeholder={`Personal Priority ${num}`}
+                    value={weeklyData[`personal_priority_${num}` as keyof Weekly411] as string || ''}
+                    onChange={(e) => setWeeklyData({ ...weeklyData, [`personal_priority_${num}`]: e.target.value })}
+                    className={weeklyData[`personal_priority_${num}_completed` as keyof Weekly411] ? 'line-through text-muted-foreground' : 'border-green-500/20 focus:border-green-500'}
                   />
                 </div>
               ))}
