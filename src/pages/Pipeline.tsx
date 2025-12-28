@@ -119,9 +119,18 @@ const Pipeline = () => {
     source: '',
     client_type: 'buyer' as 'buyer' | 'seller',
     projected_sale_amount: '',
-    projected_gci: '',
+    commission_percent: '3',
+    split_percent: '100',
     expected_pending_date: ''
   });
+
+  // Auto-calculate GCI from sale amount, commission %, and split %
+  const calculateGCI = (saleAmount: string, commissionPercent: string, splitPercent: string): number => {
+    const sale = parseFloat(saleAmount) || 0;
+    const commission = parseFloat(commissionPercent) || 0;
+    const split = parseFloat(splitPercent) || 0;
+    return sale * (commission / 100) * (split / 100);
+  };
 
   const fetchClients = async () => {
     if (!user) return;
@@ -183,6 +192,8 @@ const Pipeline = () => {
     setSubmitting(true);
     const calculatedStage = calculateStageFromDate(newClient.expected_pending_date || null);
 
+    const calculatedGCI = calculateGCI(newClient.projected_sale_amount, newClient.commission_percent, newClient.split_percent);
+
     if (editClient) {
       const { error } = await supabase
         .from('pipeline_clients')
@@ -196,7 +207,7 @@ const Pipeline = () => {
           source: newClient.source || null,
           client_type: newClient.client_type,
           projected_sale_amount: parseFloat(newClient.projected_sale_amount) || 0,
-          projected_gci: parseFloat(newClient.projected_gci) || 0,
+          projected_gci: calculatedGCI,
           expected_pending_date: newClient.expected_pending_date || null
         })
         .eq('id', editClient.id);
@@ -220,7 +231,7 @@ const Pipeline = () => {
         source: newClient.source || null,
         client_type: newClient.client_type,
         projected_sale_amount: parseFloat(newClient.projected_sale_amount) || 0,
-        projected_gci: parseFloat(newClient.projected_gci) || 0,
+        projected_gci: calculatedGCI,
         expected_pending_date: newClient.expected_pending_date || null
       });
 
@@ -259,7 +270,7 @@ const Pipeline = () => {
     setNewClient({ 
       client_name: '', email: '', phone: '', notes: '', 
       property_interest: '', source: '', client_type: activeTab,
-      projected_sale_amount: '', projected_gci: '', expected_pending_date: ''
+      projected_sale_amount: '', commission_percent: '3', split_percent: '100', expected_pending_date: ''
     });
   };
 
@@ -267,7 +278,7 @@ const Pipeline = () => {
     setNewClient({ 
       client_name: '', email: '', phone: '', notes: '', 
       property_interest: '', source: '', client_type: activeTab,
-      projected_sale_amount: '', projected_gci: '', expected_pending_date: ''
+      projected_sale_amount: '', commission_percent: '3', split_percent: '100', expected_pending_date: ''
     });
     setDialogOpen(true);
   };
@@ -283,7 +294,8 @@ const Pipeline = () => {
       source: client.source || '',
       client_type: client.client_type,
       projected_sale_amount: client.projected_sale_amount?.toString() || '',
-      projected_gci: client.projected_gci?.toString() || '',
+      commission_percent: '3',
+      split_percent: '100',
       expected_pending_date: client.expected_pending_date || ''
     });
     setDialogOpen(true);
@@ -448,7 +460,7 @@ const Pipeline = () => {
                   </p>
                 )}
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-3">
                 <div className="space-y-2">
                   <Label>Projected Sale Amount</Label>
                   <Input
@@ -458,15 +470,36 @@ const Pipeline = () => {
                     onChange={(e) => setNewClient({ ...newClient, projected_sale_amount: e.target.value })}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Projected GCI</Label>
-                  <Input
-                    type="number"
-                    placeholder="e.g., 15000"
-                    value={newClient.projected_gci}
-                    onChange={(e) => setNewClient({ ...newClient, projected_gci: e.target.value })}
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label>Commission %</Label>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      placeholder="3"
+                      value={newClient.commission_percent}
+                      onChange={(e) => setNewClient({ ...newClient, commission_percent: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Your Split %</Label>
+                    <Input
+                      type="number"
+                      step="1"
+                      placeholder="100"
+                      value={newClient.split_percent}
+                      onChange={(e) => setNewClient({ ...newClient, split_percent: e.target.value })}
+                    />
+                  </div>
                 </div>
+                {newClient.projected_sale_amount && (
+                  <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                    <p className="text-sm text-muted-foreground">Projected GCI</p>
+                    <p className="text-xl font-bold text-green-400">
+                      ${calculateGCI(newClient.projected_sale_amount, newClient.commission_percent, newClient.split_percent).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    </p>
+                  </div>
+                )}
               </div>
               <Input
                 placeholder="Property interest (e.g., 3BR in Downtown)"
