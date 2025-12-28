@@ -417,10 +417,10 @@ const Pipeline = () => {
               </div>
               <div className="space-y-2">
                 <Label>Status</Label>
-                <Select value={newClient.status} onValueChange={(v) => setNewClient({ ...newClient, status: v })}>
+                <Select value={newClient.status || 'none'} onValueChange={(v) => setNewClient({ ...newClient, status: v === 'none' ? '' : v })}>
                   <SelectTrigger><SelectValue placeholder="Select status (optional)" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No Status</SelectItem>
+                    <SelectItem value="none">No Status</SelectItem>
                     {(newClient.client_type === 'buyer' ? buyerStatusOptions : sellerStatusOptions).map(opt => (
                       <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                     ))}
