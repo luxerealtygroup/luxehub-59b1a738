@@ -31,7 +31,27 @@ interface PipelineClient {
   projected_sale_amount: number | null;
   projected_gci: number | null;
   expected_pending_date: string | null;
+  status: string | null;
 }
+
+// Status options based on client type
+const buyerStatusOptions = [
+  { value: 'appointment_set', label: 'Appointment Set', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
+  { value: 'appointment_held', label: 'Appointment Held', color: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
+  { value: 'under_contract', label: 'Under Contract', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
+];
+
+const sellerStatusOptions = [
+  { value: 'appointment_set', label: 'Appointment Set', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
+  { value: 'appointment_held', label: 'Appointment Held', color: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
+  { value: 'active_listing', label: 'Active/Exclusive Listing', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
+];
+
+const getStatusLabel = (status: string | null, clientType: 'buyer' | 'seller'): { label: string; color: string } | null => {
+  if (!status) return null;
+  const options = clientType === 'buyer' ? buyerStatusOptions : sellerStatusOptions;
+  return options.find(o => o.value === status) || null;
+};
 
 // Calculate stage based on days until expected pending date
 const calculateStageFromDate = (expectedPendingDate: string | null): number => {
@@ -121,7 +141,8 @@ const Pipeline = () => {
     projected_sale_amount: '',
     commission_percent: '3',
     split_percent: '100',
-    expected_pending_date: ''
+    expected_pending_date: '',
+    status: ''
   });
 
   // Auto-calculate GCI from sale amount, commission %, and split %
@@ -208,7 +229,8 @@ const Pipeline = () => {
           client_type: newClient.client_type,
           projected_sale_amount: parseFloat(newClient.projected_sale_amount) || 0,
           projected_gci: calculatedGCI,
-          expected_pending_date: newClient.expected_pending_date || null
+          expected_pending_date: newClient.expected_pending_date || null,
+          status: newClient.status || null
         })
         .eq('id', editClient.id);
 
@@ -232,7 +254,8 @@ const Pipeline = () => {
         client_type: newClient.client_type,
         projected_sale_amount: parseFloat(newClient.projected_sale_amount) || 0,
         projected_gci: calculatedGCI,
-        expected_pending_date: newClient.expected_pending_date || null
+        expected_pending_date: newClient.expected_pending_date || null,
+        status: newClient.status || null
       });
 
       if (error) {
@@ -270,7 +293,7 @@ const Pipeline = () => {
     setNewClient({ 
       client_name: '', email: '', phone: '', notes: '', 
       property_interest: '', source: '', client_type: activeTab,
-      projected_sale_amount: '', commission_percent: '3', split_percent: '100', expected_pending_date: ''
+      projected_sale_amount: '', commission_percent: '3', split_percent: '100', expected_pending_date: '', status: ''
     });
   };
 
@@ -278,7 +301,7 @@ const Pipeline = () => {
     setNewClient({ 
       client_name: '', email: '', phone: '', notes: '', 
       property_interest: '', source: '', client_type: activeTab,
-      projected_sale_amount: '', commission_percent: '3', split_percent: '100', expected_pending_date: ''
+      projected_sale_amount: '', commission_percent: '3', split_percent: '100', expected_pending_date: '', status: ''
     });
     setDialogOpen(true);
   };
@@ -296,7 +319,8 @@ const Pipeline = () => {
       projected_sale_amount: client.projected_sale_amount?.toString() || '',
       commission_percent: '3',
       split_percent: '100',
-      expected_pending_date: client.expected_pending_date || ''
+      expected_pending_date: client.expected_pending_date || '',
+      status: client.status || ''
     });
     setDialogOpen(true);
   };
@@ -383,11 +407,23 @@ const Pipeline = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label>Client Type</Label>
-                <Select value={newClient.client_type} onValueChange={(v: 'buyer' | 'seller') => setNewClient({ ...newClient, client_type: v })}>
+                <Select value={newClient.client_type} onValueChange={(v: 'buyer' | 'seller') => setNewClient({ ...newClient, client_type: v, status: '' })}>
                   <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="buyer">Buyer</SelectItem>
                     <SelectItem value="seller">Seller</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select value={newClient.status} onValueChange={(v) => setNewClient({ ...newClient, status: v })}>
+                  <SelectTrigger><SelectValue placeholder="Select status (optional)" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">No Status</SelectItem>
+                    {(newClient.client_type === 'buyer' ? buyerStatusOptions : sellerStatusOptions).map(opt => (
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -678,6 +714,14 @@ const Pipeline = () => {
                             </Button>
                           </div>
                         </div>
+                        {(() => {
+                          const statusInfo = getStatusLabel(client.status, client.client_type);
+                          return statusInfo ? (
+                            <Badge className={`${statusInfo.color} text-xs mt-1`}>
+                              {statusInfo.label}
+                            </Badge>
+                          ) : null;
+                        })()}
                         {client.projected_sale_amount && client.projected_sale_amount > 0 && (
                           <p className="text-xs text-gold font-medium">
                             ${client.projected_sale_amount.toLocaleString()}
