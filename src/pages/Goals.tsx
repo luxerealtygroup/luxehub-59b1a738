@@ -4,97 +4,95 @@ import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
-import { Plus, Target, TrendingUp, Award, RefreshCw } from 'lucide-react';
+import { Target, TrendingUp, DollarSign, Home, Edit2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-interface Goal {
-  id: string;
-  goal_type: string;
-  target_value: number;
-  current_value: number;
-  period: string;
-  start_date: string;
-  end_date: string | null;
-  category: string;
+interface AnnualGoals {
+  id?: string;
+  deals_goal: number;
+  gci_goal: number;
 }
 
 interface ActualMetrics {
   deals_closed: number;
   deals_pending: number;
-  revenue: number;
-  revenue_pending: number;
+  gci_earned: number;
+  gci_pending: number;
 }
-
-const businessGoalTypes = [
-  { value: 'deals_closed', label: 'Deals Closed' },
-  { value: 'revenue', label: 'GCI (Commission)' },
-  { value: 'calls', label: 'Calls Made' },
-  { value: 'appointments', label: 'Appointments Set' },
-  { value: 'showings', label: 'Showings Completed' },
-];
-
-const personalGoalTypes = [
-  { value: 'health_fitness', label: 'Health & Fitness' },
-  { value: 'family_time', label: 'Family Time' },
-  { value: 'learning', label: 'Learning & Development' },
-  { value: 'savings', label: 'Savings Goal' },
-  { value: 'hobbies', label: 'Hobbies & Interests' },
-  { value: 'wellness', label: 'Wellness & Self-Care' },
-];
 
 const Goals = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [activeCategory, setActiveCategory] = useState<'business' | 'personal'>('business');
+  const [showSetup, setShowSetup] = useState(false);
+  
+  const [annualGoals, setAnnualGoals] = useState<AnnualGoals>({
+    deals_goal: 0,
+    gci_goal: 0
+  });
+  
   const [actualMetrics, setActualMetrics] = useState<ActualMetrics>({
     deals_closed: 0,
     deals_pending: 0,
-    revenue: 0,
-    revenue_pending: 0
+    gci_earned: 0,
+    gci_pending: 0
   });
   
-  const [newGoal, setNewGoal] = useState({
-    goal_type: 'deals_closed',
-    target_value: '',
-    period: 'monthly',
-    category: 'business' as 'business' | 'personal'
+  const [formData, setFormData] = useState({
+    deals_goal: '',
+    gci_goal: ''
   });
 
-  const fetchGoals = async () => {
+  const currentYear = new Date().getFullYear();
+
+  const fetchAnnualGoals = async () => {
     if (!user) return;
+    
     const { data } = await supabase
       .from('agent_goals')
       .select('*')
       .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
-    setGoals(data || []);
-    setLoading(false);
+      .eq('period', 'yearly')
+      .in('goal_type', ['deals_closed', 'revenue']);
+    
+    if (data && data.length > 0) {
+      const dealsGoal = data.find(g => g.goal_type === 'deals_closed');
+      const gciGoal = data.find(g => g.goal_type === 'revenue');
+      
+      setAnnualGoals({
+        id: dealsGoal?.id || gciGoal?.id,
+        deals_goal: dealsGoal?.target_value || 0,
+        gci_goal: gciGoal?.target_value || 0
+      });
+      
+      setFormData({
+        deals_goal: dealsGoal?.target_value?.toString() || '',
+        gci_goal: gciGoal?.target_value?.toString() || ''
+      });
+    }
   };
 
   const fetchActualMetrics = async () => {
     if (!user) return;
     
-    // Fetch closed deals count and commission
+    // Fetch closed deals
     const { data: closedDeals } = await supabase
       .from('deals')
       .select('id')
       .eq('user_id', user.id)
       .eq('stage', 'closed');
     
-    // Fetch pending/under contract deals
+    // Fetch pending deals
     const { data: pendingDeals } = await supabase
       .from('deals')
       .select('id')
       .eq('user_id', user.id)
       .in('stage', ['under_contract', 'offer']);
     
-    // Fetch paid commissions (actual revenue)
+    // Fetch paid commissions
     const { data: paidCommissions } = await supabase
       .from('commissions')
       .select('amount')
@@ -108,332 +106,291 @@ const Goals = () => {
       .eq('user_id', user.id)
       .eq('status', 'pending');
     
-    const paidTotal = paidCommissions?.reduce((sum, c) => sum + (c.amount || 0), 0) || 0;
-    const pendingTotal = pendingCommissions?.reduce((sum, c) => sum + (c.amount || 0), 0) || 0;
-    
     setActualMetrics({
       deals_closed: closedDeals?.length || 0,
       deals_pending: pendingDeals?.length || 0,
-      revenue: paidTotal,
-      revenue_pending: pendingTotal
+      gci_earned: paidCommissions?.reduce((sum, c) => sum + (c.amount || 0), 0) || 0,
+      gci_pending: pendingCommissions?.reduce((sum, c) => sum + (c.amount || 0), 0) || 0
     });
-  };
-
-  const syncGoalsWithActuals = async () => {
-    if (!user) return;
     
-    // Update goals that can be auto-synced
-    for (const goal of goals) {
-      let newValue = goal.current_value;
-      
-      if (goal.goal_type === 'deals_closed') {
-        newValue = actualMetrics.deals_closed;
-      } else if (goal.goal_type === 'revenue') {
-        newValue = actualMetrics.revenue;
-      }
-      
-      if (newValue !== goal.current_value) {
-        await supabase
-          .from('agent_goals')
-          .update({ current_value: newValue })
-          .eq('id', goal.id);
-      }
-    }
-    
-    await fetchGoals();
-    toast({ title: 'Goals synced with actual data!' });
+    setLoading(false);
   };
 
   useEffect(() => {
-    fetchGoals();
+    fetchAnnualGoals();
     fetchActualMetrics();
   }, [user]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveGoals = async () => {
     if (!user) return;
-
-    const { error } = await supabase.from('agent_goals').insert({
-      user_id: user.id,
-      goal_type: newGoal.goal_type,
-      target_value: parseFloat(newGoal.target_value),
-      current_value: 0,
-      period: newGoal.period,
-      category: newGoal.category
-    });
-
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    } else {
-      toast({ title: 'Goal created!' });
-      setDialogOpen(false);
-      setActiveCategory(newGoal.category);
-      setNewGoal({ goal_type: 'deals_closed', target_value: '', period: 'monthly', category: 'business' });
-      fetchGoals();
-    }
-  };
-
-  const updateProgress = async (goalId: string, newValue: number) => {
-    const { error } = await supabase
-      .from('agent_goals')
-      .update({ current_value: newValue })
-      .eq('id', goalId);
     
-    if (!error) {
-      fetchGoals();
-      toast({ title: 'Progress updated!' });
+    const dealsTarget = parseFloat(formData.deals_goal) || 0;
+    const gciTarget = parseFloat(formData.gci_goal) || 0;
+    
+    // Check if goals already exist
+    const { data: existingGoals } = await supabase
+      .from('agent_goals')
+      .select('id, goal_type')
+      .eq('user_id', user.id)
+      .eq('period', 'yearly')
+      .in('goal_type', ['deals_closed', 'revenue']);
+    
+    const existingDealsGoal = existingGoals?.find(g => g.goal_type === 'deals_closed');
+    const existingGciGoal = existingGoals?.find(g => g.goal_type === 'revenue');
+    
+    // Upsert deals goal
+    if (existingDealsGoal) {
+      await supabase
+        .from('agent_goals')
+        .update({ target_value: dealsTarget })
+        .eq('id', existingDealsGoal.id);
+    } else {
+      await supabase.from('agent_goals').insert({
+        user_id: user.id,
+        goal_type: 'deals_closed',
+        target_value: dealsTarget,
+        current_value: actualMetrics.deals_closed,
+        period: 'yearly',
+        category: 'business'
+      });
     }
+    
+    // Upsert GCI goal
+    if (existingGciGoal) {
+      await supabase
+        .from('agent_goals')
+        .update({ target_value: gciTarget })
+        .eq('id', existingGciGoal.id);
+    } else {
+      await supabase.from('agent_goals').insert({
+        user_id: user.id,
+        goal_type: 'revenue',
+        target_value: gciTarget,
+        current_value: actualMetrics.gci_earned,
+        period: 'yearly',
+        category: 'business'
+      });
+    }
+    
+    setAnnualGoals({ deals_goal: dealsTarget, gci_goal: gciTarget });
+    setShowSetup(false);
+    toast({ title: 'Annual goals saved!' });
+    fetchAnnualGoals();
   };
+
+  const hasGoalsSet = annualGoals.deals_goal > 0 || annualGoals.gci_goal > 0;
+  
+  const dealsProgress = annualGoals.deals_goal > 0 
+    ? Math.min(100, Math.round((actualMetrics.deals_closed / annualGoals.deals_goal) * 100))
+    : 0;
+  
+  const gciProgress = annualGoals.gci_goal > 0 
+    ? Math.min(100, Math.round((actualMetrics.gci_earned / annualGoals.gci_goal) * 100))
+    : 0;
+
+  const totalDeals = actualMetrics.deals_closed + actualMetrics.deals_pending;
+  const totalGci = actualMetrics.gci_earned + actualMetrics.gci_pending;
 
   if (loading) {
     return <div className="flex items-center justify-center h-64 text-gold animate-pulse">Loading goals...</div>;
   }
 
-  const filteredGoals = goals.filter(g => g.category === activeCategory);
-  
-  const avgProgress = filteredGoals.length > 0
-    ? Math.round(filteredGoals.reduce((sum, g) => sum + (g.current_value / g.target_value * 100), 0) / filteredGoals.length)
-    : 0;
-
-  const goalTypes = activeCategory === 'business' ? businessGoalTypes : personalGoalTypes;
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-display font-bold text-foreground">Goals</h1>
-          <p className="text-muted-foreground mt-1">Track your targets and celebrate wins</p>
+          <h1 className="text-3xl font-display font-bold text-foreground">{currentYear} Goals</h1>
+          <p className="text-muted-foreground mt-1">Track your annual targets</p>
         </div>
-        <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            className="border-gold/30 text-gold hover:bg-gold/10"
-            onClick={syncGoalsWithActuals}
-          >
-            <RefreshCw className="h-4 w-4 mr-2" /> Sync Actuals
-          </Button>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-gold text-gold-foreground hover:bg-gold/90">
-                <Plus className="h-4 w-4 mr-2" /> Set Goal
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="border-gold/20 bg-card">
-              <DialogHeader>
-                <DialogTitle className="text-gold font-display">Set New Goal</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <Select value={newGoal.category} onValueChange={(v: 'business' | 'personal') => setNewGoal({ 
-                  ...newGoal, 
-                  category: v,
-                  goal_type: v === 'business' ? 'deals_closed' : 'health_fitness'
-                })}>
-                  <SelectTrigger><SelectValue placeholder="Category" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="business">Business</SelectItem>
-                    <SelectItem value="personal">Personal</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={newGoal.goal_type} onValueChange={(v) => setNewGoal({ ...newGoal, goal_type: v })}>
-                  <SelectTrigger><SelectValue placeholder="Goal type" /></SelectTrigger>
-                  <SelectContent>
-                    {(newGoal.category === 'business' ? businessGoalTypes : personalGoalTypes).map(t => (
-                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+        <Button 
+          variant="outline" 
+          className="border-gold/30 text-gold hover:bg-gold/10"
+          onClick={() => setShowSetup(true)}
+        >
+          <Edit2 className="h-4 w-4 mr-2" /> {hasGoalsSet ? 'Edit Goals' : 'Set Goals'}
+        </Button>
+      </div>
+
+      {/* Goal Setup Dialog */}
+      <Dialog open={showSetup || !hasGoalsSet} onOpenChange={setShowSetup}>
+        <DialogContent className="border-gold/20 bg-card">
+          <DialogHeader>
+            <DialogTitle className="text-gold font-display text-xl">Set Your {currentYear} Goals</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 pt-4">
+            <div className="space-y-2">
+              <Label className="text-foreground">Annual Deals Goal</Label>
+              <div className="flex items-center gap-3">
+                <Home className="h-5 w-5 text-gold" />
                 <Input
                   type="number"
-                  placeholder="Target value"
-                  value={newGoal.target_value}
-                  onChange={(e) => setNewGoal({ ...newGoal, target_value: e.target.value })}
-                  required
+                  placeholder="e.g., 24"
+                  value={formData.deals_goal}
+                  onChange={(e) => setFormData({ ...formData, deals_goal: e.target.value })}
+                  className="text-lg"
                 />
-                <Select value={newGoal.period} onValueChange={(v) => setNewGoal({ ...newGoal, period: v })}>
-                  <SelectTrigger><SelectValue placeholder="Period" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="weekly">Weekly</SelectItem>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                    <SelectItem value="quarterly">Quarterly</SelectItem>
-                    <SelectItem value="yearly">Yearly</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button type="submit" className="w-full bg-gold text-gold-foreground hover:bg-gold/90">
-                  Create Goal
-                </Button>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
-
-      {/* Actual Metrics Summary */}
-      {activeCategory === 'business' && (
-        <Card className="border-gold/20 bg-gold/5">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gold">Your Actual Performance</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div>
-                <p className="text-muted-foreground">Deals Closed</p>
-                <p className="text-xl font-bold text-foreground">{actualMetrics.deals_closed}</p>
+                <span className="text-muted-foreground">deals</span>
               </div>
-              <div>
-                <p className="text-muted-foreground">Deals Pending</p>
-                <p className="text-xl font-bold text-amber-400">{actualMetrics.deals_pending}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">GCI Earned</p>
-                <p className="text-xl font-bold text-green-400">${actualMetrics.revenue.toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">GCI Pending</p>
-                <p className="text-xl font-bold text-amber-400">${actualMetrics.revenue_pending.toLocaleString()}</p>
-              </div>
+              <p className="text-xs text-muted-foreground">How many deals do you want to close this year?</p>
             </div>
-          </CardContent>
-        </Card>
+            
+            <div className="space-y-2">
+              <Label className="text-foreground">Annual GCI Goal</Label>
+              <div className="flex items-center gap-3">
+                <DollarSign className="h-5 w-5 text-gold" />
+                <Input
+                  type="number"
+                  placeholder="e.g., 150000"
+                  value={formData.gci_goal}
+                  onChange={(e) => setFormData({ ...formData, gci_goal: e.target.value })}
+                  className="text-lg"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">What's your target gross commission income?</p>
+            </div>
+            
+            <Button 
+              onClick={handleSaveGoals} 
+              className="w-full bg-gold text-gold-foreground hover:bg-gold/90"
+              disabled={!formData.deals_goal && !formData.gci_goal}
+            >
+              Save Goals
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Progress Dashboard */}
+      {hasGoalsSet && (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Deals Progress */}
+            <Card className="border-gold/20 bg-gradient-to-br from-card to-gold/5">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg font-display text-foreground flex items-center gap-2">
+                    <Home className="h-5 w-5 text-gold" />
+                    Deals Closed
+                  </CardTitle>
+                  <span className={`text-2xl font-bold ${dealsProgress >= 100 ? 'text-green-400' : 'text-gold'}`}>
+                    {dealsProgress}%
+                  </span>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Progress value={dealsProgress} className="h-3" />
+                <div className="flex justify-between text-sm">
+                  <div>
+                    <span className="text-3xl font-bold text-foreground">{actualMetrics.deals_closed}</span>
+                    <span className="text-muted-foreground ml-2">/ {annualGoals.deals_goal} goal</span>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-amber-400 font-medium">+{actualMetrics.deals_pending} pending</p>
+                    <p className="text-xs text-muted-foreground">{totalDeals} total pipeline</p>
+                  </div>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {annualGoals.deals_goal - actualMetrics.deals_closed > 0 
+                    ? `${annualGoals.deals_goal - actualMetrics.deals_closed} more deals to reach your goal`
+                    : '🎉 Goal achieved!'}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* GCI Progress */}
+            <Card className="border-gold/20 bg-gradient-to-br from-card to-gold/5">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg font-display text-foreground flex items-center gap-2">
+                    <DollarSign className="h-5 w-5 text-gold" />
+                    GCI (Commission)
+                  </CardTitle>
+                  <span className={`text-2xl font-bold ${gciProgress >= 100 ? 'text-green-400' : 'text-gold'}`}>
+                    {gciProgress}%
+                  </span>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Progress value={gciProgress} className="h-3" />
+                <div className="flex justify-between text-sm">
+                  <div>
+                    <span className="text-3xl font-bold text-foreground">${actualMetrics.gci_earned.toLocaleString()}</span>
+                    <span className="text-muted-foreground ml-2">/ ${annualGoals.gci_goal.toLocaleString()}</span>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-amber-400 font-medium">+${actualMetrics.gci_pending.toLocaleString()} pending</p>
+                    <p className="text-xs text-muted-foreground">${totalGci.toLocaleString()} total</p>
+                  </div>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {annualGoals.gci_goal - actualMetrics.gci_earned > 0 
+                    ? `$${(annualGoals.gci_goal - actualMetrics.gci_earned).toLocaleString()} more to reach your goal`
+                    : '🎉 Goal achieved!'}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Summary Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card className="border-gold/10 bg-card/50">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-green-500/10">
+                    <Target className="h-5 w-5 text-green-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Closed</p>
+                    <p className="text-xl font-bold text-green-400">{actualMetrics.deals_closed}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="border-gold/10 bg-card/50">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-amber-500/10">
+                    <TrendingUp className="h-5 w-5 text-amber-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Pending</p>
+                    <p className="text-xl font-bold text-amber-400">{actualMetrics.deals_pending}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="border-gold/10 bg-card/50">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-green-500/10">
+                    <DollarSign className="h-5 w-5 text-green-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Earned</p>
+                    <p className="text-xl font-bold text-green-400">${actualMetrics.gci_earned.toLocaleString()}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="border-gold/10 bg-card/50">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-amber-500/10">
+                    <DollarSign className="h-5 w-5 text-amber-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Pending GCI</p>
+                    <p className="text-xl font-bold text-amber-400">${actualMetrics.gci_pending.toLocaleString()}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </>
       )}
-
-      {/* Category Tabs */}
-      <div className="flex gap-2">
-        <Button
-          variant={activeCategory === 'business' ? 'default' : 'outline'}
-          onClick={() => setActiveCategory('business')}
-          className={activeCategory === 'business' ? 'bg-gold text-gold-foreground' : 'border-gold/30 text-gold'}
-        >
-          Business Goals
-        </Button>
-        <Button
-          variant={activeCategory === 'personal' ? 'default' : 'outline'}
-          onClick={() => setActiveCategory('personal')}
-          className={activeCategory === 'personal' ? 'bg-primary text-primary-foreground' : 'border-primary/30 text-primary'}
-        >
-          Personal Goals
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="border-gold/10 bg-card/50">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {activeCategory === 'business' ? 'Business' : 'Personal'} Goals
-            </CardTitle>
-            <Target className="h-5 w-5 text-gold" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground">{filteredGoals.length}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-gold/10 bg-card/50">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Average Progress</CardTitle>
-            <TrendingUp className="h-5 w-5 text-gold" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gold">{avgProgress}%</div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-gold/10 bg-card/50">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Completed</CardTitle>
-            <Award className="h-5 w-5 text-green-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-400">
-              {goals.filter(g => g.current_value >= g.target_value).length}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {filteredGoals.length === 0 ? (
-          <Card className="col-span-full border-gold/10 bg-card/50">
-            <CardContent className="text-center py-12">
-              <Target className="h-12 w-12 mx-auto text-gold/30 mb-4" />
-              <p className="text-muted-foreground">No {activeCategory} goals set yet</p>
-              <p className="text-sm text-muted-foreground mt-1">Create your first {activeCategory} goal to start tracking!</p>
-            </CardContent>
-          </Card>
-        ) : (
-          filteredGoals.map((goal) => {
-            // Use actual metrics for auto-synced goals
-            let displayValue = goal.current_value;
-            if (goal.goal_type === 'deals_closed') {
-              displayValue = actualMetrics.deals_closed;
-            } else if (goal.goal_type === 'revenue') {
-              displayValue = actualMetrics.revenue;
-            }
-            
-            const progress = Math.min(100, Math.round((displayValue / goal.target_value) * 100));
-            const isComplete = progress >= 100;
-            const goalLabel = goalTypes.find(t => t.value === goal.goal_type)?.label || goal.goal_type;
-            const isAutoSynced = goal.goal_type === 'deals_closed' || goal.goal_type === 'revenue';
-            
-            return (
-              <Card key={goal.id} className={`border-gold/10 bg-card/50 ${isComplete ? 'ring-2 ring-green-500/30' : ''}`}>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <CardTitle className="text-lg font-display text-foreground">{goalLabel}</CardTitle>
-                      {isAutoSynced && (
-                        <span className="text-xs bg-gold/20 text-gold px-1.5 py-0.5 rounded">Auto</span>
-                      )}
-                    </div>
-                    <span className={`text-sm font-medium px-2 py-1 rounded ${
-                      isComplete ? 'bg-green-500/20 text-green-400' : 'bg-gold/20 text-gold'
-                    }`}>
-                      {goal.period}
-                    </span>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      {goal.goal_type === 'revenue' 
-                        ? `$${displayValue.toLocaleString()} / $${goal.target_value.toLocaleString()}`
-                        : `${displayValue} / ${goal.target_value}`
-                      }
-                    </span>
-                    <span className={isComplete ? 'text-green-400 font-semibold' : 'text-gold'}>
-                      {progress}%
-                    </span>
-                  </div>
-                  <Progress value={progress} className="h-2" />
-                  {!isComplete && (
-                    <div className="flex gap-2">
-                      <Input
-                        type="number"
-                        placeholder="Update progress"
-                        className="flex-1"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            const input = e.target as HTMLInputElement;
-                            updateProgress(goal.id, parseFloat(input.value));
-                            input.value = '';
-                          }
-                        }}
-                      />
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        className="border-gold/30 text-gold hover:bg-gold/10"
-                        onClick={() => updateProgress(goal.id, goal.current_value + 1)}
-                      >
-                        +1
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })
-        )}
-      </div>
     </div>
   );
 };
