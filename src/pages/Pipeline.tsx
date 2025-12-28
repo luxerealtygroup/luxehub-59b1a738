@@ -392,13 +392,13 @@ const Pipeline = () => {
     }
   };
 
-  const handleFUBClientSelect = (client: { name: string; email?: string; phone?: string }) => {
+  const handleFUBClientSelect = (client: { name: string; email?: string; phone?: string; source?: string }) => {
     setNewClient({
       ...newClient,
       client_name: client.name,
       email: client.email || newClient.email,
       phone: client.phone || newClient.phone,
-      source: 'Follow Up Boss'
+      source: client.source || 'Follow Up Boss'
     });
   };
 
