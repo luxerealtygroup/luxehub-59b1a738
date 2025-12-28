@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
+import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Building2, DollarSign, Users, TrendingUp, Target, Loader2, BarChart3 } from 'lucide-react';
@@ -30,11 +31,20 @@ interface CompanyStats {
   agents: AgentData[];
 }
 
+interface FUBStats {
+  totalGci: number;
+  pendingGci: number;
+  companyRevenue: number;
+  closedDeals: number;
+  pendingDeals: number;
+}
+
 const COLORS = ['hsl(43, 74%, 49%)', 'hsl(142, 71%, 45%)', 'hsl(217, 91%, 60%)', 'hsl(280, 67%, 60%)', 'hsl(350, 89%, 60%)'];
 
 const AdminDashboard = () => {
   const { isAdmin, isLoading: roleLoading } = useUserRole();
   const [stats, setStats] = useState<CompanyStats | null>(null);
+  const [fubStats, setFubStats] = useState<FUBStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
@@ -44,12 +54,61 @@ const AdminDashboard = () => {
     const fetchCompanyData = async () => {
       setLoading(true);
 
+      // Fetch FUB deals for company-wide stats
+      const fubResponse = await followUpBossApi.getDeals(200, 0);
+      if (fubResponse.success && fubResponse.data?.deals) {
+        const deals = fubResponse.data.deals;
+        
+        // Closed deals = status is "Won" or similar closed status
+        const closedDeals = deals.filter((d: FUBDeal) => 
+          d.status?.toLowerCase() === 'won' || 
+          d.stageName?.toLowerCase().includes('closed') ||
+          d.stageName?.toLowerCase().includes('won')
+        );
+        
+        // Pending deals = not closed/won and not lost
+        const pendingDeals = deals.filter((d: FUBDeal) => 
+          d.status?.toLowerCase() !== 'won' && 
+          d.status?.toLowerCase() !== 'lost' &&
+          !d.stageName?.toLowerCase().includes('closed') &&
+          !d.stageName?.toLowerCase().includes('lost')
+        );
+
+        // Total GCI = full commission value from closed deals (no splits)
+        const totalGci = closedDeals.reduce((sum: number, d: FUBDeal) => 
+          sum + (d.commissionValue || 0), 0
+        );
+
+        // Pending GCI = full commission value from pending deals (no splits)
+        const pendingGci = pendingDeals.reduce((sum: number, d: FUBDeal) => 
+          sum + (d.commissionValue || 0), 0
+        );
+
+        // Company Revenue = sum of (commission - agent commission) which is effectively the team split
+        // If agentCommission is available, team split = commissionValue - agentCommission
+        // Otherwise we'll use a default calculation
+        const companyRevenue = closedDeals.reduce((sum: number, d: FUBDeal) => {
+          const commission = d.commissionValue || 0;
+          const agentCut = d.agentCommission || 0;
+          // Team split is the difference (what the company keeps)
+          return sum + (commission - agentCut);
+        }, 0);
+
+        setFubStats({
+          totalGci,
+          pendingGci,
+          companyRevenue,
+          closedDeals: closedDeals.length,
+          pendingDeals: pendingDeals.length,
+        });
+      }
+
       // Fetch all profiles
       const { data: profiles } = await supabase
         .from('profiles')
         .select('id, full_name');
 
-      // Fetch all deals
+      // Fetch all deals from local DB for agent breakdown
       const { data: deals } = await supabase
         .from('deals')
         .select('*');
@@ -173,7 +232,7 @@ const AdminDashboard = () => {
         </Badge>
       </div>
 
-      {/* Company-wide Stats */}
+      {/* Company-wide Stats from FUB */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="border-green-500/20 bg-gradient-to-br from-card to-green-500/5">
           <CardContent className="p-5">
@@ -181,8 +240,12 @@ const AdminDashboard = () => {
               <DollarSign className="h-5 w-5 text-green-500" />
               <span className="text-sm text-muted-foreground">Total GCI Earned</span>
             </div>
-            <p className="text-3xl font-bold text-foreground">${stats.totalGci.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground mt-1">Across all agents</p>
+            <p className="text-3xl font-bold text-foreground">
+              ${(fubStats?.totalGci || 0).toLocaleString()}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {fubStats?.closedDeals || 0} closed deals from FUB
+            </p>
           </CardContent>
         </Card>
 
@@ -192,8 +255,12 @@ const AdminDashboard = () => {
               <TrendingUp className="h-5 w-5 text-gold" />
               <span className="text-sm text-muted-foreground">Pending GCI</span>
             </div>
-            <p className="text-3xl font-bold text-gold">${stats.pendingGci.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground mt-1">Awaiting close</p>
+            <p className="text-3xl font-bold text-gold">
+              ${(fubStats?.pendingGci || 0).toLocaleString()}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {fubStats?.pendingDeals || 0} pending deals
+            </p>
           </CardContent>
         </Card>
 
@@ -203,8 +270,10 @@ const AdminDashboard = () => {
               <Building2 className="h-5 w-5 text-blue-500" />
               <span className="text-sm text-muted-foreground">Company Revenue</span>
             </div>
-            <p className="text-3xl font-bold text-blue-500">${stats.totalCompanyCut.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground mt-1">From closed deals</p>
+            <p className="text-3xl font-bold text-blue-500">
+              ${(fubStats?.companyRevenue || 0).toLocaleString()}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">Team split from FUB deals</p>
           </CardContent>
         </Card>
 
@@ -214,8 +283,10 @@ const AdminDashboard = () => {
               <Users className="h-5 w-5 text-purple-500" />
               <span className="text-sm text-muted-foreground">Pipeline Clients</span>
             </div>
-            <p className="text-3xl font-bold text-purple-500">{stats.totalPipelineClients}</p>
-            <p className="text-xs text-muted-foreground mt-1">{stats.closedDeals} closed / {stats.activeDeals} active deals</p>
+            <p className="text-3xl font-bold text-purple-500">{stats?.totalPipelineClients || 0}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {stats?.closedDeals || 0} closed / {stats?.activeDeals || 0} active deals
+            </p>
           </CardContent>
         </Card>
       </div>
