@@ -301,9 +301,15 @@ const FourOneOne = () => {
                 <div key={num} className="flex items-center gap-3">
                   <Checkbox
                     checked={weeklyData[`priority_${num}_completed` as keyof Weekly411] as boolean}
-                    onCheckedChange={(checked) => 
-                      setWeeklyData({ ...weeklyData, [`priority_${num}_completed`]: checked })
-                    }
+                    onCheckedChange={(checked) => {
+                      setWeeklyData({ ...weeklyData, [`priority_${num}_completed`]: checked });
+                      if (checked) {
+                        toast({ 
+                          title: '🎉 Great job!', 
+                          description: 'You completed a business priority! Keep up the momentum!' 
+                        });
+                      }
+                    }}
                   />
                   <Input
                     placeholder={`Business Priority ${num}`}
@@ -326,9 +332,15 @@ const FourOneOne = () => {
                 <div key={num} className="flex items-center gap-3">
                   <Checkbox
                     checked={weeklyData[`personal_priority_${num}_completed` as keyof Weekly411] as boolean}
-                    onCheckedChange={(checked) => 
-                      setWeeklyData({ ...weeklyData, [`personal_priority_${num}_completed`]: checked })
-                    }
+                    onCheckedChange={(checked) => {
+                      setWeeklyData({ ...weeklyData, [`personal_priority_${num}_completed`]: checked });
+                      if (checked) {
+                        toast({ 
+                          title: '🌟 Awesome!', 
+                          description: 'Personal priority completed! You\'re crushing it!' 
+                        });
+                      }
+                    }}
                     className="border-green-500/50 data-[state=checked]:bg-green-500"
                   />
                   <Input
