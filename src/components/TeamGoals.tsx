@@ -54,6 +54,8 @@ const TeamGoals = () => {
     annual_gci_goal: 0,
     annual_volume_goal: 0,
     annual_revenue_goal: 0,
+    average_sale_price: 0,
+    average_commission_percent: 3,
   });
 
   useEffect(() => {
@@ -78,11 +80,19 @@ const TeamGoals = () => {
         ...goalsData,
         monthly_goals: monthlyGoals,
       });
+      const avgSale = goalsData.annual_deals_goal && goalsData.annual_volume_goal 
+        ? Math.round(goalsData.annual_volume_goal / goalsData.annual_deals_goal)
+        : 0;
+      const avgComm = goalsData.annual_volume_goal && goalsData.annual_gci_goal
+        ? (goalsData.annual_gci_goal / goalsData.annual_volume_goal) * 100
+        : 3;
       setFormData({
         annual_deals_goal: goalsData.annual_deals_goal || 0,
         annual_gci_goal: goalsData.annual_gci_goal || 0,
         annual_volume_goal: goalsData.annual_volume_goal || 0,
         annual_revenue_goal: goalsData.annual_revenue_goal || 0,
+        average_sale_price: avgSale,
+        average_commission_percent: avgComm,
       });
     }
 
@@ -225,31 +235,86 @@ const TeamGoals = () => {
               <DialogTitle>Team Goals for {currentYear}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Average Sale Price ($)</Label>
+                  <Input
+                    type="number"
+                    value={formData.average_sale_price}
+                    onChange={(e) => {
+                      const avgSale = parseInt(e.target.value) || 0;
+                      const volume = avgSale * formData.annual_deals_goal;
+                      const gci = Math.round(volume * (formData.average_commission_percent / 100));
+                      setFormData({ 
+                        ...formData, 
+                        average_sale_price: avgSale,
+                        annual_volume_goal: volume,
+                        annual_gci_goal: gci,
+                      });
+                    }}
+                    placeholder="e.g., 350000"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Avg Commission (%)</Label>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    value={formData.average_commission_percent}
+                    onChange={(e) => {
+                      const avgComm = parseFloat(e.target.value) || 0;
+                      const gci = Math.round(formData.annual_volume_goal * (avgComm / 100));
+                      setFormData({ 
+                        ...formData, 
+                        average_commission_percent: avgComm,
+                        annual_gci_goal: gci,
+                      });
+                    }}
+                    placeholder="e.g., 3"
+                  />
+                </div>
+              </div>
               <div className="space-y-2">
                 <Label>Annual Deals Goal</Label>
                 <Input
                   type="number"
                   value={formData.annual_deals_goal}
-                  onChange={(e) => setFormData({ ...formData, annual_deals_goal: parseInt(e.target.value) || 0 })}
+                  onChange={(e) => {
+                    const deals = parseInt(e.target.value) || 0;
+                    const volume = deals * formData.average_sale_price;
+                    const gci = Math.round(volume * (formData.average_commission_percent / 100));
+                    setFormData({ 
+                      ...formData, 
+                      annual_deals_goal: deals,
+                      annual_volume_goal: volume,
+                      annual_gci_goal: gci,
+                    });
+                  }}
                   placeholder="e.g., 50"
                 />
               </div>
               <div className="space-y-2">
-                <Label>Annual GCI Goal ($)</Label>
+                <Label>Annual Volume Goal ($) <span className="text-xs text-muted-foreground">(auto-calculated)</span></Label>
+                <Input
+                  type="number"
+                  value={formData.annual_volume_goal}
+                  onChange={(e) => {
+                    const volume = parseInt(e.target.value) || 0;
+                    const gci = Math.round(volume * (formData.average_commission_percent / 100));
+                    setFormData({ ...formData, annual_volume_goal: volume, annual_gci_goal: gci });
+                  }}
+                  placeholder="e.g., 15000000"
+                  className="bg-muted/50"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Annual GCI Goal ($) <span className="text-xs text-muted-foreground">(auto-calculated)</span></Label>
                 <Input
                   type="number"
                   value={formData.annual_gci_goal}
                   onChange={(e) => setFormData({ ...formData, annual_gci_goal: parseInt(e.target.value) || 0 })}
                   placeholder="e.g., 500000"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Annual Volume Goal ($)</Label>
-                <Input
-                  type="number"
-                  value={formData.annual_volume_goal}
-                  onChange={(e) => setFormData({ ...formData, annual_volume_goal: parseInt(e.target.value) || 0 })}
-                  placeholder="e.g., 15000000"
+                  className="bg-muted/50"
                 />
               </div>
               <div className="space-y-2">
