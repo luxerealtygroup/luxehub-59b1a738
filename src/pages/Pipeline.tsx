@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Phone, Mail, Search, Trash2, Edit2, Loader2, DollarSign, Home, Users, Calendar } from 'lucide-react';
+import { Plus, Phone, Mail, Search, Trash2, Edit2, Loader2, DollarSign, Home, Users, Calendar, Target } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -130,6 +130,12 @@ const Pipeline = () => {
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<'buyer' | 'seller'>('buyer');
   
+  // Goal-related state for pipeline requirements
+  const [goalSettings, setGoalSettings] = useState({
+    fallout_rate: 50,
+    monthlyDeals: Array(12).fill(0) as number[]
+  });
+  
   const [newClient, setNewClient] = useState({
     client_name: '',
     email: '',
@@ -169,8 +175,44 @@ const Pipeline = () => {
     setLoading(false);
   };
 
+  const fetchGoalSettings = async () => {
+    if (!user) return;
+    
+    const currentYear = 2026;
+    
+    // Fetch goal calculation values from localStorage
+    const savedCalcValues = localStorage.getItem(`goalCalcValues_${user.id}_${currentYear}`);
+    const falloutRate = savedCalcValues ? JSON.parse(savedCalcValues).fallout_rate ?? 50 : 50;
+    
+    // Fetch monthly goals from localStorage
+    const savedMonthlyGoals = localStorage.getItem(`monthlyGoals_${user.id}_${currentYear}`);
+    let monthlyDeals = Array(12).fill(0);
+    
+    if (savedMonthlyGoals) {
+      const parsed = JSON.parse(savedMonthlyGoals);
+      monthlyDeals = parsed.map((m: { deals: number }) => m.deals || 0);
+    } else {
+      // Try to get from agent_goals if no monthly breakdown exists
+      const { data } = await supabase
+        .from('agent_goals')
+        .select('target_value')
+        .eq('user_id', user.id)
+        .eq('period', 'yearly')
+        .eq('goal_type', 'deals_closed')
+        .maybeSingle();
+      
+      if (data?.target_value) {
+        const evenMonthly = data.target_value / 12;
+        monthlyDeals = Array(12).fill(evenMonthly);
+      }
+    }
+    
+    setGoalSettings({ fallout_rate: falloutRate, monthlyDeals });
+  };
+
   useEffect(() => {
     fetchClients();
+    fetchGoalSettings();
   }, [user]);
 
   const syncClientToFUB = async (clientData: typeof newClient) => {
@@ -382,6 +424,22 @@ const Pipeline = () => {
   const sellerGCI = sellers.reduce((sum, c) => sum + (c.projected_gci || 0), 0);
 
   const hotLeads = activeClients.filter(c => c.stage >= 8).length;
+
+  // Pipeline requirement calculations
+  const conversionRate = (100 - goalSettings.fallout_rate) / 100;
+  const totalDealsGoal = goalSettings.monthlyDeals.reduce((sum, d) => sum + d, 0);
+  
+  const getQuarterlyDeals = (qIndex: number) => {
+    const startMonth = qIndex * 3;
+    return goalSettings.monthlyDeals.slice(startMonth, startMonth + 3).reduce((sum, d) => sum + d, 0);
+  };
+  
+  const getPipelineNeeded = (deals: number) => {
+    if (conversionRate <= 0) return 0;
+    return Math.ceil(deals / conversionRate);
+  };
+
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   return (
     <div className="space-y-6">
@@ -642,6 +700,79 @@ const Pipeline = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Pipeline Requirements Card */}
+      {totalDealsGoal > 0 && (
+        <Card className="border-gold/20 bg-gradient-to-br from-card to-primary/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg font-display text-foreground flex items-center gap-2">
+              <Target className="h-5 w-5 text-gold" />
+              Pipeline Requirements
+              <span className="text-xs font-normal text-muted-foreground ml-2">
+                ({goalSettings.fallout_rate}% fallout = {100 - goalSettings.fallout_rate}% conversion)
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                Names needed in pipeline to hit your deal goals:
+              </p>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Current:</span>
+                <span className={`text-lg font-bold ${clients.length >= getPipelineNeeded(totalDealsGoal) ? 'text-green-400' : 'text-amber-400'}`}>
+                  {clients.length}
+                </span>
+                <span className="text-sm text-muted-foreground">/ {getPipelineNeeded(totalDealsGoal)} needed</span>
+              </div>
+            </div>
+            
+            {/* Annual Total */}
+            <div className="p-3 rounded-lg bg-gold/10 border border-gold/30 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gold">Annual Total</p>
+                <p className="text-xs text-muted-foreground">for {totalDealsGoal.toFixed(1)} deals</p>
+              </div>
+              <p className="text-3xl font-bold text-gold">{getPipelineNeeded(totalDealsGoal)}</p>
+            </div>
+
+            {/* Quarterly Breakdown */}
+            <div>
+              <p className="text-sm font-medium text-foreground mb-2">Quarterly Breakdown</p>
+              <div className="grid grid-cols-4 gap-2">
+                {['Q1', 'Q2', 'Q3', 'Q4'].map((quarter, qIndex) => {
+                  const quarterDeals = getQuarterlyDeals(qIndex);
+                  const pipelineNeeded = getPipelineNeeded(quarterDeals);
+                  return (
+                    <div key={quarter} className="p-3 rounded-lg bg-background/50 border border-gold/20 text-center">
+                      <p className="text-xs text-muted-foreground mb-1">{quarter}</p>
+                      <p className="text-xl font-bold text-gold">{pipelineNeeded}</p>
+                      <p className="text-xs text-muted-foreground">for {quarterDeals.toFixed(1)} deals</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Monthly Breakdown */}
+            <div>
+              <p className="text-sm font-medium text-foreground mb-2">Monthly Breakdown</p>
+              <div className="grid grid-cols-6 md:grid-cols-12 gap-1">
+                {monthNames.map((month, mIndex) => {
+                  const monthDeals = goalSettings.monthlyDeals[mIndex] || 0;
+                  const pipelineNeeded = getPipelineNeeded(monthDeals);
+                  return (
+                    <div key={month} className="p-2 rounded bg-background/50 border border-primary/10 text-center">
+                      <p className="text-xs text-muted-foreground">{month}</p>
+                      <p className="text-sm font-bold text-gold">{pipelineNeeded}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Buyer/Seller Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'buyer' | 'seller')}>
