@@ -27,6 +27,14 @@ interface ActualMetrics {
 interface MonthlyGoal {
   deals: number;
   gci: number;
+  focus?: string;
+  target?: string;
+}
+
+interface FourOneOneMonthlyGoal {
+  month: number;
+  focus: string;
+  target: string;
 }
 
 const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -35,7 +43,9 @@ const quarterNames = ['Q1 (Jan-Mar)', 'Q2 (Apr-Jun)', 'Q3 (Jul-Sep)', 'Q4 (Oct-D
 const createDefaultMonthlyGoals = (dealsGoal: number, gciGoal: number): MonthlyGoal[] => {
   return monthNames.map(() => ({
     deals: dealsGoal / 12,
-    gci: gciGoal / 12
+    gci: gciGoal / 12,
+    focus: '',
+    target: ''
   }));
 };
 
@@ -81,6 +91,16 @@ const Goals = () => {
       .eq('period', 'yearly')
       .in('goal_type', ['deals_closed', 'revenue']);
     
+    // Also fetch 411 monthly goals from production_goals
+    const { data: productionData } = await supabase
+      .from('production_goals')
+      .select('monthly_goals')
+      .eq('user_id', user.id)
+      .eq('year', currentYear)
+      .maybeSingle();
+    
+    const fourOneOneGoals: FourOneOneMonthlyGoal[] = (productionData?.monthly_goals as unknown as FourOneOneMonthlyGoal[]) || [];
+    
     if (data && data.length > 0) {
       const dealsGoal = data.find(g => g.goal_type === 'deals_closed');
       const gciGoal = data.find(g => g.goal_type === 'revenue');
@@ -102,10 +122,42 @@ const Goals = () => {
       // Initialize monthly goals - check if saved in localStorage
       const savedMonthlyGoals = localStorage.getItem(`monthlyGoals_${user.id}_${currentYear}`);
       if (savedMonthlyGoals) {
-        setMonthlyGoals(JSON.parse(savedMonthlyGoals));
+        const parsed = JSON.parse(savedMonthlyGoals);
+        // Merge with 411 goals
+        const merged = parsed.map((goal: MonthlyGoal, idx: number) => {
+          const fourOneOneGoal = fourOneOneGoals.find(g => g.month === idx);
+          return {
+            ...goal,
+            focus: fourOneOneGoal?.focus || goal.focus || '',
+            target: fourOneOneGoal?.target || goal.target || ''
+          };
+        });
+        setMonthlyGoals(merged);
       } else {
-        setMonthlyGoals(createDefaultMonthlyGoals(dealsValue, gciValue));
+        const defaultGoals = createDefaultMonthlyGoals(dealsValue, gciValue);
+        // Merge with 411 goals
+        const merged = defaultGoals.map((goal, idx) => {
+          const fourOneOneGoal = fourOneOneGoals.find(g => g.month === idx);
+          return {
+            ...goal,
+            focus: fourOneOneGoal?.focus || '',
+            target: fourOneOneGoal?.target || ''
+          };
+        });
+        setMonthlyGoals(merged);
       }
+    } else {
+      // No annual goals set yet, but still load 411 monthly goals
+      const defaultGoals = createDefaultMonthlyGoals(0, 0);
+      const merged = defaultGoals.map((goal, idx) => {
+        const fourOneOneGoal = fourOneOneGoals.find(g => g.month === idx);
+        return {
+          ...goal,
+          focus: fourOneOneGoal?.focus || '',
+          target: fourOneOneGoal?.target || ''
+        };
+      });
+      setMonthlyGoals(merged);
     }
   };
 
@@ -474,6 +526,20 @@ const Goals = () => {
                             <span className="text-xs text-muted-foreground">GCI:</span>
                             <span className="text-xs font-medium text-green-400">${Math.round(monthlyGoals[index]?.gci || 0).toLocaleString()}</span>
                           </div>
+                          {(monthlyGoals[index]?.focus || monthlyGoals[index]?.target) && (
+                            <div className="mt-2 pt-2 border-t border-primary/10">
+                              {monthlyGoals[index]?.focus && (
+                                <p className="text-xs text-primary truncate" title={monthlyGoals[index].focus}>
+                                  📌 {monthlyGoals[index].focus}
+                                </p>
+                              )}
+                              {monthlyGoals[index]?.target && (
+                                <p className="text-xs text-muted-foreground truncate" title={monthlyGoals[index].target}>
+                                  🎯 {monthlyGoals[index].target}
+                                </p>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

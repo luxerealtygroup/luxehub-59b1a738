@@ -92,7 +92,7 @@ const FourOneOne = () => {
   const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [weeklyData, setWeeklyData] = useState<Weekly411>({ ...emptyWeekly });
   const [annualGoals, setAnnualGoals] = useState<ProductionGoals>({
-    year: new Date().getFullYear(),
+    year: 2026,
     annual_units_goal: 24,
     annual_gci_goal: 150000,
     annual_volume_goal: 5000000,
@@ -123,7 +123,7 @@ const FourOneOne = () => {
 
   const fetchAnnualGoals = async () => {
     if (!user) return;
-    const year = new Date().getFullYear();
+    const year = 2026;
     
     const { data } = await supabase
       .from('production_goals')
@@ -398,7 +398,7 @@ const FourOneOne = () => {
         <TabsContent value="monthly" className="space-y-6">
           <Card className="border-primary/10">
             <CardHeader>
-              <CardTitle className="text-lg font-display">Monthly Goals ({new Date().getFullYear()})</CardTitle>
+              <CardTitle className="text-lg font-display">Monthly Goals (2026)</CardTitle>
             </CardHeader>
             <CardContent className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {monthNames.map((name, idx) => {
