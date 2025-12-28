@@ -264,14 +264,18 @@ const Goals = () => {
     fetchAnnualGoals();
   };
 
-  const hasGoalsSet = annualGoals.deals_goal > 0 || annualGoals.gci_goal > 0;
+  const hasGoalsSet = annualGoals.deals_goal > 0 || annualGoals.gci_goal > 0 || monthlyGoals.some(m => m.deals > 0 || m.gci > 0);
   
-  const dealsProgress = annualGoals.deals_goal > 0 
-    ? Math.min(100, Math.round((actualMetrics.deals_closed / annualGoals.deals_goal) * 100))
+  // Calculate totals from monthly breakdown (these are the "real" goals after editing)
+  const totalDealsGoal = monthlyGoals.reduce((sum, m) => sum + (m.deals || 0), 0);
+  const totalGciGoal = monthlyGoals.reduce((sum, m) => sum + (m.gci || 0), 0);
+  
+  const dealsProgress = totalDealsGoal > 0 
+    ? Math.min(100, Math.round((actualMetrics.deals_closed / totalDealsGoal) * 100))
     : 0;
   
-  const gciProgress = annualGoals.gci_goal > 0 
-    ? Math.min(100, Math.round((actualMetrics.gci_earned / annualGoals.gci_goal) * 100))
+  const gciProgress = totalGciGoal > 0 
+    ? Math.min(100, Math.round((actualMetrics.gci_earned / totalGciGoal) * 100))
     : 0;
 
   const totalDeals = actualMetrics.deals_closed + actualMetrics.deals_pending;
@@ -396,7 +400,7 @@ const Goals = () => {
                 <div className="flex justify-between text-sm">
                   <div>
                     <span className="text-3xl font-bold text-foreground">{actualMetrics.deals_closed}</span>
-                    <span className="text-muted-foreground ml-2">/ {annualGoals.deals_goal} goal</span>
+                    <span className="text-muted-foreground ml-2">/ {totalDealsGoal.toFixed(1)} goal</span>
                   </div>
                   <div className="text-right">
                     <p className="text-amber-400 font-medium">+{actualMetrics.deals_pending} pending</p>
@@ -404,8 +408,8 @@ const Goals = () => {
                   </div>
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {annualGoals.deals_goal - actualMetrics.deals_closed > 0 
-                    ? `${annualGoals.deals_goal - actualMetrics.deals_closed} more deals to reach your goal`
+                  {totalDealsGoal - actualMetrics.deals_closed > 0 
+                    ? `${(totalDealsGoal - actualMetrics.deals_closed).toFixed(1)} more deals to reach your goal`
                     : '🎉 Goal achieved!'}
                 </div>
               </CardContent>
@@ -429,7 +433,7 @@ const Goals = () => {
                 <div className="flex justify-between text-sm">
                   <div>
                     <span className="text-3xl font-bold text-foreground">${actualMetrics.gci_earned.toLocaleString()}</span>
-                    <span className="text-muted-foreground ml-2">/ ${annualGoals.gci_goal.toLocaleString()}</span>
+                    <span className="text-muted-foreground ml-2">/ ${Math.round(totalGciGoal).toLocaleString()}</span>
                   </div>
                   <div className="text-right">
                     <p className="text-amber-400 font-medium">+${actualMetrics.gci_pending.toLocaleString()} pending</p>
@@ -437,8 +441,8 @@ const Goals = () => {
                   </div>
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {annualGoals.gci_goal - actualMetrics.gci_earned > 0 
-                    ? `$${(annualGoals.gci_goal - actualMetrics.gci_earned).toLocaleString()} more to reach your goal`
+                  {totalGciGoal - actualMetrics.gci_earned > 0 
+                    ? `$${Math.round(totalGciGoal - actualMetrics.gci_earned).toLocaleString()} more to reach your goal`
                     : '🎉 Goal achieved!'}
                 </div>
               </CardContent>
