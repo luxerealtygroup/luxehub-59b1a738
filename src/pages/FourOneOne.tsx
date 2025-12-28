@@ -9,7 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import { ChevronLeft, ChevronRight, Save, Target, Trophy, TrendingUp, FileText } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, Target, Trophy, TrendingUp, FileText, ArrowRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format, startOfWeek, addWeeks, subWeeks } from 'date-fns';
 
@@ -209,6 +209,48 @@ const FourOneOne = () => {
 
   const calcProgress = (actual: number, goal: number) => goal > 0 ? Math.min(100, (actual / goal) * 100) : 0;
 
+  const carryForwardPriority = async (type: 'business' | 'personal', num: number, text: string) => {
+    if (!user) return;
+    
+    const nextWeekStart = format(addWeeks(currentWeek, 1), 'yyyy-MM-dd');
+    const cleanText = text.replace(/^\[Carried\] /, '');
+    const carriedText = `[Carried] ${cleanText}`;
+    
+    // Fetch or create next week's data
+    const { data: nextWeekData } = await supabase
+      .from('weekly_411')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('week_start_date', nextWeekStart)
+      .maybeSingle();
+
+    const priorityField = type === 'business' ? `priority_${num}` : `personal_priority_${num}`;
+    const completedField = `${priorityField}_completed`;
+
+    if (nextWeekData) {
+      // Update existing next week record
+      await supabase
+        .from('weekly_411')
+        .update({ [priorityField]: carriedText, [completedField]: false })
+        .eq('id', nextWeekData.id);
+    } else {
+      // Create new next week record with carried priority
+      await supabase
+        .from('weekly_411')
+        .insert({
+          user_id: user.id,
+          week_start_date: nextWeekStart,
+          [priorityField]: carriedText,
+          [completedField]: false,
+        });
+    }
+
+    toast({
+      title: '📋 Carried Forward',
+      description: `Priority moved to next week. Stay focused!`,
+    });
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center h-64 text-primary animate-pulse">Loading 4-1-1...</div>;
   }
@@ -297,28 +339,51 @@ const FourOneOne = () => {
               <CardTitle className="text-lg font-display">4 Business Priorities</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {[1, 2, 3, 4].map((num) => (
-                <div key={num} className="flex items-center gap-3">
-                  <Checkbox
-                    checked={weeklyData[`priority_${num}_completed` as keyof Weekly411] as boolean}
-                    onCheckedChange={(checked) => {
-                      setWeeklyData({ ...weeklyData, [`priority_${num}_completed`]: checked });
-                      if (checked) {
-                        toast({ 
-                          title: '🎉 Great job!', 
-                          description: 'You completed a business priority! Keep up the momentum!' 
-                        });
-                      }
-                    }}
-                  />
-                  <Input
-                    placeholder={`Business Priority ${num}`}
-                    value={weeklyData[`priority_${num}` as keyof Weekly411] as string || ''}
-                    onChange={(e) => setWeeklyData({ ...weeklyData, [`priority_${num}`]: e.target.value })}
-                    className={weeklyData[`priority_${num}_completed` as keyof Weekly411] ? 'line-through text-muted-foreground' : ''}
-                  />
-                </div>
-              ))}
+              {[1, 2, 3, 4].map((num) => {
+                const priorityText = weeklyData[`priority_${num}` as keyof Weekly411] as string || '';
+                const isCompleted = weeklyData[`priority_${num}_completed` as keyof Weekly411] as boolean;
+                const isCarriedOver = priorityText.startsWith('[Carried] ');
+                return (
+                  <div key={num} className="flex items-center gap-3">
+                    <Checkbox
+                      checked={isCompleted}
+                      onCheckedChange={(checked) => {
+                        setWeeklyData({ ...weeklyData, [`priority_${num}_completed`]: checked });
+                        if (checked) {
+                          toast({ 
+                            title: '🎉 Great job!', 
+                            description: 'You completed a business priority! Keep up the momentum!' 
+                          });
+                        }
+                      }}
+                    />
+                    <div className="flex-1 relative">
+                      <Input
+                        placeholder={`Business Priority ${num}`}
+                        value={priorityText}
+                        onChange={(e) => setWeeklyData({ ...weeklyData, [`priority_${num}`]: e.target.value })}
+                        className={`${isCompleted ? 'line-through text-muted-foreground' : ''} ${isCarriedOver ? 'border-amber-500/50 bg-amber-500/5' : ''}`}
+                      />
+                      {isCarriedOver && (
+                        <span className="absolute -top-2 right-2 text-xs bg-amber-500/20 text-amber-600 px-1.5 py-0.5 rounded">
+                          Carried
+                        </span>
+                      )}
+                    </div>
+                    {!isCompleted && priorityText && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => carryForwardPriority('business', num, priorityText)}
+                        className="text-muted-foreground hover:text-amber-600 px-2"
+                        title="Carry forward to next week"
+                      >
+                        <ArrowRight className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
             </CardContent>
           </Card>
 
@@ -328,29 +393,52 @@ const FourOneOne = () => {
               <CardTitle className="text-lg font-display text-green-500">3 Personal Priorities</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {[1, 2, 3].map((num) => (
-                <div key={num} className="flex items-center gap-3">
-                  <Checkbox
-                    checked={weeklyData[`personal_priority_${num}_completed` as keyof Weekly411] as boolean}
-                    onCheckedChange={(checked) => {
-                      setWeeklyData({ ...weeklyData, [`personal_priority_${num}_completed`]: checked });
-                      if (checked) {
-                        toast({ 
-                          title: '🌟 Awesome!', 
-                          description: 'Personal priority completed! You\'re crushing it!' 
-                        });
-                      }
-                    }}
-                    className="border-green-500/50 data-[state=checked]:bg-green-500"
-                  />
-                  <Input
-                    placeholder={`Personal Priority ${num}`}
-                    value={weeklyData[`personal_priority_${num}` as keyof Weekly411] as string || ''}
-                    onChange={(e) => setWeeklyData({ ...weeklyData, [`personal_priority_${num}`]: e.target.value })}
-                    className={weeklyData[`personal_priority_${num}_completed` as keyof Weekly411] ? 'line-through text-muted-foreground' : 'border-green-500/20 focus:border-green-500'}
-                  />
-                </div>
-              ))}
+              {[1, 2, 3].map((num) => {
+                const priorityText = weeklyData[`personal_priority_${num}` as keyof Weekly411] as string || '';
+                const isCompleted = weeklyData[`personal_priority_${num}_completed` as keyof Weekly411] as boolean;
+                const isCarriedOver = priorityText.startsWith('[Carried] ');
+                return (
+                  <div key={num} className="flex items-center gap-3">
+                    <Checkbox
+                      checked={isCompleted}
+                      onCheckedChange={(checked) => {
+                        setWeeklyData({ ...weeklyData, [`personal_priority_${num}_completed`]: checked });
+                        if (checked) {
+                          toast({ 
+                            title: '🌟 Awesome!', 
+                            description: 'Personal priority completed! You\'re crushing it!' 
+                          });
+                        }
+                      }}
+                      className="border-green-500/50 data-[state=checked]:bg-green-500"
+                    />
+                    <div className="flex-1 relative">
+                      <Input
+                        placeholder={`Personal Priority ${num}`}
+                        value={priorityText}
+                        onChange={(e) => setWeeklyData({ ...weeklyData, [`personal_priority_${num}`]: e.target.value })}
+                        className={`${isCompleted ? 'line-through text-muted-foreground' : 'border-green-500/20 focus:border-green-500'} ${isCarriedOver ? 'border-amber-500/50 bg-amber-500/5' : ''}`}
+                      />
+                      {isCarriedOver && (
+                        <span className="absolute -top-2 right-2 text-xs bg-amber-500/20 text-amber-600 px-1.5 py-0.5 rounded">
+                          Carried
+                        </span>
+                      )}
+                    </div>
+                    {!isCompleted && priorityText && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => carryForwardPriority('personal', num, priorityText)}
+                        className="text-muted-foreground hover:text-amber-600 px-2"
+                        title="Carry forward to next week"
+                      >
+                        <ArrowRight className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
             </CardContent>
           </Card>
 
