@@ -14,6 +14,178 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_activities: {
+        Row: {
+          activity_type: Database["public"]["Enums"]["activity_type"]
+          client_name: string | null
+          completed_at: string | null
+          created_at: string
+          deal_id: string | null
+          duration_minutes: number | null
+          id: string
+          notes: string | null
+          scheduled_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          activity_type: Database["public"]["Enums"]["activity_type"]
+          client_name?: string | null
+          completed_at?: string | null
+          created_at?: string
+          deal_id?: string | null
+          duration_minutes?: number | null
+          id?: string
+          notes?: string | null
+          scheduled_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          activity_type?: Database["public"]["Enums"]["activity_type"]
+          client_name?: string | null
+          completed_at?: string | null
+          created_at?: string
+          deal_id?: string | null
+          duration_minutes?: number | null
+          id?: string
+          notes?: string | null
+          scheduled_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_activities_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_goals: {
+        Row: {
+          created_at: string
+          current_value: number
+          end_date: string | null
+          goal_type: string
+          id: string
+          period: string
+          start_date: string
+          target_value: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_value?: number
+          end_date?: string | null
+          goal_type: string
+          id?: string
+          period?: string
+          start_date?: string
+          target_value: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_value?: number
+          end_date?: string | null
+          goal_type?: string
+          id?: string
+          period?: string
+          start_date?: string
+          target_value?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      commissions: {
+        Row: {
+          amount: number
+          created_at: string
+          deal_id: string
+          id: string
+          paid_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          deal_id: string
+          id?: string
+          paid_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          deal_id?: string
+          id?: string
+          paid_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commissions_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deals: {
+        Row: {
+          client_name: string
+          commission_rate: number | null
+          created_at: string
+          deal_value: number | null
+          expected_close_date: string | null
+          id: string
+          notes: string | null
+          property_address: string | null
+          stage: Database["public"]["Enums"]["deal_stage"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          client_name: string
+          commission_rate?: number | null
+          created_at?: string
+          deal_value?: number | null
+          expected_close_date?: string | null
+          id?: string
+          notes?: string | null
+          property_address?: string | null
+          stage?: Database["public"]["Enums"]["deal_stage"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          client_name?: string
+          commission_rate?: number | null
+          created_at?: string
+          deal_value?: number | null
+          expected_close_date?: string | null
+          id?: string
+          notes?: string | null
+          property_address?: string | null
+          stage?: Database["public"]["Enums"]["deal_stage"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -115,7 +287,22 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      activity_type:
+        | "call"
+        | "appointment"
+        | "showing"
+        | "follow_up"
+        | "email"
+        | "meeting"
+        | "other"
+      deal_stage:
+        | "lead"
+        | "contacted"
+        | "showing"
+        | "offer"
+        | "under_contract"
+        | "closed"
+        | "lost"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -242,6 +429,25 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      activity_type: [
+        "call",
+        "appointment",
+        "showing",
+        "follow_up",
+        "email",
+        "meeting",
+        "other",
+      ],
+      deal_stage: [
+        "lead",
+        "contacted",
+        "showing",
+        "offer",
+        "under_contract",
+        "closed",
+        "lost",
+      ],
+    },
   },
 } as const
