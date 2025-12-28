@@ -5,13 +5,15 @@ import {
   DollarSign, 
   Target,
   LogOut,
-  Menu,
   ClipboardList,
-  FileText
+  FileText,
+  Shield
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/hooks/useAuth';
+import { useUserRole } from '@/hooks/useUserRole';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   Sidebar,
   SidebarContent,
@@ -38,6 +40,7 @@ const menuItems = [
 
 export function AppSidebar() {
   const { signOut, user } = useAuth();
+  const { isAdmin, isOwner } = useUserRole();
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
 
@@ -82,14 +85,50 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {isAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-blue-500/70 uppercase text-xs tracking-wider">
+              Admin
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink 
+                      to="/dashboard/admin" 
+                      className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:bg-blue-500/10 hover:text-blue-500 transition-colors"
+                      activeClassName="bg-blue-500/20 text-blue-500 font-medium"
+                    >
+                      <Shield className="h-5 w-5" />
+                      {!collapsed && <span>Company Dashboard</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-gold/10 p-4">
         {!collapsed && user && (
           <div className="mb-3 px-2">
-            <p className="text-sm font-medium text-foreground truncate">
-              {user.user_metadata?.full_name || user.email}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-medium text-foreground truncate">
+                {user.user_metadata?.full_name || user.email}
+              </p>
+              {isOwner && (
+                <Badge variant="outline" className="text-[10px] border-gold text-gold px-1">
+                  Owner
+                </Badge>
+              )}
+              {isAdmin && !isOwner && (
+                <Badge variant="outline" className="text-[10px] border-blue-500 text-blue-500 px-1">
+                  Admin
+                </Badge>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground truncate">{user.email}</p>
           </div>
         )}
