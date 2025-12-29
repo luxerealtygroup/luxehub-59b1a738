@@ -31,9 +31,11 @@ interface MonthlyGoal {
 
 interface TeamActuals {
   closedDeals: number;
+  pendingDeals: number;
   totalGci: number;
   pendingGci: number;
   totalVolume: number;
+  pendingVolume: number;
   companyRevenue: number;
 }
 
@@ -106,10 +108,15 @@ const TeamGoals = () => {
       .select('*');
 
     const closedDeals = (deals || []).filter(d => d.stage === 'closed').length;
-    const totalVolume = (deals || []).filter(d => d.stage === 'closed')
+    const pendingDeals = (deals || []).filter(d => d.stage === 'under_contract' || d.stage === 'offer').length;
+    
+    const closedVolume = (deals || []).filter(d => d.stage === 'closed')
+      .reduce((sum, d) => sum + Number(d.deal_value || 0), 0);
+    const pendingVolume = (deals || []).filter(d => d.stage === 'under_contract' || d.stage === 'offer')
       .reduce((sum, d) => sum + Number(d.deal_value || 0), 0);
     
-    const totalGci = (commissions || []).filter(c => c.status === 'paid')
+    // Use gross_commission for GCI (total before splits)
+    const paidGci = (commissions || []).filter(c => c.status === 'paid')
       .reduce((sum, c) => sum + Number(c.gross_commission || c.amount || 0), 0);
     const pendingGci = (commissions || []).filter(c => c.status === 'pending')
       .reduce((sum, c) => sum + Number(c.gross_commission || c.amount || 0), 0);
@@ -125,9 +132,11 @@ const TeamGoals = () => {
 
     setActuals({
       closedDeals,
-      totalGci,
+      pendingDeals,
+      totalGci: paidGci,
       pendingGci,
-      totalVolume,
+      totalVolume: closedVolume,
+      pendingVolume,
       companyRevenue,
     });
 
@@ -196,9 +205,12 @@ const TeamGoals = () => {
     );
   }
 
-  const dealsProgress = goals?.annual_deals_goal ? ((actuals?.closedDeals || 0) / goals.annual_deals_goal) * 100 : 0;
-  const gciProgress = goals?.annual_gci_goal ? (((actuals?.totalGci || 0) + (actuals?.pendingGci || 0)) / goals.annual_gci_goal) * 100 : 0;
-  const volumeProgress = goals?.annual_volume_goal ? ((actuals?.totalVolume || 0) / goals.annual_volume_goal) * 100 : 0;
+  const totalDeals = (actuals?.closedDeals || 0) + (actuals?.pendingDeals || 0);
+  const dealsProgress = goals?.annual_deals_goal ? (totalDeals / goals.annual_deals_goal) * 100 : 0;
+  const totalGci = (actuals?.totalGci || 0) + (actuals?.pendingGci || 0);
+  const gciProgress = goals?.annual_gci_goal ? (totalGci / goals.annual_gci_goal) * 100 : 0;
+  const totalVolume = (actuals?.totalVolume || 0) + (actuals?.pendingVolume || 0);
+  const volumeProgress = goals?.annual_volume_goal ? (totalVolume / goals.annual_volume_goal) * 100 : 0;
   const revenueProgress = goals?.annual_revenue_goal ? ((actuals?.companyRevenue || 0) / goals.annual_revenue_goal) * 100 : 0;
 
   // Build chart data for goal vs actual by month
@@ -343,7 +355,7 @@ const TeamGoals = () => {
               <span className="text-sm font-medium">Deals</span>
             </div>
             <div className="flex justify-between text-sm text-muted-foreground">
-              <span>{actuals?.closedDeals || 0} / {goals?.annual_deals_goal || 0}</span>
+              <span>{actuals?.closedDeals || 0} closed + {actuals?.pendingDeals || 0} pending / {goals?.annual_deals_goal || 0}</span>
               <span>{Math.round(dealsProgress)}%</span>
             </div>
             <Progress value={Math.min(dealsProgress, 100)} className="h-2" />
@@ -352,11 +364,14 @@ const TeamGoals = () => {
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <DollarSign className="h-4 w-4 text-green-500" />
-              <span className="text-sm font-medium">GCI</span>
+              <span className="text-sm font-medium">Gross GCI</span>
             </div>
             <div className="flex justify-between text-sm text-muted-foreground">
-              <span>${((actuals?.totalGci || 0) + (actuals?.pendingGci || 0)).toLocaleString()} / ${(goals?.annual_gci_goal || 0).toLocaleString()}</span>
+              <span>${totalGci.toLocaleString()} / ${(goals?.annual_gci_goal || 0).toLocaleString()}</span>
               <span>{Math.round(gciProgress)}%</span>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              ${(actuals?.totalGci || 0).toLocaleString()} paid + ${(actuals?.pendingGci || 0).toLocaleString()} pending
             </div>
             <Progress value={Math.min(gciProgress, 100)} className="h-2" />
           </div>
@@ -367,8 +382,11 @@ const TeamGoals = () => {
               <span className="text-sm font-medium">Volume</span>
             </div>
             <div className="flex justify-between text-sm text-muted-foreground">
-              <span>${(actuals?.totalVolume || 0).toLocaleString()} / ${(goals?.annual_volume_goal || 0).toLocaleString()}</span>
+              <span>${totalVolume.toLocaleString()} / ${(goals?.annual_volume_goal || 0).toLocaleString()}</span>
               <span>{Math.round(volumeProgress)}%</span>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              ${(actuals?.totalVolume || 0).toLocaleString()} closed + ${(actuals?.pendingVolume || 0).toLocaleString()} pending
             </div>
             <Progress value={Math.min(volumeProgress, 100)} className="h-2" />
           </div>
