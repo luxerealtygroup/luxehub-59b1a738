@@ -41,7 +41,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 
 const TeamGoals = () => {
   const { user } = useAuth();
-  const currentYear = new Date().getFullYear();
+  const currentYear = 2026;
   
   const [goals, setGoals] = useState<CompanyGoal | null>(null);
   const [actuals, setActuals] = useState<TeamActuals | null>(null);
