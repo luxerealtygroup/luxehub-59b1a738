@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Target, DollarSign, TrendingUp, Building2, Edit, Loader2 } from 'lucide-react';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, Legend, BarChart, Bar } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { toast } from 'sonner';
 
 interface CompanyGoal {
@@ -99,55 +100,70 @@ const TeamGoals = () => {
       });
     }
 
-    // Fetch team actuals from deals and commissions
-    const { data: deals } = await supabase
-      .from('deals')
-      .select('*');
+    // Fetch FUB deals for actuals (same source as AdminDashboard summary)
+    let closedDeals = 0;
+    let pendingDeals = 0;
+    let totalGci = 0;
+    let pendingGci = 0;
+    let totalVolume = 0;
+    let pendingVolume = 0;
+    let companyRevenue = 0;
+    let pendingRevenue = 0;
 
-    const { data: commissions } = await supabase
-      .from('commissions')
-      .select('*');
+    const fubResponse = await followUpBossApi.getDeals(200, 0);
+    if (fubResponse.success && fubResponse.data?.deals) {
+      const deals = fubResponse.data.deals;
+      
+      // Closed deals = status is "Won" or similar closed status
+      const closedFubDeals = deals.filter((d: FUBDeal) => 
+        d.status?.toLowerCase() === 'won' || 
+        d.stageName?.toLowerCase().includes('closed') ||
+        d.stageName?.toLowerCase().includes('won')
+      );
+      
+      // Pending deals = only deals with stage "Pending"
+      const pendingFubDeals = deals.filter((d: FUBDeal) => 
+        d.stageName?.toLowerCase() === 'pending'
+      );
 
-    const closedDeals = (deals || []).filter(d => d.stage === 'closed').length;
-    const pendingDeals = (deals || []).filter(d => d.stage === 'under_contract' || d.stage === 'offer').length;
-    
-    const closedVolume = (deals || []).filter(d => d.stage === 'closed')
-      .reduce((sum, d) => sum + Number(d.deal_value || 0), 0);
-    const pendingVolume = (deals || []).filter(d => d.stage === 'under_contract' || d.stage === 'offer')
-      .reduce((sum, d) => sum + Number(d.deal_value || 0), 0);
-    
-    // Use gross_commission for GCI (total before splits) - ALL commissions count toward gross GCI
-    const paidGci = (commissions || []).filter(c => c.status === 'paid')
-      .reduce((sum, c) => sum + Number(c.gross_commission || c.amount || 0), 0);
-    const pendingGci = (commissions || []).filter(c => c.status !== 'paid')
-      .reduce((sum, c) => sum + Number(c.gross_commission || c.amount || 0), 0);
+      closedDeals = closedFubDeals.length;
+      pendingDeals = pendingFubDeals.length;
 
-    // Calculate company revenue (team split) - closed deals
-    const closedRevenue = (deals || []).filter(d => d.stage === 'closed')
-      .reduce((sum, d) => {
-        const dealValue = Number(d.deal_value || 0);
-        const commissionRate = Number(d.commission_rate || 3) / 100;
-        const companySplit = Number(d.company_split_percentage || 30) / 100;
-        return sum + (dealValue * commissionRate * companySplit);
-      }, 0);
+      // Total GCI = full commission value from closed deals
+      totalGci = closedFubDeals.reduce((sum: number, d: FUBDeal) => 
+        sum + (d.commissionValue || 0), 0
+      );
 
-    // Calculate pending revenue from under_contract/offer deals
-    const pendingRevenue = (deals || []).filter(d => d.stage === 'under_contract' || d.stage === 'offer')
-      .reduce((sum, d) => {
-        const dealValue = Number(d.deal_value || 0);
-        const commissionRate = Number(d.commission_rate || 3) / 100;
-        const companySplit = Number(d.company_split_percentage || 30) / 100;
-        return sum + (dealValue * commissionRate * companySplit);
-      }, 0);
+      // Pending GCI = full commission value from pending deals
+      pendingGci = pendingFubDeals.reduce((sum: number, d: FUBDeal) => 
+        sum + (d.commissionValue || 0), 0
+      );
+
+      // Volume from closed and pending deals
+      totalVolume = closedFubDeals.reduce((sum: number, d: FUBDeal) => 
+        sum + (d.price || 0), 0
+      );
+      pendingVolume = pendingFubDeals.reduce((sum: number, d: FUBDeal) => 
+        sum + (d.price || 0), 0
+      );
+
+      // Company Revenue = teamCommission from FUB deals (same as AdminDashboard)
+      companyRevenue = closedFubDeals.reduce((sum: number, d: FUBDeal) => 
+        sum + (d.teamCommission || 0), 0
+      );
+      pendingRevenue = pendingFubDeals.reduce((sum: number, d: FUBDeal) => 
+        sum + (d.teamCommission || 0), 0
+      );
+    }
 
     setActuals({
       closedDeals,
       pendingDeals,
-      totalGci: paidGci,
+      totalGci,
       pendingGci,
-      totalVolume: closedVolume,
+      totalVolume,
       pendingVolume,
-      companyRevenue: closedRevenue,
+      companyRevenue,
       pendingRevenue,
     });
 
