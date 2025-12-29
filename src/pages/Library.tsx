@@ -28,7 +28,8 @@ import {
   Presentation,
   User,
   Loader2,
-  FileCheck
+  FileCheck,
+  Briefcase
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { FUBPerson } from '@/lib/api/followUpBoss';
@@ -74,6 +75,27 @@ interface ImportantDocument {
   uploaded_by: string;
   created_at: string;
 }
+
+interface AgentDocument {
+  id: string;
+  title: string;
+  description: string | null;
+  file_path: string;
+  file_name: string;
+  file_type: string | null;
+  file_size: number | null;
+  category: string;
+  user_id: string;
+  created_at: string;
+}
+
+const agentCategories = [
+  { value: 'personal', label: 'Personal Files' },
+  { value: 'notes', label: 'Notes' },
+  { value: 'templates', label: 'My Templates' },
+  { value: 'reference', label: 'Reference Materials' },
+  { value: 'general', label: 'General' },
+];
 
 const trainingCategories = [
   { value: 'onboarding', label: 'Onboarding' },
@@ -132,6 +154,8 @@ const Library = () => {
   const [trainingDocs, setTrainingDocs] = useState<TrainingDocument[]>([]);
   const [clientDocs, setClientDocs] = useState<ClientDocument[]>([]);
   const [importantDocs, setImportantDocs] = useState<ImportantDocument[]>([]);
+  const [agentDocs, setAgentDocs] = useState<AgentDocument[]>([]);
+  const [selectedAgentCategory, setSelectedAgentCategory] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -179,6 +203,15 @@ const Library = () => {
   // Important doc upload form
   const [importantDialogOpen, setImportantDialogOpen] = useState(false);
   const [importantForm, setImportantForm] = useState({
+    title: '',
+    description: '',
+    category: 'general',
+    file: null as File | null,
+  });
+  
+  // Agent doc upload form
+  const [agentDialogOpen, setAgentDialogOpen] = useState(false);
+  const [agentForm, setAgentForm] = useState({
     title: '',
     description: '',
     category: 'general',
@@ -253,15 +286,17 @@ const Library = () => {
     if (!user) return;
     setLoading(true);
     
-    const [trainingRes, clientRes, importantRes] = await Promise.all([
+    const [trainingRes, clientRes, importantRes, agentRes] = await Promise.all([
       supabase.from('training_documents').select('*').order('created_at', { ascending: false }),
       supabase.from('client_documents').select('*').order('created_at', { ascending: false }),
       supabase.from('important_documents' as any).select('*').order('created_at', { ascending: false }),
+      supabase.from('agent_documents' as any).select('*').order('created_at', { ascending: false }),
     ]);
     
     setTrainingDocs((trainingRes.data || []) as TrainingDocument[]);
     setClientDocs((clientRes.data || []) as ClientDocument[]);
     setImportantDocs((importantRes.data || []) as unknown as ImportantDocument[]);
+    setAgentDocs((agentRes.data || []) as unknown as AgentDocument[]);
     setLoading(false);
   };
 
@@ -425,18 +460,18 @@ const Library = () => {
     URL.revokeObjectURL(url);
   };
 
-  const deleteDocument = async (type: 'training' | 'client' | 'important', id: string, filePath: string) => {
-    const bucketMap = { training: 'training-library', client: 'client-documents', important: 'important-documents' };
-    const tableMap = { training: 'training_documents', client: 'client_documents', important: 'important_documents' } as const;
+  const deleteDocument = async (type: 'training' | 'client' | 'important' | 'agent', id: string, filePath: string) => {
+    const bucketMap = { training: 'training-library', client: 'client-documents', important: 'important-documents', agent: 'agent-documents' };
+    const tableMap = { training: 'training_documents', client: 'client_documents', important: 'important_documents', agent: 'agent_documents' } as const;
     const bucket = bucketMap[type];
-    const table = tableMap[type] as 'training_documents' | 'client_documents';
+    const table = tableMap[type];
     
     try {
       await supabase.storage.from(bucket).remove([filePath]);
-      if (type === 'important') {
-        await supabase.from('important_documents' as any).delete().eq('id', id);
+      if (type === 'important' || type === 'agent') {
+        await supabase.from(table as any).delete().eq('id', id);
       } else {
-        await supabase.from(table).delete().eq('id', id);
+        await supabase.from(table as 'training_documents' | 'client_documents').delete().eq('id', id);
       }
       toast({ title: 'Deleted', description: 'Document removed' });
       fetchDocuments();
@@ -483,6 +518,44 @@ const Library = () => {
     }
   };
 
+  const uploadAgentDoc = async () => {
+    if (!user || !agentForm.file) return;
+    setUploading(true);
+    
+    try {
+      const file = agentForm.file;
+      const filePath = `${user.id}/${Date.now()}_${sanitizeFileName(file.name)}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('agent-documents')
+        .upload(filePath, file);
+      
+      if (uploadError) throw uploadError;
+      
+      const { error: dbError } = await (supabase.from('agent_documents' as any)).insert({
+        title: agentForm.title,
+        description: agentForm.description || null,
+        file_path: filePath,
+        file_name: file.name,
+        file_type: file.type,
+        file_size: file.size,
+        category: agentForm.category,
+        user_id: user.id,
+      });
+      
+      if (dbError) throw dbError;
+      
+      toast({ title: 'Success', description: 'Personal document uploaded!' });
+      setAgentDialogOpen(false);
+      setAgentForm({ title: '', description: '', category: 'general', file: null });
+      fetchDocuments();
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const filteredTrainingDocs = trainingDocs.filter(doc => {
     const matchesSearch = doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       doc.file_name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -514,6 +587,13 @@ const Library = () => {
     return matchesSearch && matchesCategory;
   });
 
+  const filteredAgentDocs = agentDocs.filter(doc => {
+    const matchesSearch = doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      doc.file_name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedAgentCategory === 'all' || doc.category === selectedAgentCategory;
+    return matchesSearch && matchesCategory;
+  });
+
   if (loading) {
     return <div className="flex items-center justify-center h-64 text-primary animate-pulse">Loading library...</div>;
   }
@@ -537,6 +617,9 @@ const Library = () => {
           </TabsTrigger>
           <TabsTrigger value="clients" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <FolderOpen className="h-4 w-4 mr-2" /> Client Documents
+          </TabsTrigger>
+          <TabsTrigger value="agent" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <Briefcase className="h-4 w-4 mr-2" /> My Documents
           </TabsTrigger>
         </TabsList>
 
@@ -1367,6 +1450,158 @@ const Library = () => {
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           )}
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {format(new Date(doc.created_at), 'MMM d, yyyy')}
+                      </p>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* AGENT DOCUMENTS TAB (My Documents) */}
+        <TabsContent value="agent" className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+            <div className="flex gap-2 flex-1 w-full sm:w-auto">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search my documents..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Select value={selectedAgentCategory} onValueChange={setSelectedAgentCategory}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {agentCategories.map(cat => (
+                    <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <Dialog open={agentDialogOpen} onOpenChange={setAgentDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-primary text-primary-foreground">
+                  <Upload className="h-4 w-4 mr-2" /> Upload My Document
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Upload Personal Document</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Title *</Label>
+                    <Input
+                      placeholder="Document title"
+                      value={agentForm.title}
+                      onChange={(e) => setAgentForm({ ...agentForm, title: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Description</Label>
+                    <Textarea
+                      placeholder="Brief description..."
+                      value={agentForm.description}
+                      onChange={(e) => setAgentForm({ ...agentForm, description: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Category</Label>
+                    <Select value={agentForm.category} onValueChange={(v) => setAgentForm({ ...agentForm, category: v })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {agentCategories.map(cat => (
+                          <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>File *</Label>
+                    <Input
+                      type="file"
+                      onChange={(e) => setAgentForm({ ...agentForm, file: e.target.files?.[0] || null })}
+                    />
+                  </div>
+                  <Button 
+                    onClick={uploadAgentDoc} 
+                    disabled={uploading || !agentForm.title || !agentForm.file}
+                    className="w-full"
+                  >
+                    {uploading ? 'Uploading...' : 'Upload'}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          {filteredAgentDocs.length === 0 ? (
+            <Card className="border-dashed">
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <Briefcase className="h-12 w-12 text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">No personal documents yet</p>
+                <p className="text-sm text-muted-foreground">Upload your private files, notes, and templates</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {filteredAgentDocs.map(doc => {
+                const FileIcon = getFileIcon(doc.file_type);
+                return (
+                  <Card key={doc.id} className="border-amber-500/10 hover:border-amber-500/30 transition-colors">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                            <FileIcon className="h-5 w-5 text-amber-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <CardTitle className="text-sm font-medium truncate">{doc.title}</CardTitle>
+                            <p className="text-xs text-muted-foreground truncate">{doc.file_name}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      {doc.description && (
+                        <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{doc.description}</p>
+                      )}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="text-xs">
+                            {agentCategories.find(c => c.value === doc.category)?.label || doc.category}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">{formatFileSize(doc.file_size)}</span>
+                        </div>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => downloadDocument('agent-documents', doc.file_path, doc.file_name)}
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteDocument('agent', doc.id, doc.file_path)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
                       <p className="text-xs text-muted-foreground mt-2">
