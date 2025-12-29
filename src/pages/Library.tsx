@@ -159,6 +159,13 @@ const Library = () => {
     file: null as File | null,
   });
   
+  // Bulk upload state
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
+  const [bulkFiles, setBulkFiles] = useState<Array<{
+    file: File;
+    folder: string;
+  }>>([]);
+  
   // FUB person search (for upload dialog)
   const [fubSearchQuery, setFubSearchQuery] = useState('');
   const [fubSearchResults, setFubSearchResults] = useState<FUBPerson[]>([]);
@@ -329,10 +336,73 @@ const Library = () => {
       
       toast({ title: 'Success', description: 'Client document uploaded!' });
       setClientDialogOpen(false);
-      setClientForm({ title: '', description: '', document_type: 'contract', file: null });
+      setClientForm({ title: '', description: '', document_type: 'listing', file: null });
       setSelectedFubPerson(null);
       setFubSearchQuery('');
       setFubSearchResults([]);
+      fetchDocuments();
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const uploadBulkClientDocs = async () => {
+    if (!user || bulkFiles.length === 0 || !selectedFubPerson) return;
+    setUploading(true);
+    
+    try {
+      let successCount = 0;
+      let errorCount = 0;
+      
+      for (const item of bulkFiles) {
+        try {
+          const filePath = `${user.id}/${Date.now()}_${sanitizeFileName(item.file.name)}`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from('client-documents')
+            .upload(filePath, item.file);
+          
+          if (uploadError) throw uploadError;
+          
+          // Use filename without extension as title
+          const titleFromName = item.file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+          
+          const { error: dbError } = await supabase.from('client_documents').insert({
+            title: titleFromName,
+            description: null,
+            file_path: filePath,
+            file_name: item.file.name,
+            file_type: item.file.type,
+            file_size: item.file.size,
+            client_name: selectedFubPerson.name,
+            document_type: item.folder,
+            uploaded_by: user.id,
+            fub_person_id: selectedFubPerson.id,
+          });
+          
+          if (dbError) throw dbError;
+          successCount++;
+        } catch (e) {
+          console.error('Failed to upload:', item.file.name, e);
+          errorCount++;
+        }
+      }
+      
+      if (successCount > 0) {
+        toast({ 
+          title: 'Upload Complete', 
+          description: `${successCount} document${successCount > 1 ? 's' : ''} uploaded${errorCount > 0 ? `, ${errorCount} failed` : ''}!` 
+        });
+      }
+      if (errorCount > 0 && successCount === 0) {
+        toast({ title: 'Error', description: 'All uploads failed', variant: 'destructive' });
+      }
+      
+      setBulkDialogOpen(false);
+      setBulkFiles([]);
+      setSelectedFubPerson(null);
       fetchDocuments();
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -844,6 +914,158 @@ const Library = () => {
                     className="w-full"
                   >
                     {uploading ? 'Uploading...' : 'Upload'}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            {/* Bulk Upload Dialog */}
+            <Dialog open={bulkDialogOpen} onOpenChange={(open) => {
+              setBulkDialogOpen(open);
+              if (open && selectedClientFilter && !selectedFubPerson) {
+                setSelectedFubPerson(selectedClientFilter);
+              }
+              if (!open) {
+                setBulkFiles([]);
+              }
+            }}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="border-primary text-primary">
+                  <FolderOpen className="h-4 w-4 mr-2" /> Bulk Upload
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Bulk Upload Documents</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>FUB Client *</Label>
+                    {selectedFubPerson ? (
+                      <div className="flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+                        <User className="h-5 w-5 text-green-600" />
+                        <div className="flex-1">
+                          <p className="font-medium text-sm">{selectedFubPerson.name}</p>
+                          {selectedFubPerson.emails?.[0] && (
+                            <p className="text-xs text-muted-foreground">{selectedFubPerson.emails[0].value}</p>
+                          )}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedFubPerson(null);
+                            setFubSearchQuery('');
+                          }}
+                        >
+                          Change
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Search FUB contacts..."
+                            value={fubSearchQuery}
+                            onChange={(e) => setFubSearchQuery(e.target.value)}
+                            className="pl-10"
+                          />
+                          {fubSearching && (
+                            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                          )}
+                        </div>
+                        {fubSearchResults.length > 0 && (
+                          <div className="border rounded-lg max-h-48 overflow-y-auto">
+                            {fubSearchResults.map(person => (
+                              <button
+                                key={person.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedFubPerson(person);
+                                  setFubSearchResults([]);
+                                  setFubSearchQuery('');
+                                }}
+                                className="w-full text-left px-3 py-2 hover:bg-muted transition-colors border-b last:border-b-0"
+                              >
+                                <p className="font-medium text-sm">{person.name}</p>
+                                {person.emails?.[0] && (
+                                  <p className="text-xs text-muted-foreground">{person.emails[0].value}</p>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Select Files *</Label>
+                    <Input
+                      type="file"
+                      multiple
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || []);
+                        setBulkFiles(files.map(file => ({ file, folder: 'listing' })));
+                      }}
+                    />
+                    <p className="text-xs text-muted-foreground">Select multiple files at once</p>
+                  </div>
+
+                  {bulkFiles.length > 0 && (
+                    <div className="space-y-3">
+                      <Label>Assign Folders to Each Document</Label>
+                      <div className="border rounded-lg divide-y max-h-64 overflow-y-auto">
+                        {bulkFiles.map((item, index) => {
+                          const FileIcon = getFileIcon(item.file.type);
+                          return (
+                            <div key={index} className="flex items-center gap-3 p-3">
+                              <FileIcon className="h-5 w-5 text-muted-foreground shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{item.file.name}</p>
+                                <p className="text-xs text-muted-foreground">{formatFileSize(item.file.size)}</p>
+                              </div>
+                              <Select 
+                                value={item.folder} 
+                                onValueChange={(v) => {
+                                  const updated = [...bulkFiles];
+                                  updated[index] = { ...item, folder: v };
+                                  setBulkFiles(updated);
+                                }}
+                              >
+                                <SelectTrigger className="w-32">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {documentFolders.map(type => (
+                                    <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setBulkFiles(bulkFiles.filter((_, i) => i !== index));
+                                }}
+                                className="text-destructive hover:text-destructive shrink-0"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  <Button 
+                    onClick={uploadBulkClientDocs} 
+                    disabled={uploading || bulkFiles.length === 0 || !selectedFubPerson}
+                    className="w-full"
+                  >
+                    {uploading ? 'Uploading...' : `Upload ${bulkFiles.length} Document${bulkFiles.length !== 1 ? 's' : ''}`}
                   </Button>
                 </div>
               </DialogContent>
