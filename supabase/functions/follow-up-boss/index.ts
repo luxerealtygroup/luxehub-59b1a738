@@ -34,9 +34,12 @@ serve(async (req) => {
 
     switch (action) {
       case 'search_people':
-        // Search for people/contacts
+        // Search for people/contacts - use name parameter for better matching
         const searchParams = new URLSearchParams();
-        if (params?.query) searchParams.append('q', params.query);
+        if (params?.query) {
+          // FUB supports 'name' for name search and 'q' for general search
+          searchParams.append('name', params.query);
+        }
         if (params?.limit) searchParams.append('limit', params.limit.toString());
         endpoint = `/people?${searchParams.toString()}`;
         break;
