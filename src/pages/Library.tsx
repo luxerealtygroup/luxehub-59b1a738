@@ -157,11 +157,17 @@ const Library = () => {
     file: null as File | null,
   });
   
-  // FUB person search
+  // FUB person search (for upload dialog)
   const [fubSearchQuery, setFubSearchQuery] = useState('');
   const [fubSearchResults, setFubSearchResults] = useState<FUBPerson[]>([]);
   const [selectedFubPerson, setSelectedFubPerson] = useState<FUBPerson | null>(null);
   const [fubSearching, setFubSearching] = useState(false);
+  
+  // Client filter for viewing documents
+  const [clientFilterQuery, setClientFilterQuery] = useState('');
+  const [clientFilterResults, setClientFilterResults] = useState<FUBPerson[]>([]);
+  const [selectedClientFilter, setSelectedClientFilter] = useState<FUBPerson | null>(null);
+  const [clientFilterSearching, setClientFilterSearching] = useState(false);
   
   // Important doc upload form
   const [importantDialogOpen, setImportantDialogOpen] = useState(false);
@@ -172,7 +178,7 @@ const Library = () => {
     file: null as File | null,
   });
 
-  // Debounced FUB search
+  // Debounced FUB search for upload dialog
   const searchFubPeople = useCallback(async (query: string) => {
     if (query.length < 2) {
       setFubSearchResults([]);
@@ -189,6 +195,26 @@ const Library = () => {
       console.error('FUB search error:', error);
     } finally {
       setFubSearching(false);
+    }
+  }, []);
+
+  // Debounced FUB search for client filter
+  const searchClientFilter = useCallback(async (query: string) => {
+    if (query.length < 2) {
+      setClientFilterResults([]);
+      return;
+    }
+    
+    setClientFilterSearching(true);
+    try {
+      const response = await followUpBossApi.searchPeople(query);
+      if (response.success && response.data?.people) {
+        setClientFilterResults(response.data.people.slice(0, 10));
+      }
+    } catch (error) {
+      console.error('Client filter search error:', error);
+    } finally {
+      setClientFilterSearching(false);
     }
   }, []);
 
@@ -385,11 +411,16 @@ const Library = () => {
     return matchesSearch && matchesCategory;
   });
 
-  const filteredClientDocs = clientDocs.filter(doc => 
-    doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    doc.client_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    doc.file_name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredClientDocs = clientDocs.filter(doc => {
+    // If a client is selected, filter by fub_person_id
+    if (selectedClientFilter) {
+      return doc.fub_person_id === selectedClientFilter.id;
+    }
+    // Otherwise show all documents matching search
+    return doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      doc.client_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      doc.file_name.toLowerCase().includes(searchQuery.toLowerCase());
+  });
 
   const filteredImportantDocs = importantDocs.filter(doc => {
     const matchesSearch = doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -580,21 +611,100 @@ const Library = () => {
 
         {/* CLIENT DOCUMENTS TAB */}
         <TabsContent value="clients" className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-            <div className="relative flex-1 w-full sm:w-auto">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by client name or document..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+          {/* Client Selection / Filter */}
+          <Card className="border-primary/20">
+            <CardContent className="pt-4">
+              <div className="flex flex-col gap-4">
+                <Label className="text-sm font-medium">Select a Client to View Documents</Label>
+                {selectedClientFilter ? (
+                  <div className="flex items-center gap-3 p-3 bg-primary/10 border border-primary/30 rounded-lg">
+                    <User className="h-6 w-6 text-primary" />
+                    <div className="flex-1">
+                      <p className="font-medium">{selectedClientFilter.name}</p>
+                      {selectedClientFilter.emails?.[0] && (
+                        <p className="text-sm text-muted-foreground">{selectedClientFilter.emails[0].value}</p>
+                      )}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedClientFilter(null);
+                        setClientFilterQuery('');
+                      }}
+                    >
+                      Change Client
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search for a client..."
+                        value={clientFilterQuery}
+                        onChange={(e) => setClientFilterQuery(e.target.value)}
+                        className="pl-10"
+                      />
+                      {clientFilterSearching && (
+                        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                      )}
+                    </div>
+                    {clientFilterResults.length > 0 && (
+                      <div className="border rounded-lg max-h-64 overflow-y-auto bg-background">
+                        {clientFilterResults.map(person => (
+                          <button
+                            key={person.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedClientFilter(person);
+                              setClientFilterResults([]);
+                              setClientFilterQuery('');
+                            }}
+                            className="w-full text-left px-4 py-3 hover:bg-muted transition-colors border-b last:border-b-0 flex items-center gap-3"
+                          >
+                            <User className="h-5 w-5 text-muted-foreground" />
+                            <div>
+                              <p className="font-medium">{person.name}</p>
+                              {person.emails?.[0] && (
+                                <p className="text-sm text-muted-foreground">{person.emails[0].value}</p>
+                              )}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {clientFilterQuery.length >= 2 && clientFilterResults.length === 0 && !clientFilterSearching && (
+                      <p className="text-sm text-muted-foreground text-center py-2">No clients found</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {selectedClientFilter && (
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+              <div className="relative flex-1 w-full sm:w-auto">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search documents..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
             
-            <Dialog open={clientDialogOpen} onOpenChange={setClientDialogOpen}>
+            <Dialog open={clientDialogOpen} onOpenChange={(open) => {
+              setClientDialogOpen(open);
+              // Pre-select the filtered client when opening the dialog
+              if (open && selectedClientFilter && !selectedFubPerson) {
+                setSelectedFubPerson(selectedClientFilter);
+              }
+            }}>
               <DialogTrigger asChild>
                 <Button className="bg-primary text-primary-foreground">
-                  <Upload className="h-4 w-4 mr-2" /> Upload Client Doc
+                  <Upload className="h-4 w-4 mr-2" /> Upload Doc for {selectedClientFilter ? selectedClientFilter.name : 'Client'}
                 </Button>
               </DialogTrigger>
               <DialogContent>
@@ -708,14 +818,23 @@ const Library = () => {
                 </div>
               </DialogContent>
             </Dialog>
-          </div>
+            </div>
+          )}
 
-          {filteredClientDocs.length === 0 ? (
+          {!selectedClientFilter ? (
+            <Card className="border-dashed">
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <User className="h-12 w-12 text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">Search for a client above</p>
+                <p className="text-sm text-muted-foreground">Select a client to view and manage their documents</p>
+              </CardContent>
+            </Card>
+          ) : filteredClientDocs.length === 0 ? (
             <Card className="border-dashed">
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <FolderOpen className="h-12 w-12 text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">No client documents yet</p>
-                <p className="text-sm text-muted-foreground">Upload documents for your clients and transactions</p>
+                <p className="text-muted-foreground">No documents for {selectedClientFilter.name}</p>
+                <p className="text-sm text-muted-foreground">Upload documents for this client using the button above</p>
               </CardContent>
             </Card>
           ) : (
