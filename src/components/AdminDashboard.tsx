@@ -328,6 +328,14 @@ const AdminDashboard = () => {
     };
 
     fetchCompanyData();
+
+    // Auto-refresh FUB data every 3 minutes
+    const refreshInterval = setInterval(() => {
+      console.log('Auto-refreshing admin FUB data...');
+      fetchCompanyData();
+    }, 3 * 60 * 1000);
+
+    return () => clearInterval(refreshInterval);
   }, [isAdmin, roleLoading]);
 
   if (roleLoading || loading) {

@@ -212,6 +212,14 @@ const Dashboard = () => {
 
     fetchStats();
     fetchFUBClients();
+
+    // Auto-refresh FUB data every 3 minutes
+    const refreshInterval = setInterval(() => {
+      console.log('Auto-refreshing FUB data...');
+      fetchFUBClients();
+    }, 3 * 60 * 1000);
+
+    return () => clearInterval(refreshInterval);
   }, [user]);
 
   const syncClientToFUB = async (clientData: typeof newClient) => {
