@@ -94,12 +94,15 @@ serve(async (req) => {
         break;
 
       case 'get_smartlist_people':
-        // Get people from a specific smart list
+        // Get people from a specific smart list using the people endpoint with smartListId filter
         const smartListPeopleParams = new URLSearchParams();
+        smartListPeopleParams.append('smartListId', params.id.toString());
         if (params?.limit) smartListPeopleParams.append('limit', params.limit.toString());
         if (params?.offset) smartListPeopleParams.append('offset', params.offset.toString());
-        endpoint = `/smartLists/${params.id}?${smartListPeopleParams.toString()}`;
+        endpoint = `/people?${smartListPeopleParams.toString()}`;
         break;
+
+      case 'create_person':
         // Create a new person in Follow Up Boss
         method = 'POST';
         endpoint = '/people';
