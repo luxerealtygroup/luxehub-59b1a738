@@ -91,6 +91,15 @@ const importantCategories = [
   { value: 'general', label: 'General' },
 ];
 
+// Sanitize file names for storage - remove special characters that cause issues
+const sanitizeFileName = (fileName: string): string => {
+  return fileName
+    .replace(/[–—]/g, '-') // Replace em/en dashes with regular dash
+    .replace(/[()[\]{}]/g, '') // Remove brackets and parentheses
+    .replace(/[^a-zA-Z0-9._-]/g, '_') // Replace other special chars with underscore
+    .replace(/_+/g, '_'); // Collapse multiple underscores
+};
+
 const documentTypes = [
   { value: 'contract', label: 'Contract' },
   { value: 'listing_agreement', label: 'Listing Agreement' },
@@ -220,7 +229,7 @@ const Library = () => {
     
     try {
       const file = trainingForm.file;
-      const filePath = `${Date.now()}_${file.name}`;
+      const filePath = `${Date.now()}_${sanitizeFileName(file.name)}`;
       
       const { error: uploadError } = await supabase.storage
         .from('training-library')
@@ -258,7 +267,7 @@ const Library = () => {
     
     try {
       const file = clientForm.file;
-      const filePath = `${user.id}/${Date.now()}_${file.name}`;
+      const filePath = `${user.id}/${Date.now()}_${sanitizeFileName(file.name)}`;
       
       const { error: uploadError } = await supabase.storage
         .from('client-documents')
@@ -337,7 +346,7 @@ const Library = () => {
     
     try {
       const file = importantForm.file;
-      const filePath = `${Date.now()}_${file.name}`;
+      const filePath = `${Date.now()}_${sanitizeFileName(file.name)}`;
       
       const { error: uploadError } = await supabase.storage
         .from('important-documents')
