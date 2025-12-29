@@ -37,10 +37,11 @@ const FUBActivityFeed = ({ limit = 20, showTabs = true, title = 'Recent Activity
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
 
+    // Note: FUB text messages API may be restricted, so we handle errors gracefully
     const [notesRes, callsRes, textsRes] = await Promise.all([
       followUpBossApi.getNotes(limit),
       followUpBossApi.getCalls(limit),
-      followUpBossApi.getTextMessages(limit),
+      followUpBossApi.getTextMessages(limit).catch(() => ({ success: false, data: null })),
     ]);
 
     if (notesRes.success && notesRes.data?.notes) {
@@ -49,6 +50,7 @@ const FUBActivityFeed = ({ limit = 20, showTabs = true, title = 'Recent Activity
     if (callsRes.success && callsRes.data?.calls) {
       setCalls(callsRes.data.calls);
     }
+    // Text messages may return 404 (restricted API) - handle gracefully
     if (textsRes.success && textsRes.data?.textmessages) {
       setTexts(textsRes.data.textmessages);
     }
