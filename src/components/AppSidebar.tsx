@@ -32,7 +32,7 @@ const menuItems = [
   { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
   { title: 'Activities', url: '/dashboard/activities', icon: Phone },
   { title: 'Pipeline', url: '/dashboard/pipeline', icon: Building2 },
-  { title: 'Commissions', url: '/dashboard/commissions', icon: DollarSign },
+  { title: 'Transactions', url: '/dashboard/commissions', icon: DollarSign },
   { title: 'Goals', url: '/dashboard/goals', icon: Target },
   { title: '4-1-1', url: '/dashboard/411', icon: ClipboardList },
   { title: 'Reports', url: '/dashboard/reports', icon: FileText },
