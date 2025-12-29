@@ -6,6 +6,7 @@ import { Building2, Phone, DollarSign, Target, Users, Search, Loader2, TrendingU
 import { FUBClientSearch } from '@/components/FUBClientSearch';
 import { followUpBossApi, FUBPerson } from '@/lib/api/followUpBoss';
 import GoogleCalendarWidget from '@/components/GoogleCalendarWidget';
+import FUBSmartLists from '@/components/FUBSmartLists';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -668,66 +669,65 @@ const Dashboard = () => {
         </Card>
       </div>
 
-      {/* Google Calendar & Follow Up Boss Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Google Calendar, Smart Lists & Follow Up Boss Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <GoogleCalendarWidget />
-      <Card className="border-gold/10 bg-card/50">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-gold" />
-            <CardTitle className="text-gold font-display">Follow Up Boss Clients</CardTitle>
-          </div>
-          <FUBClientSearch 
-            onSelectClient={(client) => console.log('Selected:', client)}
-            trigger={
-              <Button variant="outline" size="sm" className="border-gold/30 text-gold hover:bg-gold/10">
-                <Search className="h-4 w-4 mr-2" /> Search Clients
-              </Button>
-            }
-          />
-        </CardHeader>
-        <CardContent>
-          {fubLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 text-gold animate-spin" />
-              <span className="ml-2 text-muted-foreground">Loading clients...</span>
+        <FUBSmartLists />
+        <Card className="border-gold/10 bg-card/50">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-gold" />
+              <CardTitle className="text-gold font-display">FUB Clients</CardTitle>
             </div>
-          ) : fubError ? (
-            <div className="text-center py-8">
-              <p className="text-muted-foreground">{fubError}</p>
-              <p className="text-xs text-muted-foreground mt-2">Make sure your Follow Up Boss API key is configured</p>
-            </div>
-          ) : fubClients.length === 0 ? (
-            <div className="text-center py-8">
-              <Users className="h-10 w-10 mx-auto text-gold/30 mb-2" />
-              <p className="text-muted-foreground">No clients found</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {fubClients.slice(0, 6).map((client) => (
-                <div 
-                  key={client.id}
-                  className="p-3 rounded-lg bg-gold/5 border border-gold/10 hover:border-gold/30 transition-colors"
-                >
-                  <p className="font-medium text-foreground truncate">
-                    {client.name || `${client.firstName} ${client.lastName}`}
-                  </p>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-xs text-muted-foreground truncate">
-                      {client.emails?.[0]?.value || client.phones?.[0]?.value || 'No contact'}
-                    </span>
-                    {client.stage && (
-                      <Badge variant="outline" className="text-xs border-gold/30 text-gold">
-                        {client.stage}
-                      </Badge>
-                    )}
+            <FUBClientSearch 
+              onSelectClient={(client) => console.log('Selected:', client)}
+              trigger={
+                <Button variant="outline" size="sm" className="border-gold/30 text-gold hover:bg-gold/10">
+                  <Search className="h-4 w-4" />
+                </Button>
+              }
+            />
+          </CardHeader>
+          <CardContent>
+            {fubLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 text-gold animate-spin" />
+              </div>
+            ) : fubError ? (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground text-sm">{fubError}</p>
+              </div>
+            ) : fubClients.length === 0 ? (
+              <div className="text-center py-8">
+                <Users className="h-10 w-10 mx-auto text-gold/30 mb-2" />
+                <p className="text-muted-foreground">No clients found</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {fubClients.slice(0, 6).map((client) => (
+                  <div 
+                    key={client.id}
+                    className="p-3 rounded-lg bg-gold/5 border border-gold/10 hover:border-gold/30 transition-colors"
+                  >
+                    <p className="font-medium text-foreground truncate text-sm">
+                      {client.name || `${client.firstName} ${client.lastName}`}
+                    </p>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-xs text-muted-foreground truncate">
+                        {client.emails?.[0]?.value || client.phones?.[0]?.value || 'No contact'}
+                      </span>
+                      {client.stage && (
+                        <Badge variant="outline" className="text-xs border-gold/30 text-gold">
+                          {client.stage}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

@@ -83,6 +83,14 @@ export interface FUBTextMessage {
   direction?: 'incoming' | 'outgoing';
 }
 
+export interface FUBSmartList {
+  id: number;
+  name: string;
+  isFub2: boolean;
+  description?: string;
+  defaultSmartListId?: string;
+}
+
 export interface FUBResponse<T = any> {
   success: boolean;
   error?: string;
@@ -148,6 +156,28 @@ export const followUpBossApi = {
   async getCalls(limit = 50, offset = 0, personId?: number): Promise<FUBResponse<{ calls: FUBCall[] }>> {
     const { data, error } = await supabase.functions.invoke('follow-up-boss', {
       body: { action: 'get_calls', params: { limit, offset, personId } },
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+    return data;
+  },
+
+  async getSmartLists(limit = 100, offset = 0): Promise<FUBResponse<{ smartlists: FUBSmartList[] }>> {
+    const { data, error } = await supabase.functions.invoke('follow-up-boss', {
+      body: { action: 'get_smartlists', params: { limit, offset } },
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+    return data;
+  },
+
+  async getSmartListPeople(id: number, limit = 50, offset = 0): Promise<FUBResponse<{ people: FUBPerson[] }>> {
+    const { data, error } = await supabase.functions.invoke('follow-up-boss', {
+      body: { action: 'get_smartlist_people', params: { id, limit, offset } },
     });
 
     if (error) {
