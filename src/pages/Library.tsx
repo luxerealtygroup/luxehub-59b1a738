@@ -1015,7 +1015,26 @@ const Library = () => {
 
                   {bulkFiles.length > 0 && (
                     <div className="space-y-3">
-                      <Label>Assign Folders to Each Document</Label>
+                      <div className="flex items-center justify-between">
+                        <Label>Assign Folders to Each Document</Label>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">Set all to:</span>
+                          <Select 
+                            onValueChange={(v) => {
+                              setBulkFiles(bulkFiles.map(item => ({ ...item, folder: v })));
+                            }}
+                          >
+                            <SelectTrigger className="w-28 h-8 text-xs">
+                              <SelectValue placeholder="Select..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {documentFolders.map(type => (
+                                <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
                       <div className="border rounded-lg divide-y max-h-64 overflow-y-auto">
                         {bulkFiles.map((item, index) => {
                           const FileIcon = getFileIcon(item.file.type);
