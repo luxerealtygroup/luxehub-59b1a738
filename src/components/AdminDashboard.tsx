@@ -170,6 +170,7 @@ const AdminDashboard = () => {
             } else if (isPendingDeal) {
               existing.pendingGci += deal.commissionValue || 0;
               existing.teamCommission += deal.teamCommission || 0;
+              existing.dealCount += 1;
             }
             
             agentMap.set(user.id, existing);
