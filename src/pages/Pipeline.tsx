@@ -16,6 +16,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { differenceInDays, format, parseISO } from 'date-fns';
+import { SOURCE_OPTIONS } from '@/lib/constants/sourceOptions';
 
 interface PipelineClient {
   id: string;
@@ -625,11 +626,14 @@ const Pipeline = () => {
                 value={newClient.property_interest}
                 onChange={(e) => setNewClient({ ...newClient, property_interest: e.target.value })}
               />
-              <Input
-                placeholder="Source (e.g., Referral, Open House)"
-                value={newClient.source}
-                onChange={(e) => setNewClient({ ...newClient, source: e.target.value })}
-              />
+              <Select value={newClient.source} onValueChange={(v) => setNewClient({ ...newClient, source: v })}>
+                <SelectTrigger><SelectValue placeholder="Select source" /></SelectTrigger>
+                <SelectContent>
+                  {SOURCE_OPTIONS.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Textarea
                 placeholder="Notes"
                 value={newClient.notes}
