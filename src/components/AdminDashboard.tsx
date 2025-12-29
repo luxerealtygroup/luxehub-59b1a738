@@ -619,8 +619,8 @@ const AdminDashboard = () => {
             {stats.agents.map((agent, idx) => (
               <Card
                 key={agent.id}
-                className={`border-gold/10 cursor-pointer transition-all hover:border-gold/30 ${selectedAgent === agent.id ? 'border-gold ring-1 ring-gold' : ''}`}
-                onClick={() => setSelectedAgent(selectedAgent === agent.id ? null : agent.id)}
+                className={`border-gold/10 cursor-pointer transition-all hover:border-gold/30 hover:shadow-lg ${selectedAgent === agent.id ? 'border-gold ring-1 ring-gold' : ''}`}
+                onClick={() => navigate(`/dashboard/agent/${agent.id}`)}
               >
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between mb-3">
