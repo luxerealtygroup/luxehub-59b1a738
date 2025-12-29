@@ -102,6 +102,13 @@ serve(async (req) => {
         endpoint = `/people?${smartListPeopleParams.toString()}`;
         break;
 
+      case 'get_users':
+        // Get FUB users/team members
+        const usersParams = new URLSearchParams();
+        if (params?.limit) usersParams.append('limit', params.limit.toString());
+        endpoint = `/users?${usersParams.toString()}`;
+        break;
+
       case 'create_person':
         // Create a new person in Follow Up Boss
         method = 'POST';
