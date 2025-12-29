@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { followUpBossApi, FUBNote, FUBCall, FUBTextMessage } from '@/lib/api/followUpBoss';
+import { followUpBossApi, FUBNote, FUBCall } from '@/lib/api/followUpBoss';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Phone, MessageSquare, FileText, Loader2, PhoneIncoming, PhoneOutgoing, RefreshCw } from 'lucide-react';
+import { Phone, FileText, Loader2, PhoneIncoming, PhoneOutgoing, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { format, parseISO, formatDistanceToNow } from 'date-fns';
+import { parseISO, formatDistanceToNow } from 'date-fns';
 
 interface FUBActivityFeedProps {
   limit?: number;
@@ -16,7 +16,7 @@ interface FUBActivityFeedProps {
 
 type ActivityItem = {
   id: string;
-  type: 'note' | 'call' | 'text';
+  type: 'note' | 'call';
   created: string;
   personName?: string;
   userName?: string;
@@ -30,18 +30,15 @@ const FUBActivityFeed = ({ limit = 20, showTabs = true, title = 'Recent Activity
   const [refreshing, setRefreshing] = useState(false);
   const [notes, setNotes] = useState<FUBNote[]>([]);
   const [calls, setCalls] = useState<FUBCall[]>([]);
-  const [texts, setTexts] = useState<FUBTextMessage[]>([]);
   const [activeTab, setActiveTab] = useState('all');
 
   const fetchActivities = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
 
-    // Note: FUB text messages API may be restricted, so we handle errors gracefully
-    const [notesRes, callsRes, textsRes] = await Promise.all([
+    const [notesRes, callsRes] = await Promise.all([
       followUpBossApi.getNotes(limit),
       followUpBossApi.getCalls(limit),
-      followUpBossApi.getTextMessages(limit).catch(() => ({ success: false, data: null })),
     ]);
 
     if (notesRes.success && notesRes.data?.notes) {
@@ -49,10 +46,6 @@ const FUBActivityFeed = ({ limit = 20, showTabs = true, title = 'Recent Activity
     }
     if (callsRes.success && callsRes.data?.calls) {
       setCalls(callsRes.data.calls);
-    }
-    // Text messages may return 404 (restricted API) - handle gracefully
-    if (textsRes.success && textsRes.data?.textmessages) {
-      setTexts(textsRes.data.textmessages);
     }
 
     setLoading(false);
@@ -83,15 +76,6 @@ const FUBActivityFeed = ({ limit = 20, showTabs = true, title = 'Recent Activity
       duration: c.duration,
       direction: c.direction,
     })),
-    ...texts.map(t => ({
-      id: `text-${t.id}`,
-      type: 'text' as const,
-      created: t.created,
-      personName: t.personName,
-      userName: t.userName,
-      content: t.message || 'Text message',
-      direction: t.direction,
-    })),
   ].sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime());
 
   const getFilteredActivities = () => {
@@ -100,8 +84,6 @@ const FUBActivityFeed = ({ limit = 20, showTabs = true, title = 'Recent Activity
         return allActivities.filter(a => a.type === 'note');
       case 'calls':
         return allActivities.filter(a => a.type === 'call');
-      case 'texts':
-        return allActivities.filter(a => a.type === 'text');
       default:
         return allActivities;
     }
@@ -113,8 +95,6 @@ const FUBActivityFeed = ({ limit = 20, showTabs = true, title = 'Recent Activity
         return activity.direction === 'incoming' 
           ? <PhoneIncoming className="h-4 w-4 text-green-500" />
           : <PhoneOutgoing className="h-4 w-4 text-blue-500" />;
-      case 'text':
-        return <MessageSquare className="h-4 w-4 text-purple-500" />;
       default:
         return <FileText className="h-4 w-4 text-gold" />;
     }
@@ -124,8 +104,6 @@ const FUBActivityFeed = ({ limit = 20, showTabs = true, title = 'Recent Activity
     switch (activity.type) {
       case 'call':
         return <Badge variant="outline" className="text-xs border-green-500/30 text-green-500">Call</Badge>;
-      case 'text':
-        return <Badge variant="outline" className="text-xs border-purple-500/30 text-purple-500">Text</Badge>;
       default:
         return <Badge variant="outline" className="text-xs border-gold/30 text-gold">Note</Badge>;
     }
@@ -169,10 +147,9 @@ const FUBActivityFeed = ({ limit = 20, showTabs = true, title = 'Recent Activity
       <CardContent>
         {showTabs && (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-4">
-            <TabsList className="grid grid-cols-4 w-full">
+            <TabsList className="grid grid-cols-3 w-full">
               <TabsTrigger value="all">All ({allActivities.length})</TabsTrigger>
               <TabsTrigger value="calls">Calls ({calls.length})</TabsTrigger>
-              <TabsTrigger value="texts">Texts ({texts.length})</TabsTrigger>
               <TabsTrigger value="notes">Notes ({notes.length})</TabsTrigger>
             </TabsList>
           </Tabs>
