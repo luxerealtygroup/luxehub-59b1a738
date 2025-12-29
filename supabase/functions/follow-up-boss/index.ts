@@ -82,14 +82,7 @@ serve(async (req) => {
         endpoint = `/calls?${callsParams.toString()}`;
         break;
 
-      case 'get_textmessages':
-        // Get text messages from FUB
-        const textParams = new URLSearchParams();
-        if (params?.limit) textParams.append('limit', params.limit.toString());
-        if (params?.offset) textParams.append('offset', params.offset.toString());
-        if (params?.personId) textParams.append('personId', params.personId.toString());
-        endpoint = `/textmessages?${textParams.toString()}`;
-        break;
+      // Note: FUB does not expose text messages via public API
 
       case 'create_person':
         // Create a new person in Follow Up Boss

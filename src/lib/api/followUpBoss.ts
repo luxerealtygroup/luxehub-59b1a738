@@ -156,14 +156,5 @@ export const followUpBossApi = {
     return data;
   },
 
-  async getTextMessages(limit = 50, offset = 0, personId?: number): Promise<FUBResponse<{ textmessages: FUBTextMessage[] }>> {
-    const { data, error } = await supabase.functions.invoke('follow-up-boss', {
-      body: { action: 'get_textmessages', params: { limit, offset, personId } },
-    });
-
-    if (error) {
-      return { success: false, error: error.message };
-    }
-    return data;
-  },
+  // Note: FUB does not expose text messages via public API
 };
