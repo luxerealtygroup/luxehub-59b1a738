@@ -1119,72 +1119,108 @@ const Library = () => {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {filteredClientDocs.map(doc => {
-                const FileIcon = getFileIcon(doc.file_type);
-                const isImage = doc.file_type?.startsWith('image/');
-                return (
-                  <Card key={doc.id} className="border-primary/10 hover:border-primary/30 transition-colors overflow-hidden">
-                    {isImage && (
-                      <ImageThumbnail 
-                        bucket="client-documents"
-                        filePath={doc.file_path}
-                        alt={doc.title}
-                        className="h-32 w-full object-cover"
-                      />
-                    )}
-                    <CardHeader className="pb-2">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
-                          {!isImage && (
-                            <div className="h-10 w-10 rounded-lg bg-green-500/10 flex items-center justify-center">
-                              <FileIcon className="h-5 w-5 text-green-600" />
+            <div className="space-y-6">
+              {/* Images Grid */}
+              {filteredClientDocs.some(doc => doc.file_type?.startsWith('image/')) && (
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-3">Photos</h3>
+                  <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                    {filteredClientDocs
+                      .filter(doc => doc.file_type?.startsWith('image/'))
+                      .map(doc => (
+                        <Card key={doc.id} className="border-primary/10 hover:border-primary/30 transition-colors overflow-hidden group">
+                          <div className="relative">
+                            <ImageThumbnail 
+                              bucket="client-documents"
+                              filePath={doc.file_path}
+                              alt={doc.title}
+                              className="h-32 w-full object-cover"
+                            />
+                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                className="h-7 w-7 p-0"
+                                onClick={() => downloadDocument('client-documents', doc.file_path, doc.file_name)}
+                              >
+                                <Download className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                                onClick={() => deleteDocument('client', doc.id, doc.file_path)}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
                             </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <CardTitle className="text-sm font-medium truncate">{doc.title}</CardTitle>
-                            <p className="text-xs text-muted-foreground truncate">{doc.client_name}</p>
                           </div>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                      <p className="text-xs text-muted-foreground mb-2 truncate">{doc.file_name}</p>
-                      {doc.description && (
-                        <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{doc.description}</p>
-                      )}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs">
-                            {documentFolders.find(t => t.value === doc.document_type)?.label || doc.document_type}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">{formatFileSize(doc.file_size)}</span>
-                        </div>
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => downloadDocument('client-documents', doc.file_path, doc.file_name)}
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => deleteDocument('client', doc.id, doc.file_path)}
-                            className="text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        {format(new Date(doc.created_at), 'MMM d, yyyy')}
-                      </p>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+                          <CardContent className="p-2">
+                            <p className="text-xs font-medium truncate">{doc.title}</p>
+                            <div className="flex items-center justify-between mt-1">
+                              <Badge variant="outline" className="text-[10px] px-1 py-0">
+                                {documentFolders.find(t => t.value === doc.document_type)?.label || doc.document_type}
+                              </Badge>
+                              <span className="text-[10px] text-muted-foreground">{formatFileSize(doc.file_size)}</span>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Documents List */}
+              {filteredClientDocs.some(doc => !doc.file_type?.startsWith('image/')) && (
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-3">Documents</h3>
+                  <div className="border rounded-lg divide-y bg-card">
+                    {filteredClientDocs
+                      .filter(doc => !doc.file_type?.startsWith('image/'))
+                      .map(doc => {
+                        const FileIcon = getFileIcon(doc.file_type);
+                        return (
+                          <div key={doc.id} className="flex items-center gap-3 p-3 hover:bg-muted/50 transition-colors">
+                            <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                              <FileIcon className="h-4 w-4 text-primary" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{doc.title}</p>
+                              <p className="text-xs text-muted-foreground truncate">{doc.file_name}</p>
+                            </div>
+                            <Badge variant="outline" className="text-xs shrink-0 hidden sm:inline-flex">
+                              {documentFolders.find(t => t.value === doc.document_type)?.label || doc.document_type}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground shrink-0 hidden md:inline">
+                              {formatFileSize(doc.file_size)}
+                            </span>
+                            <span className="text-xs text-muted-foreground shrink-0 hidden lg:inline">
+                              {format(new Date(doc.created_at), 'MMM d, yyyy')}
+                            </span>
+                            <div className="flex gap-1 shrink-0">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                onClick={() => downloadDocument('client-documents', doc.file_path, doc.file_name)}
+                              >
+                                <Download className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                onClick={() => deleteDocument('client', doc.id, doc.file_path)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </TabsContent>
