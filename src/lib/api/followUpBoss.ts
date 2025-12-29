@@ -45,6 +45,44 @@ export interface FUBDeal {
   source?: string | null;
 }
 
+export interface FUBNote {
+  id: number;
+  created: string;
+  updated: string;
+  subject: string;
+  body: string;
+  personId: number;
+  personName?: string;
+  userId: number;
+  userName?: string;
+}
+
+export interface FUBCall {
+  id: number;
+  created: string;
+  duration: number;
+  direction: 'incoming' | 'outgoing';
+  personId: number;
+  personName?: string;
+  userId: number;
+  userName?: string;
+  fromNumber?: string;
+  toNumber?: string;
+}
+
+export interface FUBTextMessage {
+  id: number;
+  created: string;
+  message: string;
+  personId: number;
+  personName?: string;
+  userId: number;
+  userName?: string;
+  fromNumber?: string;
+  toNumber?: string;
+  direction?: 'incoming' | 'outgoing';
+}
+
 export interface FUBResponse<T = any> {
   success: boolean;
   error?: string;
@@ -88,6 +126,39 @@ export const followUpBossApi = {
   async getDeals(limit = 50, offset = 0, stage?: string): Promise<FUBResponse<{ deals: FUBDeal[] }>> {
     const { data, error } = await supabase.functions.invoke('follow-up-boss', {
       body: { action: 'get_deals', params: { limit, offset, stage } },
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+    return data;
+  },
+
+  async getNotes(limit = 50, offset = 0, personId?: number): Promise<FUBResponse<{ notes: FUBNote[] }>> {
+    const { data, error } = await supabase.functions.invoke('follow-up-boss', {
+      body: { action: 'get_notes', params: { limit, offset, personId } },
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+    return data;
+  },
+
+  async getCalls(limit = 50, offset = 0, personId?: number): Promise<FUBResponse<{ calls: FUBCall[] }>> {
+    const { data, error } = await supabase.functions.invoke('follow-up-boss', {
+      body: { action: 'get_calls', params: { limit, offset, personId } },
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+    return data;
+  },
+
+  async getTextMessages(limit = 50, offset = 0, personId?: number): Promise<FUBResponse<{ textmessages: FUBTextMessage[] }>> {
+    const { data, error } = await supabase.functions.invoke('follow-up-boss', {
+      body: { action: 'get_textmessages', params: { limit, offset, personId } },
     });
 
     if (error) {

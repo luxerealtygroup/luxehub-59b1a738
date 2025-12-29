@@ -8,9 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, Phone, Calendar, Users, Mail, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import FUBActivityFeed from '@/components/FUBActivityFeed';
 
 type ActivityType = 'call' | 'appointment' | 'showing' | 'follow_up' | 'email' | 'meeting' | 'other';
 
@@ -157,44 +159,57 @@ const Activities = () => {
         </Dialog>
       </div>
 
-      <Card className="border-gold/10 bg-card/50">
-        <CardHeader>
-          <CardTitle className="text-gold font-display">Recent Activities</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {activities.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">No activities logged yet. Start tracking your work!</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="border-gold/10">
-                  <TableHead>Type</TableHead>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Duration</TableHead>
-                  <TableHead>Notes</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {activities.map((activity) => (
-                  <TableRow key={activity.id} className="border-gold/10">
-                    <TableCell>
-                      <Badge variant="outline" className="border-gold/30 text-gold gap-1">
-                        {activityIcons[activity.activity_type]}
-                        {activity.activity_type.replace('_', ' ')}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{activity.client_name || '-'}</TableCell>
-                    <TableCell>{format(new Date(activity.created_at), 'MMM d, yyyy')}</TableCell>
-                    <TableCell>{activity.duration_minutes ? `${activity.duration_minutes} min` : '-'}</TableCell>
-                    <TableCell className="max-w-xs truncate">{activity.notes || '-'}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="fub" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="fub">Follow Up Boss Activity</TabsTrigger>
+          <TabsTrigger value="local">My Logged Activities</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="fub">
+          <FUBActivityFeed limit={50} title="Follow Up Boss Activity" />
+        </TabsContent>
+
+        <TabsContent value="local">
+          <Card className="border-gold/10 bg-card/50">
+            <CardHeader>
+              <CardTitle className="text-gold font-display">Recent Activities</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {activities.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">No activities logged yet. Start tracking your work!</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-gold/10">
+                      <TableHead>Type</TableHead>
+                      <TableHead>Client</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Duration</TableHead>
+                      <TableHead>Notes</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {activities.map((activity) => (
+                      <TableRow key={activity.id} className="border-gold/10">
+                        <TableCell>
+                          <Badge variant="outline" className="border-gold/30 text-gold gap-1">
+                            {activityIcons[activity.activity_type]}
+                            {activity.activity_type.replace('_', ' ')}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{activity.client_name || '-'}</TableCell>
+                        <TableCell>{format(new Date(activity.created_at), 'MMM d, yyyy')}</TableCell>
+                        <TableCell>{activity.duration_minutes ? `${activity.duration_minutes} min` : '-'}</TableCell>
+                        <TableCell className="max-w-xs truncate">{activity.notes || '-'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
