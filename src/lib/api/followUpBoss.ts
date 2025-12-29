@@ -12,6 +12,8 @@ export interface FUBPerson {
   created: string;
   updated: string;
   assignedTo?: string;
+  assignedUserId?: number;
+  userId?: number;
   tags?: string[];
 }
 
