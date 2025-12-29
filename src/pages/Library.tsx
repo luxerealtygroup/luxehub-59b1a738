@@ -105,6 +105,7 @@ const sanitizeFileName = (fileName: string): string => {
 const documentFolders = [
   { value: 'listing', label: 'Listing' },
   { value: 'buying', label: 'Buying' },
+  { value: 'offer', label: 'Offer' },
   { value: 'marketing', label: 'Marketing' },
   { value: 'disclosures', label: 'Disclosures' },
   { value: 'inspections', label: 'Inspections' },
