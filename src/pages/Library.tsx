@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { followUpBossApi } from '@/lib/api/followUpBoss';
+import { ImageThumbnail } from '@/components/ImageThumbnail';
 import { 
   BookOpen, 
   FileText, 
@@ -1121,14 +1122,25 @@ const Library = () => {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {filteredClientDocs.map(doc => {
                 const FileIcon = getFileIcon(doc.file_type);
+                const isImage = doc.file_type?.startsWith('image/');
                 return (
-                  <Card key={doc.id} className="border-primary/10 hover:border-primary/30 transition-colors">
+                  <Card key={doc.id} className="border-primary/10 hover:border-primary/30 transition-colors overflow-hidden">
+                    {isImage && (
+                      <ImageThumbnail 
+                        bucket="client-documents"
+                        filePath={doc.file_path}
+                        alt={doc.title}
+                        className="h-32 w-full object-cover"
+                      />
+                    )}
                     <CardHeader className="pb-2">
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-lg bg-green-500/10 flex items-center justify-center">
-                            <FileIcon className="h-5 w-5 text-green-600" />
-                          </div>
+                          {!isImage && (
+                            <div className="h-10 w-10 rounded-lg bg-green-500/10 flex items-center justify-center">
+                              <FileIcon className="h-5 w-5 text-green-600" />
+                            </div>
+                          )}
                           <div className="flex-1 min-w-0">
                             <CardTitle className="text-sm font-medium truncate">{doc.title}</CardTitle>
                             <p className="text-xs text-muted-foreground truncate">{doc.client_name}</p>
