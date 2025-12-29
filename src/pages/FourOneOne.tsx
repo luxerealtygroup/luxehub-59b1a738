@@ -51,7 +51,13 @@ interface ProductionGoals {
   annual_gci_goal: number;
   annual_volume_goal: number;
   annual_focus: string;
-  monthly_goals: { month: number; focus: string; target: string }[];
+  monthly_goals: { 
+    month: number; 
+    focus: string; 
+    target: string;
+    personal_focus?: string;
+    personal_target?: string;
+  }[];
 }
 
 interface SyncedGoals {
@@ -273,16 +279,24 @@ const FourOneOne = () => {
   };
 
   const getMonthlyGoal = (month: number) => {
-    return annualGoals.monthly_goals.find(g => g.month === month) || { month, focus: '', target: '' };
+    return annualGoals.monthly_goals.find(g => g.month === month) || { 
+      month, 
+      focus: '', 
+      target: '',
+      personal_focus: '',
+      personal_target: ''
+    };
   };
 
-  const updateMonthlyGoal = (month: number, field: 'focus' | 'target', value: string) => {
+  const updateMonthlyGoal = (month: number, field: 'focus' | 'target' | 'personal_focus' | 'personal_target', value: string) => {
     const updated = [...annualGoals.monthly_goals];
     const idx = updated.findIndex(g => g.month === month);
     if (idx >= 0) {
       updated[idx] = { ...updated[idx], [field]: value };
     } else {
-      updated.push({ month, focus: field === 'focus' ? value : '', target: field === 'target' ? value : '' });
+      const newGoal = { month, focus: '', target: '', personal_focus: '', personal_target: '' };
+      newGoal[field] = value;
+      updated.push(newGoal);
     }
     setAnnualGoals({ ...annualGoals, monthly_goals: updated });
   };
@@ -631,9 +645,12 @@ const FourOneOne = () => {
 
         {/* MONTHLY TAB */}
         <TabsContent value="monthly" className="space-y-6">
+          {/* Business Monthly Goals */}
           <Card className="border-primary/10">
             <CardHeader>
-              <CardTitle className="text-lg font-display">Monthly Goals (2026)</CardTitle>
+              <CardTitle className="text-lg font-display flex items-center gap-2">
+                <Target className="h-5 w-5 text-primary" /> Business Goals (2026)
+              </CardTitle>
             </CardHeader>
             <CardContent className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {monthNames.map((name, idx) => {
@@ -648,7 +665,7 @@ const FourOneOne = () => {
                       {name} {isCurrentMonth && '(Current)'}
                     </p>
                     <Input
-                      placeholder="Focus"
+                      placeholder="Business Focus"
                       value={goal.focus}
                       onChange={(e) => updateMonthlyGoal(idx, 'focus', e.target.value)}
                       className="mb-2 text-sm"
@@ -658,6 +675,43 @@ const FourOneOne = () => {
                       value={goal.target}
                       onChange={(e) => updateMonthlyGoal(idx, 'target', e.target.value)}
                       className="text-sm"
+                    />
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+
+          {/* Personal Monthly Goals */}
+          <Card className="border-green-500/20">
+            <CardHeader>
+              <CardTitle className="text-lg font-display flex items-center gap-2 text-green-600">
+                <Trophy className="h-5 w-5" /> Personal Goals (2026)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {monthNames.map((name, idx) => {
+                const goal = getMonthlyGoal(idx);
+                const isCurrentMonth = idx === currentMonth;
+                return (
+                  <div 
+                    key={name} 
+                    className={`p-3 rounded-lg border ${isCurrentMonth ? 'border-green-500 bg-green-500/5' : 'border-border'}`}
+                  >
+                    <p className={`font-medium text-sm mb-2 ${isCurrentMonth ? 'text-green-600' : ''}`}>
+                      {name} {isCurrentMonth && '(Current)'}
+                    </p>
+                    <Input
+                      placeholder="Personal Focus"
+                      value={goal.personal_focus || ''}
+                      onChange={(e) => updateMonthlyGoal(idx, 'personal_focus', e.target.value)}
+                      className="mb-2 text-sm border-green-500/20 focus:border-green-500"
+                    />
+                    <Input
+                      placeholder="Target (e.g., gym 3x/week)"
+                      value={goal.personal_target || ''}
+                      onChange={(e) => updateMonthlyGoal(idx, 'personal_target', e.target.value)}
+                      className="text-sm border-green-500/20 focus:border-green-500"
                     />
                   </div>
                 );
