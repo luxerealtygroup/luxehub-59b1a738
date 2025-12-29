@@ -22,6 +22,11 @@ interface AgentData {
   pendingGci: number;
   companyCut: number;
   pipelineClients: number;
+  pipelineGci: number;
+  // Goals
+  dealsGoal: number;
+  gciGoal: number;
+  volumeGoal: number;
 }
 
 interface CompanyStats {
@@ -32,6 +37,7 @@ interface CompanyStats {
   closedDeals: number;
   activeDeals: number;
   totalPipelineClients: number;
+  totalPipelineGci: number;
   agents: AgentData[];
 }
 
@@ -68,6 +74,15 @@ interface MonthlyPipelineData {
   sellers: number;
   total: number;
   projectedGci: number;
+}
+
+interface TeamPipelineSummary {
+  totalClients: number;
+  totalBuyers: number;
+  totalSellers: number;
+  totalProjectedGci: number;
+  totalDealsGoal: number;
+  totalGciGoal: number;
 }
 
 const COLORS = ['hsl(43, 74%, 49%)', 'hsl(142, 71%, 45%)', 'hsl(217, 91%, 60%)', 'hsl(280, 67%, 60%)', 'hsl(350, 89%, 60%)'];
@@ -235,7 +250,15 @@ const AdminDashboard = () => {
         .from('pipeline_clients')
         .select('*');
 
+      // Fetch agent production goals for the current year
+      const { data: productionGoals } = await supabase
+        .from('production_goals')
+        .select('*')
+        .eq('year', 2026);
+
       const profilesMap = new Map((profiles || []).map(p => [p.id, p.full_name || 'Unknown Agent']));
+      const goalsMap = new Map((productionGoals || []).map(g => [g.user_id, g]));
+      
       const agentIds = new Set([
         ...(deals || []).map(d => d.user_id),
         ...(commissions || []).map(c => c.user_id),
@@ -246,6 +269,7 @@ const AdminDashboard = () => {
         const agentDeals = (deals || []).filter(d => d.user_id === agentId);
         const agentCommissions = (commissions || []).filter(c => c.user_id === agentId);
         const agentPipeline = (pipelineClients || []).filter(p => p.user_id === agentId);
+        const agentGoals = goalsMap.get(agentId);
 
         const closedDeals = agentDeals.filter(d => d.stage === 'closed').length;
         const activeDeals = agentDeals.filter(d => ['lead', 'contacted', 'showing', 'offer', 'under_contract'].includes(d.stage)).length;
@@ -257,6 +281,9 @@ const AdminDashboard = () => {
         const pendingGci = agentCommissions
           .filter(c => c.status === 'pending')
           .reduce((sum, c) => sum + Number(c.gross_commission || c.amount || 0), 0);
+
+        const pipelineGci = agentPipeline
+          .reduce((sum, p) => sum + Number(p.projected_gci || 0), 0);
 
         // Calculate company cut from deals
         const companyCut = agentDeals
@@ -277,8 +304,16 @@ const AdminDashboard = () => {
           pendingGci,
           companyCut,
           pipelineClients: agentPipeline.length,
+          pipelineGci,
+          dealsGoal: agentGoals?.annual_units_goal || 0,
+          gciGoal: Number(agentGoals?.annual_gci_goal || 0),
+          volumeGoal: Number(agentGoals?.annual_volume_goal || 0),
         };
       });
+
+      // Calculate total pipeline GCI
+      const totalPipelineGci = (pipelineClients || [])
+        .reduce((sum, p) => sum + Number(p.projected_gci || 0), 0);
 
       const companyStats: CompanyStats = {
         totalGci: agentData.reduce((sum, a) => sum + a.totalGci, 0),
@@ -288,6 +323,7 @@ const AdminDashboard = () => {
         closedDeals: (deals || []).filter(d => d.stage === 'closed').length,
         activeDeals: (deals || []).filter(d => ['lead', 'contacted', 'showing', 'offer', 'under_contract'].includes(d.stage)).length,
         totalPipelineClients: (pipelineClients || []).length,
+        totalPipelineGci,
         agents: agentData.sort((a, b) => b.totalGci - a.totalGci),
       };
 
@@ -358,6 +394,43 @@ const AdminDashboard = () => {
 
   if (!stats) return null;
 
+  // Agent GCI vs Goal comparison data
+  const agentGciVsGoalData = stats.agents.map(a => ({
+    name: a.full_name?.split(' ')[0] || 'Agent',
+    actual: a.totalGci + a.pendingGci,
+    goal: a.gciGoal,
+    progress: a.gciGoal > 0 ? Math.round(((a.totalGci + a.pendingGci) / a.gciGoal) * 100) : 0,
+  }));
+
+  // Agent Deals vs Goal comparison data  
+  const agentDealsVsGoalData = stats.agents.map(a => ({
+    name: a.full_name?.split(' ')[0] || 'Agent',
+    actual: a.closedDeals + a.activeDeals,
+    closed: a.closedDeals,
+    goal: a.dealsGoal,
+    progress: a.dealsGoal > 0 ? Math.round((a.closedDeals / a.dealsGoal) * 100) : 0,
+  }));
+
+  // Agent Pipeline data with goals
+  const agentPipelineData = stats.agents.map(a => ({
+    name: a.full_name?.split(' ')[0] || 'Agent',
+    clients: a.pipelineClients,
+    pipelineGci: a.pipelineGci,
+    gciGoal: a.gciGoal,
+    remaining: Math.max(0, a.gciGoal - a.totalGci - a.pendingGci),
+  }));
+
+  // Team Pipeline Summary
+  const teamPipelineSummary: TeamPipelineSummary = {
+    totalClients: stats.totalPipelineClients,
+    totalBuyers: 0, // Will be calculated from monthly data
+    totalSellers: 0,
+    totalProjectedGci: stats.totalPipelineGci,
+    totalDealsGoal: stats.agents.reduce((sum, a) => sum + a.dealsGoal, 0),
+    totalGciGoal: stats.agents.reduce((sum, a) => sum + a.gciGoal, 0),
+  };
+
+  // Legacy data for existing charts
   const agentGciData = stats.agents.map(a => ({
     name: a.full_name?.split(' ')[0] || 'Agent',
     gci: a.totalGci,
@@ -503,54 +576,111 @@ const AdminDashboard = () => {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
+          {/* Team Pipeline Summary */}
+          <Card className="border-purple-500/20 bg-gradient-to-br from-card to-purple-500/5">
+            <CardHeader>
+              <CardTitle className="text-purple-500 font-display flex items-center gap-2">
+                <Users className="h-5 w-5" /> Team Pipeline Summary
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center p-4 rounded-lg bg-purple-500/10">
+                  <p className="text-3xl font-bold text-purple-500">{teamPipelineSummary.totalClients}</p>
+                  <p className="text-sm text-muted-foreground">Total Pipeline Clients</p>
+                </div>
+                <div className="text-center p-4 rounded-lg bg-gold/10">
+                  <p className="text-3xl font-bold text-gold">${teamPipelineSummary.totalProjectedGci.toLocaleString()}</p>
+                  <p className="text-sm text-muted-foreground">Projected Pipeline GCI</p>
+                </div>
+                <div className="text-center p-4 rounded-lg bg-green-500/10">
+                  <p className="text-3xl font-bold text-green-500">{teamPipelineSummary.totalDealsGoal}</p>
+                  <p className="text-sm text-muted-foreground">Team Deals Goal</p>
+                </div>
+                <div className="text-center p-4 rounded-lg bg-blue-500/10">
+                  <p className="text-3xl font-bold text-blue-500">${teamPipelineSummary.totalGciGoal.toLocaleString()}</p>
+                  <p className="text-sm text-muted-foreground">Team GCI Goal</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* GCI by Agent Chart */}
+            {/* GCI vs Goal by Agent Chart */}
             <Card className="border-gold/10">
               <CardHeader>
                 <CardTitle className="text-gold font-display flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5" /> GCI by Agent
+                  <BarChart3 className="h-5 w-5" /> Agent GCI vs Goal
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-64">
+                <div className="h-72">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={agentGciData}>
-                      <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                      <YAxis tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                    <BarChart data={agentGciVsGoalData} layout="vertical">
+                      <XAxis type="number" tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                      <YAxis type="category" dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} width={80} />
                       <Tooltip
                         formatter={(value: number) => [`$${value.toLocaleString()}`, '']}
                         contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }}
                       />
-                      <Bar dataKey="gci" name="Earned" fill="hsl(142 71% 45%)" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="pending" name="Pending" fill="hsl(43 74% 49%)" radius={[4, 4, 0, 0]} />
+                      <Legend />
+                      <Bar dataKey="actual" name="Actual GCI" fill="hsl(142 71% 45%)" radius={[0, 4, 4, 0]} />
+                      <Bar dataKey="goal" name="Goal" fill="hsl(43 74% 49% / 0.4)" radius={[0, 4, 4, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Deals by Agent Chart */}
+            {/* Deals vs Goal by Agent Chart */}
             <Card className="border-gold/10">
               <CardHeader>
                 <CardTitle className="text-gold font-display flex items-center gap-2">
-                  <Target className="h-5 w-5" /> Deals by Agent
+                  <Target className="h-5 w-5" /> Agent Deals vs Goal
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-64">
+                <div className="h-72">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={agentDealsData}>
-                      <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                      <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                    <BarChart data={agentDealsVsGoalData} layout="vertical">
+                      <XAxis type="number" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                      <YAxis type="category" dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} width={80} />
                       <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }} />
-                      <Bar dataKey="closed" name="Closed" fill="hsl(142 71% 45%)" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="active" name="Active" fill="hsl(217 91% 60%)" radius={[4, 4, 0, 0]} />
+                      <Legend />
+                      <Bar dataKey="closed" name="Closed Deals" fill="hsl(142 71% 45%)" radius={[0, 4, 4, 0]} />
+                      <Bar dataKey="goal" name="Goal" fill="hsl(43 74% 49% / 0.4)" radius={[0, 4, 4, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
               </CardContent>
             </Card>
           </div>
+
+          {/* Pipeline by Agent with GCI Goals */}
+          <Card className="border-purple-500/10">
+            <CardHeader>
+              <CardTitle className="text-purple-500 font-display flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" /> Agent Pipeline vs GCI Goal
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={agentPipelineData} layout="vertical">
+                    <XAxis type="number" tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                    <YAxis type="category" dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} width={80} />
+                    <Tooltip
+                      formatter={(value: number, name: string) => [`$${value.toLocaleString()}`, name === 'remaining' ? 'Remaining to Goal' : name]}
+                      contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }}
+                    />
+                    <Legend />
+                    <Bar dataKey="pipelineGci" name="Pipeline GCI" fill="hsl(280 67% 60%)" radius={[0, 4, 4, 0]} stackId="a" />
+                    <Bar dataKey="remaining" name="Remaining to Goal" fill="hsl(43 74% 49% / 0.3)" radius={[0, 4, 4, 0]} stackId="a" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Monthly Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
