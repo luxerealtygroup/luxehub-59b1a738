@@ -103,14 +103,10 @@ const sanitizeFileName = (fileName: string): string => {
 
 // Document folder categories
 const documentFolders = [
-  { value: 'listing', label: 'Listing' },
-  { value: 'buying', label: 'Buying' },
-  { value: 'offer', label: 'Offer' },
+  { value: 'listing', label: 'Listing Documents' },
   { value: 'marketing', label: 'Marketing' },
-  { value: 'disclosures', label: 'Disclosures' },
-  { value: 'inspections', label: 'Inspections' },
-  { value: 'closing', label: 'Closing' },
-  { value: 'other', label: 'Other' },
+  { value: 'offers', label: 'Offers' },
+  { value: 'buyer', label: 'Buyer Documents' },
 ];
 
 const getFileIcon = (fileType: string | null) => {
