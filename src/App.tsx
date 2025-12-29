@@ -8,6 +8,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import DashboardLayout from "@/components/DashboardLayout";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import Privacy from "./pages/Privacy";
 import Dashboard from "./pages/Dashboard";
 import Activities from "./pages/Activities";
 import Pipeline from "./pages/Pipeline";
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/privacy" element={<Privacy />} />
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <DashboardLayout />
