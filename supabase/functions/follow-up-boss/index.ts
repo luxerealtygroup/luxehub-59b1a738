@@ -84,7 +84,22 @@ serve(async (req) => {
 
       // Note: FUB does not expose text messages via public API
 
-      case 'create_person':
+      case 'get_smartlists':
+        // Get smart lists from FUB
+        const smartListParams = new URLSearchParams();
+        if (params?.limit) smartListParams.append('limit', params.limit.toString());
+        if (params?.offset) smartListParams.append('offset', params.offset.toString());
+        smartListParams.append('all', 'true'); // Get both classic and new smart lists
+        endpoint = `/smartLists?${smartListParams.toString()}`;
+        break;
+
+      case 'get_smartlist_people':
+        // Get people from a specific smart list
+        const smartListPeopleParams = new URLSearchParams();
+        if (params?.limit) smartListPeopleParams.append('limit', params.limit.toString());
+        if (params?.offset) smartListPeopleParams.append('offset', params.offset.toString());
+        endpoint = `/smartLists/${params.id}?${smartListPeopleParams.toString()}`;
+        break;
         // Create a new person in Follow Up Boss
         method = 'POST';
         endpoint = '/people';
