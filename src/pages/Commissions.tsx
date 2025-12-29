@@ -16,6 +16,7 @@ import { format } from 'date-fns';
 import { FUBClientSearch } from '@/components/FUBClientSearch';
 import { useToast } from '@/hooks/use-toast';
 import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
+import { useGoogleCalendar } from '@/hooks/useGoogleCalendar';
 
 interface Commission {
   id: string;
@@ -63,12 +64,14 @@ const initialDealState = {
 const Commissions = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { isConnected: calendarConnected, createEvent } = useGoogleCalendar();
   const [commissions, setCommissions] = useState<Commission[]>([]);
   const [loading, setLoading] = useState(true);
   
   const [addDealOpen, setAddDealOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [syncToFUB, setSyncToFUB] = useState(false);
+  const [addToCalendar, setAddToCalendar] = useState(false);
   const [newDeal, setNewDeal] = useState(initialDealState);
   
   const [importingFUB, setImportingFUB] = useState(false);
@@ -193,7 +196,30 @@ const Commissions = () => {
       return;
     }
     
-    if (syncToFUB) {
+    // Add conditions to calendar if connected and checkbox is checked
+    if (addToCalendar && calendarConnected && newDeal.conditions.length > 0) {
+      try {
+        for (const condition of newDeal.conditions) {
+          if (condition.deadline && condition.name) {
+            const deadlineDate = new Date(condition.deadline);
+            // Create all-day event for condition deadline
+            await createEvent({
+              summary: `🏠 ${condition.name} - ${newDeal.client_name}`,
+              description: `Condition deadline for ${newDeal.client_name}\nProperty: ${newDeal.property_address || 'N/A'}\nDeal Value: $${newDeal.deal_value || 0}`,
+              start: { dateTime: deadlineDate.toISOString(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+              end: { dateTime: new Date(deadlineDate.getTime() + 60 * 60 * 1000).toISOString(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+            });
+          }
+        }
+        toast({ title: 'Deal added with calendar reminders!' });
+      } catch (calError) {
+        console.error('Calendar error:', calError);
+        toast({ 
+          title: 'Deal added',
+          description: 'Note: Could not add to calendar',
+        });
+      }
+    } else if (syncToFUB) {
       const fubResult = await syncDealToFUB(newDeal);
       toast({ 
         title: fubResult.success ? 'Deal added & synced to Follow Up Boss!' : 'Deal added',
@@ -207,6 +233,7 @@ const Commissions = () => {
     setAddDealOpen(false);
     setNewDeal(initialDealState);
     setSyncToFUB(false);
+    setAddToCalendar(false);
     setSubmitting(false);
   };
 
@@ -553,15 +580,29 @@ const Commissions = () => {
                   onChange={(e) => setNewDeal({ ...newDeal, notes: e.target.value })}
                   rows={2}
                 />
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="sync-fub-commission" 
-                    checked={syncToFUB} 
-                    onCheckedChange={(checked) => setSyncToFUB(checked === true)}
-                  />
-                  <Label htmlFor="sync-fub-commission" className="text-sm text-muted-foreground cursor-pointer">
-                    Also add client to Follow Up Boss
-                  </Label>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="sync-fub-commission" 
+                      checked={syncToFUB} 
+                      onCheckedChange={(checked) => setSyncToFUB(checked === true)}
+                    />
+                    <Label htmlFor="sync-fub-commission" className="text-sm text-muted-foreground cursor-pointer">
+                      Also add client to Follow Up Boss
+                    </Label>
+                  </div>
+                  {newDeal.stage === 'offer' && newDeal.conditions.length > 0 && calendarConnected && (
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="add-to-calendar" 
+                        checked={addToCalendar} 
+                        onCheckedChange={(checked) => setAddToCalendar(checked === true)}
+                      />
+                      <Label htmlFor="add-to-calendar" className="text-sm text-muted-foreground cursor-pointer">
+                        Add condition deadlines to Google Calendar
+                      </Label>
+                    </div>
+                  )}
                 </div>
                 <Button 
                   type="submit" 
