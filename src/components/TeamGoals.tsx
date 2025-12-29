@@ -37,6 +37,7 @@ interface TeamActuals {
   totalVolume: number;
   pendingVolume: number;
   companyRevenue: number;
+  pendingRevenue: number;
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -121,8 +122,17 @@ const TeamGoals = () => {
     const pendingGci = (commissions || []).filter(c => c.status !== 'paid')
       .reduce((sum, c) => sum + Number(c.gross_commission || c.amount || 0), 0);
 
-    // Calculate company revenue (team split)
-    const companyRevenue = (deals || []).filter(d => d.stage === 'closed')
+    // Calculate company revenue (team split) - closed deals
+    const closedRevenue = (deals || []).filter(d => d.stage === 'closed')
+      .reduce((sum, d) => {
+        const dealValue = Number(d.deal_value || 0);
+        const commissionRate = Number(d.commission_rate || 3) / 100;
+        const companySplit = Number(d.company_split_percentage || 30) / 100;
+        return sum + (dealValue * commissionRate * companySplit);
+      }, 0);
+
+    // Calculate pending revenue from under_contract/offer deals
+    const pendingRevenue = (deals || []).filter(d => d.stage === 'under_contract' || d.stage === 'offer')
       .reduce((sum, d) => {
         const dealValue = Number(d.deal_value || 0);
         const commissionRate = Number(d.commission_rate || 3) / 100;
@@ -137,7 +147,8 @@ const TeamGoals = () => {
       pendingGci,
       totalVolume: closedVolume,
       pendingVolume,
-      companyRevenue,
+      companyRevenue: closedRevenue,
+      pendingRevenue,
     });
 
     setLoading(false);
@@ -211,7 +222,8 @@ const TeamGoals = () => {
   const gciProgress = goals?.annual_gci_goal ? (totalGci / goals.annual_gci_goal) * 100 : 0;
   const totalVolume = (actuals?.totalVolume || 0) + (actuals?.pendingVolume || 0);
   const volumeProgress = goals?.annual_volume_goal ? (totalVolume / goals.annual_volume_goal) * 100 : 0;
-  const revenueProgress = goals?.annual_revenue_goal ? ((actuals?.companyRevenue || 0) / goals.annual_revenue_goal) * 100 : 0;
+  const totalRevenue = (actuals?.companyRevenue || 0) + (actuals?.pendingRevenue || 0);
+  const revenueProgress = goals?.annual_revenue_goal ? (totalRevenue / goals.annual_revenue_goal) * 100 : 0;
 
   // Build chart data for goal vs actual by month
   const currentMonth = new Date().getMonth();
@@ -397,10 +409,12 @@ const TeamGoals = () => {
               <span className="text-sm font-medium">Company Revenue</span>
             </div>
             <div className="flex justify-between text-sm text-muted-foreground">
-              <span>${(actuals?.companyRevenue || 0).toLocaleString()} / ${(goals?.annual_revenue_goal || 0).toLocaleString()}</span>
+              <span>${totalRevenue.toLocaleString()} / ${(goals?.annual_revenue_goal || 0).toLocaleString()}</span>
               <span>{Math.round(revenueProgress)}%</span>
             </div>
-            <Progress value={Math.min(revenueProgress, 100)} className="h-2" />
+            <div className="text-xs text-muted-foreground">
+              ${(actuals?.companyRevenue || 0).toLocaleString()} closed + ${(actuals?.pendingRevenue || 0).toLocaleString()} pending
+            </div>
           </div>
         </div>
 
