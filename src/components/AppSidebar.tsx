@@ -7,7 +7,8 @@ import {
   LogOut,
   ClipboardList,
   FileText,
-  Shield
+  Shield,
+  Library
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/hooks/useAuth';
@@ -36,6 +37,7 @@ const menuItems = [
   { title: 'Goals', url: '/dashboard/goals', icon: Target },
   { title: '4-1-1', url: '/dashboard/411', icon: ClipboardList },
   { title: 'Reports', url: '/dashboard/reports', icon: FileText },
+  { title: 'Library', url: '/dashboard/library', icon: Library },
 ];
 
 export function AppSidebar() {
