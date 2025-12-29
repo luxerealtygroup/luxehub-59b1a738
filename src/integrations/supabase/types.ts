@@ -117,6 +117,7 @@ export type Database = {
           file_path: string
           file_size: number | null
           file_type: string | null
+          fub_person_id: number | null
           id: string
           title: string
           updated_at: string
@@ -132,6 +133,7 @@ export type Database = {
           file_path: string
           file_size?: number | null
           file_type?: string | null
+          fub_person_id?: number | null
           id?: string
           title: string
           updated_at?: string
@@ -147,6 +149,7 @@ export type Database = {
           file_path?: string
           file_size?: number | null
           file_type?: string | null
+          fub_person_id?: number | null
           id?: string
           title?: string
           updated_at?: string

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { followUpBossApi } from '@/lib/api/followUpBoss';
 import { 
   BookOpen, 
   FileText, 
@@ -23,9 +24,12 @@ import {
   File,
   Image,
   FileSpreadsheet,
-  Presentation
+  Presentation,
+  User,
+  Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { FUBPerson } from '@/lib/api/followUpBoss';
 
 interface TrainingDocument {
   id: string;
@@ -53,6 +57,7 @@ interface ClientDocument {
   document_type: string;
   uploaded_by: string;
   created_at: string;
+  fub_person_id: number | null;
 }
 
 const trainingCategories = [
@@ -115,10 +120,44 @@ const Library = () => {
   const [clientForm, setClientForm] = useState({
     title: '',
     description: '',
-    client_name: '',
     document_type: 'contract',
     file: null as File | null,
   });
+  
+  // FUB person search
+  const [fubSearchQuery, setFubSearchQuery] = useState('');
+  const [fubSearchResults, setFubSearchResults] = useState<FUBPerson[]>([]);
+  const [selectedFubPerson, setSelectedFubPerson] = useState<FUBPerson | null>(null);
+  const [fubSearching, setFubSearching] = useState(false);
+
+  // Debounced FUB search
+  const searchFubPeople = useCallback(async (query: string) => {
+    if (query.length < 2) {
+      setFubSearchResults([]);
+      return;
+    }
+    
+    setFubSearching(true);
+    try {
+      const response = await followUpBossApi.searchPeople(query);
+      if (response.success && response.data?.people) {
+        setFubSearchResults(response.data.people.slice(0, 10));
+      }
+    } catch (error) {
+      console.error('FUB search error:', error);
+    } finally {
+      setFubSearching(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (fubSearchQuery) {
+        searchFubPeople(fubSearchQuery);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [fubSearchQuery, searchFubPeople]);
 
   useEffect(() => {
     if (user) {
@@ -179,7 +218,7 @@ const Library = () => {
   };
 
   const uploadClientDoc = async () => {
-    if (!user || !clientForm.file) return;
+    if (!user || !clientForm.file || !selectedFubPerson) return;
     setUploading(true);
     
     try {
@@ -199,16 +238,20 @@ const Library = () => {
         file_name: file.name,
         file_type: file.type,
         file_size: file.size,
-        client_name: clientForm.client_name,
+        client_name: selectedFubPerson.name,
         document_type: clientForm.document_type,
         uploaded_by: user.id,
+        fub_person_id: selectedFubPerson.id,
       });
       
       if (dbError) throw dbError;
       
       toast({ title: 'Success', description: 'Client document uploaded!' });
       setClientDialogOpen(false);
-      setClientForm({ title: '', description: '', client_name: '', document_type: 'contract', file: null });
+      setClientForm({ title: '', description: '', document_type: 'contract', file: null });
+      setSelectedFubPerson(null);
+      setFubSearchQuery('');
+      setFubSearchResults([]);
       fetchDocuments();
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -470,12 +513,64 @@ const Library = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Client Name *</Label>
-                    <Input
-                      placeholder="Client name"
-                      value={clientForm.client_name}
-                      onChange={(e) => setClientForm({ ...clientForm, client_name: e.target.value })}
-                    />
+                    <Label>FUB Client *</Label>
+                    {selectedFubPerson ? (
+                      <div className="flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+                        <User className="h-5 w-5 text-green-600" />
+                        <div className="flex-1">
+                          <p className="font-medium text-sm">{selectedFubPerson.name}</p>
+                          {selectedFubPerson.emails?.[0] && (
+                            <p className="text-xs text-muted-foreground">{selectedFubPerson.emails[0].value}</p>
+                          )}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedFubPerson(null);
+                            setFubSearchQuery('');
+                          }}
+                        >
+                          Change
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Search FUB contacts..."
+                            value={fubSearchQuery}
+                            onChange={(e) => setFubSearchQuery(e.target.value)}
+                            className="pl-10"
+                          />
+                          {fubSearching && (
+                            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                          )}
+                        </div>
+                        {fubSearchResults.length > 0 && (
+                          <div className="border rounded-lg max-h-48 overflow-y-auto">
+                            {fubSearchResults.map(person => (
+                              <button
+                                key={person.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedFubPerson(person);
+                                  setFubSearchResults([]);
+                                  setFubSearchQuery('');
+                                }}
+                                className="w-full text-left px-3 py-2 hover:bg-muted transition-colors border-b last:border-b-0"
+                              >
+                                <p className="font-medium text-sm">{person.name}</p>
+                                {person.emails?.[0] && (
+                                  <p className="text-xs text-muted-foreground">{person.emails[0].value}</p>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label>Document Type</Label>
@@ -507,7 +602,7 @@ const Library = () => {
                   </div>
                   <Button 
                     onClick={uploadClientDoc} 
-                    disabled={uploading || !clientForm.title || !clientForm.client_name || !clientForm.file}
+                    disabled={uploading || !clientForm.title || !selectedFubPerson || !clientForm.file}
                     className="w-full"
                   >
                     {uploading ? 'Uploading...' : 'Upload'}
