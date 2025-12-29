@@ -111,6 +111,8 @@ export type Database = {
           agent_split_percent: number | null
           amount: number
           brokerage_split_percent: number | null
+          condition_deadline: string | null
+          condition_notes: string | null
           created_at: string
           deal_id: string
           gross_commission: number | null
@@ -128,6 +130,8 @@ export type Database = {
           agent_split_percent?: number | null
           amount: number
           brokerage_split_percent?: number | null
+          condition_deadline?: string | null
+          condition_notes?: string | null
           created_at?: string
           deal_id: string
           gross_commission?: number | null
@@ -145,6 +149,8 @@ export type Database = {
           agent_split_percent?: number | null
           amount?: number
           brokerage_split_percent?: number | null
+          condition_deadline?: string | null
+          condition_notes?: string | null
           created_at?: string
           deal_id?: string
           gross_commission?: number | null

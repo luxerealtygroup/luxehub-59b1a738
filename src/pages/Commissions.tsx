@@ -47,6 +47,8 @@ const initialDealState = {
   commission_status: 'pending',
   stage: 'pending',
   closing_date: '',
+  condition_deadline: '',
+  condition_notes: '',
   notes: '',
   email: '',
   phone: '',
@@ -154,6 +156,12 @@ const Commissions = () => {
       return;
     }
 
+    // Map stage to commission status
+    let commissionStatus = newDeal.commission_status;
+    if (newDeal.stage === 'offer') {
+      commissionStatus = 'conditional';
+    }
+
     const { error: commissionError } = await supabase.from('commissions').insert({
       user_id: user.id,
       deal_id: dealData.id,
@@ -161,7 +169,9 @@ const Commissions = () => {
       gross_commission: parseFloat(newDeal.gross_commission) || null,
       brokerage_split_percent: parseFloat(newDeal.brokerage_split_percent) || null,
       transaction_side: newDeal.transaction_side,
-      status: newDeal.commission_status
+      status: commissionStatus,
+      condition_deadline: newDeal.stage === 'offer' && newDeal.condition_deadline ? newDeal.condition_deadline : null,
+      condition_notes: newDeal.stage === 'offer' && newDeal.condition_notes ? newDeal.condition_notes : null
     });
 
     if (commissionError) {
@@ -227,6 +237,14 @@ const Commissions = () => {
     // Get source from deal or first person
     const dealSource = deal.source || deal.people?.[0]?.source || deal.pipelineName || 'Follow Up Boss';
     
+    // Determine stage based on FUB stage name
+    let stage = 'under_contract';
+    if (deal.stageName?.toLowerCase().includes('closed') || deal.stageName?.toLowerCase().includes('won')) {
+      stage = 'closed';
+    } else if (deal.stageName?.toLowerCase() === 'offer' || deal.stageName?.toLowerCase().includes('conditional')) {
+      stage = 'offer';
+    }
+    
     setNewDeal({
       ...initialDealState,
       client_name: clientName,
@@ -234,7 +252,7 @@ const Commissions = () => {
       deal_value: deal.price?.toString() || '',
       gross_commission: (deal.agentCommission || deal.commissionValue)?.toString() || '',
       closing_date: closingDate,
-      stage: deal.stageName?.toLowerCase().includes('closed') ? 'closed' : 'under_contract',
+      stage,
       source: dealSource
     });
     setShowFUBImport(false);
@@ -433,12 +451,38 @@ const Commissions = () => {
                     <Select value={newDeal.commission_status} onValueChange={(v) => setNewDeal({ ...newDeal, commission_status: v })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="conditional">Conditional</SelectItem>
                         <SelectItem value="pending">Pending</SelectItem>
                         <SelectItem value="paid">Paid</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
+                
+                {newDeal.stage === 'offer' && (
+                  <div className="border border-amber-500/20 rounded-lg p-4 space-y-3 bg-amber-500/5">
+                    <h4 className="font-medium text-amber-400">Condition Details</h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label>Condition Deadline</Label>
+                        <Input
+                          type="date"
+                          value={newDeal.condition_deadline}
+                          onChange={(e) => setNewDeal({ ...newDeal, condition_deadline: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Condition Notes</Label>
+                      <Textarea
+                        placeholder="e.g., Financing condition, inspection, etc."
+                        value={newDeal.condition_notes}
+                        onChange={(e) => setNewDeal({ ...newDeal, condition_notes: e.target.value })}
+                        rows={2}
+                      />
+                    </div>
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label>Lead Source</Label>
                   <Input
@@ -557,9 +601,12 @@ const Commissions = () => {
                     <TableCell>
                       <Badge 
                         variant="outline" 
-                        className={commission.status === 'paid' 
-                          ? 'border-green-500/30 text-green-400' 
-                          : 'border-amber-500/30 text-amber-400'
+                        className={
+                          commission.status === 'paid' 
+                            ? 'border-green-500/30 text-green-400' 
+                            : commission.status === 'conditional'
+                            ? 'border-orange-500/30 text-orange-400'
+                            : 'border-amber-500/30 text-amber-400'
                         }
                       >
                         {commission.status}
