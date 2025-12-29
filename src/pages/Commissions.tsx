@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { DollarSign, TrendingUp, Clock, CheckCircle, Plus, Search, Loader2, Download, Users } from 'lucide-react';
+import { DollarSign, TrendingUp, Clock, CheckCircle, Plus, Search, Loader2, Download, Users, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { FUBClientSearch } from '@/components/FUBClientSearch';
 import { useToast } from '@/hooks/use-toast';
@@ -37,6 +37,12 @@ interface Commission {
   } | null;
 }
 
+interface Condition {
+  id: string;
+  name: string;
+  deadline: string;
+}
+
 const initialDealState = {
   client_name: '',
   property_address: '',
@@ -47,8 +53,7 @@ const initialDealState = {
   commission_status: 'pending',
   stage: 'pending',
   closing_date: '',
-  condition_deadline: '',
-  condition_notes: '',
+  conditions: [] as Condition[],
   notes: '',
   email: '',
   phone: '',
@@ -162,6 +167,14 @@ const Commissions = () => {
       commissionStatus = 'conditional';
     }
 
+    // Format conditions for storage
+    const earliestDeadline = newDeal.conditions.length > 0 
+      ? newDeal.conditions.filter(c => c.deadline).sort((a, b) => a.deadline.localeCompare(b.deadline))[0]?.deadline 
+      : null;
+    const conditionNotes = newDeal.conditions.length > 0
+      ? newDeal.conditions.map(c => `${c.name}: ${c.deadline || 'No deadline'}`).join('; ')
+      : null;
+
     const { error: commissionError } = await supabase.from('commissions').insert({
       user_id: user.id,
       deal_id: dealData.id,
@@ -170,8 +183,8 @@ const Commissions = () => {
       brokerage_split_percent: parseFloat(newDeal.brokerage_split_percent) || null,
       transaction_side: newDeal.transaction_side,
       status: commissionStatus,
-      condition_deadline: newDeal.stage === 'offer' && newDeal.condition_deadline ? newDeal.condition_deadline : null,
-      condition_notes: newDeal.stage === 'offer' && newDeal.condition_notes ? newDeal.condition_notes : null
+      condition_deadline: earliestDeadline,
+      condition_notes: conditionNotes
     });
 
     if (commissionError) {
@@ -461,26 +474,69 @@ const Commissions = () => {
                 
                 {newDeal.stage === 'offer' && (
                   <div className="border border-amber-500/20 rounded-lg p-4 space-y-3 bg-amber-500/5">
-                    <h4 className="font-medium text-amber-400">Condition Details</h4>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-2">
-                        <Label>Condition Deadline</Label>
-                        <Input
-                          type="date"
-                          value={newDeal.condition_deadline}
-                          onChange={(e) => setNewDeal({ ...newDeal, condition_deadline: e.target.value })}
-                        />
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium text-amber-400">Conditions</h4>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+                        onClick={() => {
+                          setNewDeal({
+                            ...newDeal,
+                            conditions: [...newDeal.conditions, { id: crypto.randomUUID(), name: '', deadline: '' }]
+                          });
+                        }}
+                      >
+                        <Plus className="h-3 w-3 mr-1" /> Add Condition
+                      </Button>
+                    </div>
+                    {newDeal.conditions.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No conditions added. Click "Add Condition" to track deadlines.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {newDeal.conditions.map((condition, index) => (
+                          <div key={condition.id} className="flex gap-2 items-start">
+                            <div className="flex-1 space-y-2">
+                              <Input
+                                placeholder="Condition name (e.g., Financing, Inspection)"
+                                value={condition.name}
+                                onChange={(e) => {
+                                  const updated = [...newDeal.conditions];
+                                  updated[index] = { ...updated[index], name: e.target.value };
+                                  setNewDeal({ ...newDeal, conditions: updated });
+                                }}
+                              />
+                            </div>
+                            <div className="w-40">
+                              <Input
+                                type="date"
+                                value={condition.deadline}
+                                onChange={(e) => {
+                                  const updated = [...newDeal.conditions];
+                                  updated[index] = { ...updated[index], deadline: e.target.value };
+                                  setNewDeal({ ...newDeal, conditions: updated });
+                                }}
+                              />
+                            </div>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className="text-destructive hover:text-destructive/80"
+                              onClick={() => {
+                                setNewDeal({
+                                  ...newDeal,
+                                  conditions: newDeal.conditions.filter((_, i) => i !== index)
+                                });
+                              }}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
                       </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Condition Notes</Label>
-                      <Textarea
-                        placeholder="e.g., Financing condition, inspection, etc."
-                        value={newDeal.condition_notes}
-                        onChange={(e) => setNewDeal({ ...newDeal, condition_notes: e.target.value })}
-                        rows={2}
-                      />
-                    </div>
+                    )}
                   </div>
                 )}
                 <div className="space-y-2">
