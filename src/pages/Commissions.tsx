@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useUserRole } from '@/hooks/useUserRole';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +18,11 @@ import { FUBClientSearch } from '@/components/FUBClientSearch';
 import { useToast } from '@/hooks/use-toast';
 import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
 import { useGoogleCalendar } from '@/hooks/useGoogleCalendar';
+
+interface AgentProfile {
+  id: string;
+  full_name: string | null;
+}
 
 interface Commission {
   id: string;
@@ -64,6 +70,7 @@ const initialDealState = {
 const Commissions = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { isAdmin } = useUserRole();
   const { isConnected: calendarConnected, createEvent } = useGoogleCalendar();
   const [commissions, setCommissions] = useState<Commission[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,6 +80,8 @@ const Commissions = () => {
   const [syncToFUB, setSyncToFUB] = useState(false);
   const [addToCalendar, setAddToCalendar] = useState(false);
   const [newDeal, setNewDeal] = useState(initialDealState);
+  const [selectedAgentId, setSelectedAgentId] = useState<string>('');
+  const [agents, setAgents] = useState<AgentProfile[]>([]);
   
   const [importingFUB, setImportingFUB] = useState(false);
   const [fubDeals, setFubDeals] = useState<FUBDeal[]>([]);
@@ -81,7 +90,18 @@ const Commissions = () => {
   useEffect(() => {
     if (!user) return;
     fetchCommissions();
-  }, [user]);
+    if (isAdmin) {
+      fetchAgents();
+    }
+  }, [user, isAdmin]);
+
+  const fetchAgents = async () => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .order('full_name');
+    setAgents(data || []);
+  };
 
   const fetchCommissions = async () => {
     if (!user) return;
@@ -144,11 +164,14 @@ const Commissions = () => {
     e.preventDefault();
     if (!user) return;
     
+    // Use selected agent for admins, otherwise use current user
+    const targetUserId = (isAdmin && selectedAgentId) ? selectedAgentId : user.id;
+    
     setSubmitting(true);
     const netCommission = calculateNetCommission(newDeal);
 
     const { data: dealData, error: dealError } = await supabase.from('deals').insert({
-      user_id: user.id,
+      user_id: targetUserId,
       client_name: newDeal.client_name,
       property_address: newDeal.property_address || null,
       deal_value: newDeal.deal_value ? parseFloat(newDeal.deal_value) : null,
@@ -179,7 +202,7 @@ const Commissions = () => {
       : null;
 
     const { error: commissionError } = await supabase.from('commissions').insert({
-      user_id: user.id,
+      user_id: targetUserId,
       deal_id: dealData.id,
       amount: netCommission,
       gross_commission: parseFloat(newDeal.gross_commission) || null,
@@ -234,6 +257,7 @@ const Commissions = () => {
     setNewDeal(initialDealState);
     setSyncToFUB(false);
     setAddToCalendar(false);
+    setSelectedAgentId('');
     setSubmitting(false);
   };
 
@@ -392,6 +416,23 @@ const Commissions = () => {
                 <DialogTitle className="text-primary font-display">Add Deal & Commission</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleAddDeal} className="space-y-4">
+                {isAdmin && (
+                  <div className="space-y-2 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                    <Label className="text-primary font-medium">Assign to Agent</Label>
+                    <Select value={selectedAgentId} onValueChange={setSelectedAgentId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select an agent (leave empty for yourself)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {agents.map(agent => (
+                          <SelectItem key={agent.id} value={agent.id}>
+                            {agent.full_name || 'Unnamed Agent'}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div className="flex gap-2">
                   <Input
                     placeholder="Client name *"
