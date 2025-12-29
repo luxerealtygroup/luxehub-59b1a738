@@ -230,6 +230,15 @@ const Library = () => {
   }, [fubSearchQuery, searchFubPeople]);
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      if (clientFilterQuery) {
+        searchClientFilter(clientFilterQuery);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [clientFilterQuery, searchClientFilter]);
+
+  useEffect(() => {
     if (user) {
       fetchDocuments();
     }
