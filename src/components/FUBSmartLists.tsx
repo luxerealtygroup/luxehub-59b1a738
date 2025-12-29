@@ -5,18 +5,46 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ListFilter, Loader2, RefreshCw, Users, ChevronRight, ArrowLeft, Phone, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/useAuth';
+import { useUserRole } from '@/hooks/useUserRole';
+import { supabase } from '@/integrations/supabase/client';
 
 interface FUBSmartListsProps {
   title?: string;
 }
 
 const FUBSmartLists = ({ title = 'Smart Lists' }: FUBSmartListsProps) => {
+  const { user } = useAuth();
+  const { isAdmin, isOwner } = useUserRole();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [smartLists, setSmartLists] = useState<FUBSmartList[]>([]);
   const [selectedList, setSelectedList] = useState<FUBSmartList | null>(null);
   const [people, setPeople] = useState<FUBPerson[]>([]);
   const [loadingPeople, setLoadingPeople] = useState(false);
+  const [userFubId, setUserFubId] = useState<number | null>(null);
+
+  // Check if user is admin/owner (can see all contacts)
+  const canSeeAll = isAdmin || isOwner;
+
+  // Fetch user's FUB ID from their profile
+  useEffect(() => {
+    const fetchUserFubId = async () => {
+      if (!user || canSeeAll) return;
+      
+      const { data } = await supabase
+        .from('profiles')
+        .select('fub_user_id')
+        .eq('id', user.id)
+        .single();
+      
+      if (data?.fub_user_id) {
+        setUserFubId(data.fub_user_id);
+      }
+    };
+    
+    fetchUserFubId();
+  }, [user, canSeeAll]);
 
   const fetchSmartLists = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -37,10 +65,19 @@ const FUBSmartLists = ({ title = 'Smart Lists' }: FUBSmartListsProps) => {
     setLoadingPeople(true);
     setPeople([]);
 
-    const res = await followUpBossApi.getSmartListPeople(list.id, 50);
+    const res = await followUpBossApi.getSmartListPeople(list.id, 100);
     
     if (res.success && res.data?.people) {
-      setPeople(res.data.people);
+      let filteredPeople = res.data.people;
+      
+      // If user is not admin/owner, filter to only show their assigned contacts
+      if (!canSeeAll && userFubId) {
+        filteredPeople = res.data.people.filter(
+          (person) => person.userId === userFubId || person.assignedUserId === userFubId
+        );
+      }
+      
+      setPeople(filteredPeople);
     }
 
     setLoadingPeople(false);
@@ -78,7 +115,7 @@ const FUBSmartLists = ({ title = 'Smart Lists' }: FUBSmartListsProps) => {
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
-              <span className="truncate">{selectedList.name}</span>
+              <span className="truncate text-sm">{selectedList.name}</span>
             </div>
           ) : (
             title
@@ -104,7 +141,7 @@ const FUBSmartLists = ({ title = 'Smart Lists' }: FUBSmartListsProps) => {
               </div>
             ) : people.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                <p>No contacts in this list</p>
+                <p>No contacts assigned to you in this list</p>
               </div>
             ) : (
               <div className="space-y-2">
