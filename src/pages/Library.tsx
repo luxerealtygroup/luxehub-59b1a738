@@ -1038,9 +1038,18 @@ const Library = () => {
                       <div className="border rounded-lg divide-y max-h-64 overflow-y-auto">
                         {bulkFiles.map((item, index) => {
                           const FileIcon = getFileIcon(item.file.type);
+                          const isImage = item.file.type.startsWith('image/');
                           return (
                             <div key={index} className="flex items-center gap-3 p-3">
-                              <FileIcon className="h-5 w-5 text-muted-foreground shrink-0" />
+                              {isImage ? (
+                                <img 
+                                  src={URL.createObjectURL(item.file)} 
+                                  alt={item.file.name}
+                                  className="h-10 w-10 object-cover rounded shrink-0"
+                                />
+                              ) : (
+                                <FileIcon className="h-5 w-5 text-muted-foreground shrink-0" />
+                              )}
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium truncate">{item.file.name}</p>
                                 <p className="text-xs text-muted-foreground">{formatFileSize(item.file.size)}</p>
