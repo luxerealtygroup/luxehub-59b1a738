@@ -3,5 +3,8 @@ project_id = "sxpfxmlxegpmfamlmjyg"
 [functions.follow-up-boss]
 verify_jwt = false
 
+[functions.fub-webhook]
+verify_jwt = false
+
 [functions.google-calendar]
 verify_jwt = false
