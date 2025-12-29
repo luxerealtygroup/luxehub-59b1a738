@@ -100,13 +100,14 @@ const sanitizeFileName = (fileName: string): string => {
     .replace(/_+/g, '_'); // Collapse multiple underscores
 };
 
-const documentTypes = [
-  { value: 'contract', label: 'Contract' },
-  { value: 'listing_agreement', label: 'Listing Agreement' },
-  { value: 'buyer_representation', label: 'Buyer Representation' },
-  { value: 'disclosure', label: 'Disclosure' },
-  { value: 'inspection', label: 'Inspection Report' },
-  { value: 'appraisal', label: 'Appraisal' },
+// Document folder categories
+const documentFolders = [
+  { value: 'listing', label: 'Listing' },
+  { value: 'buying', label: 'Buying' },
+  { value: 'marketing', label: 'Marketing' },
+  { value: 'disclosures', label: 'Disclosures' },
+  { value: 'inspections', label: 'Inspections' },
+  { value: 'closing', label: 'Closing' },
   { value: 'other', label: 'Other' },
 ];
 
@@ -138,6 +139,7 @@ const Library = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedImportantCategory, setSelectedImportantCategory] = useState<string>('all');
+  const [selectedDocumentFolder, setSelectedDocumentFolder] = useState<string>('all');
   
   // Training upload form
   const [trainingDialogOpen, setTrainingDialogOpen] = useState(false);
@@ -153,7 +155,7 @@ const Library = () => {
   const [clientForm, setClientForm] = useState({
     title: '',
     description: '',
-    document_type: 'contract',
+    document_type: 'listing',
     file: null as File | null,
   });
   
@@ -412,14 +414,20 @@ const Library = () => {
   });
 
   const filteredClientDocs = clientDocs.filter(doc => {
-    // If a client is selected, filter by fub_person_id
-    if (selectedClientFilter) {
-      return doc.fub_person_id === selectedClientFilter.id;
+    // Must match client filter if selected
+    if (selectedClientFilter && doc.fub_person_id !== selectedClientFilter.id) {
+      return false;
     }
-    // Otherwise show all documents matching search
-    return doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.client_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.file_name.toLowerCase().includes(searchQuery.toLowerCase());
+    // Must match folder filter if selected
+    if (selectedDocumentFolder !== 'all' && doc.document_type !== selectedDocumentFolder) {
+      return false;
+    }
+    // Must match search if there's a search query
+    if (searchQuery) {
+      return doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        doc.file_name.toLowerCase().includes(searchQuery.toLowerCase());
+    }
+    return true;
   });
 
   const filteredImportantDocs = importantDocs.filter(doc => {
@@ -685,14 +693,27 @@ const Library = () => {
 
           {selectedClientFilter && (
             <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-              <div className="relative flex-1 w-full sm:w-auto">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search documents..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
+              <div className="flex gap-2 flex-1 w-full sm:w-auto">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search documents..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <Select value={selectedDocumentFolder} onValueChange={setSelectedDocumentFolder}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Folder" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Folders</SelectItem>
+                    {documentFolders.map(folder => (
+                      <SelectItem key={folder.value} value={folder.value}>{folder.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             
             <Dialog open={clientDialogOpen} onOpenChange={(open) => {
@@ -787,7 +808,7 @@ const Library = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {documentTypes.map(type => (
+                        {documentFolders.map(type => (
                           <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
                         ))}
                       </SelectContent>
@@ -864,7 +885,7 @@ const Library = () => {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="text-xs">
-                            {documentTypes.find(t => t.value === doc.document_type)?.label || doc.document_type}
+                            {documentFolders.find(t => t.value === doc.document_type)?.label || doc.document_type}
                           </Badge>
                           <span className="text-xs text-muted-foreground">{formatFileSize(doc.file_size)}</span>
                         </div>
