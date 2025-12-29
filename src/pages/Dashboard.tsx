@@ -18,6 +18,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
+import { SOURCE_OPTIONS } from '@/lib/constants/sourceOptions';
 
 interface Stats {
   totalDeals: number;
@@ -477,11 +478,14 @@ const Dashboard = () => {
                 value={newClient.property_interest}
                 onChange={(e) => setNewClient({ ...newClient, property_interest: e.target.value })}
               />
-              <Input
-                placeholder="Source (e.g., Referral, Open House)"
-                value={newClient.source}
-                onChange={(e) => setNewClient({ ...newClient, source: e.target.value })}
-              />
+              <Select value={newClient.source} onValueChange={(v) => setNewClient({ ...newClient, source: v })}>
+                <SelectTrigger><SelectValue placeholder="Select source" /></SelectTrigger>
+                <SelectContent>
+                  {SOURCE_OPTIONS.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Textarea
                 placeholder="Notes"
                 value={newClient.notes}
