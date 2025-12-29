@@ -115,10 +115,10 @@ const TeamGoals = () => {
     const pendingVolume = (deals || []).filter(d => d.stage === 'under_contract' || d.stage === 'offer')
       .reduce((sum, d) => sum + Number(d.deal_value || 0), 0);
     
-    // Use gross_commission for GCI (total before splits)
+    // Use gross_commission for GCI (total before splits) - ALL commissions count toward gross GCI
     const paidGci = (commissions || []).filter(c => c.status === 'paid')
       .reduce((sum, c) => sum + Number(c.gross_commission || c.amount || 0), 0);
-    const pendingGci = (commissions || []).filter(c => c.status === 'pending')
+    const pendingGci = (commissions || []).filter(c => c.status !== 'paid')
       .reduce((sum, c) => sum + Number(c.gross_commission || c.amount || 0), 0);
 
     // Calculate company revenue (team split)
