@@ -64,6 +64,33 @@ serve(async (req) => {
         endpoint = `/deals?${dealParams.toString()}`;
         break;
 
+      case 'get_notes':
+        // Get notes/activities from FUB
+        const notesParams = new URLSearchParams();
+        if (params?.limit) notesParams.append('limit', params.limit.toString());
+        if (params?.offset) notesParams.append('offset', params.offset.toString());
+        if (params?.personId) notesParams.append('personId', params.personId.toString());
+        endpoint = `/notes?${notesParams.toString()}`;
+        break;
+
+      case 'get_calls':
+        // Get call logs from FUB
+        const callsParams = new URLSearchParams();
+        if (params?.limit) callsParams.append('limit', params.limit.toString());
+        if (params?.offset) callsParams.append('offset', params.offset.toString());
+        if (params?.personId) callsParams.append('personId', params.personId.toString());
+        endpoint = `/calls?${callsParams.toString()}`;
+        break;
+
+      case 'get_textmessages':
+        // Get text messages from FUB
+        const textParams = new URLSearchParams();
+        if (params?.limit) textParams.append('limit', params.limit.toString());
+        if (params?.offset) textParams.append('offset', params.offset.toString());
+        if (params?.personId) textParams.append('personId', params.personId.toString());
+        endpoint = `/textmessages?${textParams.toString()}`;
+        break;
+
       case 'create_person':
         // Create a new person in Follow Up Boss
         method = 'POST';
