@@ -89,12 +89,10 @@ interface AgentDocument {
   created_at: string;
 }
 
-const agentCategories = [
-  { value: 'personal', label: 'Personal Files' },
-  { value: 'notes', label: 'Notes' },
-  { value: 'templates', label: 'My Templates' },
-  { value: 'reference', label: 'Reference Materials' },
-  { value: 'general', label: 'General' },
+const agentFolders = [
+  { value: 'contracts', label: 'Contracts' },
+  { value: 'marketing', label: 'Marketing' },
+  { value: 'other', label: 'Other' },
 ];
 
 const trainingCategories = [
@@ -1551,8 +1549,8 @@ const Library = () => {
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {agentCategories.map(cat => (
+                  <SelectItem value="all">All Folders</SelectItem>
+                  {agentFolders.map(cat => (
                     <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
                   ))}
                 </SelectContent>
@@ -1621,7 +1619,7 @@ const Library = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {agentCategories.map(cat => (
+                        {agentFolders.map(cat => (
                           <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
                         ))}
                       </SelectContent>
@@ -1734,7 +1732,7 @@ const Library = () => {
                                   </div>
                                 </div>
                                 <Badge variant="secondary" className="text-xs flex-shrink-0">
-                                  {agentCategories.find(c => c.value === doc.category)?.label || doc.category}
+                                  {agentFolders.find(c => c.value === doc.category)?.label || doc.category}
                                 </Badge>
                                 <div className="flex gap-1 flex-shrink-0">
                                   <Button
