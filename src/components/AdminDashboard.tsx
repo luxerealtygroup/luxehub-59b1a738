@@ -255,10 +255,22 @@ const AdminDashboard = () => {
         setMonthlyRevenue(monthlyRevenueData);
       }
 
-      // Fetch all profiles
+      // Fetch all profiles with fub_user_id (active agents)
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('id, full_name');
+        .select('id, full_name, fub_user_id');
+
+      // Fetch user roles to exclude admin-only users
+      const { data: userRoles } = await supabase
+        .from('user_roles')
+        .select('user_id, role');
+
+      // Create a set of admin-only user IDs (admins who are not also owners/agents)
+      const adminOnlyUserIds = new Set(
+        (userRoles || [])
+          .filter(ur => ur.role === 'admin')
+          .map(ur => ur.user_id)
+      );
 
       // Fetch all deals from local DB for agent breakdown
       const { data: deals } = await supabase
@@ -284,7 +296,11 @@ const AdminDashboard = () => {
       const profilesMap = new Map((profiles || []).map(p => [p.id, p.full_name || 'Unknown Agent']));
       const goalsMap = new Map((productionGoals || []).map(g => [g.user_id, g]));
       
+      // Include all agents with fub_user_id (excluding admin-only users like Marie)
       const agentIds = new Set([
+        ...(profiles || [])
+          .filter(p => p.fub_user_id && !adminOnlyUserIds.has(p.id))
+          .map(p => p.id),
         ...(deals || []).map(d => d.user_id),
         ...(commissions || []).map(c => c.user_id),
         ...(pipelineClients || []).map(p => p.user_id),
