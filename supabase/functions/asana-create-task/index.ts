@@ -138,7 +138,8 @@ async function createTask(token: string, body: any) {
   } = body;
 
   console.log('Creating Asana task for:', form_type, property_address || client_name);
-
+  console.log('Received custom_fields:', JSON.stringify(custom_fields));
+  console.log('Project ID:', project_id);
   // Build task name based on form type
   let taskName = '';
   switch (form_type) {
