@@ -1637,61 +1637,114 @@ const Library = () => {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {filteredAgentDocs.map(doc => {
-                const FileIcon = getFileIcon(doc.file_type);
+            <>
+              {/* Image documents as thumbnails */}
+              {(() => {
+                const imageDocs = filteredAgentDocs.filter(doc => doc.file_type?.includes('image'));
+                const nonImageDocs = filteredAgentDocs.filter(doc => !doc.file_type?.includes('image'));
+                
                 return (
-                  <Card key={doc.id} className="border-amber-500/10 hover:border-amber-500/30 transition-colors">
-                    <CardHeader className="pb-2">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
-                            <FileIcon className="h-5 w-5 text-amber-600" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <CardTitle className="text-sm font-medium truncate">{doc.title}</CardTitle>
-                            <p className="text-xs text-muted-foreground truncate">{doc.file_name}</p>
-                          </div>
+                  <div className="space-y-6">
+                    {/* Image thumbnails grid */}
+                    {imageDocs.length > 0 && (
+                      <div>
+                        <h3 className="text-sm font-medium text-muted-foreground mb-3">Images</h3>
+                        <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                          {imageDocs.map(doc => (
+                            <Card key={doc.id} className="border-amber-500/10 hover:border-amber-500/30 transition-colors overflow-hidden">
+                              <div className="aspect-square relative">
+                                <ImageThumbnail
+                                  bucket="agent-documents"
+                                  filePath={doc.file_path}
+                                  alt={doc.title}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                              <CardContent className="p-2">
+                                <p className="text-xs font-medium truncate">{doc.title}</p>
+                                <div className="flex items-center justify-between mt-1">
+                                  <span className="text-xs text-muted-foreground">{formatFileSize(doc.file_size)}</span>
+                                  <div className="flex gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 w-6 p-0"
+                                      onClick={() => downloadDocument('agent-documents', doc.file_path, doc.file_name)}
+                                    >
+                                      <Download className="h-3 w-3" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                                      onClick={() => deleteDocument('agent', doc.id, doc.file_path)}
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
                         </div>
                       </div>
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                      {doc.description && (
-                        <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{doc.description}</p>
-                      )}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="secondary" className="text-xs">
-                            {agentCategories.find(c => c.value === doc.category)?.label || doc.category}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">{formatFileSize(doc.file_size)}</span>
-                        </div>
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => downloadDocument('agent-documents', doc.file_path, doc.file_name)}
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => deleteDocument('agent', doc.id, doc.file_path)}
-                            className="text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                    )}
+                    
+                    {/* Non-image documents as list */}
+                    {nonImageDocs.length > 0 && (
+                      <div>
+                        <h3 className="text-sm font-medium text-muted-foreground mb-3">Documents</h3>
+                        <div className="space-y-2">
+                          {nonImageDocs.map(doc => {
+                            const FileIcon = getFileIcon(doc.file_type);
+                            return (
+                              <div 
+                                key={doc.id} 
+                                className="flex items-center gap-3 p-3 rounded-lg border border-amber-500/10 hover:border-amber-500/30 bg-card transition-colors"
+                              >
+                                <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                                  <FileIcon className="h-5 w-5 text-amber-600" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-sm truncate">{doc.title}</p>
+                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <span className="truncate">{doc.file_name}</span>
+                                    <span>•</span>
+                                    <span>{formatFileSize(doc.file_size)}</span>
+                                    <span>•</span>
+                                    <span>{format(new Date(doc.created_at), 'MMM d, yyyy')}</span>
+                                  </div>
+                                </div>
+                                <Badge variant="secondary" className="text-xs flex-shrink-0">
+                                  {agentCategories.find(c => c.value === doc.category)?.label || doc.category}
+                                </Badge>
+                                <div className="flex gap-1 flex-shrink-0">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => downloadDocument('agent-documents', doc.file_path, doc.file_name)}
+                                  >
+                                    <Download className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => deleteDocument('agent', doc.id, doc.file_path)}
+                                    className="text-destructive hover:text-destructive"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        {format(new Date(doc.created_at), 'MMM d, yyyy')}
-                      </p>
-                    </CardContent>
-                  </Card>
+                    )}
+                  </div>
                 );
-              })}
-            </div>
+              })()}
+            </>
           )}
         </TabsContent>
       </Tabs>
