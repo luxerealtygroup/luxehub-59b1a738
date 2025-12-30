@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Home, FileText, Building, ShoppingCart, Settings, Check, Loader2, RefreshCw } from 'lucide-react';
@@ -9,6 +8,7 @@ import { OpenHouseForm } from './OpenHouseForm';
 import { InvoiceForm } from './InvoiceForm';
 import { ListingForm } from './ListingForm';
 import { BuyerForm } from './BuyerForm';
+import { AsanaFieldMapping } from './AsanaFieldMapping';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -35,6 +35,10 @@ interface AsanaProject {
   workspace_name?: string;
 }
 
+interface FieldMapping {
+  [formField: string]: string;
+}
+
 interface AsanaSettings {
   enabled: boolean;
   projects: {
@@ -42,6 +46,12 @@ interface AsanaSettings {
     invoice: string;
     listing: string;
     buyer: string;
+  };
+  fieldMappings: {
+    open_house: FieldMapping;
+    invoice: FieldMapping;
+    listing: FieldMapping;
+    buyer: FieldMapping;
   };
 }
 
@@ -52,6 +62,12 @@ const defaultSettings: AsanaSettings = {
     invoice: '',
     listing: '',
     buyer: '',
+  },
+  fieldMappings: {
+    open_house: {},
+    invoice: {},
+    listing: {},
+    buyer: {},
   },
 };
 
@@ -147,6 +163,33 @@ export function SubmissionsTab() {
     if (!asanaSettings.enabled) return;
 
     const projectId = asanaSettings.projects[formType];
+    const fieldMappings = asanaSettings.fieldMappings?.[formType] || {};
+
+    // Build custom_fields object from mappings
+    const customFields: Record<string, string> = {};
+    const formValues: Record<string, any> = {
+      property_address: formData.property_address,
+      client_name: formData.client_name,
+      agent_name: formData.agent_name,
+      open_house_date: formData.open_house_date,
+      open_house_time: formData.open_house_time,
+      list_price: formData.list_price,
+      purchase_price: formData.purchase_price,
+      closing_date: formData.closing_date,
+      vendor_name: formData.vendor_name,
+      vendor_type: formData.vendor_type,
+      invoice_amount: formData.invoice_amount,
+      seller_names: formData.seller_names,
+      listing_date: formData.listing_date,
+      lender_name_contact: formData.lender_name_contact,
+    };
+
+    // Map form values to custom field GIDs
+    Object.entries(fieldMappings).forEach(([formField, asanaFieldGid]) => {
+      if (asanaFieldGid && formValues[formField]) {
+        customFields[asanaFieldGid] = String(formValues[formField]);
+      }
+    });
 
     try {
       const { error } = await supabase.functions.invoke('asana-create-task', {
@@ -157,7 +200,8 @@ export function SubmissionsTab() {
           agent_name: formData.agent_name,
           notes: formData.notes,
           project_id: projectId || undefined,
-          // Include form-specific data
+          custom_fields: Object.keys(customFields).length > 0 ? customFields : undefined,
+          // Include form-specific data for task notes
           open_house_date: formData.open_house_date,
           open_house_time: formData.open_house_time,
           list_price: formData.list_price,
@@ -182,6 +226,16 @@ export function SubmissionsTab() {
       projects: {
         ...prev.projects,
         [formType]: projectId,
+      },
+    }));
+  };
+
+  const updateFieldMappings = (formType: keyof AsanaSettings['fieldMappings'], mappings: FieldMapping) => {
+    setAsanaSettings(prev => ({
+      ...prev,
+      fieldMappings: {
+        ...prev.fieldMappings,
+        [formType]: mappings,
       },
     }));
   };
@@ -249,7 +303,7 @@ export function SubmissionsTab() {
                   </p>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2">
                       <Home className="h-4 w-4" />
@@ -271,6 +325,12 @@ export function SubmissionsTab() {
                         ))}
                       </SelectContent>
                     </Select>
+                    <AsanaFieldMapping
+                      formType="open_house"
+                      projectId={asanaSettings.projects.open_house}
+                      mappings={asanaSettings.fieldMappings?.open_house || {}}
+                      onMappingsChange={(m) => updateFieldMappings('open_house', m)}
+                    />
                   </div>
 
                   <div className="space-y-2">
@@ -294,6 +354,12 @@ export function SubmissionsTab() {
                         ))}
                       </SelectContent>
                     </Select>
+                    <AsanaFieldMapping
+                      formType="invoice"
+                      projectId={asanaSettings.projects.invoice}
+                      mappings={asanaSettings.fieldMappings?.invoice || {}}
+                      onMappingsChange={(m) => updateFieldMappings('invoice', m)}
+                    />
                   </div>
 
                   <div className="space-y-2">
@@ -317,6 +383,12 @@ export function SubmissionsTab() {
                         ))}
                       </SelectContent>
                     </Select>
+                    <AsanaFieldMapping
+                      formType="listing"
+                      projectId={asanaSettings.projects.listing}
+                      mappings={asanaSettings.fieldMappings?.listing || {}}
+                      onMappingsChange={(m) => updateFieldMappings('listing', m)}
+                    />
                   </div>
 
                   <div className="space-y-2">
@@ -340,6 +412,12 @@ export function SubmissionsTab() {
                         ))}
                       </SelectContent>
                     </Select>
+                    <AsanaFieldMapping
+                      formType="buyer"
+                      projectId={asanaSettings.projects.buyer}
+                      mappings={asanaSettings.fieldMappings?.buyer || {}}
+                      onMappingsChange={(m) => updateFieldMappings('buyer', m)}
+                    />
                   </div>
                 </div>
 
