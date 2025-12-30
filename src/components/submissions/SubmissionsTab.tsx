@@ -256,14 +256,14 @@ export function SubmissionsTab() {
                       Open House Project
                     </Label>
                     <Select
-                      value={asanaSettings.projects.open_house}
-                      onValueChange={(v) => updateProjectSetting('open_house', v)}
+                      value={asanaSettings.projects.open_house || 'none'}
+                      onValueChange={(v) => updateProjectSetting('open_house', v === 'none' ? '' : v)}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select project..." />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">None (use default workspace)</SelectItem>
+                        <SelectItem value="none">None (use default workspace)</SelectItem>
                         {asanaProjects.map((project) => (
                           <SelectItem key={project.gid} value={project.gid}>
                             {project.name} {project.workspace_name && `(${project.workspace_name})`}
@@ -279,14 +279,14 @@ export function SubmissionsTab() {
                       Invoice Project
                     </Label>
                     <Select
-                      value={asanaSettings.projects.invoice}
-                      onValueChange={(v) => updateProjectSetting('invoice', v)}
+                      value={asanaSettings.projects.invoice || 'none'}
+                      onValueChange={(v) => updateProjectSetting('invoice', v === 'none' ? '' : v)}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select project..." />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">None (use default workspace)</SelectItem>
+                        <SelectItem value="none">None (use default workspace)</SelectItem>
                         {asanaProjects.map((project) => (
                           <SelectItem key={project.gid} value={project.gid}>
                             {project.name} {project.workspace_name && `(${project.workspace_name})`}
@@ -302,14 +302,14 @@ export function SubmissionsTab() {
                       Listing Project
                     </Label>
                     <Select
-                      value={asanaSettings.projects.listing}
-                      onValueChange={(v) => updateProjectSetting('listing', v)}
+                      value={asanaSettings.projects.listing || 'none'}
+                      onValueChange={(v) => updateProjectSetting('listing', v === 'none' ? '' : v)}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select project..." />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">None (use default workspace)</SelectItem>
+                        <SelectItem value="none">None (use default workspace)</SelectItem>
                         {asanaProjects.map((project) => (
                           <SelectItem key={project.gid} value={project.gid}>
                             {project.name} {project.workspace_name && `(${project.workspace_name})`}
@@ -325,14 +325,14 @@ export function SubmissionsTab() {
                       Buyer Project
                     </Label>
                     <Select
-                      value={asanaSettings.projects.buyer}
-                      onValueChange={(v) => updateProjectSetting('buyer', v)}
+                      value={asanaSettings.projects.buyer || 'none'}
+                      onValueChange={(v) => updateProjectSetting('buyer', v === 'none' ? '' : v)}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select project..." />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">None (use default workspace)</SelectItem>
+                        <SelectItem value="none">None (use default workspace)</SelectItem>
                         {asanaProjects.map((project) => (
                           <SelectItem key={project.gid} value={project.gid}>
                             {project.name} {project.workspace_name && `(${project.workspace_name})`}
