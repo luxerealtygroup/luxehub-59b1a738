@@ -165,6 +165,12 @@ export function SubmissionsTab() {
     const projectId = asanaSettings.projects[formType];
     const fieldMappings = asanaSettings.fieldMappings?.[formType] || {};
 
+    console.log('=== Asana Task Creation Debug ===');
+    console.log('Form Type:', formType);
+    console.log('Form Data:', formData);
+    console.log('Field Mappings:', fieldMappings);
+    console.log('Project ID:', projectId);
+
     // Build custom_fields object from mappings
     const customFields: Record<string, string> = {};
     const formValues: Record<string, any> = {
@@ -184,32 +190,41 @@ export function SubmissionsTab() {
       lender_name_contact: formData.lender_name_contact,
     };
 
+    console.log('Form Values for mapping:', formValues);
+
     // Map form values to custom field GIDs
     Object.entries(fieldMappings).forEach(([formField, asanaFieldGid]) => {
+      console.log(`Mapping: ${formField} -> ${asanaFieldGid}, value: ${formValues[formField]}`);
       if (asanaFieldGid && formValues[formField]) {
         customFields[asanaFieldGid] = String(formValues[formField]);
       }
     });
 
+    console.log('Built custom_fields:', customFields);
+
     try {
+      const requestBody = {
+        form_type: formType,
+        property_address: formData.property_address,
+        client_name: formData.client_name,
+        agent_name: formData.agent_name,
+        notes: formData.notes,
+        project_id: projectId || undefined,
+        custom_fields: Object.keys(customFields).length > 0 ? customFields : undefined,
+        // Include form-specific data for task notes
+        open_house_date: formData.open_house_date,
+        open_house_time: formData.open_house_time,
+        list_price: formData.list_price,
+        purchase_price: formData.purchase_price,
+        closing_date: formData.closing_date,
+        vendor_name: formData.vendor_name,
+        invoice_amount: formData.invoice_amount,
+      };
+      
+      console.log('Request body to Asana:', requestBody);
+
       const { error } = await supabase.functions.invoke('asana-create-task', {
-        body: {
-          form_type: formType,
-          property_address: formData.property_address,
-          client_name: formData.client_name,
-          agent_name: formData.agent_name,
-          notes: formData.notes,
-          project_id: projectId || undefined,
-          custom_fields: Object.keys(customFields).length > 0 ? customFields : undefined,
-          // Include form-specific data for task notes
-          open_house_date: formData.open_house_date,
-          open_house_time: formData.open_house_time,
-          list_price: formData.list_price,
-          purchase_price: formData.purchase_price,
-          closing_date: formData.closing_date,
-          vendor_name: formData.vendor_name,
-          invoice_amount: formData.invoice_amount,
-        },
+        body: requestBody,
       });
 
       if (error) throw error;
