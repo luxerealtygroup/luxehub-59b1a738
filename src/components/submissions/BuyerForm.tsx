@@ -14,8 +14,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { buyerSubmissionTypes } from './submissionOptions';
-import { FileUpload, uploadSubmissionFiles } from './FileUpload';
-import { FUBClientInput } from './FUBClientInput';
+import { FileUpload, uploadSubmissionFiles, copyFilesToClientDocuments } from './FileUpload';
+import { FUBClientInput, FUBClient } from './FUBClientInput';
 
 const formSchema = z.object({
   submission_type: z.string().min(1, 'Submission type is required'),
@@ -48,6 +48,7 @@ interface BuyerFormProps {
 export function BuyerForm({ agents, onSuccess }: BuyerFormProps) {
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedFubClient, setSelectedFubClient] = useState<FUBClient | null>(null);
   const [braRecoFiles, setBraRecoFiles] = useState<File[]>([]);
   const [idsFiles, setIdsFiles] = useState<File[]>([]);
   const [fintrackerFiles, setFintrackerFiles] = useState<File[]>([]);
@@ -137,8 +138,24 @@ export function BuyerForm({ agents, onSuccess }: BuyerFormProps) {
 
       if (error) throw error;
 
+      // Copy files to client documents library if FUB client was selected
+      const allFiles = [...braRecoFiles, ...idsFiles, ...fintrackerFiles, ...otherDocsFiles];
+      const allPaths = [...braRecoPaths, ...idsPaths, ...fintrackerPaths, ...otherDocsPaths];
+      
+      if (selectedFubClient && allFiles.length > 0) {
+        await copyFilesToClientDocuments(
+          allFiles,
+          allPaths,
+          user.id,
+          data.client_name,
+          selectedFubClient.id,
+          'Buyer Documents'
+        );
+      }
+
       toast.success('Buyer submission created successfully!');
       form.reset();
+      setSelectedFubClient(null);
       setBraRecoFiles([]);
       setIdsFiles([]);
       setFintrackerFiles([]);
@@ -222,7 +239,14 @@ export function BuyerForm({ agents, onSuccess }: BuyerFormProps) {
                   <FormControl>
                     <FUBClientInput
                       value={field.value}
-                      onChange={field.onChange}
+                      onChange={(val) => {
+                        field.onChange(val);
+                        // Clear FUB client if manually typing
+                        if (!selectedFubClient || selectedFubClient.name !== val) {
+                          setSelectedFubClient(null);
+                        }
+                      }}
+                      onClientSelect={(client) => setSelectedFubClient(client)}
                       placeholder="Enter or search for client"
                     />
                   </FormControl>

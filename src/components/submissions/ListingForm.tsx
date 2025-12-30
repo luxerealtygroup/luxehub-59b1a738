@@ -15,8 +15,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { listingSubmissionTypes, photographyPackages, occupancyOptions } from './submissionOptions';
-import { FileUpload, uploadSubmissionFiles } from './FileUpload';
-import { FUBClientInput } from './FUBClientInput';
+import { FileUpload, uploadSubmissionFiles, copyFilesToClientDocuments } from './FileUpload';
+import { FUBClientInput, FUBClient } from './FUBClientInput';
 
 const formSchema = z.object({
   agent_id: z.string().min(1, 'Agent is required'),
@@ -45,6 +45,7 @@ interface ListingFormProps {
 export function ListingForm({ agents, onSuccess }: ListingFormProps) {
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedFubClient, setSelectedFubClient] = useState<FUBClient | null>(null);
   const [attachments, setAttachments] = useState<File[]>([]);
 
   const form = useForm<FormData>({
@@ -105,8 +106,21 @@ export function ListingForm({ agents, onSuccess }: ListingFormProps) {
 
       if (error) throw error;
 
+      // Copy files to client documents library if FUB client was selected
+      if (selectedFubClient && attachments.length > 0) {
+        await copyFilesToClientDocuments(
+          attachments,
+          attachmentPaths,
+          user.id,
+          data.seller_names,
+          selectedFubClient.id,
+          'Listing Documents'
+        );
+      }
+
       toast.success('Listing submission created successfully!');
       form.reset();
+      setSelectedFubClient(null);
       setAttachments([]);
       onSuccess?.();
     } catch (error: any) {
@@ -187,9 +201,15 @@ export function ListingForm({ agents, onSuccess }: ListingFormProps) {
                   <FormControl>
                     <FUBClientInput
                       value={field.value}
-                      onChange={field.onChange}
+                      onChange={(val) => {
+                        field.onChange(val);
+                        if (!selectedFubClient || selectedFubClient.name !== val) {
+                          setSelectedFubClient(null);
+                        }
+                      }}
                       placeholder="Enter or search for seller"
                       onClientSelect={(client) => {
+                        setSelectedFubClient(client);
                         if (client.email) form.setValue('seller_emails', client.email);
                         if (client.phone) form.setValue('seller_phones', client.phone);
                       }}
