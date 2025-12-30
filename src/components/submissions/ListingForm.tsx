@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { listingSubmissionTypes, photographyPackages, occupancyOptions } from './submissionOptions';
 import { FileUpload, uploadSubmissionFiles } from './FileUpload';
+import { FUBClientInput } from './FUBClientInput';
 
 const formSchema = z.object({
   agent_id: z.string().min(1, 'Agent is required'),
@@ -184,7 +185,15 @@ export function ListingForm({ agents, onSuccess }: ListingFormProps) {
                 <FormItem>
                   <FormLabel>Seller Name(s) *</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter seller name(s)" {...field} />
+                    <FUBClientInput
+                      value={field.value}
+                      onChange={field.onChange}
+                      placeholder="Enter or search for seller"
+                      onClientSelect={(client) => {
+                        if (client.email) form.setValue('seller_emails', client.email);
+                        if (client.phone) form.setValue('seller_phones', client.phone);
+                      }}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
