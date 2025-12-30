@@ -533,11 +533,15 @@ const Library = () => {
 
   const uploadAgentDoc = async () => {
     if (!user || !agentForm.file) return;
+    
+    // Determine target user: if admin selected an agent, use that; otherwise use current user
+    const targetUserId = (isAdmin && selectedAgentForUpload) ? selectedAgentForUpload.id : user.id;
+    
     setUploading(true);
     
     try {
       const file = agentForm.file;
-      const filePath = `${user.id}/${Date.now()}_${sanitizeFileName(file.name)}`;
+      const filePath = `${targetUserId}/${Date.now()}_${sanitizeFileName(file.name)}`;
       
       const { error: uploadError } = await supabase.storage
         .from('agent-documents')
@@ -553,14 +557,16 @@ const Library = () => {
         file_type: file.type,
         file_size: file.size,
         category: agentForm.category,
-        user_id: user.id,
+        user_id: targetUserId,
       });
       
       if (dbError) throw dbError;
       
-      toast({ title: 'Success', description: 'Personal document uploaded!' });
+      const targetName = selectedAgentForUpload?.full_name || 'your';
+      toast({ title: 'Success', description: `Document uploaded to ${targetName}'s documents!` });
       setAgentDialogOpen(false);
       setAgentForm({ title: '', description: '', category: 'general', file: null });
+      setSelectedAgentForUpload(null);
       fetchDocuments();
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -1502,17 +1508,45 @@ const Library = () => {
               </Select>
             </div>
             
-            <Dialog open={agentDialogOpen} onOpenChange={setAgentDialogOpen}>
+            <Dialog open={agentDialogOpen} onOpenChange={(open) => {
+              setAgentDialogOpen(open);
+              if (!open) {
+                setSelectedAgentForUpload(null);
+              }
+            }}>
               <DialogTrigger asChild>
                 <Button className="bg-primary text-primary-foreground">
-                  <Upload className="h-4 w-4 mr-2" /> Upload My Document
+                  <Upload className="h-4 w-4 mr-2" /> {isAdmin ? 'Upload Document' : 'Upload My Document'}
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Upload Personal Document</DialogTitle>
+                  <DialogTitle>{isAdmin ? 'Upload Agent Document' : 'Upload Personal Document'}</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
+                  {isAdmin && (
+                    <div className="space-y-2">
+                      <Label>Upload For Agent *</Label>
+                      <Select 
+                        value={selectedAgentForUpload?.id || ''} 
+                        onValueChange={(v) => {
+                          const profile = teamProfiles.find(p => p.id === v);
+                          setSelectedAgentForUpload(profile ? { id: profile.id, full_name: profile.full_name || 'Unknown' } : null);
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select an agent..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {teamProfiles.map(profile => (
+                            <SelectItem key={profile.id} value={profile.id}>
+                              {profile.full_name || 'Unknown Agent'}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <Label>Title *</Label>
                     <Input
@@ -1551,7 +1585,7 @@ const Library = () => {
                   </div>
                   <Button 
                     onClick={uploadAgentDoc} 
-                    disabled={uploading || !agentForm.title || !agentForm.file}
+                    disabled={uploading || !agentForm.title || !agentForm.file || (isAdmin && !selectedAgentForUpload)}
                     className="w-full"
                   >
                     {uploading ? 'Uploading...' : 'Upload'}
