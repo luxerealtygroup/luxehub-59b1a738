@@ -632,6 +632,123 @@ export type Database = {
         }
         Relationships: []
       }
+      submissions: {
+        Row: {
+          agent_name: string | null
+          buyer_emails: string | null
+          buyer_names: string | null
+          buyer_phones: string | null
+          client_name: string | null
+          client_occupation: string | null
+          closing_date: string | null
+          created_at: string
+          door_knockers: boolean | null
+          feature_sheets: boolean | null
+          form_type: string
+          id: string
+          invoice_amount: number | null
+          invoice_date: string | null
+          invoice_file_path: string | null
+          lender_name_contact: string | null
+          list_price: number | null
+          listing_date: string | null
+          listing_notes: string | null
+          notes: string | null
+          occupancy: string | null
+          open_house_date: string | null
+          open_house_time: string | null
+          photography_package: string | null
+          property_address: string | null
+          purchase_price: number | null
+          seller_emails: string | null
+          seller_names: string | null
+          seller_phones: string | null
+          staging_consult: boolean | null
+          status: string
+          submission_type: string | null
+          updated_at: string
+          user_id: string
+          vendor_name: string | null
+          vendor_type: string | null
+        }
+        Insert: {
+          agent_name?: string | null
+          buyer_emails?: string | null
+          buyer_names?: string | null
+          buyer_phones?: string | null
+          client_name?: string | null
+          client_occupation?: string | null
+          closing_date?: string | null
+          created_at?: string
+          door_knockers?: boolean | null
+          feature_sheets?: boolean | null
+          form_type: string
+          id?: string
+          invoice_amount?: number | null
+          invoice_date?: string | null
+          invoice_file_path?: string | null
+          lender_name_contact?: string | null
+          list_price?: number | null
+          listing_date?: string | null
+          listing_notes?: string | null
+          notes?: string | null
+          occupancy?: string | null
+          open_house_date?: string | null
+          open_house_time?: string | null
+          photography_package?: string | null
+          property_address?: string | null
+          purchase_price?: number | null
+          seller_emails?: string | null
+          seller_names?: string | null
+          seller_phones?: string | null
+          staging_consult?: boolean | null
+          status?: string
+          submission_type?: string | null
+          updated_at?: string
+          user_id: string
+          vendor_name?: string | null
+          vendor_type?: string | null
+        }
+        Update: {
+          agent_name?: string | null
+          buyer_emails?: string | null
+          buyer_names?: string | null
+          buyer_phones?: string | null
+          client_name?: string | null
+          client_occupation?: string | null
+          closing_date?: string | null
+          created_at?: string
+          door_knockers?: boolean | null
+          feature_sheets?: boolean | null
+          form_type?: string
+          id?: string
+          invoice_amount?: number | null
+          invoice_date?: string | null
+          invoice_file_path?: string | null
+          lender_name_contact?: string | null
+          list_price?: number | null
+          listing_date?: string | null
+          listing_notes?: string | null
+          notes?: string | null
+          occupancy?: string | null
+          open_house_date?: string | null
+          open_house_time?: string | null
+          photography_package?: string | null
+          property_address?: string | null
+          purchase_price?: number | null
+          seller_emails?: string | null
+          seller_names?: string | null
+          seller_phones?: string | null
+          staging_consult?: boolean | null
+          status?: string
+          submission_type?: string | null
+          updated_at?: string
+          user_id?: string
+          vendor_name?: string | null
+          vendor_type?: string | null
+        }
+        Relationships: []
+      }
       training_documents: {
         Row: {
           category: string | null
