@@ -146,8 +146,8 @@ const Pipeline = () => {
     source: '',
     client_type: 'buyer' as 'buyer' | 'seller',
     projected_sale_amount: '',
-    commission_percent: '3',
-    split_percent: '100',
+    commission_percent: '2',
+    split_percent: '70',
     expected_pending_date: '',
     status: ''
   });
@@ -336,7 +336,7 @@ const Pipeline = () => {
     setNewClient({ 
       client_name: '', email: '', phone: '', notes: '', 
       property_interest: '', source: '', client_type: activeTab,
-      projected_sale_amount: '', commission_percent: '3', split_percent: '100', expected_pending_date: '', status: ''
+      projected_sale_amount: '', commission_percent: '2', split_percent: '70', expected_pending_date: '', status: ''
     });
   };
 
@@ -344,7 +344,7 @@ const Pipeline = () => {
     setNewClient({ 
       client_name: '', email: '', phone: '', notes: '', 
       property_interest: '', source: '', client_type: activeTab,
-      projected_sale_amount: '', commission_percent: '3', split_percent: '100', expected_pending_date: '', status: ''
+      projected_sale_amount: '', commission_percent: '2', split_percent: '70', expected_pending_date: '', status: ''
     });
     setDialogOpen(true);
   };
@@ -360,8 +360,8 @@ const Pipeline = () => {
       source: client.source || '',
       client_type: client.client_type,
       projected_sale_amount: client.projected_sale_amount?.toString() || '',
-      commission_percent: '3',
-      split_percent: '100',
+      commission_percent: '2',
+      split_percent: '70',
       expected_pending_date: client.expected_pending_date || '',
       status: client.status || ''
     });
