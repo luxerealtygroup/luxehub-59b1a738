@@ -78,6 +78,11 @@ const Login = () => {
               Sign up
             </Link>
           </p>
+          <p className="mt-2 text-center text-sm text-muted-foreground">
+            <Link to="/client-portal/login" className="text-muted-foreground hover:text-gold hover:underline">
+              Client Portal →
+            </Link>
+          </p>
         </CardContent>
       </Card>
     </div>
