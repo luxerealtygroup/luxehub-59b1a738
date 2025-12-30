@@ -21,9 +21,6 @@ const formSchema = z.object({
   submission_type: z.string().min(1, 'Submission type is required'),
   agent_id: z.string().min(1, 'Agent is required'),
   client_name: z.string().min(1, 'Client name is required'),
-  buyer_names: z.string().optional(),
-  buyer_emails: z.string().optional(),
-  buyer_phones: z.string().optional(),
   property_address: z.string().optional(),
   purchase_price: z.string().optional(),
   lender_name_contact: z.string().optional(),
@@ -62,9 +59,6 @@ export function BuyerForm({ agents, onSuccess }: BuyerFormProps) {
       submission_type: '',
       agent_id: '',
       client_name: '',
-      buyer_names: '',
-      buyer_emails: '',
-      buyer_phones: '',
       property_address: '',
       purchase_price: '',
       lender_name_contact: '',
@@ -120,9 +114,6 @@ export function BuyerForm({ agents, onSuccess }: BuyerFormProps) {
         agent_name: selectedAgent?.full_name || '',
         submission_type: data.submission_type,
         client_name: data.client_name,
-        buyer_names: data.buyer_names || null,
-        buyer_emails: data.buyer_emails || null,
-        buyer_phones: data.buyer_phones || null,
         property_address: data.property_address || null,
         purchase_price: data.purchase_price ? parseFloat(data.purchase_price) : null,
         lender_name_contact: data.lender_name_contact || null,
@@ -233,67 +224,12 @@ export function BuyerForm({ agents, onSuccess }: BuyerFormProps) {
                       value={field.value}
                       onChange={field.onChange}
                       placeholder="Enter or search for client"
-                      onClientSelect={(client) => {
-                        // Auto-fill buyer contact info if available
-                        if (client.email) form.setValue('buyer_emails', client.email);
-                        if (client.phone) form.setValue('buyer_phones', client.phone);
-                        form.setValue('buyer_names', client.name);
-                      }}
                     />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-
-            {/* Buyer Contact Information Section */}
-            <div className="border rounded-lg p-4 space-y-4 bg-muted/30">
-              <h4 className="font-medium text-sm">Buyer Contact Information</h4>
-              
-              <FormField
-                control={form.control}
-                name="buyer_names"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Buyer Name(s)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter all buyer names" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="buyer_emails"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Buyer Email(s)</FormLabel>
-                      <FormControl>
-                        <Input type="email" placeholder="Enter email(s)" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="buyer_phones"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Buyer Phone(s)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Enter phone number(s)" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
 
             <FormField
               control={form.control}
