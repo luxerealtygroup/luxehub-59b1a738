@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.google-calendar]
 verify_jwt = false
+
+[functions.asana-create-task]
+verify_jwt = false
