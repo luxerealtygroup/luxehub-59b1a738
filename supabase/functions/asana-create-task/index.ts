@@ -140,6 +140,7 @@ async function createTask(token: string, body: any) {
   console.log('Creating Asana task for:', form_type, property_address || client_name);
   console.log('Received custom_fields:', JSON.stringify(custom_fields));
   console.log('Project ID:', project_id);
+
   // Build task name based on form type
   let taskName = '';
   switch (form_type) {
@@ -204,6 +205,79 @@ async function createTask(token: string, body: any) {
     }
   }
 
+  // Fetch custom field metadata to properly format values
+  let formattedCustomFields: Record<string, any> = {};
+  if (custom_fields && Object.keys(custom_fields).length > 0 && project_id) {
+    try {
+      const cfResponse = await fetch(
+        `https://app.asana.com/api/1.0/projects/${project_id}/custom_field_settings?opt_fields=custom_field.name,custom_field.gid,custom_field.type,custom_field.enum_options`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (cfResponse.ok) {
+        const cfData = await cfResponse.json();
+        const fieldMetadata = cfData.data.reduce((acc: any, cf: any) => {
+          acc[cf.custom_field.gid] = cf.custom_field;
+          return acc;
+        }, {});
+
+        console.log('Custom field metadata loaded for', Object.keys(fieldMetadata).length, 'fields');
+
+        // Format each custom field value based on its type
+        for (const [fieldGid, value] of Object.entries(custom_fields)) {
+          const fieldMeta = fieldMetadata[fieldGid];
+          if (!fieldMeta) {
+            console.log(`Skipping unknown field: ${fieldGid}`);
+            continue;
+          }
+
+          console.log(`Processing field ${fieldMeta.name} (${fieldMeta.type}): ${value}`);
+
+          switch (fieldMeta.type) {
+            case 'text':
+              formattedCustomFields[fieldGid] = String(value);
+              break;
+            case 'number':
+              formattedCustomFields[fieldGid] = parseFloat(String(value).replace(/[^0-9.-]/g, '')) || 0;
+              break;
+            case 'enum':
+              // Find matching enum option by name (case-insensitive)
+              const enumOption = fieldMeta.enum_options?.find(
+                (opt: any) => opt.name.toLowerCase() === String(value).toLowerCase()
+              );
+              if (enumOption) {
+                formattedCustomFields[fieldGid] = enumOption.gid;
+                console.log(`Mapped enum "${value}" to GID: ${enumOption.gid}`);
+              } else {
+                console.log(`No matching enum option for "${value}" in field ${fieldMeta.name}. Available options:`, fieldMeta.enum_options?.map((o: any) => o.name));
+              }
+              break;
+            case 'date':
+              // Asana date fields require an object with "date" property
+              if (value) {
+                formattedCustomFields[fieldGid] = { date: String(value) };
+                console.log(`Formatted date: ${JSON.stringify(formattedCustomFields[fieldGid])}`);
+              }
+              break;
+            default:
+              // For other types, try text format
+              formattedCustomFields[fieldGid] = String(value);
+          }
+        }
+      }
+    } catch (cfError) {
+      console.error('Error fetching custom field metadata:', cfError);
+      // Fall back to text-only fields
+    }
+  }
+
+  console.log('Formatted custom fields:', JSON.stringify(formattedCustomFields));
+
   // Create the task
   const taskData: any = {
     data: {
@@ -219,10 +293,10 @@ async function createTask(token: string, body: any) {
     taskData.data.workspace = targetWorkspaceId;
   }
 
-  // Add custom fields if provided
-  if (custom_fields && Object.keys(custom_fields).length > 0) {
-    taskData.data.custom_fields = custom_fields;
-    console.log('Adding custom fields:', custom_fields);
+  // Add custom fields if any were successfully formatted
+  if (Object.keys(formattedCustomFields).length > 0) {
+    taskData.data.custom_fields = formattedCustomFields;
+    console.log('Adding custom fields:', JSON.stringify(formattedCustomFields));
   }
 
   // Add due date if closing date provided
