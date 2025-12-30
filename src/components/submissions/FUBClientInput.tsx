@@ -4,10 +4,17 @@ import { Button } from '@/components/ui/button';
 import { Search } from 'lucide-react';
 import { FUBClientSearch } from '@/components/FUBClientSearch';
 
+export interface FUBClient {
+  id: number;
+  name: string;
+  email?: string;
+  phone?: string;
+}
+
 interface FUBClientInputProps {
   value: string;
   onChange: (value: string) => void;
-  onClientSelect?: (client: { id: number; name: string; email?: string; phone?: string }) => void;
+  onClientSelect?: (client: FUBClient) => void;
   placeholder?: string;
   className?: string;
 }
@@ -19,7 +26,7 @@ export function FUBClientInput({
   placeholder = "Enter client name",
   className 
 }: FUBClientInputProps) {
-  const handleClientSelect = (client: { id: number; name: string; email?: string; phone?: string }) => {
+  const handleClientSelect = (client: FUBClient) => {
     onChange(client.name);
     onClientSelect?.(client);
   };

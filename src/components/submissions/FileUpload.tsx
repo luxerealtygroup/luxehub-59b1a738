@@ -131,3 +131,37 @@ export async function uploadSubmissionFiles(
 
   return uploadedPaths;
 }
+
+// Helper function to copy submission files to client documents library
+export async function copyFilesToClientDocuments(
+  files: File[],
+  filePaths: string[],
+  userId: string,
+  clientName: string,
+  fubPersonId: number | null,
+  documentType: 'Buyer Documents' | 'Listing Documents'
+): Promise<void> {
+  if (!fubPersonId || files.length === 0) return;
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const filePath = filePaths[i];
+    
+    const { error } = await supabase.from('client_documents').insert({
+      title: file.name,
+      file_name: file.name,
+      file_path: filePath,
+      file_size: file.size,
+      file_type: file.type || null,
+      document_type: documentType,
+      client_name: clientName,
+      fub_person_id: fubPersonId,
+      uploaded_by: userId,
+    });
+
+    if (error) {
+      console.error('Error creating client document record:', error);
+      // Don't throw - the file is already uploaded, just log the error
+    }
+  }
+}
