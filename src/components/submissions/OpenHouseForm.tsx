@@ -34,7 +34,7 @@ type FormData = z.infer<typeof formSchema>;
 
 interface OpenHouseFormProps {
   agents: Array<{ id: string; full_name: string | null }>;
-  onSuccess?: () => void;
+  onSuccess?: (data: { property_address: string; agent_name: string; open_house_date: string; open_house_time: string; notes?: string }) => void;
 }
 
 export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
@@ -101,7 +101,13 @@ export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
       toast.success('Open house submission created successfully!');
       form.reset();
       setAttachments([]);
-      onSuccess?.();
+      onSuccess?.({
+        property_address: data.property_address,
+        agent_name: selectedAgent?.full_name || '',
+        open_house_date: data.open_house_date,
+        open_house_time: `${data.open_house_start_time} - ${data.open_house_end_time}`,
+        notes: data.notes,
+      });
     } catch (error: any) {
       console.error('Error submitting form:', error);
       toast.error(error.message || 'Failed to submit form');
