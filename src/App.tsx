@@ -20,6 +20,7 @@ import Reports from "./pages/Reports";
 import AdminReports from "./pages/AdminReports";
 import AgentProfile from "./pages/AgentProfile";
 import Library from "./pages/Library";
+import Submissions from "./pages/Submissions";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -49,6 +50,7 @@ const App = () => (
               <Route path="goals" element={<Goals />} />
               <Route path="411" element={<FourOneOne />} />
               <Route path="reports" element={<Reports />} />
+              <Route path="submissions" element={<Submissions />} />
               <Route path="library" element={<Library />} />
               <Route path="admin" element={<AdminReports />} />
               <Route path="admin/agent/:agentId" element={<AgentProfile />} />

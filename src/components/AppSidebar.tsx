@@ -8,7 +8,8 @@ import {
   ClipboardList,
   FileText,
   Shield,
-  Library
+  Library,
+  SendHorizonal
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/hooks/useAuth';
@@ -31,6 +32,7 @@ import {
 
 const menuItems = [
   { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
+  { title: 'Submissions', url: '/dashboard/submissions', icon: SendHorizonal },
   { title: 'Activities', url: '/dashboard/activities', icon: Phone },
   { title: 'Pipeline', url: '/dashboard/pipeline', icon: Building2 },
   { title: 'Transactions', url: '/dashboard/commissions', icon: DollarSign },
