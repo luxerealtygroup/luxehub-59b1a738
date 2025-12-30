@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { buyerSubmissionTypes } from './submissionOptions';
 import { FileUpload, uploadSubmissionFiles } from './FileUpload';
+import { FUBClientInput } from './FUBClientInput';
 
 const formSchema = z.object({
   submission_type: z.string().min(1, 'Submission type is required'),
@@ -228,7 +229,17 @@ export function BuyerForm({ agents, onSuccess }: BuyerFormProps) {
                 <FormItem>
                   <FormLabel>Client Name *</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter client name" {...field} />
+                    <FUBClientInput
+                      value={field.value}
+                      onChange={field.onChange}
+                      placeholder="Enter or search for client"
+                      onClientSelect={(client) => {
+                        // Auto-fill buyer contact info if available
+                        if (client.email) form.setValue('buyer_emails', client.email);
+                        if (client.phone) form.setValue('buyer_phones', client.phone);
+                        form.setValue('buyer_names', client.name);
+                      }}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
