@@ -42,7 +42,7 @@ type FormData = z.infer<typeof formSchema>;
 
 interface BuyerFormProps {
   agents: Array<{ id: string; full_name: string | null }>;
-  onSuccess?: () => void;
+  onSuccess?: (data: { client_name: string; property_address?: string; purchase_price?: string; closing_date?: string; agent_name: string; lender_name_contact?: string; notes?: string }) => void;
 }
 
 export function BuyerForm({ agents, onSuccess }: BuyerFormProps) {
@@ -160,7 +160,15 @@ export function BuyerForm({ agents, onSuccess }: BuyerFormProps) {
       setIdsFiles([]);
       setFintrackerFiles([]);
       setOtherDocsFiles([]);
-      onSuccess?.();
+      onSuccess?.({
+        client_name: data.client_name,
+        property_address: data.property_address,
+        purchase_price: data.purchase_price,
+        closing_date: data.closing_date,
+        agent_name: selectedAgent?.full_name || '',
+        lender_name_contact: data.lender_name_contact,
+        notes: data.notes,
+      });
     } catch (error: any) {
       console.error('Error submitting form:', error);
       toast.error(error.message || 'Failed to submit form');

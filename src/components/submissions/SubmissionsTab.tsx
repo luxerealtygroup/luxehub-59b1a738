@@ -475,19 +475,19 @@ export function SubmissionsTab() {
 
         <TabsContent value="invoice" className="mt-6">
           <div className="max-w-2xl mx-auto">
-            <InvoiceForm agents={agents} onSuccess={() => { createAsanaTask('invoice', {}); }} />
+            <InvoiceForm agents={agents} onSuccess={(formData) => { createAsanaTask('invoice', formData); }} />
           </div>
         </TabsContent>
 
         <TabsContent value="listing" className="mt-6">
           <div className="max-w-2xl mx-auto">
-            <ListingForm agents={agents} onSuccess={() => { createAsanaTask('listing', {}); }} />
+            <ListingForm agents={agents} onSuccess={(formData) => { createAsanaTask('listing', formData); }} />
           </div>
         </TabsContent>
 
         <TabsContent value="buyer" className="mt-6">
           <div className="max-w-2xl mx-auto">
-            <BuyerForm agents={agents} onSuccess={() => { createAsanaTask('buyer', {}); }} />
+            <BuyerForm agents={agents} onSuccess={(formData) => { createAsanaTask('buyer', formData); }} />
           </div>
         </TabsContent>
       </Tabs>
