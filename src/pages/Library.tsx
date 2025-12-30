@@ -219,6 +219,7 @@ const Library = () => {
   });
   const [selectedAgentForUpload, setSelectedAgentForUpload] = useState<{ id: string; full_name: string } | null>(null);
   const [teamProfiles, setTeamProfiles] = useState<Array<{ id: string; full_name: string | null }>>([]);
+  const [selectedAgentFilter, setSelectedAgentFilter] = useState<string>('all');
 
   // Debounced FUB search for upload dialog
   const searchFubPeople = useCallback(async (query: string) => {
@@ -627,7 +628,8 @@ const Library = () => {
     const matchesSearch = doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       doc.file_name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedAgentCategory === 'all' || doc.category === selectedAgentCategory;
-    return matchesSearch && matchesCategory;
+    const matchesAgent = selectedAgentFilter === 'all' || doc.user_id === selectedAgentFilter;
+    return matchesSearch && matchesCategory && matchesAgent;
   });
 
   if (loading) {
@@ -1518,16 +1520,32 @@ const Library = () => {
         {/* AGENT DOCUMENTS TAB (My Documents) */}
         <TabsContent value="agent" className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-            <div className="flex gap-2 flex-1 w-full sm:w-auto">
-              <div className="relative flex-1">
+            <div className="flex gap-2 flex-1 w-full sm:w-auto flex-wrap">
+              <div className="relative flex-1 min-w-[200px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search my documents..."
+                  placeholder="Search documents..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
                 />
               </div>
+              {isAdmin && (
+                <Select value={selectedAgentFilter} onValueChange={setSelectedAgentFilter}>
+                  <SelectTrigger className="w-44">
+                    <User className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Filter by agent" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Agents</SelectItem>
+                    {teamProfiles.map(profile => (
+                      <SelectItem key={profile.id} value={profile.id}>
+                        {profile.full_name || 'Unknown Agent'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <Select value={selectedAgentCategory} onValueChange={setSelectedAgentCategory}>
                 <SelectTrigger className="w-40">
                   <SelectValue placeholder="Category" />
