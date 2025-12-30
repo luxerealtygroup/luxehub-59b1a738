@@ -29,10 +29,8 @@ import {
   User,
   Loader2,
   FileCheck,
-  Briefcase,
-  ClipboardList
+  Briefcase
 } from 'lucide-react';
-import { SubmissionsTab } from '@/components/submissions/SubmissionsTab';
 import { format } from 'date-fns';
 import { FUBPerson } from '@/lib/api/followUpBoss';
 
@@ -660,9 +658,6 @@ const Library = () => {
           </TabsTrigger>
           <TabsTrigger value="agent" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <Briefcase className="h-4 w-4 mr-2" /> My Documents
-          </TabsTrigger>
-          <TabsTrigger value="submissions" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <ClipboardList className="h-4 w-4 mr-2" /> Submissions
           </TabsTrigger>
         </TabsList>
 
@@ -1769,11 +1764,6 @@ const Library = () => {
               })()}
             </>
           )}
-        </TabsContent>
-
-        {/* SUBMISSIONS TAB */}
-        <TabsContent value="submissions" className="space-y-4">
-          <SubmissionsTab />
         </TabsContent>
       </Tabs>
     </div>
