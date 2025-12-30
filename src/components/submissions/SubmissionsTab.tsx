@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Home, FileText, Building, ShoppingCart, Settings, ExternalLink } from 'lucide-react';
+import { Home, FileText, Building, ShoppingCart, Settings, Check, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { OpenHouseForm } from './OpenHouseForm';
 import { InvoiceForm } from './InvoiceForm';
@@ -19,12 +18,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { Switch } from '@/components/ui/switch';
 
 export function SubmissionsTab() {
   const [agents, setAgents] = useState<Array<{ id: string; full_name: string | null }>>([]);
   const [activeFormTab, setActiveFormTab] = useState('open_house');
-  const [zapierWebhookUrl, setZapierWebhookUrl] = useState('');
+  const [asanaEnabled, setAsanaEnabled] = useState(false);
+  const [asanaProjectId, setAsanaProjectId] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
   useEffect(() => {
     const fetchAgents = async () => {
@@ -40,17 +43,72 @@ export function SubmissionsTab() {
 
     fetchAgents();
 
-    // Load saved webhook URL from localStorage
-    const savedWebhook = localStorage.getItem('asana_zapier_webhook');
-    if (savedWebhook) {
-      setZapierWebhookUrl(savedWebhook);
+    // Load saved Asana settings
+    const savedEnabled = localStorage.getItem('asana_enabled');
+    const savedProjectId = localStorage.getItem('asana_project_id');
+    if (savedEnabled === 'true') {
+      setAsanaEnabled(true);
+    }
+    if (savedProjectId) {
+      setAsanaProjectId(savedProjectId);
     }
   }, []);
 
-  const saveWebhookUrl = () => {
-    localStorage.setItem('asana_zapier_webhook', zapierWebhookUrl);
-    toast.success('Zapier webhook URL saved!');
+  const saveAsanaSettings = () => {
+    localStorage.setItem('asana_enabled', asanaEnabled.toString());
+    localStorage.setItem('asana_project_id', asanaProjectId);
+    toast.success('Asana settings saved!');
     setSettingsOpen(false);
+  };
+
+  const testConnection = async () => {
+    setTestingConnection(true);
+    setConnectionStatus('idle');
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('asana-create-task', {
+        body: {
+          form_type: 'test',
+          client_name: 'Connection Test',
+          notes: 'This is a test task to verify Asana connection',
+          project_id: asanaProjectId || undefined,
+        },
+      });
+
+      if (error) throw error;
+      
+      setConnectionStatus('success');
+      toast.success('Asana connection successful! Test task created.');
+    } catch (error) {
+      console.error('Asana connection test failed:', error);
+      setConnectionStatus('error');
+      toast.error('Failed to connect to Asana. Please check your access token.');
+    } finally {
+      setTestingConnection(false);
+    }
+  };
+
+  const createAsanaTask = async (formType: string, data: any) => {
+    if (!asanaEnabled) return;
+
+    try {
+      const { error } = await supabase.functions.invoke('asana-create-task', {
+        body: {
+          form_type: formType,
+          property_address: data.property_address,
+          client_name: data.client_name,
+          agent_name: data.agent_name,
+          notes: data.notes,
+          project_id: asanaProjectId || undefined,
+        },
+      });
+
+      if (error) throw error;
+      toast.success('Asana task created!');
+    } catch (error) {
+      console.error('Failed to create Asana task:', error);
+      toast.error('Failed to create Asana task');
+    }
   };
 
   return (
@@ -60,47 +118,66 @@ export function SubmissionsTab() {
           <DialogTrigger asChild>
             <Button variant="outline" size="sm">
               <Settings className="h-4 w-4 mr-2" />
-              Connect to Asana
+              {asanaEnabled ? (
+                <>
+                  <Check className="h-3 w-3 mr-1 text-green-500" />
+                  Asana Connected
+                </>
+              ) : (
+                'Connect to Asana'
+              )}
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Connect to Asana via Zapier</DialogTitle>
+              <DialogTitle>Asana Integration</DialogTitle>
               <DialogDescription>
-                To automatically create Asana tasks from submissions, set up a Zapier integration.
+                Automatically create Asana tasks when submissions are made.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 pt-4">
-              <div className="space-y-2">
-                <Label>How to set up:</Label>
-                <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
-                  <li>Go to <a href="https://zapier.com" target="_blank" rel="noopener noreferrer" className="text-primary underline">Zapier.com</a> and create an account</li>
-                  <li>Create a new Zap with "Webhooks by Zapier" as the trigger</li>
-                  <li>Choose "Catch Hook" as the trigger event</li>
-                  <li>Copy the webhook URL Zapier gives you</li>
-                  <li>Add "Asana" as the action and choose "Create Task"</li>
-                  <li>Map the submission fields to your Asana task</li>
-                  <li>Paste the webhook URL below</li>
-                </ol>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="webhook">Zapier Webhook URL</Label>
-                <Input
-                  id="webhook"
-                  placeholder="https://hooks.zapier.com/hooks/catch/..."
-                  value={zapierWebhookUrl}
-                  onChange={(e) => setZapierWebhookUrl(e.target.value)}
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Enable Asana Integration</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Create tasks automatically on submission
+                  </p>
+                </div>
+                <Switch
+                  checked={asanaEnabled}
+                  onCheckedChange={setAsanaEnabled}
                 />
               </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="projectId">Asana Project ID (Optional)</Label>
+                <Input
+                  id="projectId"
+                  placeholder="1234567890123456"
+                  value={asanaProjectId}
+                  onChange={(e) => setAsanaProjectId(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Find this in your Asana project URL: asana.com/0/[PROJECT_ID]/...
+                </p>
+              </div>
+
               <div className="flex gap-2">
-                <Button onClick={saveWebhookUrl} className="flex-1">
-                  Save Webhook URL
+                <Button onClick={saveAsanaSettings} className="flex-1">
+                  Save Settings
                 </Button>
-                <Button variant="outline" asChild>
-                  <a href="https://zapier.com/apps/asana/integrations/webhook" target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    View Guide
-                  </a>
+                <Button 
+                  variant="outline" 
+                  onClick={testConnection}
+                  disabled={testingConnection}
+                >
+                  {testingConnection ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : connectionStatus === 'success' ? (
+                    <Check className="h-4 w-4 text-green-500" />
+                  ) : (
+                    'Test Connection'
+                  )}
                 </Button>
               </div>
             </div>
@@ -130,49 +207,28 @@ export function SubmissionsTab() {
 
         <TabsContent value="open_house" className="mt-6">
           <div className="max-w-2xl mx-auto">
-            <OpenHouseForm agents={agents} onSuccess={() => triggerZapier('open_house')} />
+            <OpenHouseForm agents={agents} onSuccess={() => { createAsanaTask('open_house', {}); }} />
           </div>
         </TabsContent>
 
         <TabsContent value="invoice" className="mt-6">
           <div className="max-w-2xl mx-auto">
-            <InvoiceForm agents={agents} onSuccess={() => triggerZapier('invoice')} />
+            <InvoiceForm agents={agents} onSuccess={() => { createAsanaTask('invoice', {}); }} />
           </div>
         </TabsContent>
 
         <TabsContent value="listing" className="mt-6">
           <div className="max-w-2xl mx-auto">
-            <ListingForm agents={agents} onSuccess={() => triggerZapier('listing')} />
+            <ListingForm agents={agents} onSuccess={() => { createAsanaTask('listing', {}); }} />
           </div>
         </TabsContent>
 
         <TabsContent value="buyer" className="mt-6">
           <div className="max-w-2xl mx-auto">
-            <BuyerForm agents={agents} onSuccess={() => triggerZapier('buyer')} />
+            <BuyerForm agents={agents} onSuccess={() => { createAsanaTask('buyer', {}); }} />
           </div>
         </TabsContent>
       </Tabs>
     </div>
   );
-
-  async function triggerZapier(formType: string) {
-    const webhookUrl = localStorage.getItem('asana_zapier_webhook');
-    if (!webhookUrl) return;
-
-    try {
-      await fetch(webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        mode: 'no-cors',
-        body: JSON.stringify({
-          form_type: formType,
-          timestamp: new Date().toISOString(),
-          source: 'RealtyHub Submissions',
-        }),
-      });
-      console.log('Zapier webhook triggered for:', formType);
-    } catch (error) {
-      console.error('Failed to trigger Zapier webhook:', error);
-    }
-  }
 }
