@@ -643,7 +643,10 @@ export type Database = {
           closing_date: string | null
           created_at: string
           door_knockers: boolean | null
+          door_knockers_needed: string | null
+          door_knockers_quantity: string | null
           feature_sheets: boolean | null
+          feature_sheets_needed: string | null
           form_type: string
           id: string
           invoice_amount: number | null
@@ -660,6 +663,8 @@ export type Database = {
           photography_package: string | null
           property_address: string | null
           purchase_price: number | null
+          second_date: string | null
+          second_time: string | null
           seller_emails: string | null
           seller_names: string | null
           seller_phones: string | null
@@ -681,7 +686,10 @@ export type Database = {
           closing_date?: string | null
           created_at?: string
           door_knockers?: boolean | null
+          door_knockers_needed?: string | null
+          door_knockers_quantity?: string | null
           feature_sheets?: boolean | null
+          feature_sheets_needed?: string | null
           form_type: string
           id?: string
           invoice_amount?: number | null
@@ -698,6 +706,8 @@ export type Database = {
           photography_package?: string | null
           property_address?: string | null
           purchase_price?: number | null
+          second_date?: string | null
+          second_time?: string | null
           seller_emails?: string | null
           seller_names?: string | null
           seller_phones?: string | null
@@ -719,7 +729,10 @@ export type Database = {
           closing_date?: string | null
           created_at?: string
           door_knockers?: boolean | null
+          door_knockers_needed?: string | null
+          door_knockers_quantity?: string | null
           feature_sheets?: boolean | null
+          feature_sheets_needed?: string | null
           form_type?: string
           id?: string
           invoice_amount?: number | null
@@ -736,6 +749,8 @@ export type Database = {
           photography_package?: string | null
           property_address?: string | null
           purchase_price?: number | null
+          second_date?: string | null
+          second_time?: string | null
           seller_emails?: string | null
           seller_names?: string | null
           seller_phones?: string | null
