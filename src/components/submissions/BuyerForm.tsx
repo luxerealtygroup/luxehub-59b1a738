@@ -17,17 +17,22 @@ import { buyerSubmissionTypes } from './submissionOptions';
 import { FileUpload, uploadSubmissionFiles } from './FileUpload';
 
 const formSchema = z.object({
-  agent_id: z.string().min(1, 'Agent is required'),
   submission_type: z.string().min(1, 'Submission type is required'),
-  buyer_names: z.string().min(1, 'Buyer name(s) required'),
-  buyer_emails: z.string().optional(),
-  buyer_phones: z.string().optional(),
-  property_address: z.string().min(1, 'Property address is required'),
+  agent_id: z.string().min(1, 'Agent is required'),
+  client_name: z.string().min(1, 'Client name is required'),
   lender_name_contact: z.string().optional(),
-  purchase_price: z.string().min(1, 'Purchase price is required'),
-  closing_date: z.string().min(1, 'Closing date is required'),
-  client_occupation: z.string().optional(),
+  closing_date: z.string().optional(),
+  condition_due_sbp: z.string().optional(),
+  condition_due_financing: z.string().optional(),
+  condition_due_status: z.string().optional(),
+  condition_due_home_inspection: z.string().optional(),
+  condition_due_other: z.string().optional(),
+  condition_other_description: z.string().optional(),
   notes: z.string().optional(),
+  client_occupation: z.string().optional(),
+  firm_price: z.string().optional(),
+  conditional_price: z.string().optional(),
+  cooperating_commission: z.string().optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -40,24 +45,34 @@ interface BuyerFormProps {
 export function BuyerForm({ agents, onSuccess }: BuyerFormProps) {
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [attachments, setAttachments] = useState<File[]>([]);
+  const [braRecoFiles, setBraRecoFiles] = useState<File[]>([]);
+  const [idsFiles, setIdsFiles] = useState<File[]>([]);
+  const [fintrackerFiles, setFintrackerFiles] = useState<File[]>([]);
+  const [otherDocsFiles, setOtherDocsFiles] = useState<File[]>([]);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      agent_id: '',
       submission_type: '',
-      buyer_names: '',
-      buyer_emails: '',
-      buyer_phones: '',
-      property_address: '',
+      agent_id: '',
+      client_name: '',
       lender_name_contact: '',
-      purchase_price: '',
       closing_date: '',
-      client_occupation: '',
+      condition_due_sbp: '',
+      condition_due_financing: '',
+      condition_due_status: '',
+      condition_due_home_inspection: '',
+      condition_due_other: '',
+      condition_other_description: '',
       notes: '',
+      client_occupation: '',
+      firm_price: '',
+      conditional_price: '',
+      cooperating_commission: '',
     },
   });
+
+  const conditionDueOther = form.watch('condition_due_other');
 
   const onSubmit = async (data: FormData) => {
     if (!user) {
@@ -67,10 +82,23 @@ export function BuyerForm({ agents, onSuccess }: BuyerFormProps) {
 
     setIsSubmitting(true);
     try {
-      // Upload attachments first
-      let attachmentPaths: string[] = [];
-      if (attachments.length > 0) {
-        attachmentPaths = await uploadSubmissionFiles(attachments, user.id, 'buyer');
+      // Upload all file categories
+      let braRecoPaths: string[] = [];
+      let idsPaths: string[] = [];
+      let fintrackerPaths: string[] = [];
+      let otherDocsPaths: string[] = [];
+
+      if (braRecoFiles.length > 0) {
+        braRecoPaths = await uploadSubmissionFiles(braRecoFiles, user.id, 'buyer/bra_reco');
+      }
+      if (idsFiles.length > 0) {
+        idsPaths = await uploadSubmissionFiles(idsFiles, user.id, 'buyer/ids');
+      }
+      if (fintrackerFiles.length > 0) {
+        fintrackerPaths = await uploadSubmissionFiles(fintrackerFiles, user.id, 'buyer/fintracker');
+      }
+      if (otherDocsFiles.length > 0) {
+        otherDocsPaths = await uploadSubmissionFiles(otherDocsFiles, user.id, 'buyer/other_docs');
       }
 
       const selectedAgent = agents.find(a => a.id === data.agent_id);
@@ -80,23 +108,34 @@ export function BuyerForm({ agents, onSuccess }: BuyerFormProps) {
         user_id: user.id,
         agent_name: selectedAgent?.full_name || '',
         submission_type: data.submission_type,
-        buyer_names: data.buyer_names,
-        buyer_emails: data.buyer_emails || null,
-        buyer_phones: data.buyer_phones || null,
-        property_address: data.property_address,
+        client_name: data.client_name,
         lender_name_contact: data.lender_name_contact || null,
-        purchase_price: parseFloat(data.purchase_price),
-        closing_date: data.closing_date,
-        client_occupation: data.client_occupation || null,
+        closing_date: data.closing_date || null,
+        condition_due_sbp: data.condition_due_sbp || null,
+        condition_due_financing: data.condition_due_financing || null,
+        condition_due_status: data.condition_due_status || null,
+        condition_due_home_inspection: data.condition_due_home_inspection || null,
+        condition_due_other: data.condition_due_other || null,
+        condition_other_description: data.condition_other_description || null,
         notes: data.notes || null,
-        attachments: attachmentPaths,
+        client_occupation: data.client_occupation || null,
+        firm_price: data.firm_price ? parseFloat(data.firm_price) : null,
+        conditional_price: data.conditional_price ? parseFloat(data.conditional_price) : null,
+        cooperating_commission: data.cooperating_commission || null,
+        bra_reco_files: braRecoPaths,
+        ids_files: idsPaths,
+        fintracker_files: fintrackerPaths,
+        other_docs_files: otherDocsPaths,
       });
 
       if (error) throw error;
 
       toast.success('Buyer submission created successfully!');
       form.reset();
-      setAttachments([]);
+      setBraRecoFiles([]);
+      setIdsFiles([]);
+      setFintrackerFiles([]);
+      setOtherDocsFiles([]);
       onSuccess?.();
     } catch (error: any) {
       console.error('Error submitting form:', error);
@@ -109,38 +148,13 @@ export function BuyerForm({ agents, onSuccess }: BuyerFormProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Buyer Submission</CardTitle>
-        <CardDescription>Submit buyer transaction details</CardDescription>
+        <CardTitle>Buyers</CardTitle>
+        <CardDescription>when a buyer is purchasing a home with us</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="agent_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Agent *</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select agent..." />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {agents.map((agent) => (
-                          <SelectItem key={agent.id} value={agent.id}>
-                            {agent.full_name || 'Unknown'}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
               <FormField
                 control={form.control}
                 name="submission_type"
@@ -165,46 +179,27 @@ export function BuyerForm({ agents, onSuccess }: BuyerFormProps) {
                   </FormItem>
                 )}
               />
-            </div>
-
-            <FormField
-              control={form.control}
-              name="buyer_names"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Buyer Name(s) *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Enter buyer name(s)" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="buyer_emails"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Buyer Email(s)</FormLabel>
-                    <FormControl>
-                      <Input type="email" placeholder="Enter email(s)" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
 
               <FormField
                 control={form.control}
-                name="buyer_phones"
+                name="agent_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Buyer Phone(s)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter phone number(s)" {...field} />
-                    </FormControl>
+                    <FormLabel>Agent Name *</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose one..." />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {agents.map((agent) => (
+                          <SelectItem key={agent.id} value={agent.id}>
+                            {agent.full_name || 'Unknown'}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -213,12 +208,12 @@ export function BuyerForm({ agents, onSuccess }: BuyerFormProps) {
 
             <FormField
               control={form.control}
-              name="property_address"
+              name="client_name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Property Address *</FormLabel>
+                  <FormLabel>Client Name *</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter property address" {...field} />
+                    <Input placeholder="Enter client name" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -239,27 +234,90 @@ export function BuyerForm({ agents, onSuccess }: BuyerFormProps) {
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="purchase_price"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Purchase Price *</FormLabel>
-                    <FormControl>
-                      <Input type="number" step="0.01" placeholder="0.00" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <FormField
+              control={form.control}
+              name="closing_date"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Closing Date</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Condition Due Dates Section */}
+            <div className="border rounded-lg p-4 space-y-4 bg-muted/30">
+              <h4 className="font-medium text-sm">Condition Due Dates</h4>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="condition_due_sbp"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Condition Due - SBP</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="condition_due_financing"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Condition Due - Financing</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="condition_due_status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Condition Due - Status</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="condition_due_home_inspection"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Condition Due - Home Inspection</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <FormField
                 control={form.control}
-                name="closing_date"
+                name="condition_due_other"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Closing Date *</FormLabel>
+                    <FormLabel>Condition Due - Other</FormLabel>
                     <FormControl>
                       <Input type="date" {...field} />
                     </FormControl>
@@ -267,7 +325,37 @@ export function BuyerForm({ agents, onSuccess }: BuyerFormProps) {
                   </FormItem>
                 )}
               />
+
+              {conditionDueOther && (
+                <FormField
+                  control={form.control}
+                  name="condition_other_description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>If Other - Input Here</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Describe the other condition" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
             </div>
+
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Notes</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="Enter your answer" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}
@@ -283,28 +371,76 @@ export function BuyerForm({ agents, onSuccess }: BuyerFormProps) {
               )}
             />
 
-            <div className="space-y-2">
-              <Label>Attachments (Contracts, documents, etc.)</Label>
-              <FileUpload files={attachments} setFiles={setAttachments} />
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="firm_price"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Firm Price</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" placeholder="0.00" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="conditional_price"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Conditional Price</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" placeholder="0.00" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
 
             <FormField
               control={form.control}
-              name="notes"
+              name="cooperating_commission"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Additional Notes</FormLabel>
+                  <FormLabel>Cooperating Commission</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Any additional notes..." {...field} />
+                    <Input placeholder="Enter cooperating commission" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
+            {/* File Upload Sections */}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>BRA/RECO GUIDE</Label>
+                <FileUpload files={braRecoFiles} setFiles={setBraRecoFiles} />
+              </div>
+
+              <div className="space-y-2">
+                <Label>I.DS</Label>
+                <FileUpload files={idsFiles} setFiles={setIdsFiles} />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Completed Fintracker</Label>
+                <FileUpload files={fintrackerFiles} setFiles={setFintrackerFiles} />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Other Docs (Amendments etc.)</Label>
+                <FileUpload files={otherDocsFiles} setFiles={setOtherDocsFiles} />
+              </div>
+            </div>
+
             <Button type="submit" disabled={isSubmitting} className="w-full">
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Submit Buyer
+              Submit
             </Button>
           </form>
         </Form>

@@ -636,20 +636,32 @@ export type Database = {
         Row: {
           agent_name: string | null
           attachments: Json | null
+          bra_reco_files: Json | null
           buyer_emails: string | null
           buyer_names: string | null
           buyer_phones: string | null
           client_name: string | null
           client_occupation: string | null
           closing_date: string | null
+          condition_due_financing: string | null
+          condition_due_home_inspection: string | null
+          condition_due_other: string | null
+          condition_due_sbp: string | null
+          condition_due_status: string | null
+          condition_other_description: string | null
+          conditional_price: number | null
+          cooperating_commission: string | null
           created_at: string
           door_knockers: boolean | null
           door_knockers_needed: string | null
           door_knockers_quantity: string | null
           feature_sheets: boolean | null
           feature_sheets_needed: string | null
+          fintracker_files: Json | null
+          firm_price: number | null
           form_type: string
           id: string
+          ids_files: Json | null
           invoice_amount: number | null
           invoice_date: string | null
           invoice_file_path: string | null
@@ -661,6 +673,7 @@ export type Database = {
           occupancy: string | null
           open_house_date: string | null
           open_house_time: string | null
+          other_docs_files: Json | null
           photography_package: string | null
           property_address: string | null
           purchase_price: number | null
@@ -680,20 +693,32 @@ export type Database = {
         Insert: {
           agent_name?: string | null
           attachments?: Json | null
+          bra_reco_files?: Json | null
           buyer_emails?: string | null
           buyer_names?: string | null
           buyer_phones?: string | null
           client_name?: string | null
           client_occupation?: string | null
           closing_date?: string | null
+          condition_due_financing?: string | null
+          condition_due_home_inspection?: string | null
+          condition_due_other?: string | null
+          condition_due_sbp?: string | null
+          condition_due_status?: string | null
+          condition_other_description?: string | null
+          conditional_price?: number | null
+          cooperating_commission?: string | null
           created_at?: string
           door_knockers?: boolean | null
           door_knockers_needed?: string | null
           door_knockers_quantity?: string | null
           feature_sheets?: boolean | null
           feature_sheets_needed?: string | null
+          fintracker_files?: Json | null
+          firm_price?: number | null
           form_type: string
           id?: string
+          ids_files?: Json | null
           invoice_amount?: number | null
           invoice_date?: string | null
           invoice_file_path?: string | null
@@ -705,6 +730,7 @@ export type Database = {
           occupancy?: string | null
           open_house_date?: string | null
           open_house_time?: string | null
+          other_docs_files?: Json | null
           photography_package?: string | null
           property_address?: string | null
           purchase_price?: number | null
@@ -724,20 +750,32 @@ export type Database = {
         Update: {
           agent_name?: string | null
           attachments?: Json | null
+          bra_reco_files?: Json | null
           buyer_emails?: string | null
           buyer_names?: string | null
           buyer_phones?: string | null
           client_name?: string | null
           client_occupation?: string | null
           closing_date?: string | null
+          condition_due_financing?: string | null
+          condition_due_home_inspection?: string | null
+          condition_due_other?: string | null
+          condition_due_sbp?: string | null
+          condition_due_status?: string | null
+          condition_other_description?: string | null
+          conditional_price?: number | null
+          cooperating_commission?: string | null
           created_at?: string
           door_knockers?: boolean | null
           door_knockers_needed?: string | null
           door_knockers_quantity?: string | null
           feature_sheets?: boolean | null
           feature_sheets_needed?: string | null
+          fintracker_files?: Json | null
+          firm_price?: number | null
           form_type?: string
           id?: string
+          ids_files?: Json | null
           invoice_amount?: number | null
           invoice_date?: string | null
           invoice_file_path?: string | null
@@ -749,6 +787,7 @@ export type Database = {
           occupancy?: string | null
           open_house_date?: string | null
           open_house_time?: string | null
+          other_docs_files?: Json | null
           photography_package?: string | null
           property_address?: string | null
           purchase_price?: number | null
