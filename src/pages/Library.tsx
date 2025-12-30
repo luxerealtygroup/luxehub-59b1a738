@@ -217,6 +217,8 @@ const Library = () => {
     category: 'general',
     file: null as File | null,
   });
+  const [selectedAgentForUpload, setSelectedAgentForUpload] = useState<{ id: string; full_name: string } | null>(null);
+  const [teamProfiles, setTeamProfiles] = useState<Array<{ id: string; full_name: string | null }>>([]);
 
   // Debounced FUB search for upload dialog
   const searchFubPeople = useCallback(async (query: string) => {
@@ -279,8 +281,19 @@ const Library = () => {
   useEffect(() => {
     if (user) {
       fetchDocuments();
+      if (isAdmin) {
+        fetchTeamProfiles();
+      }
     }
-  }, [user]);
+  }, [user, isAdmin]);
+
+  const fetchTeamProfiles = async () => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .order('full_name', { ascending: true });
+    setTeamProfiles(data || []);
+  };
 
   const fetchDocuments = async () => {
     if (!user) return;
