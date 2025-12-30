@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Building2, Phone, DollarSign, Target, Users, Search, Loader2, TrendingUp, Flame, Award, ArrowUp, CheckCircle, Clock } from 'lucide-react';
+import { Building2, Phone, DollarSign, Target, Users, Search, Loader2, TrendingUp, Flame, Award, ArrowUp, CheckCircle, Clock, FileText, Briefcase, Calendar } from 'lucide-react';
 import { FUBClientSearch } from '@/components/FUBClientSearch';
 import { followUpBossApi, FUBPerson } from '@/lib/api/followUpBoss';
 import GoogleCalendarWidget from '@/components/GoogleCalendarWidget';
@@ -336,7 +336,32 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
-      {/* Daily Motivation Quote - TOP */}
+      {/* Quick Actions - TOP */}
+      <Card className="border-gold/20 bg-gradient-to-br from-card to-gold/5">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-gold font-display">Quick Actions</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <a href="/dashboard/submissions" className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center group">
+            <FileText className="h-6 w-6 mx-auto text-gold mb-2 group-hover:scale-110 transition-transform" />
+            <span className="text-sm text-foreground font-medium">Submit Documents</span>
+          </a>
+          <a href="/dashboard/pipeline" className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center group">
+            <Users className="h-6 w-6 mx-auto text-gold mb-2 group-hover:scale-110 transition-transform" />
+            <span className="text-sm text-foreground font-medium">View Pipeline</span>
+          </a>
+          <a href="/dashboard/commissions" className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center group">
+            <Briefcase className="h-6 w-6 mx-auto text-gold mb-2 group-hover:scale-110 transition-transform" />
+            <span className="text-sm text-foreground font-medium">Transaction Management</span>
+          </a>
+          <a href="/dashboard/411" className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center group">
+            <Calendar className="h-6 w-6 mx-auto text-gold mb-2 group-hover:scale-110 transition-transform" />
+            <span className="text-sm text-foreground font-medium">4-1-1</span>
+          </a>
+        </CardContent>
+      </Card>
+
+      {/* Daily Motivation Quote */}
       <Card className="border-gold/10 bg-gradient-to-br from-card to-gold/5">
         <CardHeader className="pb-2">
           <CardTitle className="text-gold font-display flex items-center gap-2">
@@ -356,7 +381,7 @@ const Dashboard = () => {
         </CardContent>
       </Card>
 
-      {/* Combined Progress Rings - SECOND */}
+      {/* Combined Progress Rings */}
       <Card className="border-gold/20 bg-gradient-to-br from-card via-card to-gold/5">
         <CardContent className="p-6">
           <div className="flex flex-col md:flex-row items-center justify-around gap-8">
@@ -379,31 +404,6 @@ const Dashboard = () => {
               <p className="text-xs text-muted-foreground">${(stats.totalCommissions + stats.pendingCommissions).toLocaleString()} total</p>
             </div>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Quick Actions - THIRD */}
-      <Card className="border-gold/10 bg-card/50">
-        <CardHeader>
-          <CardTitle className="text-gold font-display">Quick Actions</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <a href="/dashboard/activities" className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center group">
-            <Phone className="h-6 w-6 mx-auto text-gold mb-2 group-hover:scale-110 transition-transform" />
-            <span className="text-sm text-foreground">Log Activity</span>
-          </a>
-          <a href="/dashboard/pipeline" className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center group">
-            <Users className="h-6 w-6 mx-auto text-gold mb-2 group-hover:scale-110 transition-transform" />
-            <span className="text-sm text-foreground">View Pipeline</span>
-          </a>
-          <a href="/dashboard/commissions" className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center group">
-            <DollarSign className="h-6 w-6 mx-auto text-gold mb-2 group-hover:scale-110 transition-transform" />
-            <span className="text-sm text-foreground">Commissions</span>
-          </a>
-          <a href="/dashboard/goals" className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center group">
-            <Target className="h-6 w-6 mx-auto text-gold mb-2 group-hover:scale-110 transition-transform" />
-            <span className="text-sm text-foreground">Set Goals</span>
-          </a>
         </CardContent>
       </Card>
 
