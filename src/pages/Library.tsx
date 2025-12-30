@@ -92,6 +92,7 @@ interface AgentDocument {
 const agentFolders = [
   { value: 'contracts', label: 'Contracts' },
   { value: 'marketing', label: 'Marketing' },
+  { value: 'coaching', label: 'Coaching' },
   { value: 'other', label: 'Other' },
 ];
 
