@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,6 +25,7 @@ const formSchema = z.object({
   open_house_time: z.string().min(1, 'Time is required'),
   second_date: z.string().optional(),
   second_time: z.string().optional(),
+  notes: z.string().optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -50,6 +52,7 @@ export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
       open_house_time: '',
       second_date: '',
       second_time: '',
+      notes: '',
     },
   });
 
@@ -83,6 +86,7 @@ export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
         open_house_time: data.open_house_time,
         second_date: data.second_date || null,
         second_time: data.second_time || null,
+        notes: data.notes || null,
         attachments: attachmentPaths,
       });
 
@@ -267,6 +271,20 @@ export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Notes</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="Any additional notes..." {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <div className="space-y-2">
               <Label>Attachments</Label>
