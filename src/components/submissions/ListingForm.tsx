@@ -39,7 +39,7 @@ type FormData = z.infer<typeof formSchema>;
 
 interface ListingFormProps {
   agents: Array<{ id: string; full_name: string | null }>;
-  onSuccess?: () => void;
+  onSuccess?: (data: { property_address: string; seller_names: string; list_price: string; listing_date: string; agent_name: string; notes?: string }) => void;
 }
 
 export function ListingForm({ agents, onSuccess }: ListingFormProps) {
@@ -122,7 +122,14 @@ export function ListingForm({ agents, onSuccess }: ListingFormProps) {
       form.reset();
       setSelectedFubClient(null);
       setAttachments([]);
-      onSuccess?.();
+      onSuccess?.({
+        property_address: data.property_address,
+        seller_names: data.seller_names,
+        list_price: data.list_price,
+        listing_date: data.listing_date,
+        agent_name: selectedAgent?.full_name || '',
+        notes: data.notes,
+      });
     } catch (error: any) {
       console.error('Error submitting form:', error);
       toast.error(error.message || 'Failed to submit form');

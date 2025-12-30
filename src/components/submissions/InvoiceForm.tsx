@@ -30,7 +30,7 @@ type FormData = z.infer<typeof formSchema>;
 
 interface InvoiceFormProps {
   agents: Array<{ id: string; full_name: string | null }>;
-  onSuccess?: () => void;
+  onSuccess?: (data: { vendor_name: string; vendor_type: string; invoice_amount: string; property_address?: string; agent_name: string; notes?: string }) => void;
 }
 
 export function InvoiceForm({ agents, onSuccess }: InvoiceFormProps) {
@@ -85,7 +85,14 @@ export function InvoiceForm({ agents, onSuccess }: InvoiceFormProps) {
       toast.success('Invoice submission created successfully!');
       form.reset();
       setAttachments([]);
-      onSuccess?.();
+      onSuccess?.({
+        vendor_name: data.vendor_name,
+        vendor_type: data.vendor_type,
+        invoice_amount: data.invoice_amount,
+        property_address: data.property_address,
+        agent_name: selectedAgent?.full_name || '',
+        notes: data.notes,
+      });
     } catch (error: any) {
       console.error('Error submitting form:', error);
       toast.error(error.message || 'Failed to submit form');
