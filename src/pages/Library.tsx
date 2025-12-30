@@ -188,10 +188,10 @@ const Library = () => {
     folder: string;
   }>>([]);
   
-  // FUB person search (for upload dialog)
+  // FUB person search (for upload dialog) - now supports multiple clients
   const [fubSearchQuery, setFubSearchQuery] = useState('');
   const [fubSearchResults, setFubSearchResults] = useState<FUBPerson[]>([]);
-  const [selectedFubPerson, setSelectedFubPerson] = useState<FUBPerson | null>(null);
+  const [selectedFubPeople, setSelectedFubPeople] = useState<FUBPerson[]>([]);
   const [fubSearching, setFubSearching] = useState(false);
   
   // Client filter for viewing documents
@@ -352,38 +352,51 @@ const Library = () => {
   };
 
   const uploadClientDoc = async () => {
-    if (!user || !clientForm.file || !selectedFubPerson) return;
+    if (!user || !clientForm.file || selectedFubPeople.length === 0) return;
     setUploading(true);
     
     try {
       const file = clientForm.file;
       const filePath = `${user.id}/${Date.now()}_${sanitizeFileName(file.name)}`;
       
+      // Upload file once
       const { error: uploadError } = await supabase.storage
         .from('client-documents')
         .upload(filePath, file);
       
       if (uploadError) throw uploadError;
       
-      const { error: dbError } = await supabase.from('client_documents').insert({
-        title: clientForm.title,
-        description: clientForm.description || null,
-        file_path: filePath,
-        file_name: file.name,
-        file_type: file.type,
-        file_size: file.size,
-        client_name: selectedFubPerson.name,
-        document_type: clientForm.document_type,
-        uploaded_by: user.id,
-        fub_person_id: selectedFubPerson.id,
+      // Create a record for each selected client
+      const insertPromises = selectedFubPeople.map(person => 
+        supabase.from('client_documents').insert({
+          title: clientForm.title,
+          description: clientForm.description || null,
+          file_path: filePath,
+          file_name: file.name,
+          file_type: file.type,
+          file_size: file.size,
+          client_name: person.name,
+          document_type: clientForm.document_type,
+          uploaded_by: user.id,
+          fub_person_id: person.id,
+        })
+      );
+      
+      const results = await Promise.all(insertPromises);
+      const errors = results.filter(r => r.error);
+      
+      if (errors.length > 0) {
+        console.error('Some client records failed:', errors);
+      }
+      
+      const clientNames = selectedFubPeople.map(p => p.name).join(', ');
+      toast({ 
+        title: 'Success', 
+        description: `Document uploaded for ${selectedFubPeople.length > 1 ? 'clients' : 'client'}: ${clientNames}` 
       });
-      
-      if (dbError) throw dbError;
-      
-      toast({ title: 'Success', description: 'Client document uploaded!' });
       setClientDialogOpen(false);
       setClientForm({ title: '', description: '', document_type: 'listing', file: null });
-      setSelectedFubPerson(null);
+      setSelectedFubPeople([]);
       setFubSearchQuery('');
       setFubSearchResults([]);
       fetchDocuments();
@@ -395,7 +408,7 @@ const Library = () => {
   };
 
   const uploadBulkClientDocs = async () => {
-    if (!user || bulkFiles.length === 0 || !selectedFubPerson) return;
+    if (!user || bulkFiles.length === 0 || selectedFubPeople.length === 0) return;
     setUploading(true);
     
     try {
@@ -415,20 +428,23 @@ const Library = () => {
           // Use filename without extension as title
           const titleFromName = item.file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
           
-          const { error: dbError } = await supabase.from('client_documents').insert({
-            title: titleFromName,
-            description: null,
-            file_path: filePath,
-            file_name: item.file.name,
-            file_type: item.file.type,
-            file_size: item.file.size,
-            client_name: selectedFubPerson.name,
-            document_type: item.folder,
-            uploaded_by: user.id,
-            fub_person_id: selectedFubPerson.id,
-          });
-          
-          if (dbError) throw dbError;
+          // Create records for each selected client
+          for (const person of selectedFubPeople) {
+            const { error: dbError } = await supabase.from('client_documents').insert({
+              title: titleFromName,
+              description: null,
+              file_path: filePath,
+              file_name: item.file.name,
+              file_type: item.file.type,
+              file_size: item.file.size,
+              client_name: person.name,
+              document_type: item.folder,
+              uploaded_by: user.id,
+              fub_person_id: person.id,
+            });
+            
+            if (dbError) throw dbError;
+          }
           successCount++;
         } catch (e) {
           console.error('Failed to upload:', item.file.name, e);
@@ -437,9 +453,10 @@ const Library = () => {
       }
       
       if (successCount > 0) {
+        const clientCount = selectedFubPeople.length;
         toast({ 
           title: 'Upload Complete', 
-          description: `${successCount} document${successCount > 1 ? 's' : ''} uploaded${errorCount > 0 ? `, ${errorCount} failed` : ''}!` 
+          description: `${successCount} document${successCount > 1 ? 's' : ''} uploaded for ${clientCount} client${clientCount > 1 ? 's' : ''}${errorCount > 0 ? `, ${errorCount} failed` : ''}!` 
         });
       }
       if (errorCount > 0 && successCount === 0) {
@@ -448,7 +465,7 @@ const Library = () => {
       
       setBulkDialogOpen(false);
       setBulkFiles([]);
-      setSelectedFubPerson(null);
+      setSelectedFubPeople([]);
       fetchDocuments();
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -898,8 +915,13 @@ const Library = () => {
             <Dialog open={clientDialogOpen} onOpenChange={(open) => {
               setClientDialogOpen(open);
               // Pre-select the filtered client when opening the dialog
-              if (open && selectedClientFilter && !selectedFubPerson) {
-                setSelectedFubPerson(selectedClientFilter);
+              if (open && selectedClientFilter && selectedFubPeople.length === 0) {
+                setSelectedFubPeople([selectedClientFilter]);
+              }
+              if (!open) {
+                setSelectedFubPeople([]);
+                setFubSearchQuery('');
+                setFubSearchResults([]);
               }
             }}>
               <DialogTrigger asChild>
@@ -921,51 +943,55 @@ const Library = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>FUB Client *</Label>
-                    {selectedFubPerson ? (
-                      <div className="flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
-                        <User className="h-5 w-5 text-green-600" />
-                        <div className="flex-1">
-                          <p className="font-medium text-sm">{selectedFubPerson.name}</p>
-                          {selectedFubPerson.emails?.[0] && (
-                            <p className="text-xs text-muted-foreground">{selectedFubPerson.emails[0].value}</p>
-                          )}
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedFubPerson(null);
-                            setFubSearchQuery('');
-                          }}
-                        >
-                          Change
-                        </Button>
+                    <Label>FUB Client(s) * <span className="text-xs text-muted-foreground">(select multiple for shared documents)</span></Label>
+                    {/* Selected clients as chips */}
+                    {selectedFubPeople.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {selectedFubPeople.map(person => (
+                          <Badge 
+                            key={person.id} 
+                            variant="secondary" 
+                            className="flex items-center gap-1 bg-green-500/10 text-green-700 border border-green-500/30"
+                          >
+                            <User className="h-3 w-3" />
+                            {person.name}
+                            <button
+                              type="button"
+                              onClick={() => setSelectedFubPeople(prev => prev.filter(p => p.id !== person.id))}
+                              className="ml-1 hover:text-red-500"
+                            >
+                              ×
+                            </button>
+                          </Badge>
+                        ))}
                       </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <div className="relative">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <Input
-                            placeholder="Search FUB contacts..."
-                            value={fubSearchQuery}
-                            onChange={(e) => setFubSearchQuery(e.target.value)}
-                            className="pl-10"
-                          />
-                          {fubSearching && (
-                            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
-                          )}
-                        </div>
-                        {fubSearchResults.length > 0 && (
-                          <div className="border rounded-lg max-h-48 overflow-y-auto">
-                            {fubSearchResults.map(person => (
+                    )}
+                    {/* Search to add more clients */}
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search to add client..."
+                          value={fubSearchQuery}
+                          onChange={(e) => setFubSearchQuery(e.target.value)}
+                          className="pl-10"
+                        />
+                        {fubSearching && (
+                          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                        )}
+                      </div>
+                      {fubSearchResults.length > 0 && (
+                        <div className="border rounded-lg max-h-48 overflow-y-auto">
+                          {fubSearchResults
+                            .filter(person => !selectedFubPeople.some(p => p.id === person.id))
+                            .map(person => (
                               <button
                                 key={person.id}
                                 type="button"
                                 onClick={() => {
-                                  setSelectedFubPerson(person);
-                                  setFubSearchResults([]);
+                                  setSelectedFubPeople(prev => [...prev, person]);
                                   setFubSearchQuery('');
+                                  setFubSearchResults([]);
                                 }}
                                 className="w-full text-left px-3 py-2 hover:bg-muted transition-colors border-b last:border-b-0"
                               >
@@ -975,10 +1001,9 @@ const Library = () => {
                                 )}
                               </button>
                             ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label>Document Type</Label>
@@ -1010,10 +1035,10 @@ const Library = () => {
                   </div>
                   <Button 
                     onClick={uploadClientDoc} 
-                    disabled={uploading || !clientForm.title || !selectedFubPerson || !clientForm.file}
+                    disabled={uploading || !clientForm.title || selectedFubPeople.length === 0 || !clientForm.file}
                     className="w-full"
                   >
-                    {uploading ? 'Uploading...' : 'Upload'}
+                    {uploading ? 'Uploading...' : selectedFubPeople.length > 1 ? `Upload for ${selectedFubPeople.length} Clients` : 'Upload'}
                   </Button>
                 </div>
               </DialogContent>
@@ -1022,11 +1047,14 @@ const Library = () => {
             {/* Bulk Upload Dialog */}
             <Dialog open={bulkDialogOpen} onOpenChange={(open) => {
               setBulkDialogOpen(open);
-              if (open && selectedClientFilter && !selectedFubPerson) {
-                setSelectedFubPerson(selectedClientFilter);
+              if (open && selectedClientFilter && selectedFubPeople.length === 0) {
+                setSelectedFubPeople([selectedClientFilter]);
               }
               if (!open) {
                 setBulkFiles([]);
+                setSelectedFubPeople([]);
+                setFubSearchQuery('');
+                setFubSearchResults([]);
               }
             }}>
               <DialogTrigger asChild>
@@ -1040,51 +1068,55 @@ const Library = () => {
                 </DialogHeader>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>FUB Client *</Label>
-                    {selectedFubPerson ? (
-                      <div className="flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
-                        <User className="h-5 w-5 text-green-600" />
-                        <div className="flex-1">
-                          <p className="font-medium text-sm">{selectedFubPerson.name}</p>
-                          {selectedFubPerson.emails?.[0] && (
-                            <p className="text-xs text-muted-foreground">{selectedFubPerson.emails[0].value}</p>
-                          )}
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedFubPerson(null);
-                            setFubSearchQuery('');
-                          }}
-                        >
-                          Change
-                        </Button>
+                    <Label>FUB Client(s) * <span className="text-xs text-muted-foreground">(select multiple for shared documents)</span></Label>
+                    {/* Selected clients as chips */}
+                    {selectedFubPeople.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {selectedFubPeople.map(person => (
+                          <Badge 
+                            key={person.id} 
+                            variant="secondary" 
+                            className="flex items-center gap-1 bg-green-500/10 text-green-700 border border-green-500/30"
+                          >
+                            <User className="h-3 w-3" />
+                            {person.name}
+                            <button
+                              type="button"
+                              onClick={() => setSelectedFubPeople(prev => prev.filter(p => p.id !== person.id))}
+                              className="ml-1 hover:text-red-500"
+                            >
+                              ×
+                            </button>
+                          </Badge>
+                        ))}
                       </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <div className="relative">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <Input
-                            placeholder="Search FUB contacts..."
-                            value={fubSearchQuery}
-                            onChange={(e) => setFubSearchQuery(e.target.value)}
-                            className="pl-10"
-                          />
-                          {fubSearching && (
-                            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
-                          )}
-                        </div>
-                        {fubSearchResults.length > 0 && (
-                          <div className="border rounded-lg max-h-48 overflow-y-auto">
-                            {fubSearchResults.map(person => (
+                    )}
+                    {/* Search to add more clients */}
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search to add client..."
+                          value={fubSearchQuery}
+                          onChange={(e) => setFubSearchQuery(e.target.value)}
+                          className="pl-10"
+                        />
+                        {fubSearching && (
+                          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                        )}
+                      </div>
+                      {fubSearchResults.length > 0 && (
+                        <div className="border rounded-lg max-h-48 overflow-y-auto">
+                          {fubSearchResults
+                            .filter(person => !selectedFubPeople.some(p => p.id === person.id))
+                            .map(person => (
                               <button
                                 key={person.id}
                                 type="button"
                                 onClick={() => {
-                                  setSelectedFubPerson(person);
-                                  setFubSearchResults([]);
+                                  setSelectedFubPeople(prev => [...prev, person]);
                                   setFubSearchQuery('');
+                                  setFubSearchResults([]);
                                 }}
                                 className="w-full text-left px-3 py-2 hover:bg-muted transition-colors border-b last:border-b-0"
                               >
@@ -1094,10 +1126,9 @@ const Library = () => {
                                 )}
                               </button>
                             ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                   
                   <div className="space-y-2">
@@ -1190,10 +1221,12 @@ const Library = () => {
 
                   <Button 
                     onClick={uploadBulkClientDocs} 
-                    disabled={uploading || bulkFiles.length === 0 || !selectedFubPerson}
+                    disabled={uploading || bulkFiles.length === 0 || selectedFubPeople.length === 0}
                     className="w-full"
                   >
-                    {uploading ? 'Uploading...' : `Upload ${bulkFiles.length} Document${bulkFiles.length !== 1 ? 's' : ''}`}
+                    {uploading ? 'Uploading...' : selectedFubPeople.length > 1 
+                      ? `Upload ${bulkFiles.length} Document${bulkFiles.length !== 1 ? 's' : ''} for ${selectedFubPeople.length} Clients`
+                      : `Upload ${bulkFiles.length} Document${bulkFiles.length !== 1 ? 's' : ''}`}
                   </Button>
                 </div>
               </DialogContent>
