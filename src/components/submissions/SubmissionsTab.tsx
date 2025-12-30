@@ -469,7 +469,7 @@ export function SubmissionsTab() {
 
         <TabsContent value="open_house" className="mt-6">
           <div className="max-w-2xl mx-auto">
-            <OpenHouseForm agents={agents} onSuccess={() => { createAsanaTask('open_house', {}); }} />
+            <OpenHouseForm agents={agents} onSuccess={(formData) => { createAsanaTask('open_house', formData); }} />
           </div>
         </TabsContent>
 
