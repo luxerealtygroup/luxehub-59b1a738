@@ -148,6 +148,42 @@ export type Database = {
         }
         Relationships: []
       }
+      client_accounts: {
+        Row: {
+          created_at: string
+          email: string
+          fub_person_id: number | null
+          full_name: string | null
+          id: string
+          invited_by: string | null
+          phone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          fub_person_id?: number | null
+          full_name?: string | null
+          id?: string
+          invited_by?: string | null
+          phone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          fub_person_id?: number | null
+          full_name?: string | null
+          id?: string
+          invited_by?: string | null
+          phone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       client_documents: {
         Row: {
           client_name: string
@@ -987,6 +1023,7 @@ export type Database = {
         Returns: boolean
       }
       is_admin_or_owner: { Args: { _user_id: string }; Returns: boolean }
+      is_client: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       activity_type:

@@ -22,6 +22,9 @@ import AgentProfile from "./pages/AgentProfile";
 import Library from "./pages/Library";
 import Submissions from "./pages/Submissions";
 import NotFound from "./pages/NotFound";
+import ClientLogin from "./pages/client-portal/ClientLogin";
+import ClientSignup from "./pages/client-portal/ClientSignup";
+import ClientDashboard from "./pages/client-portal/ClientDashboard";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +41,11 @@ const App = () => (
             <Route path="/signup" element={<Signup />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/terms" element={<Terms />} />
+            
+            {/* Client Portal Routes */}
+            <Route path="/client-portal" element={<ClientDashboard />} />
+            <Route path="/client-portal/login" element={<ClientLogin />} />
+            <Route path="/client-portal/signup" element={<ClientSignup />} />
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <DashboardLayout />
