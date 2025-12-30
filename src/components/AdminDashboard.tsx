@@ -192,6 +192,27 @@ const AdminDashboard = () => {
           });
         });
         
+        // Fetch all profiles with fub_user_id to include agents without deals
+        const { data: allProfiles } = await supabase
+          .from('profiles')
+          .select('id, full_name, fub_user_id')
+          .not('fub_user_id', 'is', null);
+        
+        // Add any agents from profiles that aren't in the deal data
+        (allProfiles || []).forEach(profile => {
+          if (profile.fub_user_id && !agentMap.has(profile.fub_user_id)) {
+            agentMap.set(profile.fub_user_id, {
+              id: profile.fub_user_id,
+              name: profile.full_name || 'Unknown Agent',
+              picture: undefined,
+              totalGci: 0,
+              pendingGci: 0,
+              teamCommission: 0,
+              dealCount: 0,
+            });
+          }
+        });
+        
         const sortedAgents = Array.from(agentMap.values())
           .sort((a, b) => (b.totalGci + b.pendingGci) - (a.totalGci + a.pendingGci));
         setFubAgents(sortedAgents);
