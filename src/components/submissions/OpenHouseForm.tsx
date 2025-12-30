@@ -22,9 +22,11 @@ const formSchema = z.object({
   door_knockers_quantity: z.string().optional(),
   feature_sheets_needed: z.string().optional(),
   open_house_date: z.string().min(1, 'Date is required'),
-  open_house_time: z.string().min(1, 'Time is required'),
+  open_house_start_time: z.string().min(1, 'Start time is required'),
+  open_house_end_time: z.string().min(1, 'End time is required'),
   second_date: z.string().optional(),
-  second_time: z.string().optional(),
+  second_start_time: z.string().optional(),
+  second_end_time: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -49,9 +51,11 @@ export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
       door_knockers_quantity: '',
       feature_sheets_needed: '',
       open_house_date: '',
-      open_house_time: '',
+      open_house_start_time: '',
+      open_house_end_time: '',
       second_date: '',
-      second_time: '',
+      second_start_time: '',
+      second_end_time: '',
       notes: '',
     },
   });
@@ -83,9 +87,11 @@ export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
         door_knockers_quantity: data.door_knockers_needed === 'Yes' ? data.door_knockers_quantity : null,
         feature_sheets_needed: data.feature_sheets_needed || null,
         open_house_date: data.open_house_date,
-        open_house_time: data.open_house_time,
+        open_house_time: `${data.open_house_start_time} - ${data.open_house_end_time}`,
         second_date: data.second_date || null,
-        second_time: data.second_time || null,
+        second_time: data.second_start_time && data.second_end_time 
+          ? `${data.second_start_time} - ${data.second_end_time}` 
+          : null,
         notes: data.notes || null,
         attachments: attachmentPaths,
       });
@@ -212,15 +218,29 @@ export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
               )}
             />
 
+            <FormField
+              control={form.control}
+              name="open_house_date"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Date *</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="open_house_date"
+                name="open_house_start_time"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Date *</FormLabel>
+                    <FormLabel>Start Time *</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <Input type="time" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -229,10 +249,10 @@ export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
 
               <FormField
                 control={form.control}
-                name="open_house_time"
+                name="open_house_end_time"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Time *</FormLabel>
+                    <FormLabel>End Time *</FormLabel>
                     <FormControl>
                       <Input type="time" {...field} />
                     </FormControl>
@@ -242,15 +262,29 @@ export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
               />
             </div>
 
+            <FormField
+              control={form.control}
+              name="second_date"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Second Date</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="second_date"
+                name="second_start_time"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Second Date</FormLabel>
+                    <FormLabel>Second Start Time</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <Input type="time" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -259,10 +293,10 @@ export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
 
               <FormField
                 control={form.control}
-                name="second_time"
+                name="second_end_time"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Second Date Time</FormLabel>
+                    <FormLabel>Second End Time</FormLabel>
                     <FormControl>
                       <Input type="time" {...field} />
                     </FormControl>
