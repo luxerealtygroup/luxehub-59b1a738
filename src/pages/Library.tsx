@@ -219,6 +219,7 @@ const Library = () => {
   const [selectedAgentForUpload, setSelectedAgentForUpload] = useState<{ id: string; full_name: string } | null>(null);
   const [teamProfiles, setTeamProfiles] = useState<Array<{ id: string; full_name: string | null }>>([]);
   const [selectedAgentFilter, setSelectedAgentFilter] = useState<string>('all');
+  const [activeTab, setActiveTab] = useState<string>('training');
 
   // Debounced FUB search for upload dialog
   const searchFubPeople = useCallback(async (query: string) => {
@@ -644,7 +645,7 @@ const Library = () => {
         </div>
       </div>
 
-      <Tabs defaultValue="training" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="bg-muted">
           <TabsTrigger value="training" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <BookOpen className="h-4 w-4 mr-2" /> Training Library
