@@ -4,8 +4,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -15,11 +13,15 @@ import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 
 const formSchema = z.object({
-  agent_id: z.string().min(1, 'Agent is required'),
   property_address: z.string().min(1, 'Property address is required'),
+  agent_id: z.string().min(1, 'Agent is required'),
+  door_knockers_needed: z.string().optional(),
+  door_knockers_quantity: z.string().optional(),
+  feature_sheets_needed: z.string().optional(),
   open_house_date: z.string().min(1, 'Date is required'),
   open_house_time: z.string().min(1, 'Time is required'),
-  notes: z.string().optional(),
+  second_date: z.string().optional(),
+  second_time: z.string().optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -36,13 +38,19 @@ export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      agent_id: '',
       property_address: '',
+      agent_id: '',
+      door_knockers_needed: '',
+      door_knockers_quantity: '',
+      feature_sheets_needed: '',
       open_house_date: '',
       open_house_time: '',
-      notes: '',
+      second_date: '',
+      second_time: '',
     },
   });
+
+  const doorKnockersNeeded = form.watch('door_knockers_needed');
 
   const onSubmit = async (data: FormData) => {
     if (!user) {
@@ -59,9 +67,13 @@ export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
         user_id: user.id,
         agent_name: selectedAgent?.full_name || '',
         property_address: data.property_address,
+        door_knockers_needed: data.door_knockers_needed || null,
+        door_knockers_quantity: data.door_knockers_needed === 'Yes' ? data.door_knockers_quantity : null,
+        feature_sheets_needed: data.feature_sheets_needed || null,
         open_house_date: data.open_house_date,
         open_house_time: data.open_house_time,
-        notes: data.notes || null,
+        second_date: data.second_date || null,
+        second_time: data.second_time || null,
       });
 
       if (error) throw error;
@@ -81,11 +93,25 @@ export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
     <Card>
       <CardHeader>
         <CardTitle>Open House Submission</CardTitle>
-        <CardDescription>Submit details for an upcoming open house</CardDescription>
+        <CardDescription>Preparing for a real estate open house</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="property_address"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Property Address</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter property address" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <FormField
               control={form.control}
               name="agent_id"
@@ -95,7 +121,7 @@ export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select agent..." />
+                        <SelectValue placeholder="Choose one..." />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -113,13 +139,59 @@ export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
 
             <FormField
               control={form.control}
-              name="property_address"
+              name="door_knockers_needed"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Property Address *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Enter property address" {...field} />
-                  </FormControl>
+                  <FormLabel>Door Knockers Needed</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose one..." />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {doorKnockersNeeded === 'Yes' && (
+              <FormField
+                control={form.control}
+                name="door_knockers_quantity"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>How many door knockers</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter your answer" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
+            <FormField
+              control={form.control}
+              name="feature_sheets_needed"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Feature Sheets Needed?</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose one..." />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
@@ -155,23 +227,39 @@ export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
               />
             </div>
 
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notes</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Any additional notes..." {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="second_date"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Second Date</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="second_time"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Second Date Time</FormLabel>
+                    <FormControl>
+                      <Input type="time" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <Button type="submit" disabled={isSubmitting} className="w-full">
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Submit Open House
+              Submit
             </Button>
           </form>
         </Form>
