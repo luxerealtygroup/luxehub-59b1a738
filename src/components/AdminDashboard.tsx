@@ -87,6 +87,9 @@ interface TeamPipelineSummary {
 
 const COLORS = ['hsl(43, 74%, 49%)', 'hsl(142, 71%, 45%)', 'hsl(217, 91%, 60%)', 'hsl(280, 67%, 60%)', 'hsl(350, 89%, 60%)'];
 
+// FUB user IDs of admin-only users (not agents) - exclude from leaderboards
+const ADMIN_ONLY_FUB_IDS = [8]; // Marie Zinger
+
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const { isAdmin, isLoading: roleLoading } = useUserRole();
@@ -198,9 +201,9 @@ const AdminDashboard = () => {
           .select('id, full_name, fub_user_id')
           .not('fub_user_id', 'is', null);
         
-        // Add any agents from profiles that aren't in the deal data
+        // Add any agents from profiles that aren't in the deal data (excluding admin-only users)
         (allProfiles || []).forEach(profile => {
-          if (profile.fub_user_id && !agentMap.has(profile.fub_user_id)) {
+          if (profile.fub_user_id && !agentMap.has(profile.fub_user_id) && !ADMIN_ONLY_FUB_IDS.includes(profile.fub_user_id)) {
             agentMap.set(profile.fub_user_id, {
               id: profile.fub_user_id,
               name: profile.full_name || 'Unknown Agent',
@@ -214,6 +217,7 @@ const AdminDashboard = () => {
         });
         
         const sortedAgents = Array.from(agentMap.values())
+          .filter(agent => !ADMIN_ONLY_FUB_IDS.includes(agent.id)) // Exclude admin-only users
           .sort((a, b) => (b.totalGci + b.pendingGci) - (a.totalGci + a.pendingGci));
         setFubAgents(sortedAgents);
 
