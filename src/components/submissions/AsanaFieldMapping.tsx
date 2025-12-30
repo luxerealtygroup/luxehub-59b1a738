@@ -41,6 +41,9 @@ const FORM_FIELDS: Record<string, Array<{ key: string; label: string }>> = {
     { key: 'agent_name', label: 'Agent Name' },
     { key: 'open_house_date', label: 'Open House Date' },
     { key: 'open_house_time', label: 'Open House Time' },
+    { key: 'door_knockers_needed', label: 'Door Knockers Needed' },
+    { key: 'door_knockers_quantity', label: 'How Many Door Knockers' },
+    { key: 'feature_sheets_needed', label: 'Feature Sheets Needed' },
   ],
   invoice: [
     { key: 'vendor_name', label: 'Vendor Name' },
