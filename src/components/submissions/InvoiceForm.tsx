@@ -5,14 +5,16 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-import { Loader2, Upload } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { vendorTypes } from './submissionOptions';
+import { FileUpload, uploadSubmissionFiles } from './FileUpload';
 
 const formSchema = z.object({
   agent_id: z.string().min(1, 'Agent is required'),
@@ -34,7 +36,7 @@ interface InvoiceFormProps {
 export function InvoiceForm({ agents, onSuccess }: InvoiceFormProps) {
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
+  const [attachments, setAttachments] = useState<File[]>([]);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -49,13 +51,6 @@ export function InvoiceForm({ agents, onSuccess }: InvoiceFormProps) {
     },
   });
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setInvoiceFile(file);
-    }
-  };
-
   const onSubmit = async (data: FormData) => {
     if (!user) {
       toast.error('You must be logged in to submit');
@@ -64,20 +59,10 @@ export function InvoiceForm({ agents, onSuccess }: InvoiceFormProps) {
 
     setIsSubmitting(true);
     try {
-      let invoiceFilePath: string | null = null;
-
-      // Upload invoice file if provided
-      if (invoiceFile) {
-        const fileExt = invoiceFile.name.split('.').pop();
-        const fileName = `${crypto.randomUUID()}.${fileExt}`;
-        const filePath = `invoices/${user.id}/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('client-documents')
-          .upload(filePath, invoiceFile);
-
-        if (uploadError) throw uploadError;
-        invoiceFilePath = filePath;
+      // Upload attachments first
+      let attachmentPaths: string[] = [];
+      if (attachments.length > 0) {
+        attachmentPaths = await uploadSubmissionFiles(attachments, user.id, 'invoice');
       }
 
       const selectedAgent = agents.find(a => a.id === data.agent_id);
@@ -91,15 +76,15 @@ export function InvoiceForm({ agents, onSuccess }: InvoiceFormProps) {
         invoice_amount: parseFloat(data.invoice_amount),
         invoice_date: data.invoice_date,
         property_address: data.property_address || null,
-        invoice_file_path: invoiceFilePath,
         notes: data.notes || null,
+        attachments: attachmentPaths,
       });
 
       if (error) throw error;
 
       toast.success('Invoice submission created successfully!');
       form.reset();
-      setInvoiceFile(null);
+      setAttachments([]);
       onSuccess?.();
     } catch (error: any) {
       console.error('Error submitting form:', error);
@@ -226,24 +211,9 @@ export function InvoiceForm({ agents, onSuccess }: InvoiceFormProps) {
               )}
             />
 
-            <div>
-              <FormLabel>Invoice Attachment</FormLabel>
-              <div className="mt-1">
-                <label className="flex items-center justify-center w-full h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
-                  <div className="flex flex-col items-center">
-                    <Upload className="h-6 w-6 text-muted-foreground" />
-                    <span className="mt-1 text-sm text-muted-foreground">
-                      {invoiceFile ? invoiceFile.name : 'Click to upload invoice'}
-                    </span>
-                  </div>
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept=".pdf,.png,.jpg,.jpeg"
-                    onChange={handleFileChange}
-                  />
-                </label>
-              </div>
+            <div className="space-y-2">
+              <Label>Attachments (Invoice, receipts, etc.)</Label>
+              <FileUpload files={attachments} setFiles={setAttachments} />
             </div>
 
             <FormField

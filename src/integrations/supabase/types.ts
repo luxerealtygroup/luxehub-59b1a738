@@ -635,6 +635,7 @@ export type Database = {
       submissions: {
         Row: {
           agent_name: string | null
+          attachments: Json | null
           buyer_emails: string | null
           buyer_names: string | null
           buyer_phones: string | null
@@ -678,6 +679,7 @@ export type Database = {
         }
         Insert: {
           agent_name?: string | null
+          attachments?: Json | null
           buyer_emails?: string | null
           buyer_names?: string | null
           buyer_phones?: string | null
@@ -721,6 +723,7 @@ export type Database = {
         }
         Update: {
           agent_name?: string | null
+          attachments?: Json | null
           buyer_emails?: string | null
           buyer_names?: string | null
           buyer_phones?: string | null

@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -13,6 +14,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { buyerSubmissionTypes } from './submissionOptions';
+import { FileUpload, uploadSubmissionFiles } from './FileUpload';
 
 const formSchema = z.object({
   agent_id: z.string().min(1, 'Agent is required'),
@@ -38,6 +40,7 @@ interface BuyerFormProps {
 export function BuyerForm({ agents, onSuccess }: BuyerFormProps) {
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [attachments, setAttachments] = useState<File[]>([]);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -64,6 +67,12 @@ export function BuyerForm({ agents, onSuccess }: BuyerFormProps) {
 
     setIsSubmitting(true);
     try {
+      // Upload attachments first
+      let attachmentPaths: string[] = [];
+      if (attachments.length > 0) {
+        attachmentPaths = await uploadSubmissionFiles(attachments, user.id, 'buyer');
+      }
+
       const selectedAgent = agents.find(a => a.id === data.agent_id);
       
       const { error } = await supabase.from('submissions').insert({
@@ -80,12 +89,14 @@ export function BuyerForm({ agents, onSuccess }: BuyerFormProps) {
         closing_date: data.closing_date,
         client_occupation: data.client_occupation || null,
         notes: data.notes || null,
+        attachments: attachmentPaths,
       });
 
       if (error) throw error;
 
       toast.success('Buyer submission created successfully!');
       form.reset();
+      setAttachments([]);
       onSuccess?.();
     } catch (error: any) {
       console.error('Error submitting form:', error);
@@ -271,6 +282,11 @@ export function BuyerForm({ agents, onSuccess }: BuyerFormProps) {
                 </FormItem>
               )}
             />
+
+            <div className="space-y-2">
+              <Label>Attachments (Contracts, documents, etc.)</Label>
+              <FileUpload files={attachments} setFiles={setAttachments} />
+            </div>
 
             <FormField
               control={form.control}
