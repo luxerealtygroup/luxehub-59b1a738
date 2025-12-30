@@ -34,7 +34,16 @@ type FormData = z.infer<typeof formSchema>;
 
 interface OpenHouseFormProps {
   agents: Array<{ id: string; full_name: string | null }>;
-  onSuccess?: (data: { property_address: string; agent_name: string; open_house_date: string; open_house_time: string; notes?: string }) => void;
+  onSuccess?: (data: { 
+    property_address: string; 
+    agent_name: string; 
+    open_house_date: string; 
+    open_house_time: string; 
+    door_knockers_needed?: string;
+    door_knockers_quantity?: string;
+    feature_sheets_needed?: string;
+    notes?: string 
+  }) => void;
 }
 
 export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
@@ -106,6 +115,9 @@ export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
         agent_name: selectedAgent?.full_name || '',
         open_house_date: data.open_house_date,
         open_house_time: `${data.open_house_start_time} - ${data.open_house_end_time}`,
+        door_knockers_needed: data.door_knockers_needed,
+        door_knockers_quantity: data.door_knockers_needed === 'Yes' ? data.door_knockers_quantity : undefined,
+        feature_sheets_needed: data.feature_sheets_needed,
         notes: data.notes,
       });
     } catch (error: any) {
