@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -11,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
+import { FileUpload, uploadSubmissionFiles } from './FileUpload';
 
 const formSchema = z.object({
   property_address: z.string().min(1, 'Property address is required'),
@@ -34,6 +36,7 @@ interface OpenHouseFormProps {
 export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [attachments, setAttachments] = useState<File[]>([]);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -60,6 +63,12 @@ export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
 
     setIsSubmitting(true);
     try {
+      // Upload attachments first
+      let attachmentPaths: string[] = [];
+      if (attachments.length > 0) {
+        attachmentPaths = await uploadSubmissionFiles(attachments, user.id, 'open_house');
+      }
+
       const selectedAgent = agents.find(a => a.id === data.agent_id);
       
       const { error } = await supabase.from('submissions').insert({
@@ -74,12 +83,14 @@ export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
         open_house_time: data.open_house_time,
         second_date: data.second_date || null,
         second_time: data.second_time || null,
+        attachments: attachmentPaths,
       });
 
       if (error) throw error;
 
       toast.success('Open house submission created successfully!');
       form.reset();
+      setAttachments([]);
       onSuccess?.();
     } catch (error: any) {
       console.error('Error submitting form:', error);
@@ -255,6 +266,11 @@ export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
                   </FormItem>
                 )}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Attachments</Label>
+              <FileUpload files={attachments} setFiles={setAttachments} />
             </div>
 
             <Button type="submit" disabled={isSubmitting} className="w-full">

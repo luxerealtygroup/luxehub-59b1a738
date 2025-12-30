@@ -5,16 +5,17 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { listingSubmissionTypes, photographyPackages, occupancyOptions } from './submissionOptions';
+import { FileUpload, uploadSubmissionFiles } from './FileUpload';
 
 const formSchema = z.object({
   agent_id: z.string().min(1, 'Agent is required'),
@@ -43,6 +44,7 @@ interface ListingFormProps {
 export function ListingForm({ agents, onSuccess }: ListingFormProps) {
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [attachments, setAttachments] = useState<File[]>([]);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -72,6 +74,12 @@ export function ListingForm({ agents, onSuccess }: ListingFormProps) {
 
     setIsSubmitting(true);
     try {
+      // Upload attachments first
+      let attachmentPaths: string[] = [];
+      if (attachments.length > 0) {
+        attachmentPaths = await uploadSubmissionFiles(attachments, user.id, 'listing');
+      }
+
       const selectedAgent = agents.find(a => a.id === data.agent_id);
       
       const { error } = await supabase.from('submissions').insert({
@@ -91,12 +99,14 @@ export function ListingForm({ agents, onSuccess }: ListingFormProps) {
         door_knockers: data.door_knockers === 'yes',
         feature_sheets: data.feature_sheets === 'yes',
         listing_notes: data.notes || null,
+        attachments: attachmentPaths,
       });
 
       if (error) throw error;
 
       toast.success('Listing submission created successfully!');
       form.reset();
+      setAttachments([]);
       onSuccess?.();
     } catch (error: any) {
       console.error('Error submitting form:', error);
@@ -388,6 +398,11 @@ export function ListingForm({ agents, onSuccess }: ListingFormProps) {
                   </FormItem>
                 )}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Attachments (Contracts, photos, documents)</Label>
+              <FileUpload files={attachments} setFiles={setAttachments} />
             </div>
 
             <FormField
