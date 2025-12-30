@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { followUpBossApi } from '@/lib/api/followUpBoss';
 import { ImageThumbnail } from '@/components/ImageThumbnail';
+import { ClientInviteDialog } from '@/components/ClientInviteDialog';
 import { 
   BookOpen, 
   FileText, 
@@ -831,16 +832,23 @@ const Library = () => {
                         <p className="text-sm text-muted-foreground">{selectedClientFilter.emails[0].value}</p>
                       )}
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedClientFilter(null);
-                        setClientFilterQuery('');
-                      }}
-                    >
-                      Change Client
-                    </Button>
+                    <div className="flex gap-2">
+                      <ClientInviteDialog 
+                        clientName={selectedClientFilter.name}
+                        clientEmail={selectedClientFilter.emails?.[0]?.value}
+                        fubPersonId={selectedClientFilter.id}
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedClientFilter(null);
+                          setClientFilterQuery('');
+                        }}
+                      >
+                        Change Client
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-2">
