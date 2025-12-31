@@ -235,6 +235,179 @@ export type Database = {
         }
         Relationships: []
       }
+      client_messages: {
+        Row: {
+          client_account_id: string
+          created_at: string
+          id: string
+          message: string
+          read_at: string | null
+          sender_id: string
+          sender_type: string
+        }
+        Insert: {
+          client_account_id: string
+          created_at?: string
+          id?: string
+          message: string
+          read_at?: string | null
+          sender_id: string
+          sender_type: string
+        }
+        Update: {
+          client_account_id?: string
+          created_at?: string
+          id?: string
+          message?: string
+          read_at?: string | null
+          sender_id?: string
+          sender_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_messages_client_account_id_fkey"
+            columns: ["client_account_id"]
+            isOneToOne: false
+            referencedRelation: "client_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_tasks: {
+        Row: {
+          assigned_by: string
+          client_account_id: string
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          due_date: string | null
+          id: string
+          title: string
+          transaction_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_by: string
+          client_account_id: string
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          title: string
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_by?: string
+          client_account_id?: string
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          title?: string
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_tasks_client_account_id_fkey"
+            columns: ["client_account_id"]
+            isOneToOne: false
+            referencedRelation: "client_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_tasks_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "client_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_transactions: {
+        Row: {
+          acceptance_date: string | null
+          agent_id: string
+          appraisal_date: string | null
+          client_account_id: string
+          closing_date: string | null
+          created_at: string
+          deal_id: string | null
+          financing_deadline: string | null
+          id: string
+          inspection_date: string | null
+          list_price: number | null
+          offer_date: string | null
+          property_address: string
+          property_description: string | null
+          property_photos: Json | null
+          sale_price: number | null
+          status: string
+          transaction_type: string
+          updated_at: string
+        }
+        Insert: {
+          acceptance_date?: string | null
+          agent_id: string
+          appraisal_date?: string | null
+          client_account_id: string
+          closing_date?: string | null
+          created_at?: string
+          deal_id?: string | null
+          financing_deadline?: string | null
+          id?: string
+          inspection_date?: string | null
+          list_price?: number | null
+          offer_date?: string | null
+          property_address: string
+          property_description?: string | null
+          property_photos?: Json | null
+          sale_price?: number | null
+          status?: string
+          transaction_type?: string
+          updated_at?: string
+        }
+        Update: {
+          acceptance_date?: string | null
+          agent_id?: string
+          appraisal_date?: string | null
+          client_account_id?: string
+          closing_date?: string | null
+          created_at?: string
+          deal_id?: string | null
+          financing_deadline?: string | null
+          id?: string
+          inspection_date?: string | null
+          list_price?: number | null
+          offer_date?: string | null
+          property_address?: string
+          property_description?: string | null
+          property_photos?: Json | null
+          sale_price?: number | null
+          status?: string
+          transaction_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_transactions_client_account_id_fkey"
+            columns: ["client_account_id"]
+            isOneToOne: false
+            referencedRelation: "client_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_transactions_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       commissions: {
         Row: {
           agent_split_percent: number | null
@@ -883,6 +1056,53 @@ export type Database = {
           uploaded_by?: string
         }
         Relationships: []
+      }
+      transaction_milestones: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          due_date: string | null
+          id: string
+          sort_order: number | null
+          status: string
+          title: string
+          transaction_id: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          sort_order?: number | null
+          status?: string
+          title: string
+          transaction_id: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          sort_order?: number | null
+          status?: string
+          title?: string
+          transaction_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transaction_milestones_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "client_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
