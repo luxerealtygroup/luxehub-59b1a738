@@ -148,6 +148,33 @@ export type Database = {
         }
         Relationships: []
       }
+      asana_settings: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          field_mappings: Json
+          id: string
+          projects: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          field_mappings?: Json
+          id?: string
+          projects?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          field_mappings?: Json
+          id?: string
+          projects?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       client_accounts: {
         Row: {
           created_at: string
