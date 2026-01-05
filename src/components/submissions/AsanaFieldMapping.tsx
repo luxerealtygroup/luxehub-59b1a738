@@ -66,6 +66,7 @@ const FORM_FIELDS: Record<string, Array<{ key: string; label: string }>> = {
     { key: 'listing_notes', label: 'Notes' },
   ],
   buyer: [
+    { key: 'submission_type', label: 'Submission Type' },
     { key: 'client_name', label: 'Client Name' },
     { key: 'property_address', label: 'Property Address' },
     { key: 'purchase_price', label: 'Purchase Price' },
