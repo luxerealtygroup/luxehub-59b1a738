@@ -53,11 +53,17 @@ const FORM_FIELDS: Record<string, Array<{ key: string; label: string }>> = {
     { key: 'agent_name', label: 'Agent Name' },
   ],
   listing: [
+    { key: 'submission_type', label: 'Submission Type' },
     { key: 'property_address', label: 'Property Address' },
     { key: 'seller_names', label: 'Seller Name(s)' },
     { key: 'list_price', label: 'List Price' },
     { key: 'listing_date', label: 'Listing Date' },
     { key: 'agent_name', label: 'Agent Name' },
+    { key: 'seller_emails', label: 'Seller Email(s)' },
+    { key: 'seller_phones', label: 'Seller Phone(s)' },
+    { key: 'photography_package', label: 'Photography Package' },
+    { key: 'staging_consult', label: 'Staging Consult' },
+    { key: 'listing_notes', label: 'Notes' },
   ],
   buyer: [
     { key: 'client_name', label: 'Client Name' },
