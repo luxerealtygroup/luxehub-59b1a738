@@ -127,7 +127,7 @@ const Pipeline = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editClient, setEditClient] = useState<PipelineClient | null>(null);
-  const [syncToFUB, setSyncToFUB] = useState(true);
+  
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<'buyer' | 'seller'>('buyer');
   
@@ -307,20 +307,7 @@ const Pipeline = () => {
         return;
       }
       
-      if (syncToFUB) {
-        const fubResult = await syncClientToFUB(newClient);
-        if (fubResult.success) {
-          toast({ title: 'Client added & synced to Follow Up Boss!' });
-        } else {
-          toast({ 
-            title: 'Client added to pipeline', 
-            description: 'Note: Could not sync to Follow Up Boss',
-            variant: 'default'
-          });
-        }
-      } else {
-        toast({ title: 'Client added to pipeline!' });
-      }
+      toast({ title: 'Client added to pipeline!' });
       
       closeDialog();
       fetchClients();
@@ -332,7 +319,7 @@ const Pipeline = () => {
   const closeDialog = () => {
     setDialogOpen(false);
     setEditClient(null);
-    setSyncToFUB(true);
+    
     setNewClient({ 
       client_name: '', email: '', phone: '', notes: '', 
       property_interest: '', source: '', client_type: activeTab,
@@ -640,18 +627,6 @@ const Pipeline = () => {
                 onChange={(e) => setNewClient({ ...newClient, notes: e.target.value })}
                 rows={3}
               />
-              {!editClient && (
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="sync-fub" 
-                    checked={syncToFUB} 
-                    onCheckedChange={(checked) => setSyncToFUB(checked === true)}
-                  />
-                  <Label htmlFor="sync-fub" className="text-sm text-muted-foreground cursor-pointer">
-                    Also add to Follow Up Boss
-                  </Label>
-                </div>
-              )}
               <Button 
                 type="submit" 
                 className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
@@ -660,7 +635,7 @@ const Pipeline = () => {
                 {submitting ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    {syncToFUB ? 'Adding & Syncing...' : 'Adding...'}
+                    Adding...
                   </>
                 ) : (
                   editClient ? 'Update Client' : 'Add Client'
