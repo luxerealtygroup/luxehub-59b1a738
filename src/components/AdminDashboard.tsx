@@ -119,18 +119,20 @@ const AdminDashboard = () => {
           d.stageName?.toLowerCase().includes('won')
         );
         
-        // Pending deals = only deals with stage "Pending" (under contract awaiting close)
+        // Pending deals = deals with stage "Pending" OR "Offer" (Conditional)
         const pendingDeals = deals.filter((d: FUBDeal) => 
-          d.stageName?.toLowerCase() === 'pending'
+          d.stageName?.toLowerCase() === 'pending' ||
+          d.stageName?.toLowerCase() === 'offer'
         );
         
-        // Active deals = everything else that's not closed/won/lost
+        // Active deals = everything else that's not closed/won/lost/pending/offer
         const activeDeals = deals.filter((d: FUBDeal) => 
           d.status?.toLowerCase() !== 'won' && 
           d.status?.toLowerCase() !== 'lost' &&
           !d.stageName?.toLowerCase().includes('closed') &&
           !d.stageName?.toLowerCase().includes('won') &&
-          d.stageName?.toLowerCase() !== 'pending'
+          d.stageName?.toLowerCase() !== 'pending' &&
+          d.stageName?.toLowerCase() !== 'offer'
         );
 
         // Total GCI = full commission value from closed deals (no splits)
@@ -179,7 +181,7 @@ const AdminDashboard = () => {
             const isClosedDeal = deal.status?.toLowerCase() === 'won' || 
               deal.stageName?.toLowerCase().includes('closed') ||
               deal.stageName?.toLowerCase().includes('won');
-            const isPendingDeal = deal.stageName?.toLowerCase() === 'pending';
+            const isPendingDeal = deal.stageName?.toLowerCase() === 'pending' || deal.stageName?.toLowerCase() === 'offer';
             
             if (isClosedDeal) {
               existing.totalGci += deal.commissionValue || 0;
