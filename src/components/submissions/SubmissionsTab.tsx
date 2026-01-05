@@ -83,6 +83,8 @@ export function SubmissionsTab() {
   const [asanaProjects, setAsanaProjects] = useState<AsanaProject[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(false);
 
+  const [settingsId, setSettingsId] = useState<string | null>(null);
+
   useEffect(() => {
     const fetchAgents = async () => {
       const { data, error } = await supabase
@@ -95,17 +97,25 @@ export function SubmissionsTab() {
       }
     };
 
-    fetchAgents();
+    const fetchAsanaSettings = async () => {
+      const { data, error } = await supabase
+        .from('asana_settings')
+        .select('*')
+        .limit(1)
+        .single();
 
-    // Load saved Asana settings
-    const savedSettings = localStorage.getItem('asana_settings');
-    if (savedSettings) {
-      try {
-        setAsanaSettings(JSON.parse(savedSettings));
-      } catch (e) {
-        console.error('Failed to parse Asana settings:', e);
+      if (!error && data) {
+        setSettingsId(data.id);
+        setAsanaSettings({
+          enabled: data.enabled,
+          projects: data.projects as AsanaSettings['projects'],
+          fieldMappings: data.field_mappings as AsanaSettings['fieldMappings'],
+        });
       }
-    }
+    };
+
+    fetchAgents();
+    fetchAsanaSettings();
   }, []);
 
   const fetchAsanaProjects = async () => {
@@ -127,8 +137,27 @@ export function SubmissionsTab() {
     }
   };
 
-  const saveAsanaSettings = () => {
-    localStorage.setItem('asana_settings', JSON.stringify(asanaSettings));
+  const saveAsanaSettings = async () => {
+    if (!settingsId) {
+      toast.error('Settings not loaded yet');
+      return;
+    }
+
+    const { error } = await supabase
+      .from('asana_settings')
+      .update({
+        enabled: asanaSettings.enabled,
+        projects: asanaSettings.projects,
+        field_mappings: asanaSettings.fieldMappings,
+      })
+      .eq('id', settingsId);
+
+    if (error) {
+      console.error('Failed to save Asana settings:', error);
+      toast.error('Failed to save settings. You may not have admin permissions.');
+      return;
+    }
+
     toast.success('Asana settings saved!');
     setSettingsOpen(false);
   };
