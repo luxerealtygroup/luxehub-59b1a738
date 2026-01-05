@@ -44,10 +44,13 @@ interface CompanyStats {
 interface FUBStats {
   totalGci: number;
   pendingGci: number;
+  conditionalGci: number;
   companyRevenueEarned: number;
   companyRevenuePending: number;
+  companyRevenueConditional: number;
   closedDeals: number;
   pendingDeals: number;
+  conditionalDeals: number;
 }
 
 interface FUBAgentStats {
@@ -56,6 +59,7 @@ interface FUBAgentStats {
   picture?: string;
   totalGci: number;
   pendingGci: number;
+  conditionalGci: number;
   teamCommission: number;
   dealCount: number;
 }
@@ -119,9 +123,13 @@ const AdminDashboard = () => {
           d.stageName?.toLowerCase().includes('won')
         );
         
-        // Pending deals = deals with stage "Pending" OR "Offer" (Conditional)
+        // Pending deals = only deals with stage "Pending" (under contract awaiting close)
         const pendingDeals = deals.filter((d: FUBDeal) => 
-          d.stageName?.toLowerCase() === 'pending' ||
+          d.stageName?.toLowerCase() === 'pending'
+        );
+        
+        // Conditional deals = deals with stage "Offer" (conditional/offer stage)
+        const conditionalDeals = deals.filter((d: FUBDeal) => 
           d.stageName?.toLowerCase() === 'offer'
         );
         
@@ -145,6 +153,11 @@ const AdminDashboard = () => {
           sum + (d.commissionValue || 0), 0
         );
 
+        // Conditional GCI = full commission value from conditional/offer deals
+        const conditionalGci = conditionalDeals.reduce((sum: number, d: FUBDeal) => 
+          sum + (d.commissionValue || 0), 0
+        );
+
         // Company Revenue Earned = teamCommission from closed deals
         const companyRevenueEarned = closedDeals.reduce((sum: number, d: FUBDeal) => 
           sum + (d.teamCommission || 0), 0
@@ -155,13 +168,21 @@ const AdminDashboard = () => {
           sum + (d.teamCommission || 0), 0
         );
 
+        // Company Revenue Conditional = teamCommission from conditional/offer deals
+        const companyRevenueConditional = conditionalDeals.reduce((sum: number, d: FUBDeal) => 
+          sum + (d.teamCommission || 0), 0
+        );
+
         setFubStats({
           totalGci,
           pendingGci,
+          conditionalGci,
           companyRevenueEarned,
           companyRevenuePending,
+          companyRevenueConditional,
           closedDeals: closedDeals.length,
           pendingDeals: pendingDeals.length,
+          conditionalDeals: conditionalDeals.length,
         });
 
         // Build agent leaderboard from FUB deals
@@ -174,6 +195,7 @@ const AdminDashboard = () => {
               picture: user.picture?.['60x60'] || user.picture?.original,
               totalGci: 0,
               pendingGci: 0,
+              conditionalGci: 0,
               teamCommission: 0,
               dealCount: 0,
             };
@@ -181,7 +203,8 @@ const AdminDashboard = () => {
             const isClosedDeal = deal.status?.toLowerCase() === 'won' || 
               deal.stageName?.toLowerCase().includes('closed') ||
               deal.stageName?.toLowerCase().includes('won');
-            const isPendingDeal = deal.stageName?.toLowerCase() === 'pending' || deal.stageName?.toLowerCase() === 'offer';
+            const isPendingDeal = deal.stageName?.toLowerCase() === 'pending';
+            const isConditionalDeal = deal.stageName?.toLowerCase() === 'offer';
             
             if (isClosedDeal) {
               existing.totalGci += deal.commissionValue || 0;
@@ -189,6 +212,10 @@ const AdminDashboard = () => {
               existing.dealCount += 1;
             } else if (isPendingDeal) {
               existing.pendingGci += deal.commissionValue || 0;
+              existing.teamCommission += deal.teamCommission || 0;
+              existing.dealCount += 1;
+            } else if (isConditionalDeal) {
+              existing.conditionalGci += deal.commissionValue || 0;
               existing.teamCommission += deal.teamCommission || 0;
               existing.dealCount += 1;
             }
@@ -212,6 +239,7 @@ const AdminDashboard = () => {
               picture: undefined,
               totalGci: 0,
               pendingGci: 0,
+              conditionalGci: 0,
               teamCommission: 0,
               dealCount: 0,
             });
@@ -220,7 +248,7 @@ const AdminDashboard = () => {
         
         const sortedAgents = Array.from(agentMap.values())
           .filter(agent => !ADMIN_ONLY_FUB_IDS.includes(agent.id)) // Exclude admin-only users
-          .sort((a, b) => (b.totalGci + b.pendingGci) - (a.totalGci + a.pendingGci));
+          .sort((a, b) => (b.totalGci + b.pendingGci + b.conditionalGci) - (a.totalGci + a.pendingGci + a.conditionalGci));
         setFubAgents(sortedAgents);
 
         // Build monthly revenue data from FUB deals
@@ -501,7 +529,7 @@ const AdminDashboard = () => {
       </div>
 
       {/* Company-wide Stats from FUB */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card className="border-green-500/20 bg-gradient-to-br from-card to-green-500/5">
           <CardContent className="p-5">
             <div className="flex items-center gap-2 mb-2">
@@ -532,6 +560,21 @@ const AdminDashboard = () => {
           </CardContent>
         </Card>
 
+        <Card className="border-orange-500/20 bg-gradient-to-br from-card to-orange-500/5">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2 mb-2">
+              <Calendar className="h-5 w-5 text-orange-500" />
+              <span className="text-sm text-muted-foreground">Conditional GCI</span>
+            </div>
+            <p className="text-3xl font-bold text-orange-500">
+              ${(fubStats?.conditionalGci || 0).toLocaleString()}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {fubStats?.conditionalDeals || 0} conditional deals
+            </p>
+          </CardContent>
+        </Card>
+
         <Card className="border-blue-500/20 bg-gradient-to-br from-card to-blue-500/5">
           <CardContent className="p-5">
             <div className="flex items-center gap-2 mb-2">
@@ -539,10 +582,10 @@ const AdminDashboard = () => {
               <span className="text-sm text-muted-foreground">Company Revenue</span>
             </div>
             <p className="text-3xl font-bold text-blue-500">
-              ${((fubStats?.companyRevenueEarned || 0) + (fubStats?.companyRevenuePending || 0)).toLocaleString()}
+              ${((fubStats?.companyRevenueEarned || 0) + (fubStats?.companyRevenuePending || 0) + (fubStats?.companyRevenueConditional || 0)).toLocaleString()}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              ${(fubStats?.companyRevenueEarned || 0).toLocaleString()} earned / ${(fubStats?.companyRevenuePending || 0).toLocaleString()} pending
+              ${(fubStats?.companyRevenueEarned || 0).toLocaleString()} earned / ${(fubStats?.companyRevenuePending || 0).toLocaleString()} pending / ${(fubStats?.companyRevenueConditional || 0).toLocaleString()} conditional
             </p>
           </CardContent>
         </Card>
@@ -598,10 +641,10 @@ const AdminDashboard = () => {
                   </div>
                   <div className="text-right">
                     <p className="text-lg font-bold text-green-500">
-                      ${(agent.totalGci + agent.pendingGci).toLocaleString()}
+                      ${(agent.totalGci + agent.pendingGci + agent.conditionalGci).toLocaleString()}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      ${agent.totalGci.toLocaleString()} earned / ${agent.pendingGci.toLocaleString()} pending
+                      ${agent.totalGci.toLocaleString()} earned / ${agent.pendingGci.toLocaleString()} pending / ${agent.conditionalGci.toLocaleString()} conditional
                     </p>
                   </div>
                 </div>
