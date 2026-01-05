@@ -42,7 +42,23 @@ type FormData = z.infer<typeof formSchema>;
 
 interface BuyerFormProps {
   agents: Array<{ id: string; full_name: string | null }>;
-  onSuccess?: (data: { client_name: string; property_address?: string; purchase_price?: string; closing_date?: string; agent_name: string; lender_name_contact?: string; notes?: string }) => void;
+  onSuccess?: (data: { 
+    client_name: string; 
+    property_address?: string; 
+    purchase_price?: string; 
+    closing_date?: string; 
+    agent_name: string; 
+    lender_name_contact?: string; 
+    notes?: string;
+    submission_type?: string;
+    firm_price?: string;
+    conditional_price?: string;
+    cooperating_commission?: string;
+    condition_due_sbp?: string;
+    condition_due_financing?: string;
+    condition_due_status?: string;
+    condition_due_home_inspection?: string;
+  }) => void;
 }
 
 export function BuyerForm({ agents, onSuccess }: BuyerFormProps) {
@@ -168,6 +184,14 @@ export function BuyerForm({ agents, onSuccess }: BuyerFormProps) {
         agent_name: selectedAgent?.full_name || '',
         lender_name_contact: data.lender_name_contact,
         notes: data.notes,
+        submission_type: data.submission_type,
+        firm_price: data.firm_price,
+        conditional_price: data.conditional_price,
+        cooperating_commission: data.cooperating_commission,
+        condition_due_sbp: data.condition_due_sbp,
+        condition_due_financing: data.condition_due_financing,
+        condition_due_status: data.condition_due_status,
+        condition_due_home_inspection: data.condition_due_home_inspection,
       });
     } catch (error: any) {
       console.error('Error submitting form:', error);
