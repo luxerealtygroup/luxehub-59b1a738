@@ -203,23 +203,47 @@ export function SubmissionsTab() {
     // Build custom_fields object from mappings
     const customFields: Record<string, string> = {};
     const formValues: Record<string, any> = {
+      // Common fields
       property_address: formData.property_address,
       client_name: formData.client_name,
       agent_name: formData.agent_name,
+      // Open house fields
       open_house_date: formData.open_house_date,
       open_house_time: formData.open_house_time,
       door_knockers_needed: formData.door_knockers_needed,
       door_knockers_quantity: formData.door_knockers_quantity,
       feature_sheets_needed: formData.feature_sheets_needed,
-      list_price: formData.list_price,
-      purchase_price: formData.purchase_price,
-      closing_date: formData.closing_date,
+      // Invoice fields
       vendor_name: formData.vendor_name,
       vendor_type: formData.vendor_type,
       invoice_amount: formData.invoice_amount,
-      seller_names: formData.seller_names,
+      // Listing fields
+      submission_type: formData.submission_type,
+      list_price: formData.list_price,
       listing_date: formData.listing_date,
+      seller_names: formData.seller_names,
+      seller_emails: formData.seller_emails,
+      seller_phones: formData.seller_phones,
+      photography_package: formData.photography_package,
+      staging_consult: formData.staging_consult ? 'Yes' : 'No',
+      listing_notes: formData.listing_notes,
+      // Buyer fields
+      purchase_price: formData.purchase_price,
+      closing_date: formData.closing_date,
       lender_name_contact: formData.lender_name_contact,
+      buyer_names: formData.buyer_names,
+      buyer_emails: formData.buyer_emails,
+      buyer_phones: formData.buyer_phones,
+      firm_price: formData.firm_price,
+      conditional_price: formData.conditional_price,
+      cooperating_commission: formData.cooperating_commission,
+      condition_due_sbp: formData.condition_due_sbp,
+      condition_due_financing: formData.condition_due_financing,
+      condition_due_status: formData.condition_due_status,
+      condition_due_home_inspection: formData.condition_due_home_inspection,
+      condition_due_other: formData.condition_due_other,
+      occupancy: formData.occupancy,
+      notes: formData.notes,
     };
 
     console.log('Form Values for mapping:', formValues);
