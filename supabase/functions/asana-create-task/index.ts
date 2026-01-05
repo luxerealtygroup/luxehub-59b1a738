@@ -117,6 +117,47 @@ async function getCustomFields(token: string, projectId: string) {
   });
 }
 
+async function uploadAttachmentToTask(token: string, taskGid: string, fileUrl: string, fileName: string) {
+  try {
+    console.log(`Uploading attachment: ${fileName} from ${fileUrl}`);
+    
+    // Fetch the file from the URL
+    const fileResponse = await fetch(fileUrl);
+    if (!fileResponse.ok) {
+      console.error(`Failed to fetch file: ${fileUrl}`, fileResponse.status);
+      return null;
+    }
+
+    const fileBlob = await fileResponse.blob();
+    
+    // Create form data for multipart upload
+    const formData = new FormData();
+    formData.append('file', fileBlob, fileName);
+
+    // Upload to Asana
+    const uploadResponse = await fetch(`https://app.asana.com/api/1.0/tasks/${taskGid}/attachments`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    if (!uploadResponse.ok) {
+      const error = await uploadResponse.text();
+      console.error(`Failed to upload attachment to Asana: ${error}`);
+      return null;
+    }
+
+    const result = await uploadResponse.json();
+    console.log(`Attachment uploaded successfully: ${result.data?.gid}`);
+    return result.data;
+  } catch (error) {
+    console.error(`Error uploading attachment: ${error}`);
+    return null;
+  }
+}
+
 async function createTask(token: string, body: any) {
   const { 
     form_type, 
@@ -127,6 +168,7 @@ async function createTask(token: string, body: any) {
     project_id,
     workspace_id,
     custom_fields,
+    attachment_urls, // Array of { url: string, name: string }
     // Form-specific data
     open_house_date,
     open_house_time,
@@ -140,6 +182,7 @@ async function createTask(token: string, body: any) {
   console.log('Creating Asana task for:', form_type, property_address || client_name);
   console.log('Received custom_fields:', JSON.stringify(custom_fields));
   console.log('Project ID:', project_id);
+  console.log('Attachment URLs:', JSON.stringify(attachment_urls));
 
   // Build task name based on form type
   let taskName = '';
@@ -320,11 +363,28 @@ async function createTask(token: string, body: any) {
   }
 
   const result = await createResponse.json();
-  console.log('Task created successfully:', result.data?.gid);
+  const taskGid = result.data?.gid;
+  console.log('Task created successfully:', taskGid);
+
+  // Upload attachments if provided
+  let uploadedAttachments: any[] = [];
+  if (attachment_urls && Array.isArray(attachment_urls) && attachment_urls.length > 0 && taskGid) {
+    console.log(`Uploading ${attachment_urls.length} attachments to task ${taskGid}`);
+    
+    for (const attachment of attachment_urls) {
+      const uploaded = await uploadAttachmentToTask(token, taskGid, attachment.url, attachment.name);
+      if (uploaded) {
+        uploadedAttachments.push(uploaded);
+      }
+    }
+    
+    console.log(`Successfully uploaded ${uploadedAttachments.length} attachments`);
+  }
 
   return new Response(JSON.stringify({ 
     success: true, 
-    task: result.data 
+    task: result.data,
+    attachments_uploaded: uploadedAttachments.length,
   }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
