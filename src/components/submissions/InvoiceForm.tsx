@@ -30,7 +30,15 @@ type FormData = z.infer<typeof formSchema>;
 
 interface InvoiceFormProps {
   agents: Array<{ id: string; full_name: string | null }>;
-  onSuccess?: (data: { vendor_name: string; vendor_type: string; invoice_amount: string; property_address?: string; agent_name: string; notes?: string }) => void;
+  onSuccess?: (data: { 
+    vendor_name: string; 
+    vendor_type: string; 
+    invoice_amount: string; 
+    invoice_date: string;
+    property_address?: string; 
+    agent_name: string; 
+    notes?: string;
+  }) => void;
 }
 
 export function InvoiceForm({ agents, onSuccess }: InvoiceFormProps) {
@@ -89,6 +97,7 @@ export function InvoiceForm({ agents, onSuccess }: InvoiceFormProps) {
         vendor_name: data.vendor_name,
         vendor_type: data.vendor_type,
         invoice_amount: data.invoice_amount,
+        invoice_date: data.invoice_date,
         property_address: data.property_address,
         agent_name: selectedAgent?.full_name || '',
         notes: data.notes,

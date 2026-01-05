@@ -217,6 +217,7 @@ export function SubmissionsTab() {
       vendor_name: formData.vendor_name,
       vendor_type: formData.vendor_type,
       invoice_amount: formData.invoice_amount,
+      invoice_date: formData.invoice_date,
       // Listing fields
       submission_type: formData.submission_type,
       list_price: formData.list_price,
@@ -226,6 +227,8 @@ export function SubmissionsTab() {
       seller_phones: formData.seller_phones,
       photography_package: formData.photography_package,
       staging_consult: formData.staging_consult ? 'Yes' : 'No',
+      door_knockers: formData.door_knockers ? 'Yes' : 'No',
+      feature_sheets: formData.feature_sheets ? 'Yes' : 'No',
       listing_notes: formData.listing_notes,
       // Buyer fields
       purchase_price: formData.purchase_price,
