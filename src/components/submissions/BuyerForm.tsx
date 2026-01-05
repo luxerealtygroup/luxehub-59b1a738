@@ -14,7 +14,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { buyerSubmissionTypes } from './submissionOptions';
-import { FileUpload, uploadSubmissionFiles, copyFilesToClientDocuments } from './FileUpload';
+import { FileUpload, uploadSubmissionFiles, copyFilesToClientDocuments, getFilePublicUrls } from './FileUpload';
 import { FUBClientInput, FUBClient } from './FUBClientInput';
 
 const formSchema = z.object({
@@ -58,6 +58,7 @@ interface BuyerFormProps {
     condition_due_financing?: string;
     condition_due_status?: string;
     condition_due_home_inspection?: string;
+    attachment_urls?: Array<{ url: string; name: string }>;
   }) => void;
 }
 
@@ -169,6 +170,9 @@ export function BuyerForm({ agents, onSuccess }: BuyerFormProps) {
         );
       }
 
+      // Get public URLs for all uploaded files to pass to Asana
+      const attachmentUrls = allFiles.length > 0 ? getFilePublicUrls(allFiles, allPaths) : [];
+
       toast.success('Buyer submission created successfully!');
       form.reset();
       setSelectedFubClient(null);
@@ -192,6 +196,7 @@ export function BuyerForm({ agents, onSuccess }: BuyerFormProps) {
         condition_due_financing: data.condition_due_financing,
         condition_due_status: data.condition_due_status,
         condition_due_home_inspection: data.condition_due_home_inspection,
+        attachment_urls: attachmentUrls,
       });
     } catch (error: any) {
       console.error('Error submitting form:', error);

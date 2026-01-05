@@ -270,6 +270,7 @@ export function SubmissionsTab() {
         notes: formData.notes,
         project_id: projectId || undefined,
         custom_fields: Object.keys(customFields).length > 0 ? customFields : undefined,
+        attachment_urls: formData.attachment_urls || undefined,
         // Include form-specific data for task notes
         open_house_date: formData.open_house_date,
         open_house_time: formData.open_house_time,

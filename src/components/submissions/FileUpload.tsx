@@ -165,3 +165,17 @@ export async function copyFilesToClientDocuments(
     }
   }
 }
+
+// Helper function to get public URLs for uploaded files
+export function getFilePublicUrls(
+  files: File[],
+  filePaths: string[]
+): Array<{ url: string; name: string }> {
+  return filePaths.map((path, index) => {
+    const { data } = supabase.storage.from('client-documents').getPublicUrl(path);
+    return {
+      url: data.publicUrl,
+      name: files[index]?.name || path.split('/').pop() || 'file',
+    };
+  });
+}
