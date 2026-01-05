@@ -39,7 +39,7 @@ type FormData = z.infer<typeof formSchema>;
 
 interface ListingFormProps {
   agents: Array<{ id: string; full_name: string | null }>;
-  onSuccess?: (data: { property_address: string; seller_names: string; list_price: string; listing_date: string; agent_name: string; notes?: string }) => void;
+  onSuccess?: (data: Record<string, any>) => void;
 }
 
 export function ListingForm({ agents, onSuccess }: ListingFormProps) {
@@ -123,11 +123,17 @@ export function ListingForm({ agents, onSuccess }: ListingFormProps) {
       setSelectedFubClient(null);
       setAttachments([]);
       onSuccess?.({
+        submission_type: data.submission_type,
         property_address: data.property_address,
         seller_names: data.seller_names,
+        seller_emails: data.seller_emails,
+        seller_phones: data.seller_phones,
         list_price: data.list_price,
         listing_date: data.listing_date,
+        photography_package: data.photography_package,
+        staging_consult: data.staging_consult === 'yes',
         agent_name: selectedAgent?.full_name || '',
+        listing_notes: data.notes,
         notes: data.notes,
       });
     } catch (error: any) {
