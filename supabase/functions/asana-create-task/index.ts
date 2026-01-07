@@ -25,6 +25,8 @@ serve(async (req) => {
       return await getProjects(ASANA_ACCESS_TOKEN);
     } else if (action === 'get_custom_fields') {
       return await getCustomFields(ASANA_ACCESS_TOKEN, body.project_id);
+    } else if (action === 'get_tasks') {
+      return await getTasks(ASANA_ACCESS_TOKEN, body.project_id);
     } else {
       return await createTask(ASANA_ACCESS_TOKEN, body);
     }
@@ -113,6 +115,39 @@ async function getCustomFields(token: string, projectId: string) {
   console.log('Fetched custom fields for project:', projectId, customFields.length);
 
   return new Response(JSON.stringify({ custom_fields: customFields }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+async function getTasks(token: string, projectId: string) {
+  if (!projectId) {
+    return new Response(JSON.stringify({ tasks: [] }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  console.log('Fetching tasks for project:', projectId);
+
+  const response = await fetch(
+    `https://app.asana.com/api/1.0/projects/${projectId}/tasks?opt_fields=name,due_on,completed,notes,custom_fields,permalink_url&completed_since=now`,
+    {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error('Failed to fetch tasks:', error);
+    throw new Error('Failed to fetch tasks from Asana');
+  }
+
+  const data = await response.json();
+  console.log('Fetched tasks:', data.data?.length || 0);
+
+  return new Response(JSON.stringify({ tasks: data.data || [] }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }
