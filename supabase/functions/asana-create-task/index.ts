@@ -130,7 +130,7 @@ async function getTasks(token: string, projectId: string) {
   console.log('Fetching tasks for project:', cleanProjectId);
 
   const response = await fetch(
-    `https://app.asana.com/api/1.0/projects/${cleanProjectId}/tasks?opt_fields=name,due_on,completed,notes,custom_fields,permalink_url&completed_since=now`,
+    `https://app.asana.com/api/1.0/projects/${cleanProjectId}/tasks?opt_fields=name,due_on,completed,notes,custom_fields,permalink_url`,
     {
       headers: {
         'Authorization': `Bearer ${token}`,
