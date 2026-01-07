@@ -14,6 +14,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, AreaChart, A
 import { format, parseISO, startOfMonth } from 'date-fns';
 import TeamGoals from './TeamGoals';
 import PipelineReport from './PipelineReport';
+import CompanyBudget from './CompanyBudget';
 
 interface AgentData {
   id: string;
@@ -623,6 +624,9 @@ const AdminDashboard = () => {
 
       {/* Team Goals */}
       <TeamGoals />
+
+      {/* Monthly Budget */}
+      <CompanyBudget />
 
       {/* Agent Leaderboard */}
       {fubAgents.length > 0 && (
