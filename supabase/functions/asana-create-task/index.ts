@@ -120,16 +120,17 @@ async function getCustomFields(token: string, projectId: string) {
 }
 
 async function getTasks(token: string, projectId: string) {
-  if (!projectId) {
+  const cleanProjectId = projectId?.trim();
+  if (!cleanProjectId) {
     return new Response(JSON.stringify({ tasks: [] }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
-  console.log('Fetching tasks for project:', projectId);
+  console.log('Fetching tasks for project:', cleanProjectId);
 
   const response = await fetch(
-    `https://app.asana.com/api/1.0/projects/${projectId}/tasks?opt_fields=name,due_on,completed,notes,custom_fields,permalink_url&completed_since=now`,
+    `https://app.asana.com/api/1.0/projects/${cleanProjectId}/tasks?opt_fields=name,due_on,completed,notes,custom_fields,permalink_url&completed_since=now`,
     {
       headers: {
         'Authorization': `Bearer ${token}`,
