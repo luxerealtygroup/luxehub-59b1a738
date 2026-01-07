@@ -49,6 +49,23 @@ const AnnualBudgetChart = () => {
       console.error('Error fetching expenses:', expensesError);
     }
 
+    // Calculate base recurring expenses (from the earliest month that has recurring items)
+    const recurringExpenses = (expensesData || []).filter(e => e.is_recurring);
+    
+    // Group recurring expenses by category to get the "baseline" recurring amount
+    // Use the most recent month's recurring expenses as the baseline
+    const recurringByCategory = new Map<string, number>();
+    recurringExpenses.forEach(e => {
+      // Always take the latest value for each recurring category
+      const existing = recurringByCategory.get(e.category);
+      if (!existing || e.month > (expensesData || []).find(ex => ex.category === e.category && ex.amount === existing)?.month) {
+        recurringByCategory.set(e.category, Number(e.amount));
+      }
+    });
+    
+    // Calculate total baseline recurring expense
+    const baselineRecurring = Array.from(recurringByCategory.values()).reduce((sum, amt) => sum + amt, 0);
+
     // Fetch all deals with expected close dates in 2026
     const { data: dealsData, error: dealsError } = await supabase
       .from('deals')
@@ -63,10 +80,18 @@ const AnnualBudgetChart = () => {
 
     // Build monthly data
     const monthlyData: MonthlyData[] = MONTHS.map(m => {
-      // Sum expenses for this month
-      const monthExpenses = (expensesData || [])
-        .filter(e => e.month === m.value)
-        .reduce((sum, e) => sum + Number(e.amount), 0);
+      // Get actual expenses for this month
+      const monthExpensesData = (expensesData || []).filter(e => e.month === m.value);
+      
+      let monthExpenses: number;
+      
+      if (monthExpensesData.length > 0) {
+        // Month has explicit data, use it
+        monthExpenses = monthExpensesData.reduce((sum, e) => sum + Number(e.amount), 0);
+      } else {
+        // No explicit data for this month - project recurring expenses
+        monthExpenses = baselineRecurring;
+      }
 
       // Sum projected revenue for deals closing this month
       const monthDeals = (dealsData || []).filter(d => {
