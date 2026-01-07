@@ -4,14 +4,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
 import { followUpBossApi, FUBDeal, FUBDealUser } from '@/lib/api/followUpBoss';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Building2, DollarSign, Users, TrendingUp, Target, Loader2, BarChart3, Calendar } from 'lucide-react';
+import { Building2, DollarSign, Users, TrendingUp, Target, Loader2, BarChart3, Calendar, FileText } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, AreaChart, Area, Legend } from 'recharts';
 import { format, parseISO, startOfMonth } from 'date-fns';
 import TeamGoals from './TeamGoals';
+import PipelineReport from './PipelineReport';
 
 interface AgentData {
   id: string;
@@ -104,6 +106,7 @@ const AdminDashboard = () => {
   const [monthlyPipeline, setMonthlyPipeline] = useState<MonthlyPipelineData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+  const [showPipelineReport, setShowPipelineReport] = useState(false);
 
   useEffect(() => {
     if (roleLoading || !isAdmin) return;
@@ -523,10 +526,24 @@ const AdminDashboard = () => {
           <h1 className="text-3xl font-display font-bold text-foreground">Company Dashboard</h1>
           <p className="text-muted-foreground mt-1">Overview of all agent performance and company revenue</p>
         </div>
-        <Badge variant="outline" className="border-gold text-gold">
-          {stats.agents.length} Agents
-        </Badge>
+        <div className="flex items-center gap-3">
+          <Button 
+            onClick={() => setShowPipelineReport(true)} 
+            variant="outline"
+            className="border-gold text-gold hover:bg-gold/10"
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            Pipeline Report
+          </Button>
+          <Badge variant="outline" className="border-gold text-gold">
+            {stats.agents.length} Agents
+          </Badge>
+        </div>
       </div>
+
+      {showPipelineReport && (
+        <PipelineReport onClose={() => setShowPipelineReport(false)} />
+      )}
 
       {/* Company-wide Stats from FUB */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
