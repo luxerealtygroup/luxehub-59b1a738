@@ -91,16 +91,6 @@ const AccountsPayable = ({ className }: AccountsPayableProps) => {
     setSavedProjectId(projectId);
   };
 
-  // Check if task is "paid" or "cancelled" based on Invoice Status custom field
-  const isTaskPaid = (task: AsanaTask): boolean => {
-    const statusField = task.custom_fields?.find(cf => 
-      cf.name.toLowerCase().includes('invoice status') || 
-      cf.name.toLowerCase().includes('status')
-    );
-    const status = statusField?.display_value?.toLowerCase() || '';
-    return status === 'paid' || status === 'cancelled';
-  };
-
   const getAmountFromTask = (task: AsanaTask): number | null => {
     // Try to find an amount field in custom fields
     const amountField = task.custom_fields?.find(cf => 
@@ -126,8 +116,7 @@ const AccountsPayable = ({ className }: AccountsPayableProps) => {
     return 'upcoming';
   };
 
-  // Filter to unpaid tasks (not paid and not cancelled)
-  const openTasks = tasks.filter(t => !isTaskPaid(t));
+  const openTasks = tasks.filter(t => !t.completed);
 
   const totalPayable = openTasks
     .reduce((sum, t) => sum + (getAmountFromTask(t) || 0), 0);
