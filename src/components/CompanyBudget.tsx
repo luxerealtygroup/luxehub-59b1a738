@@ -89,12 +89,12 @@ const CompanyBudget = () => {
       const pendingDeals = deals.filter(d => d.stage === 'under_contract');
       const conditionalDeals = deals.filter(d => d.stage === 'offer');
       
-      // Calculate company revenue: deal_value * commission_rate * company_split (30%)
+      // Calculate company revenue: deal_value * (commission_rate/100) * (company_split/100)
       const calculateDealRevenue = (deal: Deal) => {
         const value = deal.deal_value || 0;
-        const rate = deal.commission_rate || 0.02;
-        const companySplit = deal.company_split_percentage || 30;
-        return value * rate * (companySplit / 100);
+        const rate = (deal.commission_rate || 2) / 100; // stored as percentage (e.g., 3.0 = 3%)
+        const companySplit = (deal.company_split_percentage || 30) / 100;
+        return value * rate * companySplit;
       };
       
       const totalRevenue = deals.reduce((sum, deal) => sum + calculateDealRevenue(deal), 0);
