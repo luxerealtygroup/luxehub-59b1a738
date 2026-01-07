@@ -19,16 +19,12 @@ interface BudgetExpense {
   notes: string | null;
 }
 
-interface MonthlyGoal {
-  month: number;
-  units: number;
-  gci: number;
-  volume: number;
-  revenue: number;
-}
-
-interface CompanyGoals {
-  monthly_goals: MonthlyGoal[] | null;
+interface Deal {
+  id: string;
+  stage: string;
+  commission_rate: number | null;
+  deal_value: number | null;
+  company_split_percentage: number | null;
 }
 
 const DEFAULT_CATEGORIES = [
@@ -44,7 +40,9 @@ const DEFAULT_CATEGORIES = [
 const CompanyBudget = () => {
   const { user } = useAuth();
   const [expenses, setExpenses] = useState<BudgetExpense[]>([]);
-  const [monthlyRevenueGoal, setMonthlyRevenueGoal] = useState<number>(0);
+  const [projectedRevenue, setProjectedRevenue] = useState<number>(0);
+  const [pendingCount, setPendingCount] = useState<number>(0);
+  const [conditionalCount, setConditionalCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
@@ -73,21 +71,36 @@ const CompanyBudget = () => {
       setExpenses(expensesData || []);
     }
 
-    // Fetch company goals to get projected revenue
-    const { data: goalsData, error: goalsError } = await supabase
-      .from('company_goals')
-      .select('monthly_goals')
-      .eq('year', selectedYear)
-      .single();
+    // Fetch pending and conditional deals to calculate projected revenue
+    // Pending = under_contract stage, Conditional = offer stage (FUB)
+    const { data: dealsData, error: dealsError } = await supabase
+      .from('deals')
+      .select('id, stage, commission_rate, deal_value, company_split_percentage')
+      .in('stage', ['under_contract', 'offer']);
 
-    if (!goalsError && goalsData?.monthly_goals) {
-      const monthlyGoals = Array.isArray(goalsData.monthly_goals) 
-        ? (goalsData.monthly_goals as unknown as MonthlyGoal[]) 
-        : [];
-      const currentMonthGoal = monthlyGoals.find(g => g.month === selectedMonth);
-      setMonthlyRevenueGoal(currentMonthGoal?.revenue || 0);
+    if (dealsError) {
+      console.error('Error fetching deals:', dealsError);
+      setProjectedRevenue(0);
+      setPendingCount(0);
+      setConditionalCount(0);
     } else {
-      setMonthlyRevenueGoal(0);
+      const deals = dealsData || [];
+      const pendingDeals = deals.filter(d => d.stage === 'under_contract');
+      const conditionalDeals = deals.filter(d => d.stage === 'offer');
+      
+      // Calculate company revenue: deal_value * commission_rate * company_split (30%)
+      const calculateDealRevenue = (deal: Deal) => {
+        const value = deal.deal_value || 0;
+        const rate = deal.commission_rate || 0.02;
+        const companySplit = deal.company_split_percentage || 30;
+        return value * rate * (companySplit / 100);
+      };
+      
+      const totalRevenue = deals.reduce((sum, deal) => sum + calculateDealRevenue(deal), 0);
+      
+      setProjectedRevenue(totalRevenue);
+      setPendingCount(pendingDeals.length);
+      setConditionalCount(conditionalDeals.length);
     }
 
     setLoading(false);
@@ -184,7 +197,7 @@ const CompanyBudget = () => {
   };
 
   const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
-  const netIncome = monthlyRevenueGoal - totalExpenses;
+  const netIncome = projectedRevenue - totalExpenses;
   const isDeficit = netIncome < 0;
   const isSurplus = netIncome > 0;
 
@@ -251,8 +264,8 @@ const CompanyBudget = () => {
               <TrendingUp className="h-4 w-4 text-blue-500" />
               <span className="text-sm text-muted-foreground">Projected Revenue</span>
             </div>
-            <p className="text-2xl font-bold text-blue-500">{formatCurrency(monthlyRevenueGoal)}</p>
-            <p className="text-xs text-muted-foreground">From company goals</p>
+            <p className="text-2xl font-bold text-blue-500">{formatCurrency(projectedRevenue)}</p>
+            <p className="text-xs text-muted-foreground">{pendingCount} pending, {conditionalCount} conditional deals</p>
           </div>
 
           <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20">
@@ -385,13 +398,12 @@ const CompanyBudget = () => {
           </div>
         </div>
 
-        {/* No Revenue Warning */}
-        {monthlyRevenueGoal === 0 && (
+        {/* No Deals Warning */}
+        {projectedRevenue === 0 && (
           <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center gap-2 text-sm">
             <AlertTriangle className="h-4 w-4 text-amber-500" />
             <span className="text-amber-600">
-              No revenue goal set for {months.find(m => m.value === selectedMonth)?.label} {selectedYear}. 
-              Set monthly goals in Team Goals section above.
+              No pending or conditional deals found. Revenue projection is based on active deals in the pipeline.
             </span>
           </div>
         )}
