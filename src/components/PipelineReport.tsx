@@ -69,6 +69,11 @@ const PipelineReport = ({ onClose }: PipelineReportProps) => {
 
   const pendingTotal = pendingDeals.reduce((sum, d) => sum + d.gci, 0);
   const conditionalTotal = conditionalDeals.reduce((sum, d) => sum + d.gci, 0);
+  
+  // Company revenue = 30% of GCI (agent gets 70%)
+  const pendingRevenue = pendingTotal * 0.30;
+  const conditionalRevenue = conditionalTotal * 0.30;
+  const totalRevenue = pendingRevenue + conditionalRevenue;
 
   const formatCurrency = (value: number) => 
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
@@ -114,7 +119,7 @@ const PipelineReport = ({ onClose }: PipelineReportProps) => {
           </div>
 
           {/* Summary */}
-          <div className="grid grid-cols-2 gap-4 mb-8 print:mb-6">
+          <div className="grid grid-cols-3 gap-4 mb-8 print:mb-6">
             <Card className="print:border print:border-gray-300">
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg">Pending Sales</CardTitle>
@@ -138,6 +143,19 @@ const PipelineReport = ({ onClose }: PipelineReportProps) => {
                 </div>
                 <p className="text-muted-foreground print:text-gray-600">
                   {formatCurrency(conditionalTotal)} GCI
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="print:border print:border-gray-300 bg-green-50 print:bg-green-50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">Projected Company Revenue</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">
+                  {formatCurrency(totalRevenue)}
+                </div>
+                <p className="text-sm text-muted-foreground print:text-gray-600">
+                  Pending: {formatCurrency(pendingRevenue)} | Conditional: {formatCurrency(conditionalRevenue)}
                 </p>
               </CardContent>
             </Card>
