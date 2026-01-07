@@ -15,6 +15,7 @@ import { format, parseISO, startOfMonth } from 'date-fns';
 import TeamGoals from './TeamGoals';
 import PipelineReport from './PipelineReport';
 import CompanyBudget from './CompanyBudget';
+import AnnualBudgetChart from './AnnualBudgetChart';
 
 interface AgentData {
   id: string;
@@ -622,67 +623,25 @@ const AdminDashboard = () => {
         </Card>
       </div>
 
-      {/* Team Goals */}
-      <TeamGoals />
-
-      {/* Monthly Budget */}
-      <CompanyBudget />
-
-      {/* Agent Leaderboard */}
-      {fubAgents.length > 0 && (
-        <Card className="border-gold/20 bg-gradient-to-br from-card to-gold/5">
-          <CardHeader>
-            <CardTitle className="text-gold font-display flex items-center gap-2">
-              <Target className="h-5 w-5" /> Agent Leaderboard
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {fubAgents.map((agent, idx) => (
-                <div 
-                  key={agent.id} 
-                  className={`flex items-center gap-4 p-4 rounded-lg border ${
-                    idx === 0 ? 'border-gold/40 bg-gold/10' : 
-                    idx === 1 ? 'border-gray-400/30 bg-gray-400/5' : 
-                    idx === 2 ? 'border-amber-700/30 bg-amber-700/5' : 'border-border'
-                  }`}
-                >
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted text-lg font-bold">
-                    {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1}
-                  </div>
-                  <Avatar className="h-12 w-12 border-2 border-gold/30">
-                    <AvatarImage src={agent.picture} alt={agent.name} />
-                    <AvatarFallback className="bg-gold/20 text-gold font-semibold">
-                      {agent.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <p className="font-semibold text-foreground">{agent.name}</p>
-                    <p className="text-sm text-muted-foreground">{agent.dealCount} deals</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-lg font-bold text-green-500">
-                      ${(agent.totalGci + agent.pendingGci + agent.conditionalGci).toLocaleString()}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      ${agent.totalGci.toLocaleString()} earned / ${agent.pendingGci.toLocaleString()} pending / ${agent.conditionalGci.toLocaleString()} conditional
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="bg-card border border-border">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="agents">Agent Breakdown</TabsTrigger>
-          <TabsTrigger value="pipeline">Pipelines</TabsTrigger>
+      {/* Main Dashboard Sections */}
+      <Tabs defaultValue="pipeline" className="space-y-6">
+        <TabsList className="bg-card border border-border h-auto p-1 flex-wrap">
+          <TabsTrigger value="pipeline" className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4" /> Pipeline & Sales
+          </TabsTrigger>
+          <TabsTrigger value="budget" className="flex items-center gap-2">
+            <DollarSign className="h-4 w-4" /> Budget & Finances
+          </TabsTrigger>
+          <TabsTrigger value="team" className="flex items-center gap-2">
+            <Users className="h-4 w-4" /> Team Performance
+          </TabsTrigger>
+          <TabsTrigger value="analytics" className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" /> Analytics
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="space-y-4">
+        {/* PIPELINE & SALES TAB */}
+        <TabsContent value="pipeline" className="space-y-6">
           {/* Team Pipeline Summary */}
           <Card className="border-purple-500/20 bg-gradient-to-br from-card to-purple-500/5">
             <CardHeader>
@@ -712,155 +671,136 @@ const AdminDashboard = () => {
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* GCI vs Goal by Agent Chart */}
-            <Card className="border-gold/10">
-              <CardHeader>
-                <CardTitle className="text-gold font-display flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5" /> Agent GCI vs Goal
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-72">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={agentGciVsGoalData} layout="vertical">
-                      <XAxis type="number" tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                      <YAxis type="category" dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} width={80} />
-                      <Tooltip
-                        formatter={(value: number) => [`$${value.toLocaleString()}`, '']}
-                        contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }}
-                      />
-                      <Legend />
-                      <Bar dataKey="actual" name="Actual GCI" fill="hsl(142 71% 45%)" radius={[0, 4, 4, 0]} />
-                      <Bar dataKey="goal" name="Goal" fill="hsl(43 74% 49% / 0.4)" radius={[0, 4, 4, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Deals vs Goal by Agent Chart */}
-            <Card className="border-gold/10">
-              <CardHeader>
-                <CardTitle className="text-gold font-display flex items-center gap-2">
-                  <Target className="h-5 w-5" /> Agent Deals vs Goal
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-72">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={agentDealsVsGoalData} layout="vertical">
-                      <XAxis type="number" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                      <YAxis type="category" dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} width={80} />
-                      <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }} />
-                      <Legend />
-                      <Bar dataKey="closed" name="Closed Deals" fill="hsl(142 71% 45%)" radius={[0, 4, 4, 0]} />
-                      <Bar dataKey="goal" name="Goal" fill="hsl(43 74% 49% / 0.4)" radius={[0, 4, 4, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Pipeline by Agent with GCI Goals */}
-          <Card className="border-purple-500/10">
+          {/* Pipeline by Agent */}
+          <Card className="border-gold/10">
             <CardHeader>
-              <CardTitle className="text-purple-500 font-display flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" /> Agent Pipeline vs GCI Goal
-              </CardTitle>
+              <CardTitle className="text-gold font-display">Pipeline Overview by Agent</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={agentPipelineData} layout="vertical">
-                    <XAxis type="number" tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                    <YAxis type="category" dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} width={80} />
-                    <Tooltip
-                      formatter={(value: number, name: string) => [`$${value.toLocaleString()}`, name === 'remaining' ? 'Remaining to Goal' : name]}
-                      contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }}
-                    />
-                    <Legend />
-                    <Bar dataKey="pipelineGci" name="Pipeline GCI" fill="hsl(280 67% 60%)" radius={[0, 4, 4, 0]} stackId="a" />
-                    <Bar dataKey="remaining" name="Remaining to Goal" fill="hsl(43 74% 49% / 0.3)" radius={[0, 4, 4, 0]} stackId="a" />
-                  </BarChart>
-                </ResponsiveContainer>
+              <div className="space-y-4">
+                {stats.agents.map((agent, idx) => {
+                  const totalPipeline = agent.pipelineClients;
+                  const maxPipeline = Math.max(...stats.agents.map(a => a.pipelineClients)) || 1;
+                  const percentage = (totalPipeline / maxPipeline) * 100;
+
+                  return (
+                    <div key={agent.id} className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: COLORS[idx % COLORS.length] }}
+                          />
+                          <span className="font-medium text-foreground">{agent.full_name}</span>
+                        </div>
+                        <span className="text-sm text-muted-foreground">{agent.pipelineClients} clients</span>
+                      </div>
+                      <Progress value={percentage} className="h-2" />
+                    </div>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
 
-          {/* Monthly Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Company Revenue by Month */}
-            <Card className="border-blue-500/10">
-              <CardHeader>
-                <CardTitle className="text-blue-500 font-display flex items-center gap-2">
-                  <Calendar className="h-5 w-5" /> Company Revenue by Month
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-64">
-                  {monthlyRevenue.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={monthlyRevenue}>
-                        <XAxis dataKey="monthLabel" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
-                        <YAxis tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                        <Tooltip
-                          formatter={(value: number) => [`$${value.toLocaleString()}`, '']}
-                          contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }}
-                        />
-                        <Legend />
-                        <Area type="monotone" dataKey="earned" name="Earned" stackId="1" stroke="hsl(142 71% 45%)" fill="hsl(142 71% 45% / 0.5)" />
-                        <Area type="monotone" dataKey="pending" name="Pending" stackId="1" stroke="hsl(43 74% 49%)" fill="hsl(43 74% 49% / 0.5)" />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="h-full flex items-center justify-center text-muted-foreground">
-                      No revenue data available
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Pipeline by Month */}
-            <Card className="border-purple-500/10">
-              <CardHeader>
-                <CardTitle className="text-purple-500 font-display flex items-center gap-2">
-                  <Users className="h-5 w-5" /> Pipeline by Month
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-64">
-                  {monthlyPipeline.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={monthlyPipeline}>
-                        <XAxis dataKey="monthLabel" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
-                        <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                        <Tooltip 
-                          contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }}
-                          formatter={(value: number, name: string) => [
-                            name === 'projectedGci' ? `$${value.toLocaleString()}` : value,
-                            name === 'projectedGci' ? 'Projected GCI' : name
-                          ]}
-                        />
-                        <Legend />
-                        <Bar dataKey="buyers" name="Buyers" fill="hsl(217 91% 60%)" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="sellers" name="Sellers" fill="hsl(280 67% 60%)" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="h-full flex items-center justify-center text-muted-foreground">
-                      No pipeline data available
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          {/* Monthly Pipeline Chart */}
+          <Card className="border-purple-500/10">
+            <CardHeader>
+              <CardTitle className="text-purple-500 font-display flex items-center gap-2">
+                <Users className="h-5 w-5" /> Pipeline by Month
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64">
+                {monthlyPipeline.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={monthlyPipeline}>
+                      <XAxis dataKey="monthLabel" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
+                      <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }}
+                        formatter={(value: number, name: string) => [
+                          name === 'projectedGci' ? `$${value.toLocaleString()}` : value,
+                          name === 'projectedGci' ? 'Projected GCI' : name
+                        ]}
+                      />
+                      <Legend />
+                      <Bar dataKey="buyers" name="Buyers" fill="hsl(217 91% 60%)" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="sellers" name="Sellers" fill="hsl(280 67% 60%)" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-muted-foreground">
+                    No pipeline data available
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
-        <TabsContent value="agents" className="space-y-4">
+        {/* BUDGET & FINANCES TAB */}
+        <TabsContent value="budget" className="space-y-6">
+          {/* Annual Budget vs Revenue Chart */}
+          <AnnualBudgetChart />
+          
+          {/* Monthly Budget */}
+          <CompanyBudget />
+
+          {/* Team Goals */}
+          <TeamGoals />
+        </TabsContent>
+
+        {/* TEAM PERFORMANCE TAB */}
+        <TabsContent value="team" className="space-y-6">
+          {/* Agent Leaderboard */}
+          {fubAgents.length > 0 && (
+            <Card className="border-gold/20 bg-gradient-to-br from-card to-gold/5">
+              <CardHeader>
+                <CardTitle className="text-gold font-display flex items-center gap-2">
+                  <Target className="h-5 w-5" /> Agent Leaderboard
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {fubAgents.map((agent, idx) => (
+                    <div 
+                      key={agent.id} 
+                      className={`flex items-center gap-4 p-4 rounded-lg border ${
+                        idx === 0 ? 'border-gold/40 bg-gold/10' : 
+                        idx === 1 ? 'border-gray-400/30 bg-gray-400/5' : 
+                        idx === 2 ? 'border-amber-700/30 bg-amber-700/5' : 'border-border'
+                      }`}
+                    >
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted text-lg font-bold">
+                        {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1}
+                      </div>
+                      <Avatar className="h-12 w-12 border-2 border-gold/30">
+                        <AvatarImage src={agent.picture} alt={agent.name} />
+                        <AvatarFallback className="bg-gold/20 text-gold font-semibold">
+                          {agent.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <p className="font-semibold text-foreground">{agent.name}</p>
+                        <p className="text-sm text-muted-foreground">{agent.dealCount} deals</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-lg font-bold text-green-500">
+                          ${(agent.totalGci + agent.pendingGci + agent.conditionalGci).toLocaleString()}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          ${agent.totalGci.toLocaleString()} earned / ${agent.pendingGci.toLocaleString()} pending / ${agent.conditionalGci.toLocaleString()} conditional
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Agent Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {stats.agents.map((agent, idx) => (
               <Card
@@ -943,34 +883,113 @@ const AdminDashboard = () => {
           )}
         </TabsContent>
 
-        <TabsContent value="pipeline" className="space-y-4">
-          <Card className="border-gold/10">
+        {/* ANALYTICS TAB */}
+        <TabsContent value="analytics" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* GCI vs Goal by Agent Chart */}
+            <Card className="border-gold/10">
+              <CardHeader>
+                <CardTitle className="text-gold font-display flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" /> Agent GCI vs Goal
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={agentGciVsGoalData} layout="vertical">
+                      <XAxis type="number" tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                      <YAxis type="category" dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} width={80} />
+                      <Tooltip
+                        formatter={(value: number) => [`$${value.toLocaleString()}`, '']}
+                        contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }}
+                      />
+                      <Legend />
+                      <Bar dataKey="actual" name="Actual GCI" fill="hsl(142 71% 45%)" radius={[0, 4, 4, 0]} />
+                      <Bar dataKey="goal" name="Goal" fill="hsl(43 74% 49% / 0.4)" radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Deals vs Goal by Agent Chart */}
+            <Card className="border-gold/10">
+              <CardHeader>
+                <CardTitle className="text-gold font-display flex items-center gap-2">
+                  <Target className="h-5 w-5" /> Agent Deals vs Goal
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={agentDealsVsGoalData} layout="vertical">
+                      <XAxis type="number" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                      <YAxis type="category" dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} width={80} />
+                      <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }} />
+                      <Legend />
+                      <Bar dataKey="closed" name="Closed Deals" fill="hsl(142 71% 45%)" radius={[0, 4, 4, 0]} />
+                      <Bar dataKey="goal" name="Goal" fill="hsl(43 74% 49% / 0.4)" radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Pipeline by Agent with GCI Goals */}
+          <Card className="border-purple-500/10">
             <CardHeader>
-              <CardTitle className="text-gold font-display">Pipeline Overview by Agent</CardTitle>
+              <CardTitle className="text-purple-500 font-display flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" /> Agent Pipeline vs GCI Goal
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {stats.agents.map((agent, idx) => {
-                  const totalPipeline = agent.pipelineClients;
-                  const maxPipeline = Math.max(...stats.agents.map(a => a.pipelineClients)) || 1;
-                  const percentage = (totalPipeline / maxPipeline) * 100;
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={agentPipelineData} layout="vertical">
+                    <XAxis type="number" tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                    <YAxis type="category" dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} width={80} />
+                    <Tooltip
+                      formatter={(value: number, name: string) => [`$${value.toLocaleString()}`, name === 'remaining' ? 'Remaining to Goal' : name]}
+                      contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }}
+                    />
+                    <Legend />
+                    <Bar dataKey="pipelineGci" name="Pipeline GCI" fill="hsl(280 67% 60%)" radius={[0, 4, 4, 0]} stackId="a" />
+                    <Bar dataKey="remaining" name="Remaining to Goal" fill="hsl(43 74% 49% / 0.3)" radius={[0, 4, 4, 0]} stackId="a" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
 
-                  return (
-                    <div key={agent.id} className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: COLORS[idx % COLORS.length] }}
-                          />
-                          <span className="font-medium text-foreground">{agent.full_name}</span>
-                        </div>
-                        <span className="text-sm text-muted-foreground">{agent.pipelineClients} clients</span>
-                      </div>
-                      <Progress value={percentage} className="h-2" />
-                    </div>
-                  );
-                })}
+          {/* Company Revenue by Month */}
+          <Card className="border-blue-500/10">
+            <CardHeader>
+              <CardTitle className="text-blue-500 font-display flex items-center gap-2">
+                <Calendar className="h-5 w-5" /> Company Revenue by Month
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64">
+                {monthlyRevenue.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={monthlyRevenue}>
+                      <XAxis dataKey="monthLabel" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
+                      <YAxis tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                      <Tooltip
+                        formatter={(value: number) => [`$${value.toLocaleString()}`, '']}
+                        contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }}
+                      />
+                      <Legend />
+                      <Area type="monotone" dataKey="earned" name="Earned" stackId="1" stroke="hsl(142 71% 45%)" fill="hsl(142 71% 45% / 0.5)" />
+                      <Area type="monotone" dataKey="pending" name="Pending" stackId="1" stroke="hsl(43 74% 49%)" fill="hsl(43 74% 49% / 0.5)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-muted-foreground">
+                    No revenue data available
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
