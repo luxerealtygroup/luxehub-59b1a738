@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Plus, Trash2, DollarSign, TrendingUp, TrendingDown, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Loader2, Plus, Trash2, DollarSign, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -17,6 +18,7 @@ interface BudgetExpense {
   category: string;
   amount: number;
   notes: string | null;
+  is_recurring: boolean;
 }
 
 interface Deal {
@@ -52,6 +54,7 @@ const CompanyBudget = () => {
   const [newCategory, setNewCategory] = useState('');
   const [newAmount, setNewAmount] = useState('');
   const [newNotes, setNewNotes] = useState('');
+  const [newIsRecurring, setNewIsRecurring] = useState(true);
 
   useEffect(() => {
     fetchData();
@@ -69,8 +72,12 @@ const CompanyBudget = () => {
 
     if (expensesError) {
       console.error('Error fetching expenses:', expensesError);
+      setExpenses([]);
+    } else if (expensesData && expensesData.length > 0) {
+      setExpenses(expensesData);
     } else {
-      setExpenses(expensesData || []);
+      // No expenses for this month - check for recurring expenses from the previous month
+      await copyRecurringExpenses();
     }
 
     // Fetch pending and conditional deals expected to close in the selected month
@@ -113,6 +120,57 @@ const CompanyBudget = () => {
     setLoading(false);
   };
 
+  const copyRecurringExpenses = async () => {
+    if (!user) return;
+    
+    // Calculate previous month
+    let prevMonth = selectedMonth - 1;
+    let prevYear = selectedYear;
+    if (prevMonth === 0) {
+      prevMonth = 12;
+      prevYear = selectedYear - 1;
+    }
+    
+    // Fetch recurring expenses from previous month
+    const { data: recurringExpenses, error } = await supabase
+      .from('company_budget_expenses')
+      .select('*')
+      .eq('year', prevYear)
+      .eq('month', prevMonth)
+      .eq('is_recurring', true);
+    
+    if (error || !recurringExpenses || recurringExpenses.length === 0) {
+      setExpenses([]);
+      return;
+    }
+    
+    // Insert recurring expenses for the new month
+    const newExpenses = recurringExpenses.map(exp => ({
+      year: selectedYear,
+      month: selectedMonth,
+      category: exp.category,
+      amount: exp.amount,
+      notes: exp.notes,
+      is_recurring: true,
+      created_by: user.id,
+    }));
+    
+    const { data: insertedData, error: insertError } = await supabase
+      .from('company_budget_expenses')
+      .insert(newExpenses)
+      .select();
+    
+    if (insertError) {
+      console.error('Error copying recurring expenses:', insertError);
+      setExpenses([]);
+    } else {
+      setExpenses(insertedData || []);
+      if (insertedData && insertedData.length > 0) {
+        toast.success(`Copied ${insertedData.length} recurring expense(s) from previous month`);
+      }
+    }
+  };
+
   const handleAddExpense = async () => {
     if (!newCategory || !newAmount || !user) {
       toast.error('Please fill in category and amount');
@@ -134,7 +192,7 @@ const CompanyBudget = () => {
       // Update existing
       const { error } = await supabase
         .from('company_budget_expenses')
-        .update({ amount, notes: newNotes || null })
+        .update({ amount, notes: newNotes || null, is_recurring: newIsRecurring })
         .eq('id', existingExpense.id);
 
       if (error) {
@@ -145,6 +203,7 @@ const CompanyBudget = () => {
         setNewCategory('');
         setNewAmount('');
         setNewNotes('');
+        setNewIsRecurring(true);
         fetchData();
       }
     } else {
@@ -157,6 +216,7 @@ const CompanyBudget = () => {
           category: newCategory,
           amount,
           notes: newNotes || null,
+          is_recurring: newIsRecurring,
           created_by: user.id,
         });
 
@@ -168,6 +228,7 @@ const CompanyBudget = () => {
         setNewCategory('');
         setNewAmount('');
         setNewNotes('');
+        setNewIsRecurring(true);
         fetchData();
       }
     }
@@ -200,6 +261,20 @@ const CompanyBudget = () => {
       toast.error('Failed to update expense');
     } else {
       fetchData();
+    }
+  };
+
+  const handleToggleRecurring = async (id: string, isRecurring: boolean) => {
+    const { error } = await supabase
+      .from('company_budget_expenses')
+      .update({ is_recurring: isRecurring })
+      .eq('id', id);
+
+    if (error) {
+      toast.error('Failed to update expense');
+    } else {
+      setExpenses(expenses.map(exp => exp.id === id ? { ...exp, is_recurring: isRecurring } : exp));
+      toast.success(isRecurring ? 'Expense marked as recurring' : 'Expense marked as one-time');
     }
   };
 
@@ -342,6 +417,14 @@ const CompanyBudget = () => {
                   {expense.notes && (
                     <span className="text-xs text-muted-foreground flex-1 truncate">{expense.notes}</span>
                   )}
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <RefreshCw className={`h-3.5 w-3.5 ${expense.is_recurring ? 'text-blue-500' : 'text-muted-foreground'}`} />
+                    <Switch
+                      checked={expense.is_recurring}
+                      onCheckedChange={(checked) => handleToggleRecurring(expense.id, checked)}
+                      className="scale-75"
+                    />
+                  </div>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -361,7 +444,7 @@ const CompanyBudget = () => {
           <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2">
             <Plus className="h-4 w-4" /> Add Expense
           </h4>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
             <div>
               <Label className="text-xs">Category</Label>
               <select
@@ -391,6 +474,16 @@ const CompanyBudget = () => {
                 onChange={(e) => setNewNotes(e.target.value)}
                 placeholder="Optional notes..."
               />
+            </div>
+            <div className="flex items-center gap-2 pt-5">
+              <Switch
+                id="recurring"
+                checked={newIsRecurring}
+                onCheckedChange={setNewIsRecurring}
+              />
+              <Label htmlFor="recurring" className="text-xs flex items-center gap-1">
+                <RefreshCw className="h-3 w-3" /> Recurring
+              </Label>
             </div>
             <div className="flex items-end">
               <Button
