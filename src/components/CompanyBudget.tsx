@@ -30,6 +30,7 @@ interface Deal {
 const DEFAULT_CATEGORIES = [
   'Rent/Office',
   'Salaries',
+  'Payroll',
   'Marketing',
   'Technology',
   'Insurance',
