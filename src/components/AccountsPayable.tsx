@@ -91,6 +91,16 @@ const AccountsPayable = ({ className }: AccountsPayableProps) => {
     setSavedProjectId(projectId);
   };
 
+  // Check if task is "paid" or "cancelled" based on Invoice Status custom field
+  const isTaskPaid = (task: AsanaTask): boolean => {
+    const statusField = task.custom_fields?.find(cf => 
+      cf.name.toLowerCase().includes('invoice status') || 
+      cf.name.toLowerCase().includes('status')
+    );
+    const status = statusField?.display_value?.toLowerCase() || '';
+    return status === 'paid' || status === 'cancelled';
+  };
+
   const getAmountFromTask = (task: AsanaTask): number | null => {
     // Try to find an amount field in custom fields
     const amountField = task.custom_fields?.find(cf => 
@@ -116,12 +126,14 @@ const AccountsPayable = ({ className }: AccountsPayableProps) => {
     return 'upcoming';
   };
 
-  const totalPayable = tasks
-    .filter(t => !t.completed)
+  // Filter to unpaid tasks (not paid and not cancelled)
+  const openTasks = tasks.filter(t => !isTaskPaid(t));
+
+  const totalPayable = openTasks
     .reduce((sum, t) => sum + (getAmountFromTask(t) || 0), 0);
 
-  const overdueCount = tasks.filter(t => 
-    !t.completed && getDueStatus(t.due_on) === 'overdue'
+  const overdueCount = openTasks.filter(t => 
+    getDueStatus(t.due_on) === 'overdue'
   ).length;
 
   if (!savedProjectId) {
@@ -209,7 +221,7 @@ const AccountsPayable = ({ className }: AccountsPayableProps) => {
     );
   }
 
-  const openTasks = tasks.filter(t => !t.completed);
+  
 
   return (
     <Card className={className}>
