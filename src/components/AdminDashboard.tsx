@@ -16,6 +16,7 @@ import TeamGoals from './TeamGoals';
 import PipelineReport from './PipelineReport';
 import CompanyBudget from './CompanyBudget';
 import AnnualBudgetChart from './AnnualBudgetChart';
+import AccountsPayable from './AccountsPayable';
 
 interface AgentData {
   id: string;
@@ -743,6 +744,9 @@ const AdminDashboard = () => {
         <TabsContent value="budget" className="space-y-6">
           {/* Annual Budget vs Revenue Chart */}
           <AnnualBudgetChart />
+          
+          {/* Accounts Payable from Asana */}
+          <AccountsPayable />
           
           {/* Monthly Budget */}
           <CompanyBudget />
