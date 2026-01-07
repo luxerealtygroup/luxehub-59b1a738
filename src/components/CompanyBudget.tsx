@@ -25,6 +25,7 @@ interface Deal {
   commission_rate: number | null;
   deal_value: number | null;
   company_split_percentage: number | null;
+  expected_close_date: string | null;
 }
 
 const DEFAULT_CATEGORIES = [
@@ -72,12 +73,17 @@ const CompanyBudget = () => {
       setExpenses(expensesData || []);
     }
 
-    // Fetch pending and conditional deals to calculate projected revenue
+    // Fetch pending and conditional deals expected to close in the selected month
     // Pending = under_contract stage, Conditional = offer stage (FUB)
+    const startOfMonth = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
+    const endOfMonth = new Date(selectedYear, selectedMonth, 0).toISOString().split('T')[0];
+    
     const { data: dealsData, error: dealsError } = await supabase
       .from('deals')
-      .select('id, stage, commission_rate, deal_value, company_split_percentage')
-      .in('stage', ['under_contract', 'offer']);
+      .select('id, stage, commission_rate, deal_value, company_split_percentage, expected_close_date')
+      .in('stage', ['under_contract', 'offer'])
+      .gte('expected_close_date', startOfMonth)
+      .lte('expected_close_date', endOfMonth);
 
     if (dealsError) {
       console.error('Error fetching deals:', dealsError);
