@@ -742,14 +742,14 @@ const AdminDashboard = () => {
 
         {/* BUDGET & FINANCES TAB */}
         <TabsContent value="budget" className="space-y-6">
+          {/* Monthly Budget */}
+          <CompanyBudget />
+          
           {/* Annual Budget vs Revenue Chart */}
           <AnnualBudgetChart />
           
           {/* Accounts Payable from Asana */}
           <AccountsPayable />
-          
-          {/* Monthly Budget */}
-          <CompanyBudget />
 
           {/* Team Goals */}
           <TeamGoals />
