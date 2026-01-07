@@ -59,6 +59,10 @@ const AccountsPayable = ({ className }: AccountsPayableProps) => {
       if (fnError) throw fnError;
 
       if (data?.tasks) {
+        console.log('Fetched tasks from Asana:', data.tasks.length, 'total');
+        console.log('Incomplete tasks:', data.tasks.filter((t: AsanaTask) => !t.completed).length);
+        console.log('Sample task:', data.tasks[0]);
+        
         // Sort by due date (soonest first), then by name
         const sortedTasks = data.tasks.sort((a: AsanaTask, b: AsanaTask) => {
           if (!a.due_on && !b.due_on) return a.name.localeCompare(b.name);
