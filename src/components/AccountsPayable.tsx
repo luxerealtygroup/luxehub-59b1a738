@@ -92,13 +92,18 @@ const AccountsPayable = ({ className }: AccountsPayableProps) => {
   };
 
   const getAmountFromTask = (task: AsanaTask): number | null => {
-    // Try to find an amount field in custom fields
+    // Try to find "Invoice Amount" field specifically first
+    const invoiceAmountField = task.custom_fields?.find(cf => 
+      cf.name.toLowerCase() === 'invoice amount'
+    );
+    if (invoiceAmountField?.number_value != null) return invoiceAmountField.number_value;
+    
+    // Fallback to other amount-related fields
     const amountField = task.custom_fields?.find(cf => 
       cf.name.toLowerCase().includes('amount') || 
-      cf.name.toLowerCase().includes('total') ||
-      cf.name.toLowerCase().includes('invoice')
+      cf.name.toLowerCase().includes('total')
     );
-    if (amountField?.number_value) return amountField.number_value;
+    if (amountField?.number_value != null) return amountField.number_value;
     
     // Try to extract from task name or notes
     const amountMatch = (task.name + ' ' + task.notes).match(/\$[\d,]+\.?\d*/);
