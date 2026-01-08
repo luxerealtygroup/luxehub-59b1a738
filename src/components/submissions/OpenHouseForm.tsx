@@ -108,8 +108,8 @@ export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
 
       if (error) throw error;
 
-      // Get public URLs for attachments to pass to Asana
-      const attachmentUrls = attachments.length > 0 ? getFilePublicUrls(attachments, attachmentPaths) : [];
+      // Get signed URLs for attachments to pass to Asana
+      const attachmentUrls = attachments.length > 0 ? await getFilePublicUrls(attachments, attachmentPaths) : [];
 
       toast.success('Open house submission created successfully!');
       form.reset();

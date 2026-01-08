@@ -166,16 +166,29 @@ export async function copyFilesToClientDocuments(
   }
 }
 
-// Helper function to get public URLs for uploaded files
-export function getFilePublicUrls(
+// Helper function to get signed URLs for uploaded files (works with private buckets)
+export async function getFilePublicUrls(
   files: File[],
   filePaths: string[]
-): Array<{ url: string; name: string }> {
-  return filePaths.map((path, index) => {
-    const { data } = supabase.storage.from('client-documents').getPublicUrl(path);
-    return {
-      url: data.publicUrl,
-      name: files[index]?.name || path.split('/').pop() || 'file',
-    };
-  });
+): Promise<Array<{ url: string; name: string }>> {
+  const results: Array<{ url: string; name: string }> = [];
+  
+  for (let i = 0; i < filePaths.length; i++) {
+    const path = filePaths[i];
+    // Create a signed URL that expires in 1 hour (enough time for Asana to download)
+    const { data, error } = await supabase.storage
+      .from('client-documents')
+      .createSignedUrl(path, 3600); // 1 hour expiry
+    
+    if (data?.signedUrl) {
+      results.push({
+        url: data.signedUrl,
+        name: files[i]?.name || path.split('/').pop() || 'file',
+      });
+    } else {
+      console.error('Failed to create signed URL for:', path, error);
+    }
+  }
+  
+  return results;
 }

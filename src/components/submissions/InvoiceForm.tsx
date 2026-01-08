@@ -91,8 +91,8 @@ export function InvoiceForm({ agents, onSuccess }: InvoiceFormProps) {
 
       if (error) throw error;
 
-      // Get public URLs for attachments to pass to Asana
-      const attachmentUrls = attachments.length > 0 ? getFilePublicUrls(attachments, attachmentPaths) : [];
+      // Get signed URLs for attachments to pass to Asana
+      const attachmentUrls = attachments.length > 0 ? await getFilePublicUrls(attachments, attachmentPaths) : [];
 
       toast.success('Invoice submission created successfully!');
       form.reset();
