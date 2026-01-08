@@ -170,8 +170,8 @@ export function BuyerForm({ agents, onSuccess }: BuyerFormProps) {
         );
       }
 
-      // Get public URLs for all uploaded files to pass to Asana
-      const attachmentUrls = allFiles.length > 0 ? getFilePublicUrls(allFiles, allPaths) : [];
+      // Get signed URLs for all uploaded files to pass to Asana
+      const attachmentUrls = allFiles.length > 0 ? await getFilePublicUrls(allFiles, allPaths) : [];
 
       toast.success('Buyer submission created successfully!');
       form.reset();
