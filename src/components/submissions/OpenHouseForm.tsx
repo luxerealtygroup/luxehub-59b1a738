@@ -13,7 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
-import { FileUpload, uploadSubmissionFiles } from './FileUpload';
+import { FileUpload, uploadSubmissionFiles, getFilePublicUrls } from './FileUpload';
 
 const formSchema = z.object({
   property_address: z.string().min(1, 'Property address is required'),
@@ -42,7 +42,8 @@ interface OpenHouseFormProps {
     door_knockers_needed?: string;
     door_knockers_quantity?: string;
     feature_sheets_needed?: string;
-    notes?: string 
+    notes?: string;
+    attachment_urls?: Array<{ url: string; name: string }>;
   }) => void;
 }
 
@@ -107,6 +108,9 @@ export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
 
       if (error) throw error;
 
+      // Get public URLs for attachments to pass to Asana
+      const attachmentUrls = attachments.length > 0 ? getFilePublicUrls(attachments, attachmentPaths) : [];
+
       toast.success('Open house submission created successfully!');
       form.reset();
       setAttachments([]);
@@ -119,6 +123,7 @@ export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
         door_knockers_quantity: data.door_knockers_needed === 'Yes' ? data.door_knockers_quantity : undefined,
         feature_sheets_needed: data.feature_sheets_needed,
         notes: data.notes,
+        attachment_urls: attachmentUrls,
       });
     } catch (error: any) {
       console.error('Error submitting form:', error);
