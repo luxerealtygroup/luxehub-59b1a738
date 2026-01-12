@@ -704,38 +704,84 @@ const AdminDashboard = () => {
             </CardContent>
           </Card>
 
-          {/* Monthly Pipeline Chart */}
+          {/* Monthly Pipeline Overview */}
           <Card className="border-purple-500/10">
             <CardHeader>
               <CardTitle className="text-purple-500 font-display flex items-center gap-2">
-                <Users className="h-5 w-5" /> Pipeline by Month
+                <Calendar className="h-5 w-5" /> Pipeline by Month
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-64">
-                {monthlyPipeline.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={monthlyPipeline}>
-                      <XAxis dataKey="monthLabel" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
-                      <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                      <Tooltip 
-                        contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }}
-                        formatter={(value: number, name: string) => [
-                          name === 'projectedGci' ? `$${value.toLocaleString()}` : value,
-                          name === 'projectedGci' ? 'Projected GCI' : name
-                        ]}
-                      />
-                      <Legend />
-                      <Bar dataKey="buyers" name="Buyers" fill="hsl(217 91% 60%)" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="sellers" name="Sellers" fill="hsl(280 67% 60%)" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-full flex items-center justify-center text-muted-foreground">
-                    No pipeline data available
+              {(() => {
+                // Calculate monthly goal (total deals goal / 12)
+                const monthlyGoal = Math.ceil(teamPipelineSummary.totalDealsGoal / 12);
+                const currentYear = new Date().getFullYear();
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                
+                // Build all 12 months with data
+                const allMonths = months.map((monthLabel, idx) => {
+                  const monthKey = `${currentYear}-${String(idx + 1).padStart(2, '0')}`;
+                  const existing = monthlyPipeline.find(m => m.month === monthKey);
+                  return {
+                    month: monthKey,
+                    monthLabel,
+                    buyers: existing?.buyers || 0,
+                    sellers: existing?.sellers || 0,
+                    total: existing?.total || 0,
+                    projectedGci: existing?.projectedGci || 0,
+                    goal: monthlyGoal,
+                  };
+                });
+
+                return (
+                  <div className="space-y-3">
+                    {allMonths.map((month) => {
+                      const percentage = monthlyGoal > 0 ? Math.min((month.total / monthlyGoal) * 100, 100) : 0;
+                      const isOnTrack = month.total >= monthlyGoal;
+                      const needed = Math.max(0, monthlyGoal - month.total);
+
+                      return (
+                        <div key={month.month} className="space-y-1">
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                              <span className="font-medium text-foreground w-10">{month.monthLabel}</span>
+                              <div className="flex items-center gap-2 text-sm">
+                                <span className="text-blue-500">{month.buyers} buyers</span>
+                                <span className="text-muted-foreground">•</span>
+                                <span className="text-purple-500">{month.sellers} sellers</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3 text-sm">
+                              <span className={`font-semibold ${isOnTrack ? 'text-green-500' : 'text-gold'}`}>
+                                {month.total} / {monthlyGoal} clients
+                              </span>
+                              {needed > 0 && (
+                                <Badge variant="outline" className="text-xs border-orange-500/50 text-orange-500">
+                                  Need {needed} more
+                                </Badge>
+                              )}
+                              {isOnTrack && month.total > 0 && (
+                                <Badge variant="outline" className="text-xs border-green-500/50 text-green-500">
+                                  On track
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Progress 
+                              value={percentage} 
+                              className="h-2 flex-1" 
+                            />
+                            <span className="text-xs text-muted-foreground w-16 text-right">
+                              ${Math.round(month.projectedGci).toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                )}
-              </div>
+                );
+              })()}
             </CardContent>
           </Card>
         </TabsContent>
