@@ -657,7 +657,7 @@ const AdminDashboard = () => {
                   <p className="text-sm text-muted-foreground">Total Pipeline Clients</p>
                 </div>
                 <div className="text-center p-4 rounded-lg bg-gold/10">
-                  <p className="text-3xl font-bold text-gold">${teamPipelineSummary.totalProjectedGci.toLocaleString()}</p>
+                  <p className="text-3xl font-bold text-gold">${Math.round(teamPipelineSummary.totalProjectedGci).toLocaleString()}</p>
                   <p className="text-sm text-muted-foreground">Projected Pipeline GCI</p>
                 </div>
                 <div className="text-center p-4 rounded-lg bg-green-500/10">
