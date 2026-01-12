@@ -704,78 +704,87 @@ const AdminDashboard = () => {
             </CardContent>
           </Card>
 
-          {/* Monthly Pipeline Overview */}
+          {/* Quarterly Pipeline Overview */}
           <Card className="border-purple-500/10">
             <CardHeader>
               <CardTitle className="text-purple-500 font-display flex items-center gap-2">
-                <Calendar className="h-5 w-5" /> Pipeline by Month
+                <Calendar className="h-5 w-5" /> Pipeline by Quarter
               </CardTitle>
             </CardHeader>
             <CardContent>
               {(() => {
-                // Calculate monthly goal (total deals goal / 12)
-                const monthlyGoal = Math.ceil(teamPipelineSummary.totalDealsGoal / 12);
+                // Calculate quarterly goal (total deals goal / 4)
+                const quarterlyGoal = Math.ceil(teamPipelineSummary.totalDealsGoal / 4);
                 const currentYear = new Date().getFullYear();
-                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
                 
-                // Build all 12 months with data
-                const allMonths = months.map((monthLabel, idx) => {
-                  const monthKey = `${currentYear}-${String(idx + 1).padStart(2, '0')}`;
-                  const existing = monthlyPipeline.find(m => m.month === monthKey);
+                // Define quarters with their months
+                const quarters = [
+                  { label: 'Q1', months: ['01', '02', '03'], monthNames: 'Jan - Mar' },
+                  { label: 'Q2', months: ['04', '05', '06'], monthNames: 'Apr - Jun' },
+                  { label: 'Q3', months: ['07', '08', '09'], monthNames: 'Jul - Sep' },
+                  { label: 'Q4', months: ['10', '11', '12'], monthNames: 'Oct - Dec' },
+                ];
+                
+                // Build quarterly data by aggregating monthly data
+                const quarterlyData = quarters.map(quarter => {
+                  const quarterMonths = quarter.months.map(m => `${currentYear}-${m}`);
+                  const monthsData = quarterMonths.map(monthKey => 
+                    monthlyPipeline.find(m => m.month === monthKey)
+                  );
+                  
                   return {
-                    month: monthKey,
-                    monthLabel,
-                    buyers: existing?.buyers || 0,
-                    sellers: existing?.sellers || 0,
-                    total: existing?.total || 0,
-                    projectedGci: existing?.projectedGci || 0,
-                    goal: monthlyGoal,
+                    label: quarter.label,
+                    monthNames: quarter.monthNames,
+                    buyers: monthsData.reduce((sum, m) => sum + (m?.buyers || 0), 0),
+                    sellers: monthsData.reduce((sum, m) => sum + (m?.sellers || 0), 0),
+                    total: monthsData.reduce((sum, m) => sum + (m?.total || 0), 0),
+                    projectedGci: monthsData.reduce((sum, m) => sum + (m?.projectedGci || 0), 0),
+                    goal: quarterlyGoal,
                   };
                 });
 
                 return (
-                  <div className="space-y-3">
-                    {allMonths.map((month) => {
-                      const percentage = monthlyGoal > 0 ? Math.min((month.total / monthlyGoal) * 100, 100) : 0;
-                      const isOnTrack = month.total >= monthlyGoal;
-                      const needed = Math.max(0, monthlyGoal - month.total);
+                  <div className="space-y-4">
+                    {quarterlyData.map((quarter) => {
+                      const percentage = quarterlyGoal > 0 ? Math.min((quarter.total / quarterlyGoal) * 100, 100) : 0;
+                      const isOnTrack = quarter.total >= quarterlyGoal;
+                      const needed = Math.max(0, quarterlyGoal - quarter.total);
 
                       return (
-                        <div key={month.month} className="space-y-1">
+                        <div key={quarter.label} className="space-y-2 p-4 rounded-lg border border-border/50 bg-muted/20">
                           <div className="flex justify-between items-center">
                             <div className="flex items-center gap-3">
-                              <span className="font-medium text-foreground w-10">{month.monthLabel}</span>
-                              <div className="flex items-center gap-2 text-sm">
-                                <span className="text-blue-500">{month.buyers} buyers</span>
-                                <span className="text-muted-foreground">•</span>
-                                <span className="text-purple-500">{month.sellers} sellers</span>
-                              </div>
+                              <span className="font-bold text-foreground text-lg">{quarter.label}</span>
+                              <span className="text-sm text-muted-foreground">{quarter.monthNames}</span>
                             </div>
                             <div className="flex items-center gap-3 text-sm">
                               <span className={`font-semibold ${isOnTrack ? 'text-green-500' : 'text-gold'}`}>
-                                {month.total} / {monthlyGoal} clients
+                                {quarter.total} / {quarterlyGoal} clients
                               </span>
                               {needed > 0 && (
                                 <Badge variant="outline" className="text-xs border-orange-500/50 text-orange-500">
                                   Need {needed} more
                                 </Badge>
                               )}
-                              {isOnTrack && month.total > 0 && (
+                              {isOnTrack && quarter.total > 0 && (
                                 <Badge variant="outline" className="text-xs border-green-500/50 text-green-500">
                                   On track
                                 </Badge>
                               )}
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Progress 
-                              value={percentage} 
-                              className="h-2 flex-1" 
-                            />
-                            <span className="text-xs text-muted-foreground w-16 text-right">
-                              ${Math.round(month.projectedGci).toLocaleString()}
+                          <div className="flex items-center gap-4 text-sm">
+                            <span className="text-blue-500">{quarter.buyers} buyers</span>
+                            <span className="text-muted-foreground">•</span>
+                            <span className="text-purple-500">{quarter.sellers} sellers</span>
+                            <span className="text-muted-foreground ml-auto">
+                              Projected GCI: <span className="text-green-500 font-medium">${Math.round(quarter.projectedGci).toLocaleString()}</span>
                             </span>
                           </div>
+                          <Progress 
+                            value={percentage} 
+                            className="h-3" 
+                          />
                         </div>
                       );
                     })}
