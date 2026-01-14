@@ -155,22 +155,33 @@ async function getTasks(token: string, projectId: string) {
 
 async function uploadAttachmentToTask(token: string, taskGid: string, fileUrl: string, fileName: string) {
   try {
-    console.log(`Uploading attachment: ${fileName} from ${fileUrl}`);
+    console.log(`[ATTACHMENT] Starting upload: ${fileName}`);
+    console.log(`[ATTACHMENT] URL: ${fileUrl.substring(0, 100)}...`);
     
-    // Fetch the file from the URL
+    // Fetch the file from the signed URL
     const fileResponse = await fetch(fileUrl);
+    console.log(`[ATTACHMENT] Fetch response status: ${fileResponse.status}`);
+    
     if (!fileResponse.ok) {
-      console.error(`Failed to fetch file: ${fileUrl}`, fileResponse.status);
+      const errorText = await fileResponse.text();
+      console.error(`[ATTACHMENT] Failed to fetch file: ${fileResponse.status} - ${errorText}`);
       return null;
     }
 
     const fileBlob = await fileResponse.blob();
+    console.log(`[ATTACHMENT] File blob size: ${fileBlob.size} bytes, type: ${fileBlob.type}`);
+    
+    if (fileBlob.size === 0) {
+      console.error(`[ATTACHMENT] File blob is empty!`);
+      return null;
+    }
     
     // Create form data for multipart upload
     const formData = new FormData();
     formData.append('file', fileBlob, fileName);
 
     // Upload to Asana
+    console.log(`[ATTACHMENT] Uploading to Asana task: ${taskGid}`);
     const uploadResponse = await fetch(`https://app.asana.com/api/1.0/tasks/${taskGid}/attachments`, {
       method: 'POST',
       headers: {
@@ -179,17 +190,19 @@ async function uploadAttachmentToTask(token: string, taskGid: string, fileUrl: s
       body: formData,
     });
 
+    console.log(`[ATTACHMENT] Asana upload response status: ${uploadResponse.status}`);
+    
     if (!uploadResponse.ok) {
       const error = await uploadResponse.text();
-      console.error(`Failed to upload attachment to Asana: ${error}`);
+      console.error(`[ATTACHMENT] Failed to upload to Asana: ${error}`);
       return null;
     }
 
     const result = await uploadResponse.json();
-    console.log(`Attachment uploaded successfully: ${result.data?.gid}`);
+    console.log(`[ATTACHMENT] Upload successful! Attachment GID: ${result.data?.gid}`);
     return result.data;
   } catch (error) {
-    console.error(`Error uploading attachment: ${error}`);
+    console.error(`[ATTACHMENT] Error: ${error}`);
     return null;
   }
 }
@@ -404,17 +417,26 @@ async function createTask(token: string, body: any) {
 
   // Upload attachments if provided
   let uploadedAttachments: any[] = [];
+  console.log(`[ATTACHMENTS] Checking for attachments...`);
+  console.log(`[ATTACHMENTS] attachment_urls value:`, JSON.stringify(attachment_urls));
+  console.log(`[ATTACHMENTS] Is array:`, Array.isArray(attachment_urls));
+  console.log(`[ATTACHMENTS] Length:`, attachment_urls?.length);
+  console.log(`[ATTACHMENTS] Task GID:`, taskGid);
+  
   if (attachment_urls && Array.isArray(attachment_urls) && attachment_urls.length > 0 && taskGid) {
-    console.log(`Uploading ${attachment_urls.length} attachments to task ${taskGid}`);
+    console.log(`[ATTACHMENTS] Starting upload of ${attachment_urls.length} attachments to task ${taskGid}`);
     
     for (const attachment of attachment_urls) {
+      console.log(`[ATTACHMENTS] Processing: ${attachment.name} - URL exists: ${!!attachment.url}`);
       const uploaded = await uploadAttachmentToTask(token, taskGid, attachment.url, attachment.name);
       if (uploaded) {
         uploadedAttachments.push(uploaded);
       }
     }
     
-    console.log(`Successfully uploaded ${uploadedAttachments.length} attachments`);
+    console.log(`[ATTACHMENTS] Successfully uploaded ${uploadedAttachments.length} of ${attachment_urls.length} attachments`);
+  } else {
+    console.log(`[ATTACHMENTS] No attachments to upload. Conditions: urls=${!!attachment_urls}, isArray=${Array.isArray(attachment_urls)}, length=${attachment_urls?.length || 0}, taskGid=${!!taskGid}`);
   }
 
   return new Response(JSON.stringify({ 
