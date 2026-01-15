@@ -254,6 +254,7 @@ const AdminDashboard = () => {
         
         const sortedAgents = Array.from(agentMap.values())
           .filter(agent => !ADMIN_ONLY_FUB_IDS.includes(agent.id)) // Exclude admin-only users
+          .filter(agent => agent.name && agent.name !== 'Unknown Agent') // Exclude unknown agents
           .sort((a, b) => (b.totalGci + b.pendingGci + b.conditionalGci) - (a.totalGci + a.pendingGci + a.conditionalGci));
         setFubAgents(sortedAgents);
 
@@ -401,7 +402,9 @@ const AdminDashboard = () => {
         activeDeals: (deals || []).filter(d => ['lead', 'contacted', 'showing', 'offer', 'under_contract'].includes(d.stage)).length,
         totalPipelineClients: (pipelineClients || []).length,
         totalPipelineGci,
-        agents: agentData.sort((a, b) => b.totalGci - a.totalGci),
+        agents: agentData
+          .filter(a => a.full_name && a.full_name !== 'Unknown Agent') // Exclude unknown agents
+          .sort((a, b) => b.totalGci - a.totalGci),
       };
 
       setStats(companyStats);
