@@ -338,9 +338,10 @@ async function createTask(token: string, body: any) {
               formattedCustomFields[fieldGid] = parseFloat(String(value).replace(/[^0-9.-]/g, '')) || 0;
               break;
             case 'enum':
-              // Find matching enum option by name (case-insensitive)
+              // Find matching enum option by name (case-insensitive, trim whitespace)
+              const searchValue = String(value).toLowerCase().trim();
               const enumOption = fieldMeta.enum_options?.find(
-                (opt: any) => opt.name.toLowerCase() === String(value).toLowerCase()
+                (opt: any) => opt.name.toLowerCase().trim() === searchValue
               );
               if (enumOption) {
                 formattedCustomFields[fieldGid] = enumOption.gid;
