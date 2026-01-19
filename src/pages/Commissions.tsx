@@ -141,8 +141,21 @@ const Commissions = () => {
           deal.users?.some(u => u.id === userFubId)
         );
         
-        // Transform to display format
-        const displayDeals: FUBDealDisplay[] = myDeals.map((deal: FUBDeal) => {
+        // Transform to display format and deduplicate by client name + property
+        const seenDeals = new Set<string>();
+        const displayDeals: FUBDealDisplay[] = [];
+        
+        myDeals.forEach((deal: FUBDeal) => {
+          const clientName = deal.people?.[0]?.name || deal.name || 'Unknown';
+          const propertyAddress = deal.name || '';
+          const dedupeKey = `${clientName.toLowerCase().trim()}-${propertyAddress.toLowerCase().trim()}`;
+          
+          // Skip if we've already seen this client+property combination
+          if (seenDeals.has(dedupeKey)) {
+            return;
+          }
+          seenDeals.add(dedupeKey);
+          
           let status: 'conditional' | 'pending' | 'closed' = 'pending';
           const stageLower = deal.stageName?.toLowerCase() || '';
           
@@ -154,17 +167,17 @@ const Commissions = () => {
             status = 'pending';
           }
 
-          return {
+          displayDeals.push({
             id: deal.id,
-            clientName: deal.people?.[0]?.name || deal.name || 'Unknown',
-            propertyAddress: deal.name || '',
+            clientName,
+            propertyAddress,
             dealValue: deal.price || 0,
             grossCommission: deal.commissionValue || deal.agentCommission || 0,
             status,
             stageName: deal.stageName || '',
             createdAt: deal.createdAt || new Date().toISOString(),
             source: 'fub' as const
-          };
+          });
         });
         
         setFubDealsDisplay(displayDeals);
