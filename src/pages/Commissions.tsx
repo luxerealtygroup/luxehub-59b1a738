@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { DollarSign, TrendingUp, Clock, CheckCircle, Plus, Search, Loader2, Download, Users, X } from 'lucide-react';
+import { DollarSign, TrendingUp, Clock, CheckCircle, Plus, Search, Loader2, Download, Users, X, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { FUBClientSearch } from '@/components/FUBClientSearch';
 import { useToast } from '@/hooks/use-toast';
@@ -22,6 +22,7 @@ import { useGoogleCalendar } from '@/hooks/useGoogleCalendar';
 interface AgentProfile {
   id: string;
   full_name: string | null;
+  fub_user_id: number | null;
 }
 
 interface Commission {
@@ -50,6 +51,19 @@ interface Condition {
   deadline: string;
 }
 
+// FUB deal transformed for display
+interface FUBDealDisplay {
+  id: number;
+  clientName: string;
+  propertyAddress: string;
+  dealValue: number;
+  grossCommission: number;
+  status: 'conditional' | 'pending' | 'closed';
+  stageName: string;
+  createdAt: string;
+  source: 'fub';
+}
+
 const initialDealState = {
   client_name: '',
   property_address: '',
@@ -73,7 +87,9 @@ const Commissions = () => {
   const { isAdmin } = useUserRole();
   const { isConnected: calendarConnected, createEvent } = useGoogleCalendar();
   const [commissions, setCommissions] = useState<Commission[]>([]);
+  const [fubDealsDisplay, setFubDealsDisplay] = useState<FUBDealDisplay[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userFubId, setUserFubId] = useState<number | null>(null);
   
   const [addDealOpen, setAddDealOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -89,16 +105,79 @@ const Commissions = () => {
 
   useEffect(() => {
     if (!user) return;
+    fetchUserProfile();
     fetchCommissions();
     if (isAdmin) {
       fetchAgents();
     }
   }, [user, isAdmin]);
 
+  // Fetch FUB deals when we have the user's fub_user_id
+  useEffect(() => {
+    if (userFubId) {
+      fetchMyFUBDeals();
+    }
+  }, [userFubId]);
+
+  const fetchUserProfile = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('profiles')
+      .select('fub_user_id')
+      .eq('id', user.id)
+      .single();
+    if (data?.fub_user_id) {
+      setUserFubId(data.fub_user_id);
+    }
+  };
+
+  const fetchMyFUBDeals = async () => {
+    if (!userFubId) return;
+    try {
+      const response = await followUpBossApi.getDeals(200);
+      if (response.success && response.data?.deals) {
+        // Filter deals to only those where current user is assigned
+        const myDeals = response.data.deals.filter((deal: FUBDeal) => 
+          deal.users?.some(u => u.id === userFubId)
+        );
+        
+        // Transform to display format
+        const displayDeals: FUBDealDisplay[] = myDeals.map((deal: FUBDeal) => {
+          let status: 'conditional' | 'pending' | 'closed' = 'pending';
+          const stageLower = deal.stageName?.toLowerCase() || '';
+          
+          if (stageLower === 'won' || stageLower.includes('closed') || deal.status?.toLowerCase() === 'won') {
+            status = 'closed';
+          } else if (stageLower === 'offer' || stageLower.includes('conditional')) {
+            status = 'conditional';
+          } else if (stageLower === 'pending') {
+            status = 'pending';
+          }
+
+          return {
+            id: deal.id,
+            clientName: deal.people?.[0]?.name || deal.name || 'Unknown',
+            propertyAddress: deal.name || '',
+            dealValue: deal.price || 0,
+            grossCommission: deal.commissionValue || deal.agentCommission || 0,
+            status,
+            stageName: deal.stageName || '',
+            createdAt: deal.createdAt || new Date().toISOString(),
+            source: 'fub' as const
+          };
+        });
+        
+        setFubDealsDisplay(displayDeals);
+      }
+    } catch (error) {
+      console.error('Error fetching FUB deals:', error);
+    }
+  };
+
   const fetchAgents = async () => {
     const { data } = await supabase
       .from('profiles')
-      .select('id, full_name')
+      .select('id, full_name, fub_user_id')
       .order('full_name');
     setAgents(data || []);
   };
@@ -323,25 +402,54 @@ const Commissions = () => {
     setAddDealOpen(true);
   };
 
-  const totalEarned = commissions
+  // Calculate totals from both local commissions AND FUB deals
+  const fubClosedTotal = fubDealsDisplay
+    .filter(d => d.status === 'closed')
+    .reduce((sum, d) => sum + d.grossCommission, 0);
+  
+  const fubPendingTotal = fubDealsDisplay
+    .filter(d => d.status === 'pending')
+    .reduce((sum, d) => sum + d.grossCommission, 0);
+  
+  const fubConditionalTotal = fubDealsDisplay
+    .filter(d => d.status === 'conditional')
+    .reduce((sum, d) => sum + d.grossCommission, 0);
+
+  const localEarned = commissions
     .filter(c => c.status === 'paid')
     .reduce((sum, c) => sum + (c.gross_commission || c.amount), 0);
 
-  const totalPending = commissions
+  const localPending = commissions
     .filter(c => c.status === 'pending')
     .reduce((sum, c) => sum + (c.gross_commission || c.amount), 0);
+
+  // Combine FUB and local totals
+  const totalEarned = fubClosedTotal || localEarned;
+  const totalPending = fubPendingTotal || localPending;
+  const totalConditional = fubConditionalTotal;
 
   const totalNetPending = commissions
     .filter(c => c.status === 'pending')
     .reduce((sum, c) => sum + c.amount, 0);
 
-  const thisMonth = commissions
+  // This month from FUB deals
+  const thisMonthFUB = fubDealsDisplay
+    .filter(d => {
+      const date = new Date(d.createdAt);
+      const now = new Date();
+      return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+    })
+    .reduce((sum, d) => sum + d.grossCommission, 0);
+
+  const thisMonthLocal = commissions
     .filter(c => {
       const date = new Date(c.created_at);
       const now = new Date();
       return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
     })
     .reduce((sum, c) => sum + (c.gross_commission || c.amount), 0);
+
+  const thisMonth = thisMonthFUB || thisMonthLocal;
 
   const netPreview = calculateNetCommission(newDeal);
 
@@ -665,10 +773,10 @@ const Commissions = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="border-gold/10 bg-card/50">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Earned (Gross)</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Closed (GCI)</CardTitle>
             <CheckCircle className="h-5 w-5 text-green-400" />
           </CardHeader>
           <CardContent>
@@ -678,12 +786,21 @@ const Commissions = () => {
 
         <Card className="border-gold/10 bg-card/50">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Pending (Gross)</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Pending (GCI)</CardTitle>
             <Clock className="h-5 w-5 text-amber-400" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-amber-400">${totalPending.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">Net after cap: ${totalNetPending.toLocaleString()}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-gold/10 bg-card/50">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Conditional (GCI)</CardTitle>
+            <Clock className="h-5 w-5 text-orange-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-400">${totalConditional.toLocaleString()}</div>
           </CardContent>
         </Card>
 
@@ -698,30 +815,73 @@ const Commissions = () => {
         </Card>
       </div>
 
+      {/* FUB Transactions - Primary source */}
       <Card className="border-gold/10 bg-card/50">
-        <CardHeader>
-          <CardTitle className="text-gold font-display">Commission History</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-gold font-display">My Transactions</CardTitle>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={fetchMyFUBDeals}
+            className="border-gold/30 text-gold hover:bg-gold/10"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
         </CardHeader>
         <CardContent>
-          {commissions.length === 0 ? (
+          {fubDealsDisplay.length === 0 && commissions.length === 0 ? (
             <div className="text-center py-12">
               <DollarSign className="h-12 w-12 mx-auto text-gold/30 mb-4" />
-              <p className="text-muted-foreground">No commissions yet</p>
-              <p className="text-sm text-muted-foreground mt-1">Close deals to start earning!</p>
+              <p className="text-muted-foreground">No transactions yet</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {userFubId ? 'Your deals from Follow Up Boss will appear here' : 'Link your FUB profile to see your deals'}
+              </p>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow className="border-gold/10">
-                  <TableHead>Deal</TableHead>
+                  <TableHead>Client</TableHead>
                   <TableHead>Property</TableHead>
-                  <TableHead>Gross</TableHead>
-                  <TableHead>Net</TableHead>
+                  <TableHead>Deal Value</TableHead>
+                  <TableHead>GCI</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Date</TableHead>
+                  <TableHead>Source</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
+                {/* Show FUB deals first */}
+                {fubDealsDisplay.map((deal) => (
+                  <TableRow key={`fub-${deal.id}`} className="border-gold/10">
+                    <TableCell className="font-medium">{deal.clientName}</TableCell>
+                    <TableCell className="text-muted-foreground">{deal.propertyAddress || '-'}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {deal.dealValue ? `$${deal.dealValue.toLocaleString()}` : '-'}
+                    </TableCell>
+                    <TableCell className="text-gold font-semibold">
+                      ${deal.grossCommission.toLocaleString()}
+                    </TableCell>
+                    <TableCell>
+                      <Badge 
+                        variant="outline" 
+                        className={
+                          deal.status === 'closed' 
+                            ? 'border-green-500/30 text-green-400' 
+                            : deal.status === 'conditional'
+                            ? 'border-orange-500/30 text-orange-400'
+                            : 'border-amber-500/30 text-amber-400'
+                        }
+                      >
+                        {deal.stageName || deal.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="border-blue-500/30 text-blue-400">FUB</Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {/* Show local commissions that aren't duplicated from FUB */}
                 {commissions.map((commission) => (
                   <TableRow key={commission.id} className="border-gold/10">
                     <TableCell className="font-medium">
@@ -731,10 +891,10 @@ const Commissions = () => {
                       {commission.deals?.property_address || '-'}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {commission.gross_commission ? `$${commission.gross_commission.toLocaleString()}` : '-'}
+                      {commission.deals?.deal_value ? `$${commission.deals.deal_value.toLocaleString()}` : '-'}
                     </TableCell>
                     <TableCell className="text-gold font-semibold">
-                      ${commission.amount.toLocaleString()}
+                      ${(commission.gross_commission || commission.amount).toLocaleString()}
                     </TableCell>
                     <TableCell>
                       <Badge 
@@ -750,8 +910,8 @@ const Commissions = () => {
                         {commission.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {format(new Date(commission.created_at), 'MMM d, yyyy')}
+                    <TableCell>
+                      <Badge variant="outline" className="border-muted-foreground/30 text-muted-foreground">Local</Badge>
                     </TableCell>
                   </TableRow>
                 ))}
