@@ -141,20 +141,32 @@ const Commissions = () => {
           deal.users?.some(u => u.id === userFubId)
         );
         
-        // Transform to display format and deduplicate by client name + property
-        const seenDeals = new Set<string>();
+        // Transform to display format and deduplicate by deal ID and normalized client name
+        const seenDealIds = new Set<number>();
+        const seenClientKeys = new Set<string>();
         const displayDeals: FUBDealDisplay[] = [];
         
         myDeals.forEach((deal: FUBDeal) => {
-          const clientName = deal.people?.[0]?.name || deal.name || 'Unknown';
-          const propertyAddress = deal.name || '';
-          const dedupeKey = `${clientName.toLowerCase().trim()}-${propertyAddress.toLowerCase().trim()}`;
-          
-          // Skip if we've already seen this client+property combination
-          if (seenDeals.has(dedupeKey)) {
+          // Skip if we've already seen this deal ID
+          if (seenDealIds.has(deal.id)) {
             return;
           }
-          seenDeals.add(dedupeKey);
+          
+          const clientName = deal.people?.[0]?.name || deal.name || 'Unknown';
+          const propertyAddress = deal.name || '';
+          
+          // Normalize client name: remove "and", extra spaces, lowercase for comparison
+          const normalizedClientName = clientName.toLowerCase().replace(/\s+and\s+/g, ' ').replace(/\s+/g, ' ').trim();
+          const normalizedAddress = propertyAddress.toLowerCase().replace(/\s+/g, ' ').trim();
+          const dedupeKey = `${normalizedClientName}-${normalizedAddress}`;
+          
+          // Skip if we've already seen this client+property combination
+          if (seenClientKeys.has(dedupeKey)) {
+            return;
+          }
+          
+          seenDealIds.add(deal.id);
+          seenClientKeys.add(dedupeKey);
           
           let status: 'conditional' | 'pending' | 'closed' = 'pending';
           const stageLower = deal.stageName?.toLowerCase() || '';
