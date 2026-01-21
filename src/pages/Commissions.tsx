@@ -907,7 +907,22 @@ const Commissions = () => {
                   </TableRow>
                 ))}
                 {/* Show local commissions that aren't duplicated from FUB */}
-                {commissions.map((commission) => (
+                {commissions
+                  .filter((commission) => {
+                    // Exclude local commissions that match a FUB deal by client name
+                    const localClientName = (commission.deals?.client_name || '').toLowerCase().replace(/\s+and\s+/g, ' ').replace(/\s+/g, ' ').trim();
+                    const localAddress = (commission.deals?.property_address || '').toLowerCase().replace(/\s+/g, ' ').trim();
+                    
+                    return !fubDealsDisplay.some(fubDeal => {
+                      const fubClientName = fubDeal.clientName.toLowerCase().replace(/\s+and\s+/g, ' ').replace(/\s+/g, ' ').trim();
+                      const fubAddress = (fubDeal.propertyAddress || '').toLowerCase().replace(/\s+/g, ' ').trim();
+                      
+                      // Match by client name OR (client name + address)
+                      return localClientName === fubClientName || 
+                             (localClientName && fubClientName && localClientName.includes(fubClientName.split(' ')[0]));
+                    });
+                  })
+                  .map((commission) => (
                   <TableRow key={commission.id} className="border-gold/10">
                     <TableCell className="font-medium">
                       {commission.deals?.client_name || 'Unknown'}
