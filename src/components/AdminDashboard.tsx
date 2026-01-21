@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Building2, DollarSign, Users, TrendingUp, Target, Loader2, BarChart3, Calendar, FileText } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, AreaChart, Area, Legend } from 'recharts';
 import { format, parseISO, startOfMonth } from 'date-fns';
 import TeamGoals from './TeamGoals';
@@ -94,6 +95,18 @@ interface TeamPipelineSummary {
   totalGciGoal: number;
 }
 
+interface CompanyTransaction {
+  id: number;
+  clientName: string;
+  propertyAddress: string;
+  closingDate: string | null;
+  gci: number;
+  companyRevenue: number;
+  status: 'closed' | 'pending' | 'conditional';
+  stageName: string;
+  agentName: string;
+}
+
 const COLORS = ['hsl(43, 74%, 49%)', 'hsl(142, 71%, 45%)', 'hsl(217, 91%, 60%)', 'hsl(280, 67%, 60%)', 'hsl(350, 89%, 60%)'];
 
 // FUB user IDs of admin-only users (not agents) - exclude from leaderboards
@@ -107,6 +120,7 @@ const AdminDashboard = () => {
   const [fubAgents, setFubAgents] = useState<FUBAgentStats[]>([]);
   const [monthlyRevenue, setMonthlyRevenue] = useState<MonthlyRevenueData[]>([]);
   const [monthlyPipeline, setMonthlyPipeline] = useState<MonthlyPipelineData[]>([]);
+  const [companyTransactions, setCompanyTransactions] = useState<CompanyTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   const [showPipelineReport, setShowPipelineReport] = useState(false);
@@ -190,6 +204,51 @@ const AdminDashboard = () => {
           pendingDeals: pendingDeals.length,
           conditionalDeals: conditionalDeals.length,
         });
+
+        // Build company transactions list from all relevant deals
+        const allTransactions: CompanyTransaction[] = [
+          ...closedDeals.map((deal: FUBDeal) => ({
+            id: deal.id,
+            clientName: deal.people?.[0]?.name || deal.name || 'Unknown',
+            propertyAddress: deal.name || '',
+            closingDate: deal.projectedCloseDate || deal.createdAt || null,
+            gci: deal.commissionValue || 0,
+            companyRevenue: deal.teamCommission || 0,
+            status: 'closed' as const,
+            stageName: deal.stageName || 'Closed',
+            agentName: deal.users?.[0]?.name || 'Unknown',
+          })),
+          ...pendingDeals.map((deal: FUBDeal) => ({
+            id: deal.id,
+            clientName: deal.people?.[0]?.name || deal.name || 'Unknown',
+            propertyAddress: deal.name || '',
+            closingDate: deal.projectedCloseDate || null,
+            gci: deal.commissionValue || 0,
+            companyRevenue: deal.teamCommission || 0,
+            status: 'pending' as const,
+            stageName: deal.stageName || 'Pending',
+            agentName: deal.users?.[0]?.name || 'Unknown',
+          })),
+          ...conditionalDeals.map((deal: FUBDeal) => ({
+            id: deal.id,
+            clientName: deal.people?.[0]?.name || deal.name || 'Unknown',
+            propertyAddress: deal.name || '',
+            closingDate: deal.projectedCloseDate || null,
+            gci: deal.commissionValue || 0,
+            companyRevenue: deal.teamCommission || 0,
+            status: 'conditional' as const,
+            stageName: deal.stageName || 'Offer',
+            agentName: deal.users?.[0]?.name || 'Unknown',
+          })),
+        ].sort((a, b) => {
+          // Sort by closing date descending (most recent first)
+          if (!a.closingDate && !b.closingDate) return 0;
+          if (!a.closingDate) return 1;
+          if (!b.closingDate) return -1;
+          return new Date(b.closingDate).getTime() - new Date(a.closingDate).getTime();
+        });
+        
+        setCompanyTransactions(allTransactions);
 
         // Build agent leaderboard from FUB deals
         const agentMap = new Map<number, FUBAgentStats>();
@@ -794,6 +853,72 @@ const AdminDashboard = () => {
                   </div>
                 );
               })()}
+            </CardContent>
+          </Card>
+
+          {/* Company Transactions List */}
+          <Card className="border-gold/20">
+            <CardHeader>
+              <CardTitle className="text-gold font-display flex items-center gap-2">
+                <FileText className="h-5 w-5" /> All Company Transactions
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {companyTransactions.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">No transactions found</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Client</TableHead>
+                        <TableHead>Property</TableHead>
+                        <TableHead>Agent</TableHead>
+                        <TableHead>Closing Date</TableHead>
+                        <TableHead className="text-right">GCI</TableHead>
+                        <TableHead className="text-right">Company Revenue</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {companyTransactions.map((transaction) => (
+                        <TableRow key={transaction.id} className="border-border/50">
+                          <TableCell className="font-medium">{transaction.clientName}</TableCell>
+                          <TableCell className="text-muted-foreground max-w-[200px] truncate">
+                            {transaction.propertyAddress || '-'}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">{transaction.agentName}</TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {transaction.closingDate 
+                              ? format(parseISO(transaction.closingDate), 'MMM d, yyyy')
+                              : '-'}
+                          </TableCell>
+                          <TableCell className="text-right font-semibold text-gold">
+                            ${transaction.gci.toLocaleString()}
+                          </TableCell>
+                          <TableCell className="text-right font-semibold text-blue-500">
+                            ${transaction.companyRevenue.toLocaleString()}
+                          </TableCell>
+                          <TableCell>
+                            <Badge 
+                              variant="outline"
+                              className={
+                                transaction.status === 'closed' 
+                                  ? 'border-green-500/30 text-green-400' 
+                                  : transaction.status === 'pending'
+                                  ? 'border-amber-500/30 text-amber-400'
+                                  : 'border-orange-500/30 text-orange-400'
+                              }
+                            >
+                              {transaction.stageName}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
