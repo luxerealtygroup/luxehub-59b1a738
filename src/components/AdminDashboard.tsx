@@ -95,6 +95,13 @@ interface TeamPipelineSummary {
   totalGciGoal: number;
 }
 
+interface QuarterlyGoals {
+  q1: number;
+  q2: number;
+  q3: number;
+  q4: number;
+}
+
 interface CompanyTransaction {
   id: number;
   clientName: string;
@@ -121,6 +128,7 @@ const AdminDashboard = () => {
   const [monthlyRevenue, setMonthlyRevenue] = useState<MonthlyRevenueData[]>([]);
   const [monthlyPipeline, setMonthlyPipeline] = useState<MonthlyPipelineData[]>([]);
   const [companyTransactions, setCompanyTransactions] = useState<CompanyTransaction[]>([]);
+  const [quarterlyGoals, setQuarterlyGoals] = useState<QuarterlyGoals | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   const [showPipelineReport, setShowPipelineReport] = useState(false);
@@ -388,6 +396,39 @@ const AdminDashboard = () => {
         .from('production_goals')
         .select('*')
         .eq('year', 2026);
+
+      // Fetch company goals for quarterly seasonality
+      const { data: companyGoalsData } = await supabase
+        .from('company_goals')
+        .select('*')
+        .eq('year', 2026)
+        .maybeSingle();
+
+      // Parse quarterly goals from company_goals if available
+      if (companyGoalsData?.monthly_goals) {
+        const rawData = companyGoalsData.monthly_goals as any;
+        // Check if it's the new format with quarterly data
+        if (rawData && typeof rawData === 'object' && 'quarterly' in rawData) {
+          const quarterly = rawData.quarterly;
+          if (Array.isArray(quarterly) && quarterly.length === 4) {
+            setQuarterlyGoals({
+              q1: quarterly[0].deals || 0,
+              q2: quarterly[1].deals || 0,
+              q3: quarterly[2].deals || 0,
+              q4: quarterly[3].deals || 0,
+            });
+          }
+        } else if (companyGoalsData.annual_deals_goal) {
+          // Old format - even distribution
+          const evenQuarterly = Math.ceil(companyGoalsData.annual_deals_goal / 4);
+          setQuarterlyGoals({
+            q1: evenQuarterly,
+            q2: evenQuarterly,
+            q3: evenQuarterly,
+            q4: evenQuarterly,
+          });
+        }
+      }
 
       const profilesMap = new Map((profiles || []).map(p => [p.id, p.full_name || 'Unknown Agent']));
       const goalsMap = new Map((productionGoals || []).map(g => [g.user_id, g]));
@@ -775,16 +816,23 @@ const AdminDashboard = () => {
             </CardHeader>
             <CardContent>
               {(() => {
-                // Calculate quarterly goal (total deals goal / 4)
-                const quarterlyGoal = Math.ceil(teamPipelineSummary.totalDealsGoal / 4);
                 const currentYear = new Date().getFullYear();
                 
-                // Define quarters with their months
+                // Use seasonal quarterly goals if available, otherwise fallback to even distribution
+                const fallbackQuarterly = Math.ceil(teamPipelineSummary.totalDealsGoal / 4);
+                const quarterGoals = quarterlyGoals || {
+                  q1: fallbackQuarterly,
+                  q2: fallbackQuarterly,
+                  q3: fallbackQuarterly,
+                  q4: fallbackQuarterly,
+                };
+                
+                // Define quarters with their months and individual goals
                 const quarters = [
-                  { label: 'Q1', months: ['01', '02', '03'], monthNames: 'Jan - Mar' },
-                  { label: 'Q2', months: ['04', '05', '06'], monthNames: 'Apr - Jun' },
-                  { label: 'Q3', months: ['07', '08', '09'], monthNames: 'Jul - Sep' },
-                  { label: 'Q4', months: ['10', '11', '12'], monthNames: 'Oct - Dec' },
+                  { label: 'Q1', months: ['01', '02', '03'], monthNames: 'Jan - Mar', goal: quarterGoals.q1 },
+                  { label: 'Q2', months: ['04', '05', '06'], monthNames: 'Apr - Jun', goal: quarterGoals.q2 },
+                  { label: 'Q3', months: ['07', '08', '09'], monthNames: 'Jul - Sep', goal: quarterGoals.q3 },
+                  { label: 'Q4', months: ['10', '11', '12'], monthNames: 'Oct - Dec', goal: quarterGoals.q4 },
                 ];
                 
                 // Build quarterly data by aggregating monthly data
@@ -801,16 +849,16 @@ const AdminDashboard = () => {
                     sellers: monthsData.reduce((sum, m) => sum + (m?.sellers || 0), 0),
                     total: monthsData.reduce((sum, m) => sum + (m?.total || 0), 0),
                     projectedGci: monthsData.reduce((sum, m) => sum + (m?.projectedGci || 0), 0),
-                    goal: quarterlyGoal,
+                    goal: quarter.goal,
                   };
                 });
 
                 return (
                   <div className="space-y-4">
                     {quarterlyData.map((quarter) => {
-                      const percentage = quarterlyGoal > 0 ? Math.min((quarter.total / quarterlyGoal) * 100, 100) : 0;
-                      const isOnTrack = quarter.total >= quarterlyGoal;
-                      const needed = Math.max(0, quarterlyGoal - quarter.total);
+                      const percentage = quarter.goal > 0 ? Math.min((quarter.total / quarter.goal) * 100, 100) : 0;
+                      const isOnTrack = quarter.total >= quarter.goal;
+                      const needed = Math.max(0, quarter.goal - quarter.total);
 
                       return (
                         <div key={quarter.label} className="space-y-2 p-4 rounded-lg border border-border/50 bg-muted/20">
@@ -821,7 +869,7 @@ const AdminDashboard = () => {
                             </div>
                             <div className="flex items-center gap-3 text-sm">
                               <span className={`font-semibold ${isOnTrack ? 'text-green-500' : 'text-gold'}`}>
-                                {quarter.total} / {quarterlyGoal} clients
+                                {quarter.total} / {quarter.goal} clients
                               </span>
                               {needed > 0 && (
                                 <Badge variant="outline" className="text-xs border-orange-500/50 text-orange-500">

@@ -20,6 +20,7 @@ interface CompanyGoal {
   annual_volume_goal: number;
   annual_revenue_goal: number;
   monthly_goals: MonthlyGoal[];
+  quarterly_deals?: QuarterlyGoal[];
 }
 
 interface MonthlyGoal {
@@ -28,6 +29,11 @@ interface MonthlyGoal {
   gci: number;
   volume: number;
   revenue: number;
+}
+
+interface QuarterlyGoal {
+  quarter: number;
+  deals: number;
 }
 
 interface TeamActuals {
@@ -61,6 +67,13 @@ const TeamGoals = () => {
     average_sale_price: 0,
     average_commission_percent: 3,
   });
+  
+  const [quarterlyDeals, setQuarterlyDeals] = useState({
+    q1: 0,
+    q2: 0,
+    q3: 0,
+    q4: 0,
+  });
 
   useEffect(() => {
     fetchData();
@@ -77,13 +90,28 @@ const TeamGoals = () => {
       .maybeSingle();
 
     if (goalsData) {
-      const monthlyGoals = Array.isArray(goalsData.monthly_goals) 
-        ? (goalsData.monthly_goals as unknown as MonthlyGoal[])
-        : [];
+      // Parse monthly_goals - could be array (old format) or object with monthly/quarterly (new format)
+      const rawMonthlyGoals = goalsData.monthly_goals;
+      let monthlyGoals: MonthlyGoal[] = [];
+      let quarterlyData: QuarterlyGoal[] | null = null;
+      
+      if (rawMonthlyGoals && typeof rawMonthlyGoals === 'object') {
+        if (Array.isArray(rawMonthlyGoals)) {
+          // Old format: direct array
+          monthlyGoals = rawMonthlyGoals as unknown as MonthlyGoal[];
+        } else if ('monthly' in (rawMonthlyGoals as any)) {
+          // New format: { monthly: [...], quarterly: [...] }
+          monthlyGoals = ((rawMonthlyGoals as any).monthly || []) as MonthlyGoal[];
+          quarterlyData = ((rawMonthlyGoals as any).quarterly || null) as QuarterlyGoal[] | null;
+        }
+      }
+      
       setGoals({
         ...goalsData,
         monthly_goals: monthlyGoals,
+        quarterly_deals: quarterlyData || undefined,
       });
+      
       const avgSale = goalsData.annual_deals_goal && goalsData.annual_volume_goal 
         ? Math.round(goalsData.annual_volume_goal / goalsData.annual_deals_goal)
         : 0;
@@ -98,6 +126,24 @@ const TeamGoals = () => {
         average_sale_price: avgSale,
         average_commission_percent: avgComm,
       });
+      
+      // Set quarterly deals from stored data or calculate even distribution
+      if (quarterlyData && quarterlyData.length === 4) {
+        setQuarterlyDeals({
+          q1: quarterlyData[0].deals || 0,
+          q2: quarterlyData[1].deals || 0,
+          q3: quarterlyData[2].deals || 0,
+          q4: quarterlyData[3].deals || 0,
+        });
+      } else if (goalsData.annual_deals_goal) {
+        const evenQuarterly = Math.round(goalsData.annual_deals_goal / 4);
+        setQuarterlyDeals({
+          q1: evenQuarterly,
+          q2: evenQuarterly,
+          q3: evenQuarterly,
+          q4: evenQuarterly,
+        });
+      }
     }
 
     // Fetch FUB deals for actuals (same source as AdminDashboard summary)
@@ -174,22 +220,55 @@ const TeamGoals = () => {
     if (!user) return;
     setSaving(true);
 
-    // Generate monthly goals (evenly distributed)
-    const monthlyGoals: MonthlyGoal[] = MONTHS.map((_, index) => ({
-      month: index + 1,
-      deals: Math.round(formData.annual_deals_goal / 12),
-      gci: Math.round(formData.annual_gci_goal / 12),
-      volume: Math.round(formData.annual_volume_goal / 12),
-      revenue: Math.round(formData.annual_revenue_goal / 12),
-    }));
+    // Calculate total from quarterly inputs
+    const totalQuarterlyDeals = quarterlyDeals.q1 + quarterlyDeals.q2 + quarterlyDeals.q3 + quarterlyDeals.q4;
+    const annualDeals = totalQuarterlyDeals > 0 ? totalQuarterlyDeals : formData.annual_deals_goal;
+    
+    // Recalculate volume and GCI based on quarterly totals
+    const annualVolume = annualDeals * formData.average_sale_price;
+    const annualGci = Math.round(annualVolume * (formData.average_commission_percent / 100));
+
+    // Generate monthly goals distributed by quarterly seasonality
+    const quarterlyDistribution = [
+      { deals: quarterlyDeals.q1, months: [0, 1, 2] },   // Q1: Jan, Feb, Mar
+      { deals: quarterlyDeals.q2, months: [3, 4, 5] },   // Q2: Apr, May, Jun
+      { deals: quarterlyDeals.q3, months: [6, 7, 8] },   // Q3: Jul, Aug, Sep
+      { deals: quarterlyDeals.q4, months: [9, 10, 11] }, // Q4: Oct, Nov, Dec
+    ];
+
+    const monthlyGoals: MonthlyGoal[] = MONTHS.map((_, index) => {
+      // Find which quarter this month belongs to
+      const quarterIdx = Math.floor(index / 3);
+      const quarterDeals = quarterlyDistribution[quarterIdx].deals;
+      const monthlyDeals = Math.round(quarterDeals / 3);
+      
+      // Calculate proportional GCI, volume, revenue based on deal distribution
+      const dealRatio = annualDeals > 0 ? monthlyDeals / annualDeals : 1/12;
+      
+      return {
+        month: index + 1,
+        deals: monthlyDeals,
+        gci: Math.round(annualGci * dealRatio),
+        volume: Math.round(annualVolume * dealRatio),
+        revenue: Math.round(formData.annual_revenue_goal * dealRatio),
+      };
+    });
+
+    // Store quarterly deals for retrieval
+    const quarterlyDealsData: QuarterlyGoal[] = [
+      { quarter: 1, deals: quarterlyDeals.q1 },
+      { quarter: 2, deals: quarterlyDeals.q2 },
+      { quarter: 3, deals: quarterlyDeals.q3 },
+      { quarter: 4, deals: quarterlyDeals.q4 },
+    ];
 
     const goalData = {
       year: currentYear,
-      annual_deals_goal: formData.annual_deals_goal,
-      annual_gci_goal: formData.annual_gci_goal,
-      annual_volume_goal: formData.annual_volume_goal,
+      annual_deals_goal: annualDeals,
+      annual_gci_goal: annualGci,
+      annual_volume_goal: annualVolume,
       annual_revenue_goal: formData.annual_revenue_goal,
-      monthly_goals: JSON.parse(JSON.stringify(monthlyGoals)),
+      monthly_goals: JSON.parse(JSON.stringify({ monthly: monthlyGoals, quarterly: quarterlyDealsData })),
       created_by: user.id,
     };
 
@@ -314,27 +393,86 @@ const TeamGoals = () => {
                   />
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label>Annual Deals Goal</Label>
-                <Input
-                  type="number"
-                  value={formData.annual_deals_goal}
-                  onChange={(e) => {
-                    const deals = parseInt(e.target.value) || 0;
-                    const volume = deals * formData.average_sale_price;
-                    const gci = Math.round(volume * (formData.average_commission_percent / 100));
-                    setFormData({ 
-                      ...formData, 
-                      annual_deals_goal: deals,
-                      annual_volume_goal: volume,
-                      annual_gci_goal: gci,
-                    });
-                  }}
-                  placeholder="e.g., 50"
-                />
+              {/* Quarterly Deal Goals for Seasonality */}
+              <div className="space-y-3 p-4 bg-muted/30 rounded-lg border border-border/50">
+                <Label className="text-sm font-medium">Quarterly Deal Goals <span className="text-xs text-muted-foreground">(set for seasonality)</span></Label>
+                <div className="grid grid-cols-4 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Q1 (Jan-Mar)</Label>
+                    <Input
+                      type="number"
+                      value={quarterlyDeals.q1}
+                      onChange={(e) => {
+                        const q1 = parseInt(e.target.value) || 0;
+                        const total = q1 + quarterlyDeals.q2 + quarterlyDeals.q3 + quarterlyDeals.q4;
+                        const volume = total * formData.average_sale_price;
+                        const gci = Math.round(volume * (formData.average_commission_percent / 100));
+                        setQuarterlyDeals({ ...quarterlyDeals, q1 });
+                        setFormData({ ...formData, annual_deals_goal: total, annual_volume_goal: volume, annual_gci_goal: gci });
+                      }}
+                      placeholder="0"
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Q2 (Apr-Jun)</Label>
+                    <Input
+                      type="number"
+                      value={quarterlyDeals.q2}
+                      onChange={(e) => {
+                        const q2 = parseInt(e.target.value) || 0;
+                        const total = quarterlyDeals.q1 + q2 + quarterlyDeals.q3 + quarterlyDeals.q4;
+                        const volume = total * formData.average_sale_price;
+                        const gci = Math.round(volume * (formData.average_commission_percent / 100));
+                        setQuarterlyDeals({ ...quarterlyDeals, q2 });
+                        setFormData({ ...formData, annual_deals_goal: total, annual_volume_goal: volume, annual_gci_goal: gci });
+                      }}
+                      placeholder="0"
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Q3 (Jul-Sep)</Label>
+                    <Input
+                      type="number"
+                      value={quarterlyDeals.q3}
+                      onChange={(e) => {
+                        const q3 = parseInt(e.target.value) || 0;
+                        const total = quarterlyDeals.q1 + quarterlyDeals.q2 + q3 + quarterlyDeals.q4;
+                        const volume = total * formData.average_sale_price;
+                        const gci = Math.round(volume * (formData.average_commission_percent / 100));
+                        setQuarterlyDeals({ ...quarterlyDeals, q3 });
+                        setFormData({ ...formData, annual_deals_goal: total, annual_volume_goal: volume, annual_gci_goal: gci });
+                      }}
+                      placeholder="0"
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Q4 (Oct-Dec)</Label>
+                    <Input
+                      type="number"
+                      value={quarterlyDeals.q4}
+                      onChange={(e) => {
+                        const q4 = parseInt(e.target.value) || 0;
+                        const total = quarterlyDeals.q1 + quarterlyDeals.q2 + quarterlyDeals.q3 + q4;
+                        const volume = total * formData.average_sale_price;
+                        const gci = Math.round(volume * (formData.average_commission_percent / 100));
+                        setQuarterlyDeals({ ...quarterlyDeals, q4 });
+                        setFormData({ ...formData, annual_deals_goal: total, annual_volume_goal: volume, annual_gci_goal: gci });
+                      }}
+                      placeholder="0"
+                      className="h-9"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Total: {quarterlyDeals.q1 + quarterlyDeals.q2 + quarterlyDeals.q3 + quarterlyDeals.q4} deals/year
+                </p>
               </div>
+
               <div className="space-y-2">
-                <Label>Annual Volume Goal ($) <span className="text-xs text-muted-foreground">(auto-calculated)</span></Label>
+                <Label>Annual Volume Goal ($) <span className="text-xs text-muted-foreground">(auto-calculated from deals × avg price)</span></Label>
                 <Input
                   type="number"
                   value={formData.annual_volume_goal}
