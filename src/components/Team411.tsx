@@ -73,24 +73,44 @@ const Team411 = () => {
     const fetchData = async () => {
       setLoading(true);
 
-      // Fetch agents (profiles with roles, exclude admin-only)
+      // Fetch all profiles with names
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('id, full_name, fub_user_id')
+        .select('id, full_name')
+        .not('full_name', 'is', null);
+
+      // Also get user IDs that have 411 data or production goals to include agents without fub_user_id
+      const { data: usersWith411 } = await supabase
+        .from('weekly_411')
+        .select('user_id');
+
+      const { data: usersWithGoals } = await supabase
+        .from('production_goals')
+        .select('user_id');
+
+      // Combine: profiles that have fub_user_id OR have 411/goals data
+      const activeUserIds = new Set([
+        ...(usersWith411 || []).map(w => w.user_id),
+        ...(usersWithGoals || []).map(g => g.user_id),
+      ]);
+
+      // Exclude admin-only user (Marie, fub_user_id: 8) by checking profiles with fub_user_id
+      const { data: fubProfiles } = await supabase
+        .from('profiles')
+        .select('id, fub_user_id')
         .not('fub_user_id', 'is', null);
 
-      const { data: roles } = await supabase
-        .from('user_roles')
-        .select('user_id, role');
-
-      // Get agent user IDs (those with agent role or who have fub_user_id)
-      const agentUserIds = new Set(
-        (profiles || []).map(p => p.id)
-      );
+      const fubMap = new Map((fubProfiles || []).map(p => [p.id, p.fub_user_id]));
+      const adminOnlyFubId = 8;
 
       setAgents(
         (profiles || [])
-          .filter(p => agentUserIds.has(p.id) && p.full_name)
+          .filter(p => {
+            // Include if they have 411 data, goals, or a fub_user_id (but not admin-only)
+            const hasFub = fubMap.has(p.id) && fubMap.get(p.id) !== adminOnlyFubId;
+            const hasData = activeUserIds.has(p.id);
+            return (hasFub || hasData) && p.full_name;
+          })
           .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''))
       );
 
