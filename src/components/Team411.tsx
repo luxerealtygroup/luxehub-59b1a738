@@ -1,0 +1,423 @@
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Target, Trophy, TrendingUp, ChevronLeft, ChevronRight, FileText, Users, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { format, startOfWeek, addWeeks, subWeeks } from 'date-fns';
+
+interface AgentProfile {
+  id: string;
+  full_name: string | null;
+}
+
+interface Weekly411Data {
+  id: string;
+  user_id: string;
+  week_start_date: string;
+  calls_goal: number | null;
+  calls_actual: number | null;
+  appointments_goal: number | null;
+  appointments_actual: number | null;
+  listings_goal: number | null;
+  listings_actual: number | null;
+  contracts_goal: number | null;
+  contracts_actual: number | null;
+  priority_1: string | null;
+  priority_1_completed: boolean | null;
+  priority_2: string | null;
+  priority_2_completed: boolean | null;
+  priority_3: string | null;
+  priority_3_completed: boolean | null;
+  priority_4: string | null;
+  priority_4_completed: boolean | null;
+  personal_priority_1: string | null;
+  personal_priority_1_completed: boolean | null;
+  personal_priority_2: string | null;
+  personal_priority_2_completed: boolean | null;
+  personal_priority_3: string | null;
+  personal_priority_3_completed: boolean | null;
+  wins: string | null;
+  challenges: string | null;
+  next_steps: string | null;
+  notes: string | null;
+}
+
+interface ProductionGoalData {
+  user_id: string;
+  year: number;
+  annual_units_goal: number | null;
+  annual_gci_goal: number | null;
+  annual_volume_goal: number | null;
+  annual_focus: string | null;
+  monthly_goals: any;
+}
+
+const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const currentYear = 2026;
+const currentMonth = new Date().getMonth();
+
+const Team411 = () => {
+  const [loading, setLoading] = useState(true);
+  const [agents, setAgents] = useState<AgentProfile[]>([]);
+  const [selectedAgent, setSelectedAgent] = useState<string>('all');
+  const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [weeklyData, setWeeklyData] = useState<Weekly411Data[]>([]);
+  const [productionGoals, setProductionGoals] = useState<ProductionGoalData[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+
+      // Fetch agents (profiles with roles, exclude admin-only)
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, fub_user_id')
+        .not('fub_user_id', 'is', null);
+
+      const { data: roles } = await supabase
+        .from('user_roles')
+        .select('user_id, role');
+
+      // Get agent user IDs (those with agent role or who have fub_user_id)
+      const agentUserIds = new Set(
+        (profiles || []).map(p => p.id)
+      );
+
+      setAgents(
+        (profiles || [])
+          .filter(p => agentUserIds.has(p.id) && p.full_name)
+          .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''))
+      );
+
+      // Fetch all weekly 411 data for the selected week
+      const weekStart = format(currentWeek, 'yyyy-MM-dd');
+      const { data: weekly } = await supabase
+        .from('weekly_411')
+        .select('*')
+        .eq('week_start_date', weekStart);
+
+      setWeeklyData(weekly || []);
+
+      // Fetch all production goals for current year
+      const { data: goals } = await supabase
+        .from('production_goals')
+        .select('*')
+        .eq('year', currentYear);
+
+      setProductionGoals(goals || []);
+
+      setLoading(false);
+    };
+
+    fetchData();
+  }, [currentWeek]);
+
+  const calcProgress = (actual: number, goal: number) => goal > 0 ? Math.min(100, (actual / goal) * 100) : 0;
+
+  const getAgentName = (userId: string) => {
+    return agents.find(a => a.id === userId)?.full_name || 'Unknown';
+  };
+
+  const filteredAgents = selectedAgent === 'all' 
+    ? agents 
+    : agents.filter(a => a.id === selectedAgent);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Agent Filter */}
+      <div className="flex items-center gap-4">
+        <Users className="h-5 w-5 text-primary" />
+        <Select value={selectedAgent} onValueChange={setSelectedAgent}>
+          <SelectTrigger className="w-[250px]">
+            <SelectValue placeholder="Select agent" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Team Members</SelectItem>
+            {agents.map(agent => (
+              <SelectItem key={agent.id} value={agent.id}>
+                {agent.full_name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <Tabs defaultValue="weekly" className="space-y-6">
+        <TabsList className="bg-muted">
+          <TabsTrigger value="weekly" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <Target className="h-4 w-4 mr-2" /> Weekly
+          </TabsTrigger>
+          <TabsTrigger value="monthly" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <TrendingUp className="h-4 w-4 mr-2" /> Monthly
+          </TabsTrigger>
+          <TabsTrigger value="annual" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <Trophy className="h-4 w-4 mr-2" /> Annual
+          </TabsTrigger>
+        </TabsList>
+
+        {/* WEEKLY TAB */}
+        <TabsContent value="weekly" className="space-y-6">
+          <div className="flex items-center justify-between">
+            <Button variant="outline" size="sm" onClick={() => setCurrentWeek(subWeeks(currentWeek, 1))}>
+              <ChevronLeft className="h-4 w-4 mr-1" /> Previous
+            </Button>
+            <h2 className="font-display text-lg font-semibold">
+              Week of {format(currentWeek, 'MMM d, yyyy')}
+            </h2>
+            <Button variant="outline" size="sm" onClick={() => setCurrentWeek(addWeeks(currentWeek, 1))}>
+              Next <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
+
+          {filteredAgents.map(agent => {
+            const data = weeklyData.find(w => w.user_id === agent.id);
+            if (!data && selectedAgent === 'all') return null; // Skip agents with no data in "all" view
+
+            return (
+              <Card key={agent.id} className="border-primary/10">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                        {(agent.full_name || '?').charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <CardTitle className="text-lg font-display">{agent.full_name}</CardTitle>
+                    {!data && <Badge variant="outline" className="text-muted-foreground">No entry this week</Badge>}
+                  </div>
+                </CardHeader>
+                {data && (
+                  <CardContent className="space-y-4">
+                    {/* Activity Metrics */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {[
+                        { label: 'Calls', actual: data.calls_actual || 0, goal: data.calls_goal || 0 },
+                        { label: 'Appointments', actual: data.appointments_actual || 0, goal: data.appointments_goal || 0 },
+                        { label: 'Listings', actual: data.listings_actual || 0, goal: data.listings_goal || 0 },
+                        { label: 'Contracts', actual: data.contracts_actual || 0, goal: data.contracts_goal || 0 },
+                      ].map(metric => (
+                        <div key={metric.label} className="space-y-1">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">{metric.label}</span>
+                            <span className="font-medium">{metric.actual}/{metric.goal}</span>
+                          </div>
+                          <Progress value={calcProgress(metric.actual, metric.goal)} className="h-2" />
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Business Priorities */}
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm font-medium mb-2">Business Priorities</p>
+                        <div className="space-y-1">
+                          {[1, 2, 3, 4].map(num => {
+                            const text = data[`priority_${num}` as keyof Weekly411Data] as string || '';
+                            const completed = data[`priority_${num}_completed` as keyof Weekly411Data] as boolean;
+                            if (!text) return null;
+                            return (
+                              <div key={num} className="flex items-center gap-2 text-sm">
+                                <span className={`${completed ? 'text-green-500' : 'text-muted-foreground'}`}>
+                                  {completed ? '✅' : '⬜'}
+                                </span>
+                                <span className={completed ? 'line-through text-muted-foreground' : ''}>
+                                  {text.replace(/^\[Carried\] /, '')}
+                                </span>
+                                {text.startsWith('[Carried]') && (
+                                  <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/30">Carried</Badge>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium mb-2 text-green-600">Personal Priorities</p>
+                        <div className="space-y-1">
+                          {[1, 2, 3].map(num => {
+                            const text = data[`personal_priority_${num}` as keyof Weekly411Data] as string || '';
+                            const completed = data[`personal_priority_${num}_completed` as keyof Weekly411Data] as boolean;
+                            if (!text) return null;
+                            return (
+                              <div key={num} className="flex items-center gap-2 text-sm">
+                                <span className={`${completed ? 'text-green-500' : 'text-muted-foreground'}`}>
+                                  {completed ? '✅' : '⬜'}
+                                </span>
+                                <span className={completed ? 'line-through text-muted-foreground' : ''}>
+                                  {text.replace(/^\[Carried\] /, '')}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Accountability Notes */}
+                    {(data.wins || data.challenges || data.next_steps || data.notes) && (
+                      <div className="grid md:grid-cols-2 gap-3 pt-2 border-t border-border">
+                        {data.wins && (
+                          <div>
+                            <p className="text-xs font-medium text-muted-foreground uppercase">Wins</p>
+                            <p className="text-sm">{data.wins}</p>
+                          </div>
+                        )}
+                        {data.challenges && (
+                          <div>
+                            <p className="text-xs font-medium text-muted-foreground uppercase">Challenges</p>
+                            <p className="text-sm">{data.challenges}</p>
+                          </div>
+                        )}
+                        {data.next_steps && (
+                          <div>
+                            <p className="text-xs font-medium text-muted-foreground uppercase">Next Steps</p>
+                            <p className="text-sm">{data.next_steps}</p>
+                          </div>
+                        )}
+                        {data.notes && (
+                          <div>
+                            <p className="text-xs font-medium text-muted-foreground uppercase">Notes</p>
+                            <p className="text-sm">{data.notes}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                )}
+              </Card>
+            );
+          })}
+
+          {filteredAgents.length > 0 && weeklyData.filter(w => filteredAgents.some(a => a.id === w.user_id)).length === 0 && (
+            <Card className="border-dashed">
+              <CardContent className="p-8 text-center text-muted-foreground">
+                No 4-1-1 entries for this week yet.
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* MONTHLY TAB */}
+        <TabsContent value="monthly" className="space-y-6">
+          {filteredAgents.map(agent => {
+            const goals = productionGoals.find(g => g.user_id === agent.id);
+            const monthlyGoals = (goals?.monthly_goals as any[]) || [];
+
+            return (
+              <Card key={agent.id} className="border-primary/10">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                        {(agent.full_name || '?').charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <CardTitle className="text-lg font-display">{agent.full_name}</CardTitle>
+                    {!goals && <Badge variant="outline" className="text-muted-foreground">No goals set</Badge>}
+                  </div>
+                </CardHeader>
+                {goals && monthlyGoals.length > 0 && (
+                  <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                      {monthNames.map((name, idx) => {
+                        const monthGoal = monthlyGoals.find((g: any) => g.month === idx) || {};
+                        const isCurrentMonth = idx === currentMonth;
+                        const hasFocus = monthGoal.focus || monthGoal.target || monthGoal.personal_focus || monthGoal.personal_target;
+                        if (!hasFocus && selectedAgent === 'all') return null;
+
+                        return (
+                          <div
+                            key={name}
+                            className={`p-3 rounded-lg border text-sm ${isCurrentMonth ? 'border-primary bg-primary/5' : 'border-border'}`}
+                          >
+                            <p className={`font-medium mb-1 ${isCurrentMonth ? 'text-primary' : ''}`}>
+                              {name} {isCurrentMonth && '•'}
+                            </p>
+                            {monthGoal.focus && (
+                              <p className="text-muted-foreground"><span className="font-medium text-foreground">Biz:</span> {monthGoal.focus}</p>
+                            )}
+                            {monthGoal.target && (
+                              <p className="text-muted-foreground"><span className="font-medium text-foreground">Target:</span> {monthGoal.target}</p>
+                            )}
+                            {monthGoal.personal_focus && (
+                              <p className="text-green-600"><span className="font-medium">Personal:</span> {monthGoal.personal_focus}</p>
+                            )}
+                            {monthGoal.personal_target && (
+                              <p className="text-green-600"><span className="font-medium">Target:</span> {monthGoal.personal_target}</p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                )}
+              </Card>
+            );
+          })}
+        </TabsContent>
+
+        {/* ANNUAL TAB */}
+        <TabsContent value="annual" className="space-y-6">
+          {filteredAgents.map(agent => {
+            const goals = productionGoals.find(g => g.user_id === agent.id);
+
+            return (
+              <Card key={agent.id} className="border-primary/10">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                        {(agent.full_name || '?').charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <CardTitle className="text-lg font-display">{agent.full_name}</CardTitle>
+                    {!goals && <Badge variant="outline" className="text-muted-foreground">No goals set</Badge>}
+                  </div>
+                </CardHeader>
+                {goals && (
+                  <CardContent>
+                    <div className="grid grid-cols-3 gap-4 mb-4">
+                      <div className="text-center p-3 rounded-lg bg-primary/5">
+                        <p className="text-2xl font-bold text-primary">{goals.annual_units_goal || 0}</p>
+                        <p className="text-xs text-muted-foreground">Units Goal</p>
+                      </div>
+                      <div className="text-center p-3 rounded-lg bg-primary/5">
+                        <p className="text-2xl font-bold text-primary">${(goals.annual_gci_goal || 0).toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground">GCI Goal</p>
+                      </div>
+                      <div className="text-center p-3 rounded-lg bg-primary/5">
+                        <p className="text-2xl font-bold text-primary">${(goals.annual_volume_goal || 0).toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground">Volume Goal</p>
+                      </div>
+                    </div>
+                    {goals.annual_focus && (
+                      <div className="p-3 rounded-lg bg-muted/50">
+                        <p className="text-xs font-medium text-muted-foreground uppercase mb-1">Annual Focus / Big Why</p>
+                        <p className="text-sm">{goals.annual_focus}</p>
+                      </div>
+                    )}
+                  </CardContent>
+                )}
+              </Card>
+            );
+          })}
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+};
+
+export default Team411;
