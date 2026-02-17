@@ -18,6 +18,7 @@ import PipelineReport from './PipelineReport';
 import CompanyBudget from './CompanyBudget';
 import AnnualBudgetChart from './AnnualBudgetChart';
 import AccountsPayable from './AccountsPayable';
+import Team411 from './Team411';
 
 interface AgentData {
   id: string;
@@ -742,6 +743,9 @@ const AdminDashboard = () => {
           <TabsTrigger value="analytics" className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4" /> Analytics
           </TabsTrigger>
+          <TabsTrigger value="team411" className="flex items-center gap-2">
+            <Target className="h-4 w-4" /> Team 4-1-1
+          </TabsTrigger>
         </TabsList>
 
         {/* PIPELINE & SALES TAB */}
@@ -1228,6 +1232,10 @@ const AdminDashboard = () => {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+        {/* TEAM 4-1-1 TAB */}
+        <TabsContent value="team411" className="space-y-6">
+          <Team411 />
         </TabsContent>
       </Tabs>
     </div>
