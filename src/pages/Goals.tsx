@@ -59,7 +59,7 @@ const createDefaultMonthlyGoals = (dealsGoal: number, gciGoal: number): MonthlyG
 
 const Goals = () => {
   const { user } = useAuth();
-  const { isViewingAsAgent, effectiveUserId, viewingAgentName } = useViewAsAgent();
+  const { isViewingAsAgent, effectiveUserId, viewingAgentName, effectiveFubUserId } = useViewAsAgent();
   const { hasFUB } = useHasFUB();
   const { toast } = useToast();
   const isReadOnly = isViewingAsAgent; // Admin viewing as agent = read-only
@@ -225,19 +225,38 @@ const Goals = () => {
           return 'other';
         };
 
-        // Get the agent's fub_user_id for matching
+        // Resolve target FUB user id (prefer active "view as agent" mapping)
         const { data: profile } = await supabase
           .from('profiles')
           .select('fub_user_id')
           .eq('id', queryUserId)
           .maybeSingle();
 
-        const fubUserId = profile?.fub_user_id;
-        const response = await followUpBossApi.getDeals(200, 0);
+        const targetFubUserId = effectiveFubUserId ?? profile?.fub_user_id;
 
-        if (response.success && response.data?.deals) {
-          const agentDeals = fubUserId
-            ? response.data.deals.filter(d => d.users?.some(u => u.id === fubUserId))
+        // Fetch all deal pages to avoid missing older closed deals
+        const pageSize = 100;
+        const maxPages = 10;
+        const allDeals: any[] = [];
+
+        for (let page = 0; page < maxPages; page++) {
+          const offset = page * pageSize;
+          const response = await followUpBossApi.getDeals(pageSize, offset);
+          if (!response.success || !response.data?.deals) break;
+
+          const batch = response.data.deals;
+          allDeals.push(...batch);
+
+          if (batch.length < pageSize) break;
+        }
+
+        if (allDeals.length > 0) {
+          const agentDeals = targetFubUserId
+            ? allDeals.filter((d) =>
+                d.users?.some((u) => u.id === targetFubUserId) ||
+                (d as any).assignedUserId === targetFubUserId ||
+                (d as any).userId === targetFubUserId
+              )
             : [];
 
           const fubClosedDeals = agentDeals.filter(d => classifyStage(d.stageName || '') === 'closed');
