@@ -502,6 +502,7 @@ export type Database = {
           cma_grade: string | null
           cma_pdf_name: string | null
           cma_pdf_path: string | null
+          cover_photo_index: number | null
           created_at: string
           equity_gain_high: number | null
           equity_gain_low: number | null
@@ -546,6 +547,7 @@ export type Database = {
           stats_pasted_text: string | null
           stats_pdf_path: string | null
           strategy_recommendation: string | null
+          subject_photos: Json | null
           talking_points: Json | null
           target_list_price: number | null
           updated_at: string
@@ -565,6 +567,7 @@ export type Database = {
           cma_grade?: string | null
           cma_pdf_name?: string | null
           cma_pdf_path?: string | null
+          cover_photo_index?: number | null
           created_at?: string
           equity_gain_high?: number | null
           equity_gain_low?: number | null
@@ -609,6 +612,7 @@ export type Database = {
           stats_pasted_text?: string | null
           stats_pdf_path?: string | null
           strategy_recommendation?: string | null
+          subject_photos?: Json | null
           talking_points?: Json | null
           target_list_price?: number | null
           updated_at?: string
@@ -628,6 +632,7 @@ export type Database = {
           cma_grade?: string | null
           cma_pdf_name?: string | null
           cma_pdf_path?: string | null
+          cover_photo_index?: number | null
           created_at?: string
           equity_gain_high?: number | null
           equity_gain_low?: number | null
@@ -672,6 +677,7 @@ export type Database = {
           stats_pasted_text?: string | null
           stats_pdf_path?: string | null
           strategy_recommendation?: string | null
+          subject_photos?: Json | null
           talking_points?: Json | null
           target_list_price?: number | null
           updated_at?: string

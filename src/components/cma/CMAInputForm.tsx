@@ -13,6 +13,7 @@ import { Upload, Loader2, Home, DollarSign, BarChart3, FileUp, Users } from 'luc
 import { FUBContactTypeahead } from '@/components/FUBContactTypeahead';
 import { useHasFUB } from '@/hooks/useHasFUB';
 import CMACompReview, { type ReviewComp } from './CMACompReview';
+import CMAPhotoUpload from './CMAPhotoUpload';
 
 interface CMAInputFormProps {
   onCreated: (reportId: string) => void;
@@ -74,6 +75,10 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
   // Review comps
   const [reviewComps, setReviewComps] = useState<ReviewComp[]>([]);
 
+  // Subject photos
+  const [subjectPhotos, setSubjectPhotos] = useState<File[]>([]);
+  const [coverPhotoIndex, setCoverPhotoIndex] = useState(0);
+
   const hasMarketStats = () => {
     if (statsMethod === 'manual') return activeListings || soldListings || medianSalePrice || avgDOM || saleToListRatio;
     if (statsMethod === 'pdf') return !!statsPdf;
@@ -92,6 +97,16 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
       return null;
     }
     return path;
+  };
+
+  const uploadPhotos = async (): Promise<string[]> => {
+    if (!user || subjectPhotos.length === 0) return [];
+    const paths: string[] = [];
+    for (const photo of subjectPhotos) {
+      const path = await uploadFile(photo, 'subject-photos');
+      if (path) paths.push(path);
+    }
+    return paths;
   };
 
   const extractPdfText = async (file: File): Promise<string> => {
@@ -265,6 +280,11 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
           notes: c.notes,
         }));
 
+      // Upload photos
+      setUploading(true);
+      const photoPaths = await uploadPhotos();
+      setUploading(false);
+
       // Insert record
       const insertData: Record<string, unknown> = {
         user_id: user.id,
@@ -296,6 +316,8 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
         stats_pasted_text: statsMethod === 'paste' ? pastedStats : null,
         analysis_status: 'processing',
         extracted_comps: finalComps,
+        subject_photos: photoPaths,
+        cover_photo_index: coverPhotoIndex < photoPaths.length ? coverPhotoIndex : 0,
       };
 
       const { data, error } = await supabase
@@ -386,6 +408,11 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
         setUploading(false);
       }
 
+      // Upload photos
+      setUploading(true);
+      const photoPaths = await uploadPhotos();
+      setUploading(false);
+
       const insertData: Record<string, unknown> = {
         user_id: user.id,
         property_address: propertyAddress,
@@ -415,6 +442,8 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
         stats_pdf_path: statsPdfPath,
         stats_pasted_text: statsMethod === 'paste' ? pastedStats : null,
         analysis_status: 'draft',
+        subject_photos: photoPaths,
+        cover_photo_index: coverPhotoIndex < photoPaths.length ? coverPhotoIndex : 0,
       };
 
       const { data, error } = await supabase
@@ -584,6 +613,14 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Subject Property Photos */}
+      <CMAPhotoUpload
+        photos={subjectPhotos}
+        setPhotos={setSubjectPhotos}
+        coverIndex={coverPhotoIndex}
+        setCoverIndex={setCoverPhotoIndex}
+      />
 
       {/* Market Stats */}
       <Card className="border-gold/20">

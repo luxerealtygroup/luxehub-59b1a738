@@ -65,11 +65,14 @@ interface CMAReportFull {
   created_at: string;
   fub_person_id: number | null;
   fub_person_name: string | null;
+  subject_photos: string[];
+  cover_photo_index: number;
 }
 
 const CMAClientReport = ({ reportId }: { reportId: string }) => {
   const [report, setReport] = useState<CMAReportFull | null>(null);
   const [loading, setLoading] = useState(true);
+  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -84,7 +87,7 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
         console.error(error);
       } else {
         const r = data as any;
-        setReport({
+        const reportData = {
           ...r,
           risk_flags: Array.isArray(r.risk_flags) ? r.risk_flags : [],
           weak_comp_alerts: Array.isArray(r.weak_comp_alerts) ? r.weak_comp_alerts : [],
@@ -92,7 +95,23 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
           talking_points: Array.isArray(r.talking_points) ? r.talking_points : [],
           seller_objections: Array.isArray(r.seller_objections) ? r.seller_objections : [],
           extracted_comps: Array.isArray(r.extracted_comps) ? r.extracted_comps : [],
-        });
+          subject_photos: Array.isArray(r.subject_photos) ? r.subject_photos : [],
+          cover_photo_index: r.cover_photo_index ?? 0,
+        };
+        setReport(reportData);
+
+        // Load photo URLs
+        const photos: string[] = reportData.subject_photos;
+        if (photos.length > 0) {
+          const urls: string[] = [];
+          for (const path of photos) {
+            const { data: signedData } = await supabase.storage
+              .from('cma-documents')
+              .createSignedUrl(path, 3600);
+            if (signedData?.signedUrl) urls.push(signedData.signedUrl);
+          }
+          setPhotoUrls(urls);
+        }
       }
       setLoading(false);
     };
@@ -187,14 +206,25 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
       </div>
 
       <div ref={printRef} className="space-y-8 max-w-4xl mx-auto print:max-w-none">
-        {/* Report Header */}
-        <div className="text-center border-b-2 border-gold/30 pb-6">
-          <h1 className="text-3xl font-display font-bold text-foreground">Comparative Market Analysis</h1>
-          <p className="text-lg text-gold mt-1">{report.property_address}</p>
-          <p className="text-sm text-muted-foreground">{report.city_area} · {report.property_type}</p>
-          <p className="text-xs text-muted-foreground mt-2">
-            Prepared {new Date(report.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
-          </p>
+        {/* Report Header with Cover Photo */}
+        <div className="border-b-2 border-gold/30 pb-6">
+          {photoUrls.length > 0 && photoUrls[report.cover_photo_index] && (
+            <div className="aspect-[21/9] rounded-lg overflow-hidden mb-4">
+              <img
+                src={photoUrls[report.cover_photo_index]}
+                alt={report.property_address}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
+          <div className="text-center">
+            <h1 className="text-3xl font-display font-bold text-foreground">Comparative Market Analysis</h1>
+            <p className="text-lg text-gold mt-1">{report.property_address}</p>
+            <p className="text-sm text-muted-foreground">{report.city_area} · {report.property_type}</p>
+            <p className="text-xs text-muted-foreground mt-2">
+              Prepared {new Date(report.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+            </p>
+          </div>
         </div>
 
         {/* Executive Summary */}
@@ -441,6 +471,20 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
             </CardContent>
           </Card>
         </section>
+
+        {/* Property Photo Gallery */}
+        {photoUrls.length > 1 && (
+          <section className="print:break-inside-avoid">
+            <SectionTitle icon={Home} title="Property Photos" />
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {photoUrls.slice(0, 6).map((url, i) => (
+                <div key={i} className="aspect-[4/3] rounded-lg overflow-hidden border border-border">
+                  <img src={url} alt={`Property photo ${i + 1}`} className="w-full h-full object-cover" />
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Footer */}
         <div className="text-center border-t border-gold/20 pt-6 text-xs text-muted-foreground">
