@@ -214,8 +214,17 @@ const Goals = () => {
     let gciEarned = paidCommRes.data?.reduce((sum, c) => sum + Number(c.gross_commission || c.amount || 0), 0) || 0;
     let gciPending = pendingCommRes.data?.reduce((sum, c) => sum + Number(c.gross_commission || c.amount || 0), 0) || 0;
 
-    // 2. For FUB-connected agents, use FUB as source of truth (match Transactions page behavior)
-    if (hasFUB) {
+    // 2. Resolve FUB user id for the effective user (viewed agent or self)
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('fub_user_id')
+      .eq('id', queryUserId)
+      .maybeSingle();
+
+    const targetFubUserId = effectiveFubUserId ?? profile?.fub_user_id;
+
+    // Use FUB as source of truth if the effective user has a FUB mapping
+    if (targetFubUserId) {
       try {
         const classifyStage = (stageName: string): 'closed' | 'pending' | 'conditional' | 'other' => {
           const s = (stageName || '').toLowerCase();
@@ -224,15 +233,6 @@ const Goals = () => {
           if (s.includes('offer') || s.includes('conditional')) return 'conditional';
           return 'other';
         };
-
-        // Resolve target FUB user id (prefer active "view as agent" mapping)
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('fub_user_id')
-          .eq('id', queryUserId)
-          .maybeSingle();
-
-        const targetFubUserId = effectiveFubUserId ?? profile?.fub_user_id;
 
         // Fetch all deal pages to avoid missing older closed deals
         const pageSize = 100;
@@ -319,7 +319,7 @@ const Goals = () => {
   useEffect(() => {
     fetchAnnualGoals();
     fetchActualMetrics();
-  }, [queryUserId, hasFUB]);
+  }, [queryUserId, hasFUB, effectiveFubUserId]);
 
   const handleSaveGoals = async () => {
     if (!user) return;
