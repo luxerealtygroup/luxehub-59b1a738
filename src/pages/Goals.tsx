@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useViewAsAgent } from '@/hooks/useViewAsAgent';
+import { useHasFUB } from '@/hooks/useHasFUB';
+import { followUpBossApi } from '@/lib/api/followUpBoss';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -58,6 +60,7 @@ const createDefaultMonthlyGoals = (dealsGoal: number, gciGoal: number): MonthlyG
 const Goals = () => {
   const { user } = useAuth();
   const { isViewingAsAgent, effectiveUserId, viewingAgentName } = useViewAsAgent();
+  const { hasFUB } = useHasFUB();
   const { toast } = useToast();
   const isReadOnly = isViewingAsAgent; // Admin viewing as agent = read-only
   const queryUserId = effectiveUserId; // Use effective user for all READ queries
@@ -198,39 +201,95 @@ const Goals = () => {
   const fetchActualMetrics = async () => {
     if (!queryUserId) return;
     
-    // Fetch closed deals
-    const { data: closedDeals } = await supabase
-      .from('deals')
-      .select('id')
-      .eq('user_id', queryUserId)
-      .eq('stage', 'closed');
-    
-    // Fetch pending deals
-    const { data: pendingDeals } = await supabase
-      .from('deals')
-      .select('id')
-      .eq('user_id', queryUserId)
-      .in('stage', ['under_contract', 'offer']);
-    
-    // Fetch paid commissions (use gross_commission with fallback to amount, matching Dashboard)
-    const { data: paidCommissions } = await supabase
-      .from('commissions')
-      .select('gross_commission, amount')
-      .eq('user_id', queryUserId)
-      .eq('status', 'paid');
-    
-    // Fetch pending commissions (use gross_commission with fallback to amount, matching Dashboard)
-    const { data: pendingCommissions } = await supabase
-      .from('commissions')
-      .select('gross_commission, amount')
-      .eq('user_id', queryUserId)
-      .eq('status', 'pending');
+    // 1. Always fetch local deals + commissions as baseline
+    const [closedDealsRes, pendingDealsRes, paidCommRes, pendingCommRes] = await Promise.all([
+      supabase.from('deals').select('id').eq('user_id', queryUserId).eq('stage', 'closed'),
+      supabase.from('deals').select('id').eq('user_id', queryUserId).in('stage', ['under_contract', 'offer']),
+      supabase.from('commissions').select('gross_commission, amount').eq('user_id', queryUserId).eq('status', 'paid'),
+      supabase.from('commissions').select('gross_commission, amount').eq('user_id', queryUserId).eq('status', 'pending'),
+    ]);
+
+    let dealsClosed = closedDealsRes.data?.length || 0;
+    let dealsPending = pendingDealsRes.data?.length || 0;
+    let gciEarned = paidCommRes.data?.reduce((sum, c) => sum + Number(c.gross_commission || c.amount || 0), 0) || 0;
+    let gciPending = pendingCommRes.data?.reduce((sum, c) => sum + Number(c.gross_commission || c.amount || 0), 0) || 0;
+
+    // 2. For FUB-connected agents, also pull FUB deals (same source as Transactions list)
+    if (hasFUB) {
+      try {
+        // Get the agent's fub_user_id for matching
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('fub_user_id')
+          .eq('id', queryUserId)
+          .maybeSingle();
+        
+        const fubUserId = profile?.fub_user_id;
+
+        const response = await followUpBossApi.getDeals(200, 0);
+        if (response.success && response.data?.deals) {
+          // Filter deals assigned to this agent by FUB user ID
+          const agentDeals = fubUserId
+            ? response.data.deals.filter(d => d.users?.some(u => u.id === fubUserId))
+            : response.data.deals;
+
+          const fubClosed = agentDeals.filter(d => {
+            const stage = d.stageName?.toLowerCase() || '';
+            return stage.includes('closed') || stage.includes('won');
+          });
+          const fubPending = agentDeals.filter(d => {
+            const stage = d.stageName?.toLowerCase() || '';
+            return stage === 'pending' || stage === 'offer';
+          });
+
+          // Use FUB counts if they exceed local counts (avoids double-counting imported deals)
+          if (fubClosed.length > dealsClosed) {
+            dealsClosed = fubClosed.length;
+            // Sum FUB GCI for closed deals
+            const fubGci = fubClosed.reduce((sum, d) => sum + (d.agentCommission || d.commissionValue || 0), 0);
+            if (fubGci > gciEarned) gciEarned = fubGci;
+          }
+          if (fubPending.length > dealsPending) {
+            dealsPending = fubPending.length;
+            const fubPendingGci = fubPending.reduce((sum, d) => sum + (d.agentCommission || d.commissionValue || 0), 0);
+            if (fubPendingGci > gciPending) gciPending = fubPendingGci;
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching FUB deals for goals:', err);
+      }
+    } else {
+      // 3. For non-FUB agents, overlay manual_production data (matching Dashboard)
+      const { data: mpRows } = await supabase
+        .from('manual_production')
+        .select('*')
+        .eq('user_id', queryUserId)
+        .eq('year', currentYear);
+
+      if (mpRows && mpRows.length > 0) {
+        const manualData = mpRows.reduce(
+          (acc, row) => ({
+            closed_deals: acc.closed_deals + (row.closed_deals ?? 0),
+            pending_deals: acc.pending_deals + (row.pending_deals ?? 0),
+            gci_closed: acc.gci_closed + Number(row.gci_closed || 0),
+            gci_pending: acc.gci_pending + Number(row.gci_pending || 0),
+          }),
+          { closed_deals: 0, pending_deals: 0, gci_closed: 0, gci_pending: 0 }
+        );
+
+        // Use manual data if it exceeds local DB counts
+        if (manualData.closed_deals > dealsClosed) dealsClosed = manualData.closed_deals;
+        if (manualData.pending_deals > dealsPending) dealsPending = manualData.pending_deals;
+        if (manualData.gci_closed > gciEarned) gciEarned = manualData.gci_closed;
+        if (manualData.gci_pending > gciPending) gciPending = manualData.gci_pending;
+      }
+    }
     
     setActualMetrics({
-      deals_closed: closedDeals?.length || 0,
-      deals_pending: pendingDeals?.length || 0,
-      gci_earned: paidCommissions?.reduce((sum, c) => sum + Number(c.gross_commission || c.amount || 0), 0) || 0,
-      gci_pending: pendingCommissions?.reduce((sum, c) => sum + Number(c.gross_commission || c.amount || 0), 0) || 0
+      deals_closed: dealsClosed,
+      deals_pending: dealsPending,
+      gci_earned: gciEarned,
+      gci_pending: gciPending
     });
     
     setLoading(false);
@@ -239,7 +298,7 @@ const Goals = () => {
   useEffect(() => {
     fetchAnnualGoals();
     fetchActualMetrics();
-  }, [queryUserId]);
+  }, [queryUserId, hasFUB]);
 
   const handleSaveGoals = async () => {
     if (!user) return;
