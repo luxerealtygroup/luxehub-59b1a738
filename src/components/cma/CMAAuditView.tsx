@@ -102,6 +102,7 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
   const [photoIndex, setPhotoIndex] = useState(0);
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [savingImprovements, setSavingImprovements] = useState(false);
+  const [compsOverrideReason, setCompsOverrideReason] = useState('');
 
   const fetchReport = async () => {
     const { data, error } = await supabase
@@ -518,6 +519,14 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
         approvedObjections={report.approved_objections}
         approvalStatus={report.approval_status}
         onUpdate={fetchReport}
+        soldCompsCount={report.extracted_comps.filter(c => c.comp_category === 'sold' || (c.sold_price != null && c.sold_price > 0)).length}
+        purchasePrice={report.purchase_price}
+        purchaseDate={report.purchase_date}
+        improvementsTotal={report.improvements_invested}
+        equityGainLow={report.equity_gain_low}
+        equityGainHigh={report.equity_gain_high}
+        compsOverrideReason={compsOverrideReason}
+        onCompsOverrideReasonChange={setCompsOverrideReason}
       />
 
       {/* Risk Flags */}

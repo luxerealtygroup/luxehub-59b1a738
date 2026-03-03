@@ -502,8 +502,13 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Est. Gain Range</p>
-                  <p className="font-bold text-gold">
-                    {fmt(report.equity_gain_low)} – {fmt(report.equity_gain_high)}
+                  <p className={`font-bold ${(report.equity_gain_low ?? 0) < 0 && (report.equity_gain_high ?? 0) < 0 ? 'text-destructive' : (report.equity_gain_low ?? 0) < 0 ? 'text-amber-500' : 'text-gold'}`}>
+                    {fmt(Math.max(report.equity_gain_low ?? 0, 0))} – {fmt(Math.max(report.equity_gain_high ?? 0, 0))}
+                    {(report.equity_gain_low ?? 0) < 0 && (
+                      <span className="block text-[10px] text-destructive font-normal mt-0.5">
+                        * Lower estimate shows negative equity
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>
