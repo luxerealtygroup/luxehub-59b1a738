@@ -1,9 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -26,14 +24,18 @@ interface AgentMetrics {
   cmasCreated: number;
   listingsSigned: number;
   sold: number;
-  cmaToListingPct: string;
-  cmaToSoldPct: string;
+  staleCount: number;
+  cmaToListingPctAll: string;
+  cmaToSoldPctAll: string;
+  cmaToListingPctUpdated: string;
+  cmaToSoldPctUpdated: string;
   avgDaysToSign: string;
   avgDaysToSell: string;
 }
 
+const STALE_DAYS = 60;
+
 const CMAPerformanceDashboard = () => {
-  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [cmaRows, setCmaRows] = useState<CMARow[]>([]);
   const [profiles, setProfiles] = useState<Map<string, string>>(new Map());
@@ -72,9 +74,20 @@ const CMAPerformanceDashboard = () => {
       byAgent.set(r.user_id, list);
     });
 
+    const now = new Date();
+
     return Array.from(byAgent.entries()).map(([userId, rows]) => {
       const signed = rows.filter(r => ['Listing Signed', 'Active', 'Sold'].includes(r.listing_status));
       const sold = rows.filter(r => r.listing_status === 'Sold');
+
+      // Stale = still "CMA Created" after 60 days
+      const staleCount = rows.filter(r =>
+        r.listing_status === 'CMA Created' &&
+        differenceInDays(now, new Date(r.created_at)) > STALE_DAYS
+      ).length;
+
+      // Updated CMAs = any status other than "CMA Created"
+      const updatedCount = rows.filter(r => r.listing_status !== 'CMA Created').length;
 
       const daysToSign = signed
         .filter(r => r.listing_signed_at)
@@ -91,26 +104,32 @@ const CMAPerformanceDashboard = () => {
         cmasCreated: rows.length,
         listingsSigned: signed.length,
         sold: sold.length,
-        cmaToListingPct: rows.length ? ((signed.length / rows.length) * 100).toFixed(1) + '%' : '—',
-        cmaToSoldPct: rows.length ? ((sold.length / rows.length) * 100).toFixed(1) + '%' : '—',
+        staleCount,
+        cmaToListingPctAll: rows.length ? ((signed.length / rows.length) * 100).toFixed(1) + '%' : '—',
+        cmaToSoldPctAll: rows.length ? ((sold.length / rows.length) * 100).toFixed(1) + '%' : '—',
+        cmaToListingPctUpdated: updatedCount ? ((signed.length / updatedCount) * 100).toFixed(1) + '%' : '—',
+        cmaToSoldPctUpdated: updatedCount ? ((sold.length / updatedCount) * 100).toFixed(1) + '%' : '—',
         avgDaysToSign: avgSign,
         avgDaysToSell: avgSell,
       };
     }).sort((a, b) => b.cmasCreated - a.cmasCreated);
   }, [cmaRows, profiles]);
 
-  // Team totals
   const teamTotals = useMemo(() => {
-    const total = agentMetrics.reduce(
-      (acc, a) => ({
-        cmas: acc.cmas + a.cmasCreated,
-        signed: acc.signed + a.listingsSigned,
-        sold: acc.sold + a.sold,
-      }),
-      { cmas: 0, signed: 0, sold: 0 }
+    const now = new Date();
+    const total = cmaRows.reduce(
+      (acc, r) => {
+        acc.cmas++;
+        if (['Listing Signed', 'Active', 'Sold'].includes(r.listing_status)) acc.signed++;
+        if (r.listing_status === 'Sold') acc.sold++;
+        if (r.listing_status === 'CMA Created' && differenceInDays(now, new Date(r.created_at)) > STALE_DAYS) acc.stale++;
+        if (r.listing_status !== 'CMA Created') acc.updated++;
+        return acc;
+      },
+      { cmas: 0, signed: 0, sold: 0, stale: 0, updated: 0 }
     );
     return total;
-  }, [agentMetrics]);
+  }, [cmaRows]);
 
   if (loading) {
     return (
@@ -164,13 +183,22 @@ const CMAPerformanceDashboard = () => {
       </Card>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <SummaryCard label="Total CMAs" value={teamTotals.cmas} />
         <SummaryCard label="Listings Signed" value={teamTotals.signed} />
         <SummaryCard label="Sold" value={teamTotals.sold} />
         <SummaryCard
-          label="CMA → Sold %"
+          label="CMA → Sold % (All)"
           value={teamTotals.cmas ? ((teamTotals.sold / teamTotals.cmas) * 100).toFixed(1) + '%' : '—'}
+        />
+        <SummaryCard
+          label="Stale CMAs"
+          value={`${teamTotals.stale} (${teamTotals.cmas ? ((teamTotals.stale / teamTotals.cmas) * 100).toFixed(0) : 0}%)`}
+          variant={teamTotals.stale > 0 ? 'warning' : 'default'}
+        />
+        <SummaryCard
+          label="CMA → Sold % (Updated)"
+          value={teamTotals.updated ? ((teamTotals.sold / teamTotals.updated) * 100).toFixed(1) + '%' : '—'}
         />
       </div>
 
@@ -191,10 +219,13 @@ const CMAPerformanceDashboard = () => {
                   <TableHead className="text-center">CMAs</TableHead>
                   <TableHead className="text-center">Signed</TableHead>
                   <TableHead className="text-center">Sold</TableHead>
-                  <TableHead className="text-center">CMA→Listing %</TableHead>
-                  <TableHead className="text-center">CMA→Sold %</TableHead>
-                  <TableHead className="text-center">Avg Days to Sign</TableHead>
-                  <TableHead className="text-center">Avg Days to Sell</TableHead>
+                  <TableHead className="text-center">Stale</TableHead>
+                  <TableHead className="text-center">Conv % (All)</TableHead>
+                  <TableHead className="text-center">Conv % (Updated)</TableHead>
+                  <TableHead className="text-center">Sold % (All)</TableHead>
+                  <TableHead className="text-center">Sold % (Updated)</TableHead>
+                  <TableHead className="text-center">Avg Days Sign</TableHead>
+                  <TableHead className="text-center">Avg Days Sell</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -204,8 +235,13 @@ const CMAPerformanceDashboard = () => {
                     <TableCell className="text-center">{a.cmasCreated}</TableCell>
                     <TableCell className="text-center">{a.listingsSigned}</TableCell>
                     <TableCell className="text-center">{a.sold}</TableCell>
-                    <TableCell className="text-center font-semibold">{a.cmaToListingPct}</TableCell>
-                    <TableCell className="text-center font-semibold">{a.cmaToSoldPct}</TableCell>
+                    <TableCell className={cn("text-center", a.staleCount > 0 && "text-amber-500 font-semibold")}>
+                      {a.staleCount}
+                    </TableCell>
+                    <TableCell className="text-center font-semibold">{a.cmaToListingPctAll}</TableCell>
+                    <TableCell className="text-center font-semibold">{a.cmaToListingPctUpdated}</TableCell>
+                    <TableCell className="text-center font-semibold">{a.cmaToSoldPctAll}</TableCell>
+                    <TableCell className="text-center font-semibold">{a.cmaToSoldPctUpdated}</TableCell>
                     <TableCell className="text-center">{a.avgDaysToSign}</TableCell>
                     <TableCell className="text-center">{a.avgDaysToSell}</TableCell>
                   </TableRow>
@@ -219,11 +255,11 @@ const CMAPerformanceDashboard = () => {
   );
 };
 
-const SummaryCard = ({ label, value }: { label: string; value: number | string }) => (
-  <Card className="border-gold/20">
+const SummaryCard = ({ label, value, variant = 'default' }: { label: string; value: number | string; variant?: 'default' | 'warning' }) => (
+  <Card className={cn("border-gold/20", variant === 'warning' && "border-amber-500/30")}>
     <CardContent className="pt-4 pb-3 text-center">
       <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</p>
-      <p className="text-2xl font-bold text-foreground mt-1">{value}</p>
+      <p className={cn("text-2xl font-bold mt-1", variant === 'warning' ? "text-amber-500" : "text-foreground")}>{value}</p>
     </CardContent>
   </Card>
 );

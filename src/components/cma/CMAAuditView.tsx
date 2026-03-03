@@ -30,6 +30,7 @@ interface Objection {
 
 interface CMAReportFull {
   id: string;
+  created_at: string;
   property_address: string;
   city_area: string;
   property_type: string;
@@ -67,6 +68,7 @@ interface CMAReportFull {
   listing_status: string;
   final_list_price: number | null;
   final_sold_price: number | null;
+  lost_reason: string | null;
   lifecycle_history: Array<{ status: string; at: string }>;
   fub_automation_log: Array<{ action: string; at: string; fub_task_id?: string }>;
   equity_recalc_count: number;
@@ -129,6 +131,8 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
           finalListPrice={report.final_list_price}
           finalSoldPrice={report.final_sold_price}
           lifecycleHistory={report.lifecycle_history}
+          lostReason={report.lost_reason}
+          createdAt={report.created_at}
           onUpdate={fetchReport}
         />
         <Card className="border-gold/20">
@@ -192,6 +196,8 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
         finalListPrice={report.final_list_price}
         finalSoldPrice={report.final_sold_price}
         lifecycleHistory={report.lifecycle_history}
+        lostReason={report.lost_reason}
+        createdAt={report.created_at}
         onUpdate={fetchReport}
       />
 

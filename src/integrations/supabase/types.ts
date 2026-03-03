@@ -521,6 +521,7 @@ export type Database = {
           listing_signed_at: string | null
           listing_sold_at: string | null
           listing_status: string
+          lost_reason: string | null
           market_narrative: string | null
           market_notes: string | null
           market_shift_detected: boolean
@@ -583,6 +584,7 @@ export type Database = {
           listing_signed_at?: string | null
           listing_sold_at?: string | null
           listing_status?: string
+          lost_reason?: string | null
           market_narrative?: string | null
           market_notes?: string | null
           market_shift_detected?: boolean
@@ -645,6 +647,7 @@ export type Database = {
           listing_signed_at?: string | null
           listing_sold_at?: string | null
           listing_status?: string
+          lost_reason?: string | null
           market_narrative?: string | null
           market_notes?: string | null
           market_shift_detected?: boolean

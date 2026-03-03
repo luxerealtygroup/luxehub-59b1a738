@@ -1,0 +1,1 @@
+ALTER TABLE public.cma_reports ADD COLUMN IF NOT EXISTS lost_reason text DEFAULT NULL;
