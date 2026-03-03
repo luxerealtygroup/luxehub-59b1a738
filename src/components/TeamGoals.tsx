@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Target, DollarSign, TrendingUp, Building2, Edit, Loader2 } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { toast } from 'sonner';
+import { formatCurrency, formatNumber, formatCurrencyCompact } from '@/lib/utils';
 
 interface CompanyGoal {
   id: string;
@@ -533,11 +534,11 @@ const TeamGoals = () => {
               <span className="text-sm font-medium">Gross GCI</span>
             </div>
             <div className="flex justify-between text-sm text-muted-foreground">
-              <span>${totalGci.toLocaleString()} / ${(goals?.annual_gci_goal || 0).toLocaleString()}</span>
+              <span>{formatCurrency(totalGci)} / {formatCurrency(goals?.annual_gci_goal)}</span>
               <span>{Math.round(gciProgress)}%</span>
             </div>
             <div className="text-xs text-muted-foreground">
-              ${(actuals?.totalGci || 0).toLocaleString()} paid + ${(actuals?.pendingGci || 0).toLocaleString()} pending
+              {formatCurrency(actuals?.totalGci)} paid + {formatCurrency(actuals?.pendingGci)} pending
             </div>
             <Progress value={Math.min(gciProgress, 100)} className="h-2" />
           </div>
@@ -548,11 +549,11 @@ const TeamGoals = () => {
               <span className="text-sm font-medium">Volume</span>
             </div>
             <div className="flex justify-between text-sm text-muted-foreground">
-              <span>${totalVolume.toLocaleString()} / ${(goals?.annual_volume_goal || 0).toLocaleString()}</span>
+              <span>{formatCurrency(totalVolume)} / {formatCurrency(goals?.annual_volume_goal)}</span>
               <span>{Math.round(volumeProgress)}%</span>
             </div>
             <div className="text-xs text-muted-foreground">
-              ${(actuals?.totalVolume || 0).toLocaleString()} closed + ${(actuals?.pendingVolume || 0).toLocaleString()} pending
+              {formatCurrency(actuals?.totalVolume)} closed + {formatCurrency(actuals?.pendingVolume)} pending
             </div>
             <Progress value={Math.min(volumeProgress, 100)} className="h-2" />
           </div>
@@ -563,11 +564,11 @@ const TeamGoals = () => {
               <span className="text-sm font-medium">Company Revenue</span>
             </div>
             <div className="flex justify-between text-sm text-muted-foreground">
-              <span>${totalRevenue.toLocaleString()} / ${(goals?.annual_revenue_goal || 0).toLocaleString()}</span>
+              <span>{formatCurrency(totalRevenue)} / {formatCurrency(goals?.annual_revenue_goal)}</span>
               <span>{Math.round(revenueProgress)}%</span>
             </div>
             <div className="text-xs text-muted-foreground">
-              ${(actuals?.companyRevenue || 0).toLocaleString()} closed + ${(actuals?.pendingRevenue || 0).toLocaleString()} pending
+              {formatCurrency(actuals?.companyRevenue)} closed + {formatCurrency(actuals?.pendingRevenue)} pending
             </div>
           </div>
         </div>
@@ -580,9 +581,9 @@ const TeamGoals = () => {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={monthlyChartData}>
                   <XAxis dataKey="month" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
-                  <YAxis tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                  <YAxis tickFormatter={(v) => formatCurrencyCompact(v)} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
                   <Tooltip
-                    formatter={(value: number) => [`$${value.toLocaleString()}`, '']}
+                    formatter={(value: number) => [formatCurrency(value), '']}
                     contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }}
                   />
                   <Legend />

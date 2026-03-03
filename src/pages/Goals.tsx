@@ -10,6 +10,7 @@ import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Target, TrendingUp, DollarSign, Home, Edit2, Calendar } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { formatCurrency, formatNumber } from '@/lib/utils';
 
 interface AnnualGoals {
   id?: string;
@@ -516,7 +517,7 @@ const Goals = () => {
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Based on {formData.deals_goal || 0} deals × ${parseInt(formData.avg_sale_price || '0').toLocaleString()} × {formData.commission_rate || 0}% × {formData.split_percent || 0}% split
+                Based on {formData.deals_goal || 0} deals × {formatCurrency(parseInt(formData.avg_sale_price || '0'))} × {formData.commission_rate || 0}% × {formData.split_percent || 0}% split
               </p>
             </div>
 
@@ -644,7 +645,7 @@ const Goals = () => {
                 </div>
                 <div className="text-xs text-muted-foreground">
                   {totalGciGoal - actualMetrics.gci_earned > 0 
-                    ? `$${Math.round(totalGciGoal - actualMetrics.gci_earned).toLocaleString()} more to reach your goal`
+                    ? `${formatCurrency(Math.round(totalGciGoal - actualMetrics.gci_earned))} more to reach your goal`
                     : '🎉 Goal achieved!'}
                 </div>
               </CardContent>
@@ -706,7 +707,7 @@ const Goals = () => {
                           <div className="p-2 rounded bg-green-500/10 border border-green-500/20">
                             <p className="text-xs text-muted-foreground">Auto GCI</p>
                             <p className="text-sm font-bold text-green-400">
-                              ${Math.round(calculateGciFromDeals(monthlyGoals[index]?.deals || 0)).toLocaleString()}
+                              ${formatCurrency(Math.round(calculateGciFromDeals(monthlyGoals[index]?.deals || 0)))}
                             </p>
                           </div>
                           <Button 
@@ -727,7 +728,7 @@ const Goals = () => {
                           <div className="flex items-center gap-1">
                             <DollarSign className="h-3 w-3 text-green-400" />
                             <span className="text-xs text-muted-foreground">GCI:</span>
-                            <span className="text-xs font-medium text-green-400">${Math.round(monthlyGoals[index]?.gci || 0).toLocaleString()}</span>
+                            <span className="text-xs font-medium text-green-400">${formatCurrency(Math.round(monthlyGoals[index]?.gci || 0))}</span>
                           </div>
                           {(monthlyGoals[index]?.focus || monthlyGoals[index]?.target) && (
                             <div className="mt-2 pt-2 border-t border-primary/10">
@@ -778,7 +779,7 @@ const Goals = () => {
                                       className="h-6 text-xs flex-1"
                                     />
                                     <span className="text-xs text-green-400 w-20 text-right">
-                                      ${Math.round(calculateGciFromDeals(monthDeals)).toLocaleString()}
+                                      ${formatCurrency(Math.round(calculateGciFromDeals(monthDeals)))}
                                     </span>
                                   </div>
                                 );
@@ -799,14 +800,14 @@ const Goals = () => {
                                 <Home className="h-4 w-4 text-gold" />
                                 <span className="text-sm text-muted-foreground">Deals</span>
                               </div>
-                              <span className="text-lg font-bold text-gold">{quarterGoals.deals.toFixed(1)}</span>
+                              <span className="text-lg font-bold text-gold">{formatCurrency(quarterGoals.deals)}</span>
                             </div>
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-1">
                                 <DollarSign className="h-4 w-4 text-green-400" />
                                 <span className="text-sm text-muted-foreground">GCI</span>
                               </div>
-                              <span className="text-lg font-bold text-green-400">${Math.round(quarterGoals.gci).toLocaleString()}</span>
+                              <span className="text-lg font-bold text-green-400">${formatCurrency(Math.round(quarterGoals.gci))}</span>
                             </div>
                             {quarterGoals.fourOneOneGoals.length > 0 && (
                               <div className="mt-3 pt-2 border-t border-primary/10 space-y-1">
@@ -832,7 +833,7 @@ const Goals = () => {
                 </div>
               )}
               <p className="text-xs text-muted-foreground mt-4 text-center">
-                Total: {monthlyGoals.reduce((sum, m) => sum + m.deals, 0).toFixed(1)} deals / ${Math.round(monthlyGoals.reduce((sum, m) => sum + m.gci, 0)).toLocaleString()} GCI
+                Total: {monthlyGoals.reduce((sum, m) => sum + m.deals, 0).toFixed(1)} deals / {formatCurrency(Math.round(monthlyGoals.reduce((sum, m) => sum + m.gci, 0)))} GCI
               </p>
             </CardContent>
           </Card>
@@ -847,7 +848,7 @@ const Goals = () => {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Closed</p>
-                    <p className="text-xl font-bold text-green-400">{actualMetrics.deals_closed}</p>
+                    <p className="text-xl font-bold text-green-400">{formatCurrency(actualMetrics.deals_closed)}</p>
                   </div>
                 </div>
               </CardContent>
@@ -861,7 +862,7 @@ const Goals = () => {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Pending</p>
-                    <p className="text-xl font-bold text-amber-400">{actualMetrics.deals_pending}</p>
+                    <p className="text-xl font-bold text-amber-400">{formatCurrency(actualMetrics.deals_pending)}</p>
                   </div>
                 </div>
               </CardContent>

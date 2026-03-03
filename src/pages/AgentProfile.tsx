@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, Legend } from 'recharts';
 import { format } from 'date-fns';
+import { formatCurrency, formatNumber } from '@/lib/utils';
 
 interface AgentProfileData {
   id: string;
@@ -259,8 +260,8 @@ const AgentProfile = () => {
               <DollarSign className="h-5 w-5 text-green-500" />
               <span className="text-sm text-muted-foreground">GCI Earned</span>
             </div>
-            <p className="text-2xl font-bold text-green-500">${earnedGci.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground mt-1">${pendingGci.toLocaleString()} pending</p>
+            <p className="text-2xl font-bold text-green-500">{formatCurrency(earnedGci)}</p>
+            <p className="text-xs text-muted-foreground mt-1">{formatCurrency(pendingGci)} pending</p>
           </CardContent>
         </Card>
 
@@ -271,7 +272,7 @@ const AgentProfile = () => {
               <span className="text-sm text-muted-foreground">Closed Deals</span>
             </div>
             <p className="text-2xl font-bold text-gold">{closedDeals}</p>
-            <p className="text-xs text-muted-foreground mt-1">${totalVolume.toLocaleString()} volume</p>
+            <p className="text-xs text-muted-foreground mt-1">{formatCurrency(totalVolume)} volume</p>
           </CardContent>
         </Card>
 
@@ -292,7 +293,7 @@ const AgentProfile = () => {
               <TrendingUp className="h-5 w-5 text-purple-500" />
               <span className="text-sm text-muted-foreground">Pipeline Value</span>
             </div>
-            <p className="text-2xl font-bold text-purple-500">${totalPipelineGci.toLocaleString()}</p>
+            <p className="text-2xl font-bold text-purple-500">{formatCurrency(totalPipelineGci)}</p>
             <p className="text-xs text-muted-foreground mt-1">Projected GCI</p>
           </CardContent>
         </Card>
@@ -315,14 +316,14 @@ const AgentProfile = () => {
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span>GCI (${(earnedGci + pendingGci).toLocaleString()} / ${Number(goals.annual_gci_goal).toLocaleString()})</span>
+                  <span>GCI ({formatCurrency(earnedGci + pendingGci)} / {formatCurrency(Number(goals.annual_gci_goal))})</span>
                   <span>{Math.round(gciProgress)}%</span>
                 </div>
                 <Progress value={Math.min(gciProgress, 100)} className="h-3" />
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span>Volume (${totalVolume.toLocaleString()} / ${Number(goals.annual_volume_goal).toLocaleString()})</span>
+                  <span>Volume ({formatCurrency(totalVolume)} / {formatCurrency(Number(goals.annual_volume_goal))})</span>
                   <span>{Math.round(volumeProgress)}%</span>
                 </div>
                 <Progress value={Math.min(volumeProgress, 100)} className="h-3" />
@@ -354,8 +355,8 @@ const AgentProfile = () => {
                   <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
                     <span>Stage: {stageLabels[client.stage] || `Stage ${client.stage}`}</span>
                     <span>Source: {client.source || 'N/A'}</span>
-                    <span>Value: ${Number(client.projected_sale_amount || 0).toLocaleString()}</span>
-                    <span>GCI: ${Number(client.projected_gci || 0).toLocaleString()}</span>
+                    <span>Value: {formatCurrency(client.projected_sale_amount)}</span>
+                    <span>GCI: {formatCurrency(client.projected_gci)}</span>
                   </div>
                   {client.expected_pending_date && (
                     <p className="text-xs text-muted-foreground mt-2">
@@ -388,7 +389,7 @@ const AgentProfile = () => {
                   </div>
                   <p className="text-sm text-muted-foreground">{deal.property_address || 'No address'}</p>
                   <div className="flex gap-4 mt-2 text-sm">
-                    <span className="text-green-500">${Number(deal.deal_value || 0).toLocaleString()}</span>
+                    <span className="text-green-500">{formatCurrency(deal.deal_value)}</span>
                     <span className="text-muted-foreground">{deal.commission_rate}% commission</span>
                     {deal.source && <span className="text-muted-foreground">Source: {deal.source}</span>}
                   </div>

@@ -10,6 +10,7 @@ import { Loader2, Plus, Trash2, DollarSign, TrendingUp, TrendingDown, AlertTrian
 import { Switch } from '@/components/ui/switch';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { formatCurrency } from '@/lib/utils';
 
 interface BudgetExpense {
   id: string;

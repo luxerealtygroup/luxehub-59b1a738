@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { format, parseISO, isPast, isToday } from 'date-fns';
+import { formatCurrency } from '@/lib/utils';
 
 interface AsanaTask {
   gid: string;
@@ -235,7 +236,7 @@ const AccountsPayable = ({ className }: AccountsPayableProps) => {
         </div>
         <div className="flex items-center gap-4 mt-2">
           <div className="text-2xl font-bold text-gold">
-            ${totalPayable.toLocaleString()}
+            {formatCurrency(totalPayable)}
           </div>
           {overdueCount > 0 && (
             <Badge variant="destructive">
@@ -287,7 +288,7 @@ const AccountsPayable = ({ className }: AccountsPayableProps) => {
                   </div>
                   {amount && (
                     <div className="text-right font-semibold">
-                      ${amount.toLocaleString()}
+                      {formatCurrency(amount)}
                     </div>
                   )}
                 </div>
