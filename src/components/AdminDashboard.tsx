@@ -20,6 +20,7 @@ import AnnualBudgetChart from './AnnualBudgetChart';
 import AccountsPayable from './AccountsPayable';
 import Team411 from './Team411';
 import ConversionReport from './ConversionReport';
+import { CreateAgentDialog } from './CreateAgentDialog';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 
 interface AgentData {
@@ -436,10 +437,10 @@ const AdminDashboard = () => {
       const profilesMap = new Map((profiles || []).map(p => [p.id, p.full_name || 'Unknown Agent']));
       const goalsMap = new Map((productionGoals || []).map(g => [g.user_id, g]));
       
-      // Include all agents with fub_user_id (excluding admin-only users like Marie)
+      // Include all agents (with or without fub_user_id), excluding admin-only users
       const agentIds = new Set([
         ...(profiles || [])
-          .filter(p => p.fub_user_id && !adminOnlyUserIds.has(p.id))
+          .filter(p => !adminOnlyUserIds.has(p.id))
           .map(p => p.id),
         ...(deals || []).map(d => d.user_id),
         ...(commissions || []).map(c => c.user_id),
@@ -635,6 +636,7 @@ const AdminDashboard = () => {
           <h1 className="text-3xl font-display font-bold text-foreground">Company Dashboard</h1>
           <p className="text-muted-foreground mt-1">Overview of all agent performance and company revenue</p>
         </div>
+        <CreateAgentDialog />
         <div className="flex items-center gap-3">
           <Button 
             onClick={() => setShowPipelineReport(true)} 

@@ -5,13 +5,6 @@ import { Loader2, TrendingUp } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ReferenceLine } from 'recharts';
 import { formatCurrency, formatCurrencyCompact } from '@/lib/utils';
 
-interface AnnualBudget {
-  month: number;
-  year: number;
-  projectedRevenue: number;
-  expenses: number;
-}
-
 interface MonthlyData {
   monthLabel: string;
   projectedRevenue: number;
@@ -26,27 +19,48 @@ const AnnualBudgetChart = () => {
     const fetchAnnualBudget = async () => {
       setLoading(true);
       try {
-        const { data: annualBudget, error } = await supabase
-          .from('annual_budget')
+        const currentYear = new Date().getFullYear();
+
+        // Fetch expenses from company_budget_expenses
+        const { data: expenses, error: expError } = await supabase
+          .from('company_budget_expenses')
           .select('*')
+          .eq('year', currentYear)
           .order('month', { ascending: true });
 
-        if (error) {
-          console.error('Error fetching annual budget:', error);
-          return;
+        if (expError) {
+          console.error('Error fetching budget expenses:', expError);
         }
 
-        if (annualBudget) {
-          const monthlyData: MonthlyData[] = annualBudget.map((item: AnnualBudget) => {
-            const monthName = new Date(item.year, item.month - 1, 1).toLocaleString('default', { month: 'long' });
-            return {
-              monthLabel: monthName,
-              projectedRevenue: item.projectedRevenue,
-              expenses: item.expenses,
-            };
-          });
-          setData(monthlyData);
-        }
+        // Fetch company goals for revenue projections
+        const { data: goals } = await supabase
+          .from('company_goals')
+          .select('*')
+          .eq('year', currentYear)
+          .maybeSingle();
+
+        // Build monthly data (Jan–Dec)
+        const monthlyData: MonthlyData[] = Array.from({ length: 12 }, (_, i) => {
+          const month = i + 1;
+          const monthName = new Date(currentYear, i, 1).toLocaleString('default', { month: 'long' });
+
+          const monthExpenses = (expenses || [])
+            .filter(e => e.month === month)
+            .reduce((sum, e) => sum + Number(e.amount || 0), 0);
+
+          // Projected revenue = annual revenue goal / 12 (simple even distribution)
+          const projectedRevenue = goals?.annual_revenue_goal
+            ? Number(goals.annual_revenue_goal) / 12
+            : 0;
+
+          return {
+            monthLabel: monthName,
+            projectedRevenue,
+            expenses: monthExpenses,
+          };
+        });
+
+        setData(monthlyData);
       } catch (error) {
         console.error('Failed to fetch annual budget data', error);
       } finally {
