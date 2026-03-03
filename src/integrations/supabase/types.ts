@@ -488,6 +488,150 @@ export type Database = {
           },
         ]
       }
+      cma_reports: {
+        Row: {
+          active_listings: number | null
+          adjustment_observations: Json | null
+          ai_raw_response: Json | null
+          analysis_status: string | null
+          approx_sqft: number | null
+          avg_days_on_market: number | null
+          bathrooms: number | null
+          bedrooms: number | null
+          city_area: string
+          cma_grade: string | null
+          cma_pdf_name: string | null
+          cma_pdf_path: string | null
+          created_at: string
+          equity_gain_high: number | null
+          equity_gain_low: number | null
+          extracted_comps: Json | null
+          id: string
+          improvements_invested: number | null
+          intended_list_date: string | null
+          market_narrative: string | null
+          market_notes: string | null
+          median_sale_price: number | null
+          months_of_inventory: number | null
+          pricing_band_high: number | null
+          pricing_band_low: number | null
+          pricing_band_recommended: number | null
+          pricing_confidence: string | null
+          property_address: string
+          property_type: string
+          purchase_date: string
+          purchase_price: number
+          risk_flags: Json | null
+          sale_to_list_ratio: number | null
+          seller_objections: Json | null
+          sold_listings: number | null
+          stats_date_range: string | null
+          stats_method: string | null
+          stats_pasted_text: string | null
+          stats_pdf_path: string | null
+          strategy_recommendation: string | null
+          talking_points: Json | null
+          target_list_price: number | null
+          updated_at: string
+          user_id: string
+          weak_comp_alerts: Json | null
+        }
+        Insert: {
+          active_listings?: number | null
+          adjustment_observations?: Json | null
+          ai_raw_response?: Json | null
+          analysis_status?: string | null
+          approx_sqft?: number | null
+          avg_days_on_market?: number | null
+          bathrooms?: number | null
+          bedrooms?: number | null
+          city_area: string
+          cma_grade?: string | null
+          cma_pdf_name?: string | null
+          cma_pdf_path?: string | null
+          created_at?: string
+          equity_gain_high?: number | null
+          equity_gain_low?: number | null
+          extracted_comps?: Json | null
+          id?: string
+          improvements_invested?: number | null
+          intended_list_date?: string | null
+          market_narrative?: string | null
+          market_notes?: string | null
+          median_sale_price?: number | null
+          months_of_inventory?: number | null
+          pricing_band_high?: number | null
+          pricing_band_low?: number | null
+          pricing_band_recommended?: number | null
+          pricing_confidence?: string | null
+          property_address: string
+          property_type?: string
+          purchase_date: string
+          purchase_price: number
+          risk_flags?: Json | null
+          sale_to_list_ratio?: number | null
+          seller_objections?: Json | null
+          sold_listings?: number | null
+          stats_date_range?: string | null
+          stats_method?: string | null
+          stats_pasted_text?: string | null
+          stats_pdf_path?: string | null
+          strategy_recommendation?: string | null
+          talking_points?: Json | null
+          target_list_price?: number | null
+          updated_at?: string
+          user_id: string
+          weak_comp_alerts?: Json | null
+        }
+        Update: {
+          active_listings?: number | null
+          adjustment_observations?: Json | null
+          ai_raw_response?: Json | null
+          analysis_status?: string | null
+          approx_sqft?: number | null
+          avg_days_on_market?: number | null
+          bathrooms?: number | null
+          bedrooms?: number | null
+          city_area?: string
+          cma_grade?: string | null
+          cma_pdf_name?: string | null
+          cma_pdf_path?: string | null
+          created_at?: string
+          equity_gain_high?: number | null
+          equity_gain_low?: number | null
+          extracted_comps?: Json | null
+          id?: string
+          improvements_invested?: number | null
+          intended_list_date?: string | null
+          market_narrative?: string | null
+          market_notes?: string | null
+          median_sale_price?: number | null
+          months_of_inventory?: number | null
+          pricing_band_high?: number | null
+          pricing_band_low?: number | null
+          pricing_band_recommended?: number | null
+          pricing_confidence?: string | null
+          property_address?: string
+          property_type?: string
+          purchase_date?: string
+          purchase_price?: number
+          risk_flags?: Json | null
+          sale_to_list_ratio?: number | null
+          seller_objections?: Json | null
+          sold_listings?: number | null
+          stats_date_range?: string | null
+          stats_method?: string | null
+          stats_pasted_text?: string | null
+          stats_pdf_path?: string | null
+          strategy_recommendation?: string | null
+          talking_points?: Json | null
+          target_list_price?: number | null
+          updated_at?: string
+          user_id?: string
+          weak_comp_alerts?: Json | null
+        }
+        Relationships: []
+      }
       commissions: {
         Row: {
           agent_split_percent: number | null

@@ -85,8 +85,9 @@ const allSections: MenuSection[] = [
     ],
   },
   {
-    label: 'Tools',
+  label: 'Tools',
     items: [
+      { title: 'CMA Boss', url: '/dashboard/cma-boss', icon: FileText },
       { title: 'LeaseWithLuxe', url: 'https://leasewithluxe.lovable.app', icon: Key, external: true },
     ],
   },

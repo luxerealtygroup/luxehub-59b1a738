@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.asana-create-task]
 verify_jwt = false
+
+[functions.cma-analyze]
+verify_jwt = false
