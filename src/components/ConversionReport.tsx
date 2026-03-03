@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useViewAsAgent } from '@/hooks/useViewAsAgent';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -52,6 +53,7 @@ const pct = (numerator: number, denominator: number): string => {
 const ConversionReport = () => {
   const { user } = useAuth();
   const { isAdmin } = useUserRole();
+  const { isViewingAsAgent, effectiveUserId } = useViewAsAgent();
   const [loading, setLoading] = useState(true);
   const [agents, setAgents] = useState<AgentProfile[]>([]);
   const [selectedAgent, setSelectedAgent] = useState<string>('all');
@@ -59,8 +61,11 @@ const ConversionReport = () => {
   const [dateFrom, setDateFrom] = useState<Date>(startOfYear(new Date()));
   const [dateTo, setDateTo] = useState<Date>(new Date());
 
-  // Non-admin agents can only see their own data
-  const effectiveAgent = isAdmin ? selectedAgent : (user?.id || '');
+  // When admin is "viewing as agent", behave like an agent for this component
+  const actingAsAdmin = isAdmin && !isViewingAsAgent;
+
+  // Non-admin agents can only see their own data; admin in "view as" mode sees selected agent
+  const effectiveAgent = actingAsAdmin ? selectedAgent : (effectiveUserId || '');
 
   useEffect(() => {
     if (!isAdmin) return; // Agents don't need the agent list
@@ -108,9 +113,9 @@ const ConversionReport = () => {
         .gte('week_start_date', fromStr)
         .lte('week_start_date', toStr);
 
-      // Query-level safety: non-admins are always scoped to their own rows
-      if (!isAdmin) {
-        query = query.eq('user_id', user.id);
+      // Query-level safety: non-admins (or admin in view-as mode) scoped to effective user
+      if (!actingAsAdmin) {
+        query = query.eq('user_id', effectiveUserId || user?.id || '');
       } else if (effectiveAgent !== 'all') {
         query = query.eq('user_id', effectiveAgent);
       }
@@ -149,7 +154,7 @@ const ConversionReport = () => {
   }, [weeklyRows]);
 
   const getAgentName = (id: string) => {
-    if (!isAdmin && id === user?.id) return user?.user_metadata?.full_name || 'You';
+    if (!actingAsAdmin && id === (effectiveUserId || user?.id)) return user?.user_metadata?.full_name || 'You';
     return agents.find(a => a.id === id)?.full_name || 'Unknown';
   };
 
@@ -164,7 +169,7 @@ const ConversionReport = () => {
       firm_deals: 0, database_size: 0,
     };
 
-    if (!isAdmin) return totals;
+    if (!actingAsAdmin) return totals;
 
     agentTotals.forEach(t => {
       totals.contacts_made += t.contacts_made;
@@ -179,10 +184,11 @@ const ConversionReport = () => {
     });
 
     return totals;
-  }, [agentTotals, isAdmin]);
+  }, [agentTotals, actingAsAdmin]);
 
   const selfTotals = useMemo<AgentTotals>(() => {
-    if (!user?.id) {
+    const targetId = effectiveUserId || user?.id;
+    if (!targetId) {
       return {
         contacts_made: 0, dials: 0, doors_knocked: 0, appointments_set: 0,
         appointments_held: 0, pipeline_additions: 0, contracts_signed: 0,
@@ -190,12 +196,12 @@ const ConversionReport = () => {
       };
     }
 
-    return agentTotals.get(user.id) || {
+    return agentTotals.get(targetId) || {
       contacts_made: 0, dials: 0, doors_knocked: 0, appointments_set: 0,
       appointments_held: 0, pipeline_additions: 0, contracts_signed: 0,
       firm_deals: 0, database_size: 0,
     };
-  }, [agentTotals, user?.id]);
+  }, [agentTotals, effectiveUserId, user?.id]);
 
   const conversionMetrics = [
     { label: 'Contact → Appt Set', num: 'appointments_set', den: 'contacts_made' },
@@ -223,7 +229,7 @@ const ConversionReport = () => {
         <CardContent className="pt-6">
           <div className="flex flex-wrap items-end gap-4">
             {/* Agent filter only shown to admins */}
-            {isAdmin && (
+            {actingAsAdmin && (
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">Agent</Label>
                 <Select value={selectedAgent} onValueChange={setSelectedAgent}>
@@ -272,7 +278,7 @@ const ConversionReport = () => {
       </Card>
 
       {/* Agent view: only personal conversion metrics */}
-      {!isAdmin && (
+      {!actingAsAdmin && (
         <Card className="border-primary/10">
           <CardHeader>
             <CardTitle className="text-lg font-display">Your Conversion Rates</CardTitle>
@@ -302,7 +308,7 @@ const ConversionReport = () => {
       )}
 
       {/* Admin-only team summary */}
-      {isAdmin && selectedAgent === 'all' && displayAgents.length > 0 && (
+      {actingAsAdmin && selectedAgent === 'all' && displayAgents.length > 0 && (
         <Card className="border-primary/20 bg-primary/5">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg font-display flex items-center gap-2">
@@ -328,7 +334,7 @@ const ConversionReport = () => {
       )}
 
       {/* Admin-only per-agent table */}
-      {isAdmin && (displayAgents.length === 0 ? (
+      {actingAsAdmin && (displayAgents.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="p-8 text-center text-muted-foreground">
             No activity data found for the selected date range.
