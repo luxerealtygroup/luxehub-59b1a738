@@ -208,25 +208,25 @@ const Goals = () => {
       .eq('user_id', user.id)
       .in('stage', ['under_contract', 'offer']);
     
-    // Fetch paid commissions
+    // Fetch paid commissions (use gross_commission with fallback to amount, matching Dashboard)
     const { data: paidCommissions } = await supabase
       .from('commissions')
-      .select('amount')
+      .select('gross_commission, amount')
       .eq('user_id', user.id)
       .eq('status', 'paid');
     
-    // Fetch pending commissions
+    // Fetch pending commissions (use gross_commission with fallback to amount, matching Dashboard)
     const { data: pendingCommissions } = await supabase
       .from('commissions')
-      .select('amount')
+      .select('gross_commission, amount')
       .eq('user_id', user.id)
       .eq('status', 'pending');
     
     setActualMetrics({
       deals_closed: closedDeals?.length || 0,
       deals_pending: pendingDeals?.length || 0,
-      gci_earned: paidCommissions?.reduce((sum, c) => sum + (c.amount || 0), 0) || 0,
-      gci_pending: pendingCommissions?.reduce((sum, c) => sum + (c.amount || 0), 0) || 0
+      gci_earned: paidCommissions?.reduce((sum, c) => sum + Number(c.gross_commission || c.amount || 0), 0) || 0,
+      gci_pending: pendingCommissions?.reduce((sum, c) => sum + Number(c.gross_commission || c.amount || 0), 0) || 0
     });
     
     setLoading(false);
