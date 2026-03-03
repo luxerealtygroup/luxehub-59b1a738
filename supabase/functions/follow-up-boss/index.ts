@@ -149,6 +149,31 @@ serve(async (req) => {
         break;
       }
 
+      case 'add_tag': {
+        // Add a tag to a FUB contact by updating the person with the tag
+        method = 'PUT';
+        endpoint = `/people/${params.personId}`;
+        body = {
+          tags: [params.tag],
+          mergeTagsOnUpdate: true,
+        };
+        break;
+      }
+
+      case 'create_event': {
+        // Create a timeline event on a FUB contact
+        method = 'POST';
+        endpoint = '/events';
+        body = {
+          personId: params.personId,
+          type: params.type || 'Other',
+          description: params.description || '',
+          source: 'CMA Boss',
+          system: 'Lovable Real Estate Hub',
+        };
+        break;
+      }
+
       default:
         return new Response(
           JSON.stringify({ success: false, error: 'Unknown action' }),
