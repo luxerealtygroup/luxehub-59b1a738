@@ -41,6 +41,19 @@ interface CMAEditApproveProps {
 
 const fmt = (n: number | null | undefined) => n != null ? `$${n.toLocaleString()}` : 'N/A';
 
+export const STATUS_FLOW = [
+  { key: 'draft', label: 'Draft' },
+  { key: 'reviewing', label: 'Reviewing' },
+  { key: 'approved', label: 'Approved' },
+  { key: 'exported', label: 'Exported' },
+  { key: 'pushed', label: 'Pushed to FUB' },
+  { key: 'converted', label: 'Converted' },
+  { key: 'lost', label: 'Lost' },
+] as const;
+
+const TERMINAL_STATUSES = ['converted', 'lost'];
+const POST_APPROVAL_STATUSES = ['approved', 'exported', 'pushed'];
+
 const CMAEditApprove = ({
   reportId,
   marketNarrative,
@@ -66,6 +79,8 @@ const CMAEditApprove = ({
   pricingChanged,
 }: CMAEditApproveProps) => {
   const [saving, setSaving] = useState(false);
+  const isTerminal = TERMINAL_STATUSES.includes(approvalStatus);
+  const isPostApproval = POST_APPROVAL_STATUSES.includes(approvalStatus);
 
   // Generate AI defaults
   const aiDefaults = {
@@ -119,10 +134,12 @@ const CMAEditApprove = ({
 
   const statusColors: Record<string, string> = {
     draft: 'bg-muted text-muted-foreground',
-    reviewed: 'bg-blue-500/20 text-blue-500',
+    reviewing: 'bg-blue-500/20 text-blue-500',
     approved: 'bg-emerald-500/20 text-emerald-500',
     exported: 'bg-gold/20 text-gold',
     pushed: 'bg-primary/20 text-primary',
+    converted: 'bg-green-600/20 text-green-600',
+    lost: 'bg-destructive/20 text-destructive',
   };
 
   const sections: Array<{
@@ -150,14 +167,14 @@ const CMAEditApprove = ({
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">Approval Status:</span>
-              <div className="flex gap-1">
-                {['draft', 'reviewed', 'approved', 'exported', 'pushed'].map((s) => (
+              <div className="flex gap-1 flex-wrap">
+                {STATUS_FLOW.map((s) => (
                   <Badge
-                    key={s}
+                    key={s.key}
                     variant="outline"
-                    className={`text-[10px] ${approvalStatus === s ? statusColors[s] + ' font-bold' : 'text-muted-foreground/40 border-muted/20'}`}
+                    className={`text-[10px] ${approvalStatus === s.key ? statusColors[s.key] + ' font-bold' : 'text-muted-foreground/40 border-muted/20'}`}
                   >
-                    {s === 'draft' ? 'Draft' : s === 'reviewed' ? 'Reviewed' : s === 'approved' ? 'Approved' : s === 'exported' ? 'PDF Exported' : 'Pushed to FUB'}
+                    {s.label}
                   </Badge>
                 ))}
               </div>
@@ -207,23 +224,47 @@ const CMAEditApprove = ({
       ))}
 
       {/* Action Buttons */}
-      <div className="flex gap-3 justify-end">
-        <Button
-          variant="outline"
-          onClick={() => handleSave('reviewed')}
-          disabled={saving}
-        >
-          {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
-          Save as Reviewed
-        </Button>
-        <Button
-          onClick={() => handleSave('approved')}
-          disabled={saving}
-          className="bg-gold hover:bg-gold/90 text-gold-foreground"
-        >
-          {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-1" />}
-          Approve Report
-        </Button>
+      <div className="flex gap-3 justify-end flex-wrap">
+        {!isTerminal && (
+          <>
+            <Button
+              variant="outline"
+              onClick={() => handleSave('reviewing')}
+              disabled={saving}
+            >
+              {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
+              Save as Reviewing
+            </Button>
+            <Button
+              onClick={() => handleSave('approved')}
+              disabled={saving}
+              className="bg-gold hover:bg-gold/90 text-gold-foreground"
+            >
+              {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-1" />}
+              Approve Report
+            </Button>
+          </>
+        )}
+        {isPostApproval && !isTerminal && (
+          <>
+            <Button
+              variant="outline"
+              onClick={() => handleSave('converted')}
+              disabled={saving}
+              className="border-green-600/30 text-green-600 hover:bg-green-600/10"
+            >
+              Converted to Listing
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handleSave('lost')}
+              disabled={saving}
+              className="border-destructive/30 text-destructive hover:bg-destructive/10"
+            >
+              Mark as Lost
+            </Button>
+          </>
+        )}
       </div>
     </div>
   );
