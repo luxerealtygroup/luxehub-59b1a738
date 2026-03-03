@@ -228,6 +228,48 @@ export type Database = {
         }
         Relationships: []
       }
+      business_planning_reflections: {
+        Row: {
+          biggest_bottleneck: string | null
+          confidence: number | null
+          created_at: string
+          id: string
+          quarter: number
+          stress: number | null
+          updated_at: string
+          user_id: string
+          what_avoiding: string | null
+          wins_ytd: string | null
+          year: number
+        }
+        Insert: {
+          biggest_bottleneck?: string | null
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          quarter: number
+          stress?: number | null
+          updated_at?: string
+          user_id: string
+          what_avoiding?: string | null
+          wins_ytd?: string | null
+          year?: number
+        }
+        Update: {
+          biggest_bottleneck?: string | null
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          quarter?: number
+          stress?: number | null
+          updated_at?: string
+          user_id?: string
+          what_avoiding?: string | null
+          wins_ytd?: string | null
+          year?: number
+        }
+        Relationships: []
+      }
       client_accounts: {
         Row: {
           created_at: string
