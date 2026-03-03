@@ -1101,6 +1101,102 @@ export type Database = {
         }
         Relationships: []
       }
+      planning_assumptions: {
+        Row: {
+          appt_to_contract_rate: number
+          avg_commission: number
+          avg_sale_price: number
+          cma_to_listing_rate: number
+          contact_to_appt_rate: number
+          created_at: string
+          dials_to_appt_rate: number
+          gci_target: number
+          id: string
+          quarter: number
+          split_percent: number
+          updated_at: string
+          user_id: string
+          year: number
+        }
+        Insert: {
+          appt_to_contract_rate?: number
+          avg_commission?: number
+          avg_sale_price?: number
+          cma_to_listing_rate?: number
+          contact_to_appt_rate?: number
+          created_at?: string
+          dials_to_appt_rate?: number
+          gci_target?: number
+          id?: string
+          quarter?: number
+          split_percent?: number
+          updated_at?: string
+          user_id: string
+          year?: number
+        }
+        Update: {
+          appt_to_contract_rate?: number
+          avg_commission?: number
+          avg_sale_price?: number
+          cma_to_listing_rate?: number
+          contact_to_appt_rate?: number
+          created_at?: string
+          dials_to_appt_rate?: number
+          gci_target?: number
+          id?: string
+          quarter?: number
+          split_percent?: number
+          updated_at?: string
+          user_id?: string
+          year?: number
+        }
+        Relationships: []
+      }
+      planning_reflections: {
+        Row: {
+          avoided_activity: string | null
+          best_lead_source: string | null
+          created_at: string
+          id: string
+          negative_habits: string | null
+          quarter: number
+          single_improvement: string | null
+          updated_at: string
+          user_id: string
+          what_didnt_work: string | null
+          what_worked: string | null
+          year: number
+        }
+        Insert: {
+          avoided_activity?: string | null
+          best_lead_source?: string | null
+          created_at?: string
+          id?: string
+          negative_habits?: string | null
+          quarter: number
+          single_improvement?: string | null
+          updated_at?: string
+          user_id: string
+          what_didnt_work?: string | null
+          what_worked?: string | null
+          year?: number
+        }
+        Update: {
+          avoided_activity?: string | null
+          best_lead_source?: string | null
+          created_at?: string
+          id?: string
+          negative_habits?: string | null
+          quarter?: number
+          single_improvement?: string | null
+          updated_at?: string
+          user_id?: string
+          what_didnt_work?: string | null
+          what_worked?: string | null
+          year?: number
+        }
+        Relationships: []
+      }
       production_goals: {
         Row: {
           annual_focus: string | null

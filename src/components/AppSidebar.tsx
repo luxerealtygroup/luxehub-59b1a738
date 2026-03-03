@@ -11,7 +11,8 @@ import {
   SendHorizonal,
   Key,
   Phone,
-  ExternalLink
+  ExternalLink,
+  Compass
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/hooks/useAuth';
@@ -75,6 +76,7 @@ const allSections: MenuSection[] = [
       { title: 'Activities', url: '/dashboard/activities', icon: Phone },
       { title: '4-1-1', url: '/dashboard/411', icon: ClipboardList },
       { title: 'Goals', url: '/dashboard/goals', icon: Target },
+      { title: 'Business Planning', url: '/dashboard/business-planning', icon: Compass },
       { title: 'Reports', url: '/dashboard/reports', icon: FileText },
     ],
   },
@@ -100,7 +102,7 @@ const allSections: MenuSection[] = [
 ];
 
 // Planning-only users see only planningVisible sections, and within Performance only Goals, 4-1-1, Reports
-const planningPerformanceItems = ['Goals', '4-1-1', 'Reports'];
+const planningPerformanceItems = ['Goals', '4-1-1', 'Reports', 'Business Planning'];
 
 export function AppSidebar() {
   const { signOut, user } = useAuth();
