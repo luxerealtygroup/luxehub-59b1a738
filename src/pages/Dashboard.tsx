@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useHasFUB } from '@/hooks/useHasFUB';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Building2, Phone, DollarSign, Target, Users, Search, Loader2, TrendingUp, Flame, Award, ArrowUp, CheckCircle, Clock, FileText, Briefcase, Calendar } from 'lucide-react';
 import { FUBClientSearch } from '@/components/FUBClientSearch';
 import { followUpBossApi, FUBPerson } from '@/lib/api/followUpBoss';
+import { ManualModeBadge } from '@/components/ManualModeBadge';
 import GoogleCalendarWidget from '@/components/GoogleCalendarWidget';
 import FUBSmartLists from '@/components/FUBSmartLists';
 import { Button } from '@/components/ui/button';
@@ -99,6 +101,7 @@ const ProgressRing = ({ progress, size = 120, strokeWidth = 8, color = "hsl(var(
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const { hasFUB } = useHasFUB();
   const { toast } = useToast();
   const [stats, setStats] = useState<Stats>({
     totalDeals: 0,
@@ -196,6 +199,7 @@ const Dashboard = () => {
     };
 
     const fetchFUBClients = async () => {
+      if (!hasFUB) return;
       setFubLoading(true);
       setFubError(null);
       try {
@@ -216,14 +220,17 @@ const Dashboard = () => {
     fetchStats();
     fetchFUBClients();
 
-    // Auto-refresh FUB data every 3 minutes
-    const refreshInterval = setInterval(() => {
-      console.log('Auto-refreshing FUB data...');
-      fetchFUBClients();
-    }, 3 * 60 * 1000);
+    // Auto-refresh FUB data every 3 minutes (only if connected)
+    let refreshInterval: ReturnType<typeof setInterval> | undefined;
+    if (hasFUB) {
+      refreshInterval = setInterval(() => {
+        console.log('Auto-refreshing FUB data...');
+        fetchFUBClients();
+      }, 3 * 60 * 1000);
+    }
 
-    return () => clearInterval(refreshInterval);
-  }, [user]);
+    return () => { if (refreshInterval) clearInterval(refreshInterval); };
+  }, [user, hasFUB]);
 
   const syncClientToFUB = async (clientData: typeof newClient) => {
     try {
@@ -411,9 +418,12 @@ const Dashboard = () => {
       {/* Header with Add Client Button */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-display font-bold text-foreground">
-            Welcome back{user?.user_metadata?.full_name ? `, ${user.user_metadata.full_name}` : ''}
-          </h1>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-3xl font-display font-bold text-foreground">
+              Welcome back{user?.user_metadata?.full_name ? `, ${user.user_metadata.full_name}` : ''}
+            </h1>
+            {!hasFUB && <ManualModeBadge />}
+          </div>
           <div className={`flex items-center gap-2 mt-2 ${motivation.color}`}>
             <motivation.icon className="h-5 w-5" />
             <p className="font-medium">{motivation.text}</p>
@@ -438,14 +448,16 @@ const Dashboard = () => {
                   required
                   className="flex-1"
                 />
-                <FUBClientSearch 
-                  onSelectClient={handleFUBClientSelect}
-                  trigger={
-                    <Button type="button" variant="outline" size="icon" title="Import from Follow Up Boss">
-                      <Search className="h-4 w-4" />
-                    </Button>
-                  }
-                />
+                {hasFUB && (
+                  <FUBClientSearch 
+                    onSelectClient={handleFUBClientSelect}
+                    trigger={
+                      <Button type="button" variant="outline" size="icon" title="Import from Follow Up Boss">
+                        <Search className="h-4 w-4" />
+                      </Button>
+                    }
+                  />
+                )}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <Input
@@ -493,16 +505,18 @@ const Dashboard = () => {
                 onChange={(e) => setNewClient({ ...newClient, notes: e.target.value })}
                 rows={3}
               />
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="sync-fub-dashboard" 
-                  checked={syncToFUB} 
-                  onCheckedChange={(checked) => setSyncToFUB(checked === true)}
-                />
-                <Label htmlFor="sync-fub-dashboard" className="text-sm text-muted-foreground cursor-pointer">
-                  Also add to Follow Up Boss
-                </Label>
-              </div>
+              {hasFUB && (
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="sync-fub-dashboard" 
+                    checked={syncToFUB} 
+                    onCheckedChange={(checked) => setSyncToFUB(checked === true)}
+                  />
+                  <Label htmlFor="sync-fub-dashboard" className="text-sm text-muted-foreground cursor-pointer">
+                    Also add to Follow Up Boss
+                  </Label>
+                </div>
+              )}
               <Button 
                 type="submit" 
                 className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
@@ -675,9 +689,10 @@ const Dashboard = () => {
       </div>
 
       {/* Google Calendar, Smart Lists & Follow Up Boss Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className={`grid grid-cols-1 ${hasFUB ? 'lg:grid-cols-3' : 'lg:grid-cols-1'} gap-6`}>
         <GoogleCalendarWidget />
-        <FUBSmartLists />
+        {hasFUB && <FUBSmartLists />}
+        {hasFUB && (
         <Card className="border-gold/10 bg-card/50">
           <CardHeader className="flex flex-row items-center justify-between">
             <div className="flex items-center gap-2">
@@ -733,6 +748,7 @@ const Dashboard = () => {
             )}
           </CardContent>
         </Card>
+        )}
       </div>
     </div>
   );
