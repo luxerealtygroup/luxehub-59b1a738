@@ -1,5 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { useUserRole } from '@/hooks/useUserRole';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -10,7 +12,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CalendarIcon, Loader2, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { format, startOfWeek, endOfWeek, startOfYear, subMonths, addDays } from 'date-fns';
+import { format, startOfYear } from 'date-fns';
 
 interface AgentProfile {
   id: string;
@@ -40,7 +42,7 @@ interface AgentTotals {
   pipeline_additions: number;
   contracts_signed: number;
   firm_deals: number;
-  database_size: number; // use max across weeks
+  database_size: number;
 }
 
 const pct = (numerator: number, denominator: number): string => {
@@ -49,6 +51,8 @@ const pct = (numerator: number, denominator: number): string => {
 };
 
 const ConversionReport = () => {
+  const { user } = useAuth();
+  const { isAdmin } = useUserRole();
   const [loading, setLoading] = useState(true);
   const [agents, setAgents] = useState<AgentProfile[]>([]);
   const [selectedAgent, setSelectedAgent] = useState<string>('all');
@@ -56,7 +60,11 @@ const ConversionReport = () => {
   const [dateFrom, setDateFrom] = useState<Date>(startOfYear(new Date()));
   const [dateTo, setDateTo] = useState<Date>(new Date());
 
+  // Non-admin agents can only see their own data
+  const effectiveAgent = isAdmin ? selectedAgent : (user?.id || '');
+
   useEffect(() => {
+    if (!isAdmin) return; // Agents don't need the agent list
     const fetchAgents = async () => {
       const { data: profiles } = await supabase
         .from('profiles')
@@ -86,10 +94,11 @@ const ConversionReport = () => {
       );
     };
     fetchAgents();
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!user) return;
       setLoading(true);
       const fromStr = format(dateFrom, 'yyyy-MM-dd');
       const toStr = format(dateTo, 'yyyy-MM-dd');
@@ -100,8 +109,9 @@ const ConversionReport = () => {
         .gte('week_start_date', fromStr)
         .lte('week_start_date', toStr);
 
-      if (selectedAgent !== 'all') {
-        query = query.eq('user_id', selectedAgent);
+      // Filter: admin can pick agent or "all"; non-admin always filtered to self
+      if (effectiveAgent !== 'all') {
+        query = query.eq('user_id', effectiveAgent);
       }
 
       const { data } = await query;
@@ -109,22 +119,16 @@ const ConversionReport = () => {
       setLoading(false);
     };
     fetchData();
-  }, [dateFrom, dateTo, selectedAgent]);
+  }, [dateFrom, dateTo, effectiveAgent, user]);
 
   const agentTotals = useMemo(() => {
     const map = new Map<string, AgentTotals>();
 
     weeklyRows.forEach(row => {
       const existing = map.get(row.user_id) || {
-        contacts_made: 0,
-        dials: 0,
-        doors_knocked: 0,
-        appointments_set: 0,
-        appointments_held: 0,
-        pipeline_additions: 0,
-        contracts_signed: 0,
-        firm_deals: 0,
-        database_size: 0,
+        contacts_made: 0, dials: 0, doors_knocked: 0, appointments_set: 0,
+        appointments_held: 0, pipeline_additions: 0, contracts_signed: 0,
+        firm_deals: 0, database_size: 0,
       };
 
       existing.contacts_made += row.contacts_made || 0;
@@ -135,7 +139,6 @@ const ConversionReport = () => {
       existing.pipeline_additions += row.pipeline_additions || 0;
       existing.contracts_signed += row.contracts_signed || 0;
       existing.firm_deals += row.firm_deals || 0;
-      // For database size, use the max value (it's a snapshot, not additive)
       existing.database_size = Math.max(existing.database_size, row.database_size || 0);
 
       map.set(row.user_id, existing);
@@ -144,13 +147,15 @@ const ConversionReport = () => {
     return map;
   }, [weeklyRows]);
 
-  const getAgentName = (id: string) => agents.find(a => a.id === id)?.full_name || 'Unknown';
+  const getAgentName = (id: string) => {
+    if (!isAdmin && id === user?.id) return user?.user_metadata?.full_name || 'You';
+    return agents.find(a => a.id === id)?.full_name || 'Unknown';
+  };
 
-  const displayAgents = selectedAgent === 'all'
+  const displayAgents = effectiveAgent === 'all'
     ? Array.from(agentTotals.keys())
-    : agentTotals.has(selectedAgent) ? [selectedAgent] : [];
+    : agentTotals.has(effectiveAgent) ? [effectiveAgent] : [];
 
-  // Team totals
   const teamTotals = useMemo((): AgentTotals => {
     const totals: AgentTotals = {
       contacts_made: 0, dials: 0, doors_knocked: 0, appointments_set: 0,
@@ -196,20 +201,23 @@ const ConversionReport = () => {
       <Card className="border-primary/10">
         <CardContent className="pt-6">
           <div className="flex flex-wrap items-end gap-4">
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Agent</Label>
-              <Select value={selectedAgent} onValueChange={setSelectedAgent}>
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="All agents" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Team Members</SelectItem>
-                  {agents.map(a => (
-                    <SelectItem key={a.id} value={a.id}>{a.full_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Agent filter only shown to admins */}
+            {isAdmin && (
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Agent</Label>
+                <Select value={selectedAgent} onValueChange={setSelectedAgent}>
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue placeholder="All agents" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Team Members</SelectItem>
+                    {agents.map(a => (
+                      <SelectItem key={a.id} value={a.id}>{a.full_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground">From</Label>
               <Popover>
@@ -242,8 +250,8 @@ const ConversionReport = () => {
         </CardContent>
       </Card>
 
-      {/* Team Summary (when viewing all) */}
-      {selectedAgent === 'all' && displayAgents.length > 0 && (
+      {/* Team Summary (only for admin viewing all) */}
+      {isAdmin && selectedAgent === 'all' && displayAgents.length > 0 && (
         <Card className="border-primary/20 bg-primary/5">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg font-display flex items-center gap-2">
@@ -278,7 +286,9 @@ const ConversionReport = () => {
       ) : (
         <Card className="border-primary/10">
           <CardHeader>
-            <CardTitle className="text-lg font-display">Conversion Rates by Agent</CardTitle>
+            <CardTitle className="text-lg font-display">
+              {isAdmin ? 'Conversion Rates by Agent' : 'Your Conversion Rates'}
+            </CardTitle>
           </CardHeader>
           <CardContent className="overflow-x-auto">
             <Table>
@@ -313,8 +323,8 @@ const ConversionReport = () => {
                     </TableRow>
                   );
                 })}
-                {/* Team total row */}
-                {displayAgents.length > 1 && (
+                {/* Team total row - only for admin with multiple agents */}
+                {isAdmin && displayAgents.length > 1 && (
                   <TableRow className="bg-muted/50 font-semibold">
                     <TableCell>Team Total</TableCell>
                     {conversionMetrics.map(m => {
