@@ -31,7 +31,8 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 
-const menuItems = [
+// Full menu for agents/admins/owners
+const fullMenuItems = [
   { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
   { title: 'Submissions', url: '/dashboard/submissions', icon: SendHorizonal },
   { title: 'Activities', url: '/dashboard/activities', icon: Phone },
@@ -43,11 +44,23 @@ const menuItems = [
   { title: 'Library', url: '/dashboard/library', icon: Library },
 ];
 
+// Restricted menu for planning_access role
+const planningMenuItems = [
+  { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
+  { title: 'Goals', url: '/dashboard/goals', icon: Target },
+  { title: '4-1-1', url: '/dashboard/411', icon: ClipboardList },
+  { title: 'Reports', url: '/dashboard/reports', icon: FileText },
+];
+
 export function AppSidebar() {
   const { signOut, user } = useAuth();
-  const { isAdmin, isOwner } = useUserRole();
+  const { isAdmin, isOwner, isPlanningAccess, isAgent } = useUserRole();
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
+
+  // Planning access only (not also an agent/admin/owner) gets restricted menu
+  const isPlanningOnly = isPlanningAccess && !isAgent;
+  const menuItems = isPlanningOnly ? planningMenuItems : fullMenuItems;
 
   return (
     <Sidebar className="border-r border-gold/10 bg-sidebar">
@@ -87,19 +100,21 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <a
-                    href="https://leasewithluxe.lovable.app"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:bg-gold/10 hover:text-gold transition-colors"
-                  >
-                    <Key className="h-5 w-5" />
-                    {!collapsed && <span>LeaseWithLuxe</span>}
-                  </a>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {!isPlanningOnly && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <a
+                      href="https://leasewithluxe.lovable.app"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:bg-gold/10 hover:text-gold transition-colors"
+                    >
+                      <Key className="h-5 w-5" />
+                      {!collapsed && <span>LeaseWithLuxe</span>}
+                    </a>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -144,6 +159,11 @@ export function AppSidebar() {
               {isAdmin && !isOwner && (
                 <Badge variant="outline" className="text-[10px] border-blue-500 text-blue-500 px-1">
                   Admin
+                </Badge>
+              )}
+              {isPlanningOnly && (
+                <Badge variant="outline" className="text-[10px] border-amber-500 text-amber-500 px-1">
+                  Planning
                 </Badge>
               )}
             </div>
