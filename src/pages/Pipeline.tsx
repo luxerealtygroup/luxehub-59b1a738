@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { FUBDealSections } from '@/components/FUBDealSections';
 import { useAuth } from '@/hooks/useAuth';
 import { useViewAsAgent } from '@/hooks/useViewAsAgent';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
