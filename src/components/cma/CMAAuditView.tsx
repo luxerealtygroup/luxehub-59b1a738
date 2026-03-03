@@ -3,7 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, AlertTriangle, CheckCircle, TrendingUp, Shield, MessageSquare, Target } from 'lucide-react';
+import { Loader2, AlertTriangle, CheckCircle, TrendingUp, Shield, MessageSquare, Target, Camera, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import CMAFubPush from './CMAFubPush';
 import CMALifecycleStatus from './CMALifecycleStatus';
 import CMAFubAutomation from './CMAFubAutomation';
@@ -80,11 +81,15 @@ interface CMAReportFull {
   prev_median_sale_price: number | null;
   prev_avg_days_on_market: number | null;
   market_shift_detected: boolean;
+  subject_photos: string[];
+  cover_photo_index: number;
 }
 
 const CMAAuditView = ({ reportId }: { reportId: string }) => {
   const [report, setReport] = useState<CMAReportFull | null>(null);
   const [loading, setLoading] = useState(true);
+  const [photoIndex, setPhotoIndex] = useState(0);
+  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
 
   const fetchReport = async () => {
     const { data, error } = await supabase
@@ -107,7 +112,23 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
         extracted_comps: Array.isArray(r.extracted_comps) ? r.extracted_comps : [],
         lifecycle_history: Array.isArray(r.lifecycle_history) ? r.lifecycle_history : [],
         fub_automation_log: Array.isArray(r.fub_automation_log) ? r.fub_automation_log : [],
+        subject_photos: Array.isArray(r.subject_photos) ? r.subject_photos : [],
+        cover_photo_index: r.cover_photo_index ?? 0,
       });
+
+      // Load signed URLs for photos
+      const photos = Array.isArray(r.subject_photos) ? r.subject_photos : [];
+      if (photos.length > 0) {
+        const urls: string[] = [];
+        for (const path of photos) {
+          const { data: signedData } = await supabase.storage
+            .from('cma-documents')
+            .createSignedUrl(path, 3600);
+          if (signedData?.signedUrl) urls.push(signedData.signedUrl);
+        }
+        setPhotoUrls(urls);
+        setPhotoIndex(r.cover_photo_index ?? 0);
+      }
     }
     setLoading(false);
   };
@@ -192,6 +213,65 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
         propertyAddress={report.property_address}
         onUpdate={fetchReport}
       />
+
+      {/* Subject Property Photos Carousel */}
+      {photoUrls.length > 0 && (
+        <Card className="border-gold/20">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Camera className="h-4 w-4 text-gold" /> Subject Property Photos ({photoUrls.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="relative">
+              <div className="aspect-video rounded-lg overflow-hidden bg-muted">
+                <img
+                  src={photoUrls[photoIndex]}
+                  alt={`Property photo ${photoIndex + 1}`}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              {photoUrls.length > 1 && (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0 bg-background/80 hover:bg-background"
+                    onClick={() => setPhotoIndex(i => (i - 1 + photoUrls.length) % photoUrls.length)}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0 bg-background/80 hover:bg-background"
+                    onClick={() => setPhotoIndex(i => (i + 1) % photoUrls.length)}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
+              {photoIndex === report.cover_photo_index && (
+                <Badge className="absolute top-2 left-2 text-[9px] bg-gold text-gold-foreground">Cover Photo</Badge>
+              )}
+            </div>
+            {/* Thumbnails */}
+            {photoUrls.length > 1 && (
+              <div className="flex gap-1.5 mt-2 overflow-x-auto">
+                {photoUrls.map((url, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setPhotoIndex(i)}
+                    className={`shrink-0 w-14 h-14 rounded overflow-hidden border-2 ${i === photoIndex ? 'border-gold' : 'border-transparent'}`}
+                  >
+                    <img src={url} alt="" className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Lifecycle Status */}
       <CMALifecycleStatus
