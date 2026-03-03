@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Printer, TrendingUp, BarChart3, Home, Target, FileText } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Loader2, Printer, TrendingUp, BarChart3, Home, Target, FileText, ArrowRight, Phone } from 'lucide-react';
 import CMAFubPush from './CMAFubPush';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -21,11 +21,6 @@ interface Comp {
   sale_date: string | null;
   is_weak: boolean;
   weak_reason: string | null;
-}
-
-interface Objection {
-  objection: string;
-  response: string;
 }
 
 interface CMAReportFull {
@@ -51,7 +46,7 @@ interface CMAReportFull {
   weak_comp_alerts: string[];
   adjustment_observations: string[];
   talking_points: string[];
-  seller_objections: Objection[];
+  seller_objections: Array<{ objection: string; response: string }>;
   strategy_recommendation: string | null;
   market_narrative: string | null;
   extracted_comps: Comp[];
@@ -68,7 +63,6 @@ interface CMAReportFull {
   fub_person_name: string | null;
   subject_photos: string[];
   cover_photo_index: number;
-  // Approved text fields
   approval_status: string;
   approved_executive_summary: string | null;
   approved_price_narrative: string | null;
@@ -109,7 +103,6 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
         };
         setReport(reportData);
 
-        // Load photo URLs
         const photos: string[] = reportData.subject_photos;
         if (photos.length > 0) {
           const urls: string[] = [];
@@ -128,7 +121,6 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
   }, [reportId]);
 
   const handlePrint = () => {
-    // Update status to exported
     supabase.from('cma_reports').update({ approval_status: 'exported' } as any).eq('id', reportId);
     window.print();
   };
@@ -149,24 +141,34 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
 
   const fmt = (n: number | null | undefined) => n != null ? `$${n.toLocaleString()}` : '—';
 
-  // Use approved text if available, fall back to AI-generated
+  // Approved text with fallbacks
   const executiveSummary = report.approved_executive_summary ||
-    `Based on a comprehensive analysis of comparable properties and current market conditions in ${report.city_area}, we recommend a listing price of ${fmt(report.pricing_band_recommended)} for ${report.property_address}. The recommended price band ranges from ${fmt(report.pricing_band_low)} to ${fmt(report.pricing_band_high)}, with a ${report.pricing_confidence?.toLowerCase() || 'moderate'} confidence level. Our recommended strategy is ${report.strategy_recommendation || 'Market'}.`;
+    `Based on a comprehensive analysis of comparable properties and current market conditions in ${report.city_area}, we recommend a listing price of ${fmt(report.pricing_band_recommended)} for ${report.property_address}. The recommended price band ranges from ${fmt(report.pricing_band_low)} to ${fmt(report.pricing_band_high)}, with a ${report.pricing_confidence?.toLowerCase() || 'moderate'} confidence level.`;
   const marketConditionsText = report.approved_market_conditions || report.market_narrative;
   const strategyText = report.approved_strategy || `Strategy: ${report.strategy_recommendation}\n\n${report.talking_points.map((tp, i) => `${i + 1}. ${tp}`).join('\n')}`;
   const priceNarrativeText = report.approved_price_narrative;
 
-  // Market Stats Chart Data
+  const strongComps = report.extracted_comps.filter(c => !c.is_weak);
+  const topComps = strongComps.slice(0, 6);
+
+  // Comps summary stats
+  const soldComps = topComps.filter(c => c.sold_price != null && c.sold_price > 0);
+  const avgSoldPrice = soldComps.length > 0 ? Math.round(soldComps.reduce((s, c) => s + (c.sold_price || 0), 0) / soldComps.length) : null;
+  const avgDOM = soldComps.length > 0 ? Math.round(soldComps.reduce((s, c) => s + (c.days_on_market || 0), 0) / soldComps.length) : null;
+  const priceRange = soldComps.length > 0 ? {
+    low: Math.min(...soldComps.map(c => c.sold_price!)),
+    high: Math.max(...soldComps.map(c => c.sold_price!)),
+  } : null;
+
+  // Market chart data
   const marketComparisonData = [
     { name: 'Active', value: report.active_listings || 0, fill: 'hsl(var(--gold))' },
     { name: 'Sold', value: report.sold_listings || 0, fill: 'hsl(var(--primary))' },
   ];
 
-  // Equity Over Time Data
+  // Equity chart data
   const purchaseDate = new Date(report.purchase_date);
   const today = new Date();
-  const totalCost = report.purchase_price + (report.improvements_invested || 0);
-
   const equityData = [
     {
       date: purchaseDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
@@ -175,8 +177,6 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
       high: report.purchase_price,
     },
   ];
-
-  // Add midpoint if purchase was more than 1 year ago
   const yearsDiff = (today.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24 * 365);
   if (yearsDiff > 1) {
     const mid = new Date((purchaseDate.getTime() + today.getTime()) / 2);
@@ -189,7 +189,6 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
       high: midHigh,
     });
   }
-
   equityData.push({
     date: 'Today',
     value: report.pricing_band_recommended || report.purchase_price,
@@ -197,12 +196,13 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
     high: report.pricing_band_high || report.purchase_price,
   });
 
-  // Strong comps only for client report
-  const strongComps = report.extracted_comps.filter(c => !c.is_weak);
+  const equityLow = report.equity_gain_low ?? 0;
+  const equityHigh = report.equity_gain_high ?? 0;
+  const totalCost = report.purchase_price + (report.improvements_invested || 0);
 
   return (
     <div>
-      {/* Print Button & FUB Push - hidden in print */}
+      {/* Print controls — hidden in print */}
       <div className="print:hidden mb-6 flex justify-end gap-3 items-center">
         {!isApproved && (
           <span className="text-xs text-amber-500 mr-2">⚠ Report not yet approved</span>
@@ -230,11 +230,15 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
         </Button>
       </div>
 
-      <div ref={printRef} className="space-y-8 max-w-4xl mx-auto print:max-w-none">
-        {/* Report Header with Cover Photo */}
-        <div className="border-b-2 border-gold/30 pb-6">
+      <div ref={printRef} className="max-w-4xl mx-auto print:max-w-none">
+
+        {/* ═══════════════════════════════════════════
+            SECTION 1 — COVER
+        ═══════════════════════════════════════════ */}
+        <section className="print:break-after-page mb-12">
+          {/* Hero Photo */}
           {photoUrls.length > 0 && photoUrls[report.cover_photo_index] && (
-            <div className="aspect-[21/9] rounded-lg overflow-hidden mb-4">
+            <div className="aspect-[16/9] rounded-xl overflow-hidden mb-8 shadow-lg">
               <img
                 src={photoUrls[report.cover_photo_index]}
                 alt={report.property_address}
@@ -242,101 +246,80 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
               />
             </div>
           )}
-          <div className="text-center">
-            <h1 className="text-3xl font-display font-bold text-foreground">Comparative Market Analysis</h1>
-            <p className="text-lg text-gold mt-1">{report.property_address}</p>
-            <p className="text-sm text-muted-foreground">{report.city_area} · {report.property_type}</p>
-            <p className="text-xs text-muted-foreground mt-2">
+
+          <div className="text-center space-y-3 pb-8 border-b-2 border-gold/20">
+            <p className="text-xs uppercase tracking-[0.25em] text-gold font-medium">Comparative Market Analysis</p>
+            <h1 className="text-4xl font-display font-bold text-foreground leading-tight">
+              {report.property_address}
+            </h1>
+            <p className="text-base text-muted-foreground">
+              {report.city_area} · {report.property_type}
+              {report.bedrooms && ` · ${report.bedrooms} Bed`}
+              {report.bathrooms && ` / ${report.bathrooms} Bath`}
+              {report.approx_sqft && ` · ${report.approx_sqft.toLocaleString()} sqft`}
+            </p>
+            <p className="text-sm text-muted-foreground/70 pt-2">
               Prepared {new Date(report.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
             </p>
           </div>
-        </div>
 
-        {/* Executive Summary */}
-        <section className="print:break-inside-avoid">
-          <SectionTitle icon={FileText} title="Executive Summary" />
-          <Card className="border-gold/20">
-            <CardContent className="pt-6">
-              <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-                {executiveSummary}
-              </p>
-            </CardContent>
-          </Card>
-        </section>
-
-        {/* Price Narrative (if approved) */}
-        {priceNarrativeText && (
-          <section className="print:break-inside-avoid">
-            <Card className="border-gold/20">
-              <CardContent className="pt-6">
-                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{priceNarrativeText}</p>
-              </CardContent>
-            </Card>
-          </section>
-        )}
-
-        {/* Recommended Price Range */}
-        <section className="print:break-inside-avoid">
-          <SectionTitle icon={Target} title="Recommended Price Range" />
-          <div className="grid grid-cols-3 gap-4">
-            <Card className="border-gold/20">
-              <CardContent className="pt-6 text-center">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">Conservative</p>
-                <p className="text-xl font-bold mt-1">{fmt(report.pricing_band_low)}</p>
-              </CardContent>
-            </Card>
-            <Card className="border-gold/40 bg-gold/5">
-              <CardContent className="pt-6 text-center">
-                <p className="text-xs text-gold uppercase tracking-wider font-medium">Recommended</p>
-                <p className="text-2xl font-bold text-gold mt-1">{fmt(report.pricing_band_recommended)}</p>
-              </CardContent>
-            </Card>
-            <Card className="border-gold/20">
-              <CardContent className="pt-6 text-center">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">Aggressive</p>
-                <p className="text-xl font-bold mt-1">{fmt(report.pricing_band_high)}</p>
-              </CardContent>
-            </Card>
+          {/* Executive Summary */}
+          <div className="mt-8 max-w-3xl mx-auto">
+            <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-line text-center">
+              {executiveSummary}
+            </p>
           </div>
+
+          {/* Pricing cards */}
+          <div className="grid grid-cols-3 gap-4 mt-10">
+            <PriceCard label="Conservative" value={fmt(report.pricing_band_low)} highlighted={false} />
+            <PriceCard label="Recommended" value={fmt(report.pricing_band_recommended)} highlighted />
+            <PriceCard label="Aggressive" value={fmt(report.pricing_band_high)} highlighted={false} />
+          </div>
+
+          {priceNarrativeText && (
+            <p className="text-sm text-muted-foreground leading-relaxed mt-6 text-center max-w-3xl mx-auto whitespace-pre-line">
+              {priceNarrativeText}
+            </p>
+          )}
         </section>
 
-        {/* Market Conditions Overview */}
-        <section className="print:break-inside-avoid">
-          <SectionTitle icon={BarChart3} title="Market Conditions Overview" />
+        {/* ═══════════════════════════════════════════
+            SECTION 2 — MARKET SNAPSHOT
+        ═══════════════════════════════════════════ */}
+        <section className="print:break-inside-avoid mb-12">
+          <SectionHeader number={2} icon={BarChart3} title="Market Snapshot" subtitle={report.city_area} />
+
           {marketConditionsText && (
-            <Card className="border-gold/20 mb-4">
-              <CardContent className="pt-6">
-                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{marketConditionsText}</p>
-              </CardContent>
-            </Card>
+            <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line mb-6 max-w-3xl">
+              {marketConditionsText}
+            </p>
           )}
 
-          {/* Market Stats Indicators */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+          {/* Key indicators */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
             {report.median_sale_price != null && (
-              <StatIndicator label="Median Sale Price" value={fmt(report.median_sale_price)} />
+              <StatCard label="Median Sale Price" value={fmt(report.median_sale_price)} />
             )}
             {report.avg_days_on_market != null && (
-              <StatIndicator label="Avg Days on Market" value={`${report.avg_days_on_market}`} />
+              <StatCard label="Avg Days on Market" value={`${report.avg_days_on_market}`} />
             )}
             {report.sale_to_list_ratio != null && (
-              <StatIndicator label="Sale-to-List Ratio" value={`${report.sale_to_list_ratio}%`} />
+              <StatCard label="Sale-to-List Ratio" value={`${report.sale_to_list_ratio}%`} />
             )}
             {report.months_of_inventory != null && (
-              <StatIndicator label="Months of Inventory" value={`${report.months_of_inventory}`} />
+              <StatCard label="Months of Inventory" value={`${report.months_of_inventory}`} />
             )}
           </div>
 
-          {/* Active vs Sold Chart */}
+          {/* Active vs Sold mini chart */}
           {(report.active_listings || report.sold_listings) ? (
-            <Card className="border-gold/20">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Active vs Sold Listings</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-48">
+            <Card className="border-border/50">
+              <CardContent className="pt-5 pb-4">
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-3">Active vs Sold Listings</p>
+                <div className="h-40">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={marketComparisonData} barSize={60}>
+                    <BarChart data={marketComparisonData} barSize={48}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                       <YAxis tick={{ fontSize: 12 }} />
@@ -361,44 +344,64 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
           ) : null}
         </section>
 
-        {/* Key Comparable Properties */}
-        {strongComps.length > 0 && (
-          <section className="print:break-inside-avoid">
-            <SectionTitle icon={Home} title="Key Comparable Properties" />
-            <Card className="border-gold/20">
-              <CardContent className="pt-4 overflow-x-auto">
+        {/* ═══════════════════════════════════════════
+            SECTION 3 — COMPARABLE OVERVIEW
+        ═══════════════════════════════════════════ */}
+        {topComps.length > 0 && (
+          <section className="print:break-inside-avoid mb-12">
+            <SectionHeader number={3} icon={Home} title="Comparable Overview" subtitle={`${topComps.length} Key Properties`} />
+
+            {/* Summary bar */}
+            {priceRange && (
+              <div className="grid grid-cols-3 gap-3 mb-5">
+                <StatCard label="Comp Price Range" value={`${fmt(priceRange.low)} – ${fmt(priceRange.high)}`} />
+                <StatCard label="Avg Sold Price" value={fmt(avgSoldPrice)} />
+                <StatCard label="Avg Days on Market" value={avgDOM != null ? `${avgDOM}` : '—'} />
+              </div>
+            )}
+
+            {/* Clean comp table */}
+            <Card className="border-border/50 overflow-hidden">
+              <CardContent className="p-0">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-border">
-                      <th className="text-left py-2 px-2 text-xs text-muted-foreground font-medium">Address</th>
-                      <th className="text-center py-2 px-2 text-xs text-muted-foreground font-medium">Beds/Baths</th>
-                      <th className="text-right py-2 px-2 text-xs text-muted-foreground font-medium">List Price</th>
-                      <th className="text-right py-2 px-2 text-xs text-muted-foreground font-medium">Sold Price</th>
-                      <th className="text-center py-2 px-2 text-xs text-muted-foreground font-medium">DOM</th>
+                    <tr className="bg-muted/50">
+                      <th className="text-left py-3 px-4 text-xs text-muted-foreground font-semibold uppercase tracking-wider">Address</th>
+                      <th className="text-center py-3 px-3 text-xs text-muted-foreground font-semibold uppercase tracking-wider">Beds / Baths</th>
+                      <th className="text-right py-3 px-3 text-xs text-muted-foreground font-semibold uppercase tracking-wider">List Price</th>
+                      <th className="text-right py-3 px-3 text-xs text-muted-foreground font-semibold uppercase tracking-wider">Sold Price</th>
+                      <th className="text-center py-3 px-4 text-xs text-muted-foreground font-semibold uppercase tracking-wider">DOM</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {strongComps.slice(0, 8).map((comp, i) => (
-                      <tr key={i} className="border-b border-border/50">
-                        <td className="py-2 px-2 font-medium">{comp.address}</td>
-                        <td className="py-2 px-2 text-center">{comp.beds ?? '—'}/{comp.baths ?? '—'}</td>
-                        <td className="py-2 px-2 text-right">{comp.list_price ? `$${comp.list_price.toLocaleString()}` : '—'}</td>
-                        <td className="py-2 px-2 text-right">{comp.sold_price ? `$${comp.sold_price.toLocaleString()}` : '—'}</td>
-                        <td className="py-2 px-2 text-center">{comp.days_on_market ?? '—'}</td>
+                    {topComps.map((comp, i) => (
+                      <tr key={i} className={`border-t border-border/40 ${i % 2 === 0 ? '' : 'bg-muted/20'}`}>
+                        <td className="py-3 px-4 font-medium text-foreground">{comp.address}</td>
+                        <td className="py-3 px-3 text-center text-muted-foreground">{comp.beds ?? '—'} / {comp.baths ?? '—'}</td>
+                        <td className="py-3 px-3 text-right text-muted-foreground">{comp.list_price ? `$${comp.list_price.toLocaleString()}` : '—'}</td>
+                        <td className="py-3 px-3 text-right font-medium">{comp.sold_price ? `$${comp.sold_price.toLocaleString()}` : '—'}</td>
+                        <td className="py-3 px-4 text-center text-muted-foreground">{comp.days_on_market ?? '—'}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </CardContent>
             </Card>
+
+            <p className="text-[10px] text-muted-foreground/50 mt-2 italic">
+              Only strong comparable properties are shown. Weak comps have been filtered for clarity.
+            </p>
           </section>
         )}
 
-        {/* Strategy Recommendation */}
-        <section className="print:break-inside-avoid">
-          <SectionTitle icon={Target} title="Strategy Recommendation" />
-          <Card className="border-gold/20">
-            <CardContent className="pt-6">
+        {/* ═══════════════════════════════════════════
+            SECTION 4 — SUGGESTED PRICING STRATEGY
+        ═══════════════════════════════════════════ */}
+        <section className="print:break-inside-avoid mb-12">
+          <SectionHeader number={4} icon={Target} title="Suggested Pricing Strategy" subtitle={report.strategy_recommendation || undefined} />
+
+          <Card className="border-gold/20 bg-gold/[0.02]">
+            <CardContent className="pt-6 pb-5">
               <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
                 {strategyText}
               </p>
@@ -406,40 +409,53 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
           </Card>
         </section>
 
-        {/* Improvements Summary */}
-        {report.improvements_list.length > 0 && (
-          <section className="print:break-inside-avoid">
-            <SectionTitle icon={Home} title="Property Improvements" />
-            <Card className="border-gold/20">
-              <CardContent className="pt-6">
-                <div className="space-y-2">
+        {/* ═══════════════════════════════════════════
+            SECTION 5 — EQUITY POSITION
+        ═══════════════════════════════════════════ */}
+        <section className="print:break-inside-avoid mb-12">
+          <SectionHeader number={5} icon={TrendingUp} title="Your Equity Position" />
+
+          {/* Summary row */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+            <StatCard label="Purchase Price" value={fmt(report.purchase_price)} />
+            <StatCard label="Improvements" value={fmt(report.improvements_invested)} />
+            <StatCard label="Total Invested" value={fmt(totalCost)} />
+            <StatCard
+              label="Current Value Range"
+              value={`${fmt(report.pricing_band_low)} – ${fmt(report.pricing_band_high)}`}
+              highlight
+            />
+          </div>
+
+          {/* Improvements detail */}
+          {report.improvements_list.length > 0 && (
+            <Card className="border-border/50 mb-6">
+              <CardContent className="pt-5 pb-4">
+                <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-3">Improvements & Upgrades</p>
+                <div className="space-y-1.5">
                   {report.improvements_list.map((item, i) => (
-                    <div key={i} className="flex justify-between text-sm">
+                    <div key={i} className="flex justify-between text-sm py-1">
                       <span className="text-muted-foreground">{item.description}</span>
-                      <span className="font-medium">${item.amount.toLocaleString()}</span>
+                      <span className="font-medium tabular-nums">${item.amount.toLocaleString()}</span>
                     </div>
                   ))}
-                  <div className="flex justify-between text-sm font-bold border-t border-border pt-2 mt-2">
-                    <span>Total Invested</span>
-                    <span className="text-gold">${report.improvements_invested.toLocaleString()}</span>
+                  <div className="flex justify-between text-sm font-bold border-t border-border pt-2 mt-1">
+                    <span>Total</span>
+                    <span className="text-gold tabular-nums">${report.improvements_invested.toLocaleString()}</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
-          </section>
-        )}
+          )}
 
-        {/* Your Equity Journey */}
-        <section className="print:break-inside-avoid">
-          <SectionTitle icon={TrendingUp} title="Your Equity Journey" />
-          <Card className="border-gold/20">
-            <CardHeader className="pb-1">
-              <p className="text-xs text-muted-foreground italic">
-                Estimated Equity Growth Based on Recommended Price Range
+          {/* Equity growth chart */}
+          <Card className="border-border/50">
+            <CardContent className="pt-5 pb-4">
+              <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-1">Estimated Equity Growth</p>
+              <p className="text-[10px] text-muted-foreground/60 italic mb-4">
+                Based on recommended price range
               </p>
-            </CardHeader>
-            <CardContent>
-              <div className="h-64 mb-4">
+              <div className="h-56">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={equityData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -457,74 +473,64 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
                         fontSize: '12px',
                       }}
                     />
-                    <Area
-                      type="monotone"
-                      dataKey="high"
-                      stroke="hsl(var(--gold))"
-                      fill="hsl(var(--gold))"
-                      fillOpacity={0.15}
-                      strokeWidth={2}
-                      name="High Estimate"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="low"
-                      stroke="hsl(var(--gold))"
-                      fill="hsl(var(--background))"
-                      fillOpacity={1}
-                      strokeWidth={1}
-                      strokeDasharray="4 4"
-                      name="Low Estimate"
-                    />
-                    <ReferenceLine
-                      y={report.purchase_price}
-                      stroke="hsl(var(--muted-foreground))"
-                      strokeDasharray="3 3"
-                      label={{ value: 'Purchase Price', fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
-                    />
+                    <Area type="monotone" dataKey="high" stroke="hsl(var(--gold))" fill="hsl(var(--gold))" fillOpacity={0.12} strokeWidth={2} name="High Estimate" />
+                    <Area type="monotone" dataKey="low" stroke="hsl(var(--gold))" fill="hsl(var(--background))" fillOpacity={1} strokeWidth={1} strokeDasharray="4 4" name="Low Estimate" />
+                    <ReferenceLine y={totalCost} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" label={{ value: 'Total Invested', fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
 
-              {/* Equity Details */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 border-t border-border pt-4">
-                <div>
-                  <p className="text-xs text-muted-foreground">Purchase Price</p>
-                  <p className="font-medium">{fmt(report.purchase_price)}</p>
+              {/* Gain summary */}
+              <div className="flex items-center justify-center gap-8 mt-4 pt-4 border-t border-border">
+                <div className="text-center">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Est. Gain (Low)</p>
+                  <p className={`text-lg font-bold ${equityLow >= 0 ? 'text-emerald-500' : 'text-destructive'}`}>
+                    {equityLow >= 0 ? '+' : ''}{fmt(equityLow)}
+                  </p>
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Purchase Date</p>
-                  <p className="font-medium">{new Date(report.purchase_date).toLocaleDateString()}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Improvements</p>
-                  <p className="font-medium">{fmt(report.improvements_invested)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Est. Gain Range</p>
-                  <p className={`font-bold ${(report.equity_gain_low ?? 0) < 0 && (report.equity_gain_high ?? 0) < 0 ? 'text-destructive' : (report.equity_gain_low ?? 0) < 0 ? 'text-amber-500' : 'text-gold'}`}>
-                    {fmt(Math.max(report.equity_gain_low ?? 0, 0))} – {fmt(Math.max(report.equity_gain_high ?? 0, 0))}
-                    {(report.equity_gain_low ?? 0) < 0 && (
-                      <span className="block text-[10px] text-destructive font-normal mt-0.5">
-                        * Lower estimate shows negative equity
-                      </span>
-                    )}
+                <div className="text-2xl text-muted-foreground/30 font-light">–</div>
+                <div className="text-center">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Est. Gain (High)</p>
+                  <p className={`text-lg font-bold ${equityHigh >= 0 ? 'text-emerald-500' : 'text-destructive'}`}>
+                    {equityHigh >= 0 ? '+' : ''}{fmt(equityHigh)}
                   </p>
                 </div>
               </div>
 
-              {/* Disclaimer */}
-              <p className="text-[10px] text-muted-foreground/60 mt-4 italic">
-                This is an estimate based on the recommended price range and does not constitute a formal appraisal.
+              <p className="text-[10px] text-muted-foreground/50 mt-3 italic text-center">
+                This is an estimate and does not constitute a formal appraisal.
               </p>
             </CardContent>
           </Card>
         </section>
 
-        {/* Property Photo Gallery */}
+        {/* ═══════════════════════════════════════════
+            SECTION 6 — NEXT STEPS
+        ═══════════════════════════════════════════ */}
+        <section className="print:break-inside-avoid mb-12">
+          <SectionHeader number={6} icon={Phone} title="Next Steps" />
+
+          <Card className="border-gold/30 bg-gold/[0.03]">
+            <CardContent className="pt-8 pb-8">
+              <div className="max-w-2xl mx-auto space-y-5">
+                <NextStep step={1} text="Review this report and identify your preferred pricing strategy." />
+                <NextStep step={2} text="Schedule a listing appointment to discuss timing, staging, and marketing." />
+                <NextStep step={3} text="Finalize your listing price, sign paperwork, and go live!" />
+              </div>
+
+              <div className="mt-8 text-center">
+                <p className="text-sm text-muted-foreground mb-1">Ready to move forward?</p>
+                <p className="text-base font-semibold text-gold flex items-center justify-center gap-2">
+                  Let's get started <ArrowRight className="h-4 w-4" />
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* Photo Gallery (bonus, if multiple photos) */}
         {photoUrls.length > 1 && (
-          <section className="print:break-inside-avoid">
-            <SectionTitle icon={Home} title="Property Photos" />
+          <section className="print:break-inside-avoid mb-10">
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {photoUrls.slice(0, 6).map((url, i) => (
                 <div key={i} className="aspect-[4/3] rounded-lg overflow-hidden border border-border">
@@ -536,31 +542,69 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
         )}
 
         {/* Footer */}
-        <div className="text-center border-t border-gold/20 pt-6 text-xs text-muted-foreground">
-          <p>Prepared by RealtyHub · CMA Boss AI Analysis</p>
-          <p className="mt-1">{new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+        <div className="text-center border-t border-border pt-6 pb-4">
+          <p className="text-xs text-muted-foreground">Prepared by RealtyHub · CMA Boss</p>
+          <p className="text-[10px] text-muted-foreground/60 mt-1">
+            {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+          </p>
         </div>
       </div>
     </div>
   );
 };
 
-// Reusable section title
-const SectionTitle = ({ icon: Icon, title }: { icon: React.ElementType; title: string }) => (
-  <div className="flex items-center gap-2 mb-3">
-    <Icon className="h-5 w-5 text-gold" />
-    <h2 className="text-lg font-display font-semibold text-foreground">{title}</h2>
+/* ─── Sub-components ─── */
+
+const SectionHeader = ({
+  number,
+  icon: Icon,
+  title,
+  subtitle,
+}: {
+  number: number;
+  icon: React.ElementType;
+  title: string;
+  subtitle?: string;
+}) => (
+  <div className="flex items-center gap-3 mb-5 pb-3 border-b border-border/40">
+    <div className="flex items-center justify-center h-8 w-8 rounded-full bg-gold/10 text-gold text-sm font-bold shrink-0">
+      {number}
+    </div>
+    <div className="flex items-center gap-2 flex-1">
+      <Icon className="h-5 w-5 text-gold" />
+      <h2 className="text-lg font-display font-semibold text-foreground">{title}</h2>
+      {subtitle && (
+        <span className="text-xs text-muted-foreground ml-1">— {subtitle}</span>
+      )}
+    </div>
   </div>
 );
 
-// Stat indicator card
-const StatIndicator = ({ label, value }: { label: string; value: string }) => (
-  <Card className="border-gold/20">
-    <CardContent className="pt-4 pb-3 text-center">
-      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</p>
-      <p className="text-lg font-bold text-foreground mt-1">{value}</p>
+const PriceCard = ({ label, value, highlighted }: { label: string; value: string; highlighted: boolean }) => (
+  <Card className={`${highlighted ? 'border-gold/40 bg-gold/5 shadow-md' : 'border-border/50'}`}>
+    <CardContent className="pt-5 pb-4 text-center">
+      <p className={`text-[10px] uppercase tracking-wider font-medium ${highlighted ? 'text-gold' : 'text-muted-foreground'}`}>{label}</p>
+      <p className={`mt-1 font-bold ${highlighted ? 'text-2xl text-gold' : 'text-xl text-foreground'}`}>{value}</p>
     </CardContent>
   </Card>
+);
+
+const StatCard = ({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) => (
+  <Card className={`border-border/50 ${highlight ? 'bg-gold/5 border-gold/30' : ''}`}>
+    <CardContent className="pt-4 pb-3 text-center">
+      <p className="text-[10px] text-muted-foreground uppercase tracking-wider leading-tight">{label}</p>
+      <p className={`text-base font-bold mt-1 ${highlight ? 'text-gold' : 'text-foreground'}`}>{value}</p>
+    </CardContent>
+  </Card>
+);
+
+const NextStep = ({ step, text }: { step: number; text: string }) => (
+  <div className="flex items-start gap-4">
+    <div className="flex items-center justify-center h-7 w-7 rounded-full bg-gold text-gold-foreground text-xs font-bold shrink-0 mt-0.5">
+      {step}
+    </div>
+    <p className="text-sm text-muted-foreground leading-relaxed">{text}</p>
+  </div>
 );
 
 export default CMAClientReport;
