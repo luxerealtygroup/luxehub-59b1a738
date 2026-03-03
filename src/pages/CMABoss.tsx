@@ -5,9 +5,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, FileText, Loader2, ArrowLeft } from 'lucide-react';
+import { Plus, FileText, Loader2, ArrowLeft, Eye, ClipboardCheck } from 'lucide-react';
 import CMAInputForm from '@/components/cma/CMAInputForm';
 import CMAAuditView from '@/components/cma/CMAAuditView';
+import CMAClientReport from '@/components/cma/CMAClientReport';
 
 interface CMAReport {
   id: string;
@@ -21,7 +22,7 @@ interface CMAReport {
   strategy_recommendation: string | null;
 }
 
-type ViewMode = 'list' | 'create' | 'audit';
+type ViewMode = 'list' | 'create' | 'audit' | 'report';
 
 const CMABoss = () => {
   const { user } = useAuth();
@@ -84,13 +85,47 @@ const CMABoss = () => {
   if (viewMode === 'audit' && selectedReportId) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={goBack}>
-            <ArrowLeft className="h-4 w-4 mr-1" /> Back
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" onClick={goBack}>
+              <ArrowLeft className="h-4 w-4 mr-1" /> Back
+            </Button>
+            <h1 className="text-2xl font-display font-bold text-foreground">Internal CMA Audit</h1>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setViewMode('report')}
+            className="border-gold/30 text-gold hover:bg-gold/10"
+          >
+            <Eye className="h-4 w-4 mr-1" /> Client Report
           </Button>
-          <h1 className="text-2xl font-display font-bold text-foreground">CMA Audit</h1>
         </div>
         <CMAAuditView reportId={selectedReportId} />
+      </div>
+    );
+  }
+
+  if (viewMode === 'report' && selectedReportId) {
+    return (
+      <div className="space-y-6 print:space-y-0">
+        <div className="flex items-center justify-between print:hidden">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" onClick={goBack}>
+              <ArrowLeft className="h-4 w-4 mr-1" /> Back
+            </Button>
+            <h1 className="text-2xl font-display font-bold text-foreground">Client Report</h1>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setViewMode('audit')}
+            className="border-gold/30 text-gold hover:bg-gold/10"
+          >
+            <ClipboardCheck className="h-4 w-4 mr-1" /> Internal Audit
+          </Button>
+        </div>
+        <CMAClientReport reportId={selectedReportId} />
       </div>
     );
   }
