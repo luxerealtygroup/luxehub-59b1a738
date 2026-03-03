@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Target, Trophy, TrendingUp, ChevronLeft, ChevronRight, FileText, Users, Loader2 } from 'lucide-react';
+import { Target, Trophy, TrendingUp, ChevronLeft, ChevronRight, Users, Loader2, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { format, startOfWeek, addWeeks, subWeeks } from 'date-fns';
 
@@ -27,6 +27,15 @@ interface Weekly411Data {
   listings_actual: number | null;
   contracts_goal: number | null;
   contracts_actual: number | null;
+  contacts_made: number | null;
+  dials: number | null;
+  doors_knocked: number | null;
+  appointments_set: number | null;
+  appointments_held: number | null;
+  pipeline_additions: number | null;
+  contracts_signed: number | null;
+  firm_deals: number | null;
+  database_size: number | null;
   priority_1: string | null;
   priority_1_completed: boolean | null;
   priority_2: string | null;
@@ -47,6 +56,17 @@ interface Weekly411Data {
   notes: string | null;
 }
 
+interface AppointmentRecordData {
+  id: string;
+  user_id: string;
+  contact_name: string;
+  fub_contact_id: number | null;
+  appointment_date: string;
+  appointment_type: string;
+  outcome: string | null;
+  notes: string | null;
+}
+
 interface ProductionGoalData {
   user_id: string;
   year: number;
@@ -61,25 +81,31 @@ const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep
 const currentYear = 2026;
 const currentMonth = new Date().getMonth();
 
+const outcomeColors: Record<string, string> = {
+  'Signed': 'bg-green-500/10 text-green-600 border-green-500/30',
+  'Follow up': 'bg-blue-500/10 text-blue-600 border-blue-500/30',
+  'No show': 'bg-red-500/10 text-red-600 border-red-500/30',
+  'Not moving forward': 'bg-muted text-muted-foreground border-border',
+};
+
 const Team411 = () => {
   const [loading, setLoading] = useState(true);
   const [agents, setAgents] = useState<AgentProfile[]>([]);
   const [selectedAgent, setSelectedAgent] = useState<string>('all');
   const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [weeklyData, setWeeklyData] = useState<Weekly411Data[]>([]);
+  const [appointmentRecords, setAppointmentRecords] = useState<AppointmentRecordData[]>([]);
   const [productionGoals, setProductionGoals] = useState<ProductionGoalData[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
 
-      // Fetch all profiles with names
       const { data: profiles } = await supabase
         .from('profiles')
         .select('id, full_name')
         .not('full_name', 'is', null);
 
-      // Also get user IDs that have 411 data or production goals to include agents without fub_user_id
       const { data: usersWith411 } = await supabase
         .from('weekly_411')
         .select('user_id');
@@ -88,13 +114,11 @@ const Team411 = () => {
         .from('production_goals')
         .select('user_id');
 
-      // Combine: profiles that have fub_user_id OR have 411/goals data
       const activeUserIds = new Set([
         ...(usersWith411 || []).map(w => w.user_id),
         ...(usersWithGoals || []).map(g => g.user_id),
       ]);
 
-      // Exclude admin-only user (Marie, fub_user_id: 8) by checking profiles with fub_user_id
       const { data: fubProfiles } = await supabase
         .from('profiles')
         .select('id, fub_user_id')
@@ -106,7 +130,6 @@ const Team411 = () => {
       setAgents(
         (profiles || [])
           .filter(p => {
-            // Include if they have 411 data, goals, or a fub_user_id (but not admin-only)
             const hasFub = fubMap.has(p.id) && fubMap.get(p.id) !== adminOnlyFubId;
             const hasData = activeUserIds.has(p.id);
             return (hasFub || hasData) && p.full_name;
@@ -114,7 +137,6 @@ const Team411 = () => {
           .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''))
       );
 
-      // Fetch all weekly 411 data for the selected week
       const weekStart = format(currentWeek, 'yyyy-MM-dd');
       const { data: weekly } = await supabase
         .from('weekly_411')
@@ -123,7 +145,15 @@ const Team411 = () => {
 
       setWeeklyData(weekly || []);
 
-      // Fetch all production goals for current year
+      // Fetch appointment records for this week
+      const { data: appts } = await supabase
+        .from('appointment_records')
+        .select('*')
+        .eq('week_start_date', weekStart)
+        .order('appointment_date', { ascending: true });
+
+      setAppointmentRecords(appts || []);
+
       const { data: goals } = await supabase
         .from('production_goals')
         .select('*')
@@ -138,10 +168,6 @@ const Team411 = () => {
   }, [currentWeek]);
 
   const calcProgress = (actual: number, goal: number) => goal > 0 ? Math.min(100, (actual / goal) * 100) : 0;
-
-  const getAgentName = (userId: string) => {
-    return agents.find(a => a.id === userId)?.full_name || 'Unknown';
-  };
 
   const filteredAgents = selectedAgent === 'all' 
     ? agents 
@@ -204,7 +230,8 @@ const Team411 = () => {
 
           {filteredAgents.map(agent => {
             const data = weeklyData.find(w => w.user_id === agent.id);
-            if (!data && selectedAgent === 'all') return null; // Skip agents with no data in "all" view
+            const agentAppts = appointmentRecords.filter(a => a.user_id === agent.id);
+            if (!data && selectedAgent === 'all') return null;
 
             return (
               <Card key={agent.id} className="border-primary/10">
@@ -221,7 +248,27 @@ const Team411 = () => {
                 </CardHeader>
                 {data && (
                   <CardContent className="space-y-4">
-                    {/* Activity Metrics */}
+                    {/* New Activity Tracking Fields */}
+                    <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-2">
+                      {[
+                        { label: 'Contacts', value: data.contacts_made },
+                        { label: 'Dials', value: data.dials },
+                        { label: 'Doors', value: data.doors_knocked },
+                        { label: 'Appts Set', value: data.appointments_set },
+                        { label: 'Appts Held', value: agentAppts.length || data.appointments_held },
+                        { label: 'Pipeline+', value: data.pipeline_additions },
+                        { label: 'Contracts', value: data.contracts_signed },
+                        { label: 'Firm', value: data.firm_deals },
+                        { label: 'DB Size', value: data.database_size },
+                      ].map(field => (
+                        <div key={field.label} className="text-center p-2 rounded-lg bg-muted/50">
+                          <p className="text-lg font-bold text-foreground">{field.value || 0}</p>
+                          <p className="text-xs text-muted-foreground">{field.label}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Legacy Goal Metrics */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       {[
                         { label: 'Calls', actual: data.calls_actual || 0, goal: data.calls_goal || 0 },
@@ -238,6 +285,32 @@ const Team411 = () => {
                         </div>
                       ))}
                     </div>
+
+                    {/* Appointment Records */}
+                    {agentAppts.length > 0 && (
+                      <div>
+                        <p className="text-sm font-medium mb-2 flex items-center gap-1">
+                          <CalendarDays className="h-4 w-4" /> Appointments Held ({agentAppts.length})
+                        </p>
+                        <div className="space-y-1">
+                          {agentAppts.map(appt => (
+                            <div key={appt.id} className="flex items-center gap-2 text-sm p-2 rounded bg-muted/30">
+                              <span className="font-medium">{appt.contact_name}</span>
+                              {appt.fub_contact_id && (
+                                <Badge variant="outline" className="text-xs">FUB</Badge>
+                              )}
+                              <Badge variant="outline" className="text-xs capitalize">{appt.appointment_type}</Badge>
+                              {appt.outcome && (
+                                <Badge variant="outline" className={`text-xs ${outcomeColors[appt.outcome] || ''}`}>
+                                  {appt.outcome}
+                                </Badge>
+                              )}
+                              <span className="text-muted-foreground ml-auto text-xs">{appt.appointment_date}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Business Priorities */}
                     <div className="grid md:grid-cols-2 gap-4">
