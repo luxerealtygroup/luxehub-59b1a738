@@ -315,7 +315,7 @@ export function PerformanceRealityTab({
                       {pipelineDeficit > 0 ? (
                         <>
                           <span className="font-bold text-destructive">= Pipeline Deficit</span>
-                          <span className="text-lg font-bold text-destructive">{pipelineDeficit} more deals needed</span>
+                          <span className="text-lg font-bold text-destructive">{pipelineDeficit} more pipeline additions needed</span>
                         </>
                       ) : pipelineSurplus > 0 ? (
                         <>
@@ -333,7 +333,7 @@ export function PerformanceRealityTab({
 
                   <div className="flex items-center gap-3 mt-3">
                     {pipelineDeficit > 0 ? (
-                      <Badge className="bg-destructive text-destructive-foreground gap-1"><AlertTriangle className="h-3 w-3" />Pipeline Deficit: {pipelineDeficit} deals</Badge>
+                      <Badge className="bg-destructive text-destructive-foreground gap-1"><AlertTriangle className="h-3 w-3" />Pipeline Deficit: {pipelineDeficit} additions needed</Badge>
                     ) : pipelineSurplus > 0 ? (
                       <Badge className="bg-green-600 text-white gap-1"><TrendingUp className="h-3 w-3" />Ahead by {pipelineSurplus} pipeline deals</Badge>
                     ) : (

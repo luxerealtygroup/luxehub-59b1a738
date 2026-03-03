@@ -11,9 +11,9 @@ export const StatCard = ({ label, value, sub, danger }: { label: string; value: 
 );
 
 export const GapBadge = ({ gap }: { gap: number }) => {
-  if (gap > 0) return <Badge className="bg-destructive text-destructive-foreground gap-1"><AlertTriangle className="h-3 w-3" />Pipeline Deficit: {gap} deals</Badge>;
+  if (gap > 0) return <Badge className="bg-destructive text-destructive-foreground gap-1"><AlertTriangle className="h-3 w-3" />Pipeline Deficit: {gap} additions needed</Badge>;
   if (gap === 0) return <Badge className="bg-green-600 text-white gap-1"><CheckCircle className="h-3 w-3" />On Track</Badge>;
-  return <Badge className="bg-green-600 text-white gap-1"><TrendingUp className="h-3 w-3" />Ahead by {Math.abs(gap)} deals</Badge>;
+  return <Badge className="bg-green-600 text-white gap-1"><TrendingUp className="h-3 w-3" />Ahead by {Math.abs(gap)} pipeline additions</Badge>;
 };
 
 export const BreakdownRow = ({ label, monthly, weekly, daily, highlight }: { label: string; monthly: number; weekly: number; daily: number; highlight?: boolean }) => (
