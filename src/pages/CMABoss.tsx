@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useViewAsAgent } from '@/hooks/useViewAsAgent';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, FileText, Loader2, ArrowLeft, Eye, ClipboardCheck, BarChart3 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Plus, FileText, Loader2, ArrowLeft, Eye, ClipboardCheck, BarChart3, Bug } from 'lucide-react';
 import CMAInputForm from '@/components/cma/CMAInputForm';
 import CMAAuditView from '@/components/cma/CMAAuditView';
 import CMAClientReport from '@/components/cma/CMAClientReport';
@@ -31,22 +33,45 @@ type ViewMode = 'list' | 'create' | 'audit' | 'report';
 const CMABoss = () => {
   const { user } = useAuth();
   const { isAdmin } = useUserRole();
+  const {
+    isViewingAsAgent,
+    effectiveUserId,
+    viewingAgentName,
+  } = useViewAsAgent();
+
   const [reports, setReports] = useState<CMAReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('reports');
 
+  // Determine the query agent ID:
+  // - Admin + View-as-Agent → target agent only
+  // - Admin + NOT View-as-Agent (Company View) → null (all CMAs)
+  // - Non-admin → their own user id
+  const queryAgentId = isAdmin
+    ? (isViewingAsAgent ? effectiveUserId : null)
+    : user?.id || null;
+
   useEffect(() => {
     if (user) fetchReports();
-  }, [user]);
+  }, [user, queryAgentId]);
 
   const fetchReports = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+
+    let query = supabase
       .from('cma_reports')
       .select('id, property_address, city_area, property_type, analysis_status, cma_grade, pricing_band_recommended, created_at, strategy_recommendation, listing_status')
       .order('created_at', { ascending: false });
+
+    // Apply agent-level filter at the DB query level
+    if (queryAgentId) {
+      query = query.eq('user_id', queryAgentId);
+    }
+    // If queryAgentId is null (admin Company View), no filter → all CMAs via RLS
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('Error fetching CMA reports:', error);
@@ -73,9 +98,52 @@ const CMABoss = () => {
     setSelectedReportId(null);
   };
 
+  // Debug panel (admin-only, temporary)
+  const DebugCMAScoping = () => {
+    if (!isAdmin) return null;
+    return (
+      <Card className="border-destructive/30 bg-destructive/5 mb-4">
+        <CardContent className="py-3 text-xs font-mono space-y-1">
+          <div className="flex items-center gap-2 mb-1">
+            <Bug className="h-4 w-4 text-destructive" />
+            <span className="font-semibold text-destructive">CMA Scoping Debug (admin only)</span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1">
+            <div>
+              <span className="text-muted-foreground">loggedInUserId:</span>{' '}
+              <span className="text-foreground">{user?.id?.substring(0, 8)}…</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">targetAgentId:</span>{' '}
+              <span className="text-foreground">{effectiveUserId?.substring(0, 8) || '(self)'}…</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">isViewAsActive:</span>{' '}
+              <Badge variant="outline" className={`text-[10px] ${isViewingAsAgent ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                {String(isViewingAsAgent)}
+              </Badge>
+            </div>
+            <div>
+              <span className="text-muted-foreground">queryAgentId:</span>{' '}
+              <span className="text-foreground font-semibold">
+                {queryAgentId ? `${queryAgentId.substring(0, 8)}…` : '(all / Company View)'}
+              </span>
+            </div>
+          </div>
+          {isViewingAsAgent && viewingAgentName && (
+            <div className="pt-1 text-muted-foreground">
+              Viewing as: <span className="text-primary font-semibold">{viewingAgentName}</span> — showing only their CMAs
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
+
   if (viewMode === 'create') {
     return (
       <div className="space-y-6">
+        <DebugCMAScoping />
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={goBack}>
             <ArrowLeft className="h-4 w-4 mr-1" /> Back
@@ -90,6 +158,7 @@ const CMABoss = () => {
   if (viewMode === 'audit' && selectedReportId) {
     return (
       <div className="space-y-6">
+        <DebugCMAScoping />
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" onClick={goBack}>
@@ -137,20 +206,27 @@ const CMABoss = () => {
 
   return (
     <div className="space-y-6">
+      <DebugCMAScoping />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-display font-bold text-foreground">CMA Boss</h1>
           <p className="text-sm text-muted-foreground">AI-powered Comparative Market Analysis</p>
         </div>
-        <Button onClick={() => setViewMode('create')} className="bg-gold hover:bg-gold/90 text-gold-foreground">
-          <Plus className="h-4 w-4 mr-2" /> New CMA
-        </Button>
+        {/* Only show "New CMA" when NOT viewing as another agent (read-only mode) */}
+        {!isViewingAsAgent && (
+          <Button onClick={() => setViewMode('create')} className="bg-gold hover:bg-gold/90 text-gold-foreground">
+            <Plus className="h-4 w-4 mr-2" /> New CMA
+          </Button>
+        )}
       </div>
 
       {isAdmin ? (
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
-            <TabsTrigger value="reports">My Reports</TabsTrigger>
+            <TabsTrigger value="reports">
+              {isViewingAsAgent ? `${viewingAgentName}'s Reports` : 'All Reports'}
+            </TabsTrigger>
             <TabsTrigger value="performance">
               <BarChart3 className="h-4 w-4 mr-1" /> Performance Dashboard
             </TabsTrigger>
