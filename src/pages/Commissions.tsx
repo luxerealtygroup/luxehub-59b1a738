@@ -126,30 +126,32 @@ const Commissions = () => {
     }
   };
 
-  // All GCI metrics derived from FUB deals
+  // Helper to classify FUB stage names
+  const classifyStage = (status: string): 'closed' | 'pending' | 'conditional' | 'other' => {
+    const s = status.toLowerCase();
+    if (s.includes('closed') || s.includes('won') || s.includes('sold')) return 'closed';
+    if (s.includes('pending') || s.includes('under contract')) return 'pending';
+    if (s.includes('offer') || s.includes('conditional')) return 'conditional';
+    return 'other';
+  };
+
+  // All GCI metrics derived from the same fubDealsDisplay shown in the table
   const totalClosed = fubDealsDisplay
-    .filter((deal) => {
-      const s = deal.status.toLowerCase();
-      return s.includes('closed') || s.includes('won');
-    })
+    .filter((deal) => classifyStage(deal.status) === 'closed')
     .reduce((sum, deal) => sum + deal.grossCommission, 0);
 
   const totalPending = fubDealsDisplay
-    .filter((deal) => deal.status.toLowerCase() === 'pending')
+    .filter((deal) => classifyStage(deal.status) === 'pending')
     .reduce((sum, deal) => sum + deal.grossCommission, 0);
 
   const totalConditional = fubDealsDisplay
-    .filter((deal) => {
-      const s = deal.status.toLowerCase();
-      return s === 'offer' || s === 'conditional';
-    })
+    .filter((deal) => classifyStage(deal.status) === 'conditional')
     .reduce((sum, deal) => sum + deal.grossCommission, 0);
 
   const now = new Date();
   const thisMonth = fubDealsDisplay
     .filter((deal) => {
-      const s = deal.status.toLowerCase();
-      if (!(s.includes('closed') || s.includes('won'))) return false;
+      if (classifyStage(deal.status) !== 'closed') return false;
       if (!deal.createdAt) return false;
       const d = parseISO(deal.createdAt);
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
@@ -231,9 +233,9 @@ const Commissions = () => {
                       <TableCell className="max-w-[200px] truncate">{deal.propertyAddress}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={
-                          deal.status.toLowerCase().includes('closed') || deal.status.toLowerCase().includes('won')
+                          classifyStage(deal.status) === 'closed'
                             ? 'border-green-500/30 text-green-400'
-                            : deal.status.toLowerCase() === 'pending'
+                            : classifyStage(deal.status) === 'pending'
                             ? 'border-amber-500/30 text-amber-400'
                             : 'border-orange-500/30 text-orange-400'
                         }>
