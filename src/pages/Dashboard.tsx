@@ -386,27 +386,41 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Quick Actions - TOP */}
+      {/* Quick Actions - TOP (hide restricted actions for planning-only) */}
       <Card className="border-gold/20 bg-gradient-to-br from-card to-gold/5">
         <CardHeader className="pb-2">
           <CardTitle className="text-gold font-display">Quick Actions</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <a href="/dashboard/submissions" className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center group">
-            <FileText className="h-6 w-6 mx-auto text-gold mb-2 group-hover:scale-110 transition-transform" />
-            <span className="text-sm text-foreground font-medium">Submit Documents</span>
-          </a>
-          <a href="/dashboard/pipeline" className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center group">
-            <Users className="h-6 w-6 mx-auto text-gold mb-2 group-hover:scale-110 transition-transform" />
-            <span className="text-sm text-foreground font-medium">View Pipeline</span>
-          </a>
-          <a href="/dashboard/commissions" className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center group">
-            <Briefcase className="h-6 w-6 mx-auto text-gold mb-2 group-hover:scale-110 transition-transform" />
-            <span className="text-sm text-foreground font-medium">Transaction Management</span>
+          {!isPlanningOnly && (
+            <a href="/dashboard/submissions" className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center group">
+              <FileText className="h-6 w-6 mx-auto text-gold mb-2 group-hover:scale-110 transition-transform" />
+              <span className="text-sm text-foreground font-medium">Submit Documents</span>
+            </a>
+          )}
+          {!isPlanningOnly && (
+            <a href="/dashboard/pipeline" className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center group">
+              <Users className="h-6 w-6 mx-auto text-gold mb-2 group-hover:scale-110 transition-transform" />
+              <span className="text-sm text-foreground font-medium">View Pipeline</span>
+            </a>
+          )}
+          {!isPlanningOnly && (
+            <a href="/dashboard/commissions" className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center group">
+              <Briefcase className="h-6 w-6 mx-auto text-gold mb-2 group-hover:scale-110 transition-transform" />
+              <span className="text-sm text-foreground font-medium">Transaction Management</span>
+            </a>
+          )}
+          <a href="/dashboard/goals" className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center group">
+            <Target className="h-6 w-6 mx-auto text-gold mb-2 group-hover:scale-110 transition-transform" />
+            <span className="text-sm text-foreground font-medium">Goals</span>
           </a>
           <a href="/dashboard/411" className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center group">
             <Calendar className="h-6 w-6 mx-auto text-gold mb-2 group-hover:scale-110 transition-transform" />
             <span className="text-sm text-foreground font-medium">4-1-1</span>
+          </a>
+          <a href="/dashboard/reports" className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center group">
+            <TrendingUp className="h-6 w-6 mx-auto text-gold mb-2 group-hover:scale-110 transition-transform" />
+            <span className="text-sm text-foreground font-medium">Reports</span>
           </a>
         </CardContent>
       </Card>
@@ -464,13 +478,14 @@ const Dashboard = () => {
             <h1 className="text-3xl font-display font-bold text-foreground">
               Welcome back{user?.user_metadata?.full_name ? `, ${user.user_metadata.full_name}` : ''}
             </h1>
-            {!hasFUB && <ManualModeBadge />}
+            {!hasFUB && !isPlanningOnly && <ManualModeBadge />}
           </div>
           <div className={`flex items-center gap-2 mt-2 ${motivation.color}`}>
             <motivation.icon className="h-5 w-5" />
             <p className="font-medium">{motivation.text}</p>
           </div>
         </div>
+        {!isPlanningOnly && (
         <Dialog open={addClientOpen} onOpenChange={setAddClientOpen}>
           <DialogTrigger asChild>
             <Button className="bg-gold text-primary-foreground hover:bg-gold/90 shadow-gold">
@@ -576,6 +591,7 @@ const Dashboard = () => {
             </form>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       {/* Deals Progress - Closed vs Active */}
@@ -731,11 +747,12 @@ const Dashboard = () => {
       </div>
 
       {/* Manual Production Entry for non-FUB agents */}
-      {!hasFUB && (
+      {!hasFUB && !isPlanningOnly && (
         <ManualProductionEntry onSaved={() => window.location.reload()} />
       )}
 
       {/* Google Calendar, Smart Lists & Follow Up Boss Section */}
+      {!isPlanningOnly && (
       <div className={`grid grid-cols-1 ${hasFUB ? 'lg:grid-cols-3' : 'lg:grid-cols-1'} gap-6`}>
         <GoogleCalendarWidget />
         {hasFUB && <FUBSmartLists />}
@@ -797,6 +814,7 @@ const Dashboard = () => {
         </Card>
         )}
       </div>
+      )}
     </div>
   );
 };
