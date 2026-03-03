@@ -212,3 +212,29 @@
     @apply hover:bg-primary hover:text-primary-foreground transition-all duration-200;
   }
 }
+
+/* Print styles for CMA Client Report */
+@media print {
+  body {
+    background: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .print\:hidden {
+    display: none !important;
+  }
+  .print\:break-inside-avoid {
+    break-inside: avoid;
+  }
+  /* Hide sidebar and layout chrome */
+  [data-sidebar],
+  nav,
+  header {
+    display: none !important;
+  }
+  main {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+}
