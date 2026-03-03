@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useViewAsAgent } from '@/hooks/useViewAsAgent';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +40,9 @@ const activityIcons: Record<ActivityType, React.ReactNode> = {
 
 const Activities = () => {
   const { user } = useAuth();
+  const { isViewingAsAgent, effectiveUserId } = useViewAsAgent();
+  const isReadOnly = isViewingAsAgent;
+  const queryUserId = effectiveUserId;
   const { toast } = useToast();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,11 +57,11 @@ const Activities = () => {
   });
 
   const fetchActivities = async () => {
-    if (!user) return;
+    if (!queryUserId) return;
     const { data } = await supabase
       .from('agent_activities')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', queryUserId)
       .order('created_at', { ascending: false });
     setActivities(data || []);
     setLoading(false);
@@ -65,7 +69,7 @@ const Activities = () => {
 
   useEffect(() => {
     fetchActivities();
-  }, [user]);
+  }, [queryUserId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,6 +106,7 @@ const Activities = () => {
           <h1 className="text-3xl font-display font-bold text-foreground">Activities</h1>
           <p className="text-muted-foreground mt-1">Track your calls, appointments, and showings</p>
         </div>
+        {!isReadOnly && (
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button className="bg-gold text-gold-foreground hover:bg-gold/90">
@@ -157,6 +162,7 @@ const Activities = () => {
             </form>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       <Tabs defaultValue="fub" className="space-y-4">
