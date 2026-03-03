@@ -9,17 +9,30 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Upload, Loader2, Home, DollarSign, BarChart3, FileUp } from 'lucide-react';
+import { Upload, Loader2, Home, DollarSign, BarChart3, FileUp, Users } from 'lucide-react';
+import { FUBContactTypeahead } from '@/components/FUBContactTypeahead';
+import { useHasFUB } from '@/hooks/useHasFUB';
 
 interface CMAInputFormProps {
   onCreated: (reportId: string) => void;
   onCancel: () => void;
 }
 
+interface SelectedContact {
+  id: number;
+  name: string;
+  email?: string;
+  phone?: string;
+}
+
 const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
   const { user } = useAuth();
+  const { hasFUB } = useHasFUB();
   const [saving, setSaving] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+
+  // FUB Contact
+  const [selectedContact, setSelectedContact] = useState<SelectedContact | null>(null);
 
   // Subject Property
   const [propertyAddress, setPropertyAddress] = useState('');
@@ -74,14 +87,10 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
   };
 
   const extractPdfText = async (file: File): Promise<string> => {
-    // Read file as array buffer and convert to base64 for AI to analyze
     const buffer = await file.arrayBuffer();
     const bytes = new Uint8Array(buffer);
-    let text = '';
-    // Simple text extraction - look for text between parentheses in PDF stream
     const decoder = new TextDecoder('utf-8', { fatal: false });
-    text = decoder.decode(bytes);
-    // Extract readable text portions
+    const text = decoder.decode(bytes);
     const readable = text.match(/[A-Za-z0-9\s,.$/\-#@%&()]{10,}/g);
     return readable ? readable.join(' ').substring(0, 15000) : 'PDF text could not be extracted client-side';
   };
@@ -92,10 +101,6 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
       toast.error('Please fill in all required fields');
       return;
     }
-    if (!cmaPdf) {
-      toast.error('Please upload a CloudCMA PDF');
-      return;
-    }
     if (andAnalyze && !hasMarketStats()) {
       toast.error('Please provide market stats before generating analysis');
       return;
@@ -103,14 +108,22 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
 
     setSaving(true);
     try {
-      // Upload PDFs
-      setUploading(true);
-      const cmaPdfPath = await uploadFile(cmaPdf, 'cma-pdfs');
+      // Upload PDFs if present
+      let cmaPdfPath: string | null = null;
+      let cmaPdfName: string | null = null;
+      if (cmaPdf) {
+        setUploading(true);
+        cmaPdfPath = await uploadFile(cmaPdf, 'cma-pdfs');
+        cmaPdfName = cmaPdf.name;
+        setUploading(false);
+      }
+
       let statsPdfPath: string | null = null;
       if (statsMethod === 'pdf' && statsPdf) {
+        setUploading(true);
         statsPdfPath = await uploadFile(statsPdf, 'stats-pdfs');
+        setUploading(false);
       }
-      setUploading(false);
 
       // Insert record
       const insertData: Record<string, unknown> = {
@@ -127,7 +140,9 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
         purchase_date: purchaseDate,
         improvements_invested: improvements ? parseFloat(improvements) : 0,
         cma_pdf_path: cmaPdfPath,
-        cma_pdf_name: cmaPdf.name,
+        cma_pdf_name: cmaPdfName,
+        fub_person_id: selectedContact?.id || null,
+        fub_person_name: selectedContact?.name || null,
         stats_method: statsMethod,
         stats_date_range: statsDateRange ? `Last ${statsDateRange} Days` : null,
         active_listings: activeListings ? parseInt(activeListings) : null,
@@ -152,8 +167,8 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
 
       if (andAnalyze && data) {
         setAnalyzing(true);
-        // Extract PDF text
-        const pdfText = await extractPdfText(cmaPdf);
+        // Extract PDF text if uploaded
+        const pdfText = cmaPdf ? await extractPdfText(cmaPdf) : '';
 
         const { data: fnData, error: fnError } = await supabase.functions.invoke('cma-analyze', {
           body: {
@@ -241,6 +256,24 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
 
   return (
     <div className="space-y-6 max-w-4xl">
+      {/* FUB Client Search */}
+      {hasFUB && (
+        <Card className="border-gold/20">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Users className="h-4 w-4 text-gold" /> Link to Client (Follow Up Boss)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <FUBContactTypeahead
+              selectedContact={selectedContact}
+              onSelect={setSelectedContact}
+              onClear={() => setSelectedContact(null)}
+            />
+          </CardContent>
+        </Card>
+      )}
+
       {/* Subject Property */}
       <Card className="border-gold/20">
         <CardHeader className="pb-3">
@@ -316,11 +349,12 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
         </CardContent>
       </Card>
 
-      {/* CloudCMA Upload */}
+      {/* CloudCMA Upload (Optional) */}
       <Card className="border-gold/20">
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <FileUp className="h-4 w-4 text-gold" /> CloudCMA PDF Upload *
+            <FileUp className="h-4 w-4 text-gold" /> CloudCMA PDF Upload
+            <span className="text-xs text-muted-foreground font-normal">(optional)</span>
           </CardTitle>
         </CardHeader>
         <CardContent>

@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Printer, TrendingUp, BarChart3, Home, Target, FileText } from 'lucide-react';
+import CMAFubPush from './CMAFubPush';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area, Cell, ReferenceLine,
@@ -62,6 +63,8 @@ interface CMAReportFull {
   sale_to_list_ratio: number | null;
   months_of_inventory: number | null;
   created_at: string;
+  fub_person_id: number | null;
+  fub_person_name: string | null;
 }
 
 const CMAClientReport = ({ reportId }: { reportId: string }) => {
@@ -160,8 +163,24 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
 
   return (
     <div>
-      {/* Print Button - hidden in print */}
-      <div className="print:hidden mb-6 flex justify-end">
+      {/* Print Button & FUB Push - hidden in print */}
+      <div className="print:hidden mb-6 flex justify-end gap-3">
+        {report.fub_person_id && (
+          <CMAFubPush
+            reportId={report.id}
+            fubPersonId={report.fub_person_id}
+            fubPersonName={report.fub_person_name}
+            propertyAddress={report.property_address}
+            cmaGrade={report.cma_grade}
+            pricingBandLow={report.pricing_band_low}
+            pricingBandRecommended={report.pricing_band_recommended}
+            pricingBandHigh={report.pricing_band_high}
+            strategyRecommendation={report.strategy_recommendation}
+            equityGainLow={report.equity_gain_low}
+            equityGainHigh={report.equity_gain_high}
+            pricingConfidence={report.pricing_confidence}
+          />
+        )}
         <Button onClick={handlePrint} className="bg-gold hover:bg-gold/90 text-gold-foreground">
           <Printer className="h-4 w-4 mr-2" /> Print / Save PDF
         </Button>

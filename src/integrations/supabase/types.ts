@@ -506,6 +506,8 @@ export type Database = {
           equity_gain_high: number | null
           equity_gain_low: number | null
           extracted_comps: Json | null
+          fub_person_id: number | null
+          fub_person_name: string | null
           id: string
           improvements_invested: number | null
           intended_list_date: string | null
@@ -553,6 +555,8 @@ export type Database = {
           equity_gain_high?: number | null
           equity_gain_low?: number | null
           extracted_comps?: Json | null
+          fub_person_id?: number | null
+          fub_person_name?: string | null
           id?: string
           improvements_invested?: number | null
           intended_list_date?: string | null
@@ -600,6 +604,8 @@ export type Database = {
           equity_gain_high?: number | null
           equity_gain_low?: number | null
           extracted_comps?: Json | null
+          fub_person_id?: number | null
+          fub_person_name?: string | null
           id?: string
           improvements_invested?: number | null
           intended_list_date?: string | null
