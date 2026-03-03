@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, RotateCcw, CheckCircle, Edit3, AlertTriangle } from 'lucide-react';
+import { Loader2, RotateCcw, CheckCircle, Edit3, AlertTriangle, XCircle } from 'lucide-react';
 
 interface Objection {
   objection: string;
@@ -14,7 +14,6 @@ interface Objection {
 
 interface CMAEditApproveProps {
   reportId: string;
-  // AI-generated defaults
   marketNarrative: string | null;
   talkingPoints: string[];
   riskFlags: string[];
@@ -26,7 +25,6 @@ interface CMAEditApproveProps {
   pricingConfidence: string | null;
   propertyAddress: string;
   cityArea: string;
-  // Current approved values (null = not yet edited)
   approvedExecutiveSummary: string | null;
   approvedPriceNarrative: string | null;
   approvedStrategy: string | null;
@@ -37,6 +35,15 @@ interface CMAEditApproveProps {
   approvalStatus: string;
   onUpdate: () => void;
   pricingChanged?: boolean;
+  // Validation data
+  soldCompsCount: number;
+  purchasePrice: number | null;
+  purchaseDate: string | null;
+  improvementsTotal: number;
+  equityGainLow: number | null;
+  equityGainHigh: number | null;
+  compsOverrideReason?: string;
+  onCompsOverrideReasonChange?: (reason: string) => void;
 }
 
 const fmt = (n: number | null | undefined) => n != null ? `$${n.toLocaleString()}` : 'N/A';
@@ -53,6 +60,11 @@ export const STATUS_FLOW = [
 
 const TERMINAL_STATUSES = ['converted', 'lost'];
 const POST_APPROVAL_STATUSES = ['approved', 'exported', 'pushed'];
+
+interface ValidationIssue {
+  type: 'error' | 'warning';
+  message: string;
+}
 
 const CMAEditApprove = ({
   reportId,
@@ -77,10 +89,46 @@ const CMAEditApprove = ({
   approvalStatus,
   onUpdate,
   pricingChanged,
+  soldCompsCount,
+  purchasePrice,
+  purchaseDate,
+  improvementsTotal,
+  equityGainLow,
+  equityGainHigh,
+  compsOverrideReason,
+  onCompsOverrideReasonChange,
 }: CMAEditApproveProps) => {
   const [saving, setSaving] = useState(false);
   const isTerminal = TERMINAL_STATUSES.includes(approvalStatus);
   const isPostApproval = POST_APPROVAL_STATUSES.includes(approvalStatus);
+
+  // --- Validation ---
+  const validationIssues = useMemo<ValidationIssue[]>(() => {
+    const issues: ValidationIssue[] = [];
+
+    if (soldCompsCount < 3 && !(compsOverrideReason && compsOverrideReason.trim().length > 0)) {
+      issues.push({ type: 'error', message: `Only ${soldCompsCount} sold comp${soldCompsCount !== 1 ? 's' : ''} found — at least 3 required, or provide an override reason below.` });
+    }
+
+    if (!purchasePrice || purchasePrice <= 0) {
+      issues.push({ type: 'error', message: 'Purchase price is required for equity calculations.' });
+    }
+    if (!purchaseDate) {
+      issues.push({ type: 'error', message: 'Purchase date is required for equity calculations.' });
+    }
+
+    if (equityGainLow != null && equityGainLow < 0) {
+      issues.push({ type: 'warning', message: `Estimated equity gain (low) is negative: ${fmt(equityGainLow)}. Verify pricing and improvements.` });
+    }
+
+    if (improvementsTotal > 0 && (!purchasePrice || purchasePrice <= 0)) {
+      issues.push({ type: 'warning', message: `Improvements total (${fmt(improvementsTotal)}) entered but purchase price is missing — equity calculation will be inaccurate.` });
+    }
+
+    return issues;
+  }, [soldCompsCount, compsOverrideReason, purchasePrice, purchaseDate, equityGainLow, improvementsTotal]);
+
+  const hasBlockingErrors = validationIssues.some(i => i.type === 'error');
 
   // Generate AI defaults
   const aiDefaults = {
@@ -93,7 +141,6 @@ const CMAEditApprove = ({
     objectionsText: sellerObjections.length > 0 ? sellerObjections.map((o, i) => `Q: ${o.objection}\nA: ${o.response}`).join('\n\n') : 'No objections generated.',
   };
 
-  // Initialize fields with approved values or AI defaults
   const [executiveSummary, setExecutiveSummary] = useState(approvedExecutiveSummary || aiDefaults.executiveSummary);
   const [priceNarrative, setPriceNarrative] = useState(approvedPriceNarrative || aiDefaults.priceNarrative);
   const [strategy, setStrategy] = useState(approvedStrategy || aiDefaults.strategy);
@@ -103,6 +150,10 @@ const CMAEditApprove = ({
   const [objectionsText, setObjectionsText] = useState(approvedObjections || aiDefaults.objectionsText);
 
   const handleSave = async (newStatus?: string) => {
+    if (newStatus === 'approved' && hasBlockingErrors) {
+      toast.error('Cannot approve — fix validation errors first.');
+      return;
+    }
     setSaving(true);
     try {
       const updateData: Record<string, unknown> = {
@@ -189,6 +240,44 @@ const CMAEditApprove = ({
         </CardContent>
       </Card>
 
+      {/* Validation Issues */}
+      {validationIssues.length > 0 && (
+        <Card className={`${hasBlockingErrors ? 'border-destructive/30' : 'border-amber-500/30'}`}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              {hasBlockingErrors ? (
+                <><XCircle className="h-4 w-4 text-destructive" /> Validation Issues</>
+              ) : (
+                <><AlertTriangle className="h-4 w-4 text-amber-500" /> Warnings</>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {validationIssues.map((issue, i) => (
+              <div key={i} className={`flex items-start gap-2 text-sm ${issue.type === 'error' ? 'text-destructive' : 'text-amber-600'}`}>
+                {issue.type === 'error' ? <XCircle className="h-4 w-4 shrink-0 mt-0.5" /> : <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />}
+                <span>{issue.message}</span>
+              </div>
+            ))}
+
+            {soldCompsCount < 3 && onCompsOverrideReasonChange && (
+              <div className="pt-2 border-t border-border">
+                <label className="text-xs text-muted-foreground block mb-1">
+                  Override: Explain why fewer than 3 sold comps is acceptable
+                </label>
+                <Textarea
+                  value={compsOverrideReason || ''}
+                  onChange={(e) => onCompsOverrideReasonChange(e.target.value)}
+                  rows={2}
+                  placeholder="e.g., Limited comparable sales in this micro-market; used active listings to supplement..."
+                  className="text-sm"
+                />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Editable Sections */}
       {sections.map((section) => (
         <Card key={section.label} className="border-gold/20">
@@ -224,7 +313,10 @@ const CMAEditApprove = ({
       ))}
 
       {/* Action Buttons */}
-      <div className="flex gap-3 justify-end flex-wrap">
+      <div className="flex gap-3 justify-end flex-wrap items-center">
+        {hasBlockingErrors && !isTerminal && (
+          <span className="text-xs text-destructive mr-auto">Fix errors above before approving</span>
+        )}
         {!isTerminal && (
           <>
             <Button
@@ -237,7 +329,7 @@ const CMAEditApprove = ({
             </Button>
             <Button
               onClick={() => handleSave('approved')}
-              disabled={saving}
+              disabled={saving || hasBlockingErrors}
               className="bg-gold hover:bg-gold/90 text-gold-foreground"
             >
               {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-1" />}
