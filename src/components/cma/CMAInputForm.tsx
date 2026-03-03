@@ -92,7 +92,7 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
     const decoder = new TextDecoder('utf-8', { fatal: false });
     const text = decoder.decode(bytes);
     const readable = text.match(/[A-Za-z0-9\s,.$/\-#@%&()]{10,}/g);
-    return readable ? readable.join(' ').substring(0, 15000) : 'PDF text could not be extracted client-side';
+    return readable ? readable.join(' ').substring(0, 50000) : 'PDF text could not be extracted client-side';
   };
 
   const handleSubmit = async (andAnalyze: boolean) => {
@@ -199,6 +199,7 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
               notes: marketNotes || null,
               pastedText: pastedStats || null,
             },
+            existingManualComps: [], // New reports have no manual comps
           },
         });
 

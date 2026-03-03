@@ -21,6 +21,10 @@ interface Comp {
   sale_date: string | null;
   is_weak: boolean;
   weak_reason: string | null;
+  comp_category?: 'sold' | 'active' | 'expired' | 'other';
+  source_page?: number;
+  confidence?: number;
+  _manual_edit?: boolean;
 }
 
 interface Objection {
@@ -372,36 +376,67 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
             <CardTitle className="text-base">Extracted Comparables ({report.extracted_comps.length})</CardTitle>
           </CardHeader>
           <CardContent className="overflow-x-auto">
+            {/* Category summary */}
+            {(() => {
+              const sold = report.extracted_comps.filter(c => c.comp_category === 'sold').length;
+              const active = report.extracted_comps.filter(c => c.comp_category === 'active').length;
+              const expired = report.extracted_comps.filter(c => c.comp_category === 'expired').length;
+              const lowConf = report.extracted_comps.filter(c => (c.confidence ?? 1) < 0.5).length;
+              const manual = report.extracted_comps.filter(c => c._manual_edit).length;
+              return (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {sold > 0 && <Badge variant="outline" className="text-[10px] border-emerald-500 text-emerald-500">Sold: {sold}</Badge>}
+                  {active > 0 && <Badge variant="outline" className="text-[10px] border-blue-500 text-blue-500">Active: {active}</Badge>}
+                  {expired > 0 && <Badge variant="outline" className="text-[10px] border-muted-foreground text-muted-foreground">Expired: {expired}</Badge>}
+                  {manual > 0 && <Badge variant="outline" className="text-[10px] border-gold text-gold">Manual: {manual}</Badge>}
+                  {lowConf > 0 && <Badge variant="outline" className="text-[10px] border-amber-500 text-amber-500">Low Confidence: {lowConf}</Badge>}
+                </div>
+              );
+            })()}
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border">
                   <th className="text-left py-2 px-2 text-xs text-muted-foreground font-medium">Address</th>
+                  <th className="text-center py-2 px-2 text-xs text-muted-foreground font-medium">Type</th>
                   <th className="text-center py-2 px-2 text-xs text-muted-foreground font-medium">Beds</th>
                   <th className="text-center py-2 px-2 text-xs text-muted-foreground font-medium">Baths</th>
                   <th className="text-right py-2 px-2 text-xs text-muted-foreground font-medium">List</th>
                   <th className="text-right py-2 px-2 text-xs text-muted-foreground font-medium">Sold</th>
                   <th className="text-center py-2 px-2 text-xs text-muted-foreground font-medium">DOM</th>
+                  <th className="text-center py-2 px-2 text-xs text-muted-foreground font-medium">Pg</th>
+                  <th className="text-center py-2 px-2 text-xs text-muted-foreground font-medium">Conf</th>
                   <th className="text-center py-2 px-2 text-xs text-muted-foreground font-medium">Flag</th>
                 </tr>
               </thead>
               <tbody>
-                {report.extracted_comps.map((comp, i) => (
-                  <tr key={i} className={`border-b border-border/50 ${comp.is_weak ? 'bg-amber-500/5' : ''}`}>
-                    <td className="py-2 px-2 font-medium">{comp.address}</td>
-                    <td className="py-2 px-2 text-center">{comp.beds ?? '—'}</td>
-                    <td className="py-2 px-2 text-center">{comp.baths ?? '—'}</td>
-                    <td className="py-2 px-2 text-right">{comp.list_price ? `$${comp.list_price.toLocaleString()}` : '—'}</td>
-                    <td className="py-2 px-2 text-right">{comp.sold_price ? `$${comp.sold_price.toLocaleString()}` : '—'}</td>
-                    <td className="py-2 px-2 text-center">{comp.days_on_market ?? '—'}</td>
-                    <td className="py-2 px-2 text-center">
-                      {comp.is_weak ? (
-                        <Badge variant="outline" className="text-[10px] border-amber-500 text-amber-500">Weak</Badge>
-                      ) : (
-                        <CheckCircle className="h-3.5 w-3.5 text-emerald-500 mx-auto" />
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {report.extracted_comps.map((comp, i) => {
+                  const catColor = comp.comp_category === 'sold' ? 'text-emerald-500' : comp.comp_category === 'active' ? 'text-blue-500' : 'text-muted-foreground';
+                  const confPct = Math.round((comp.confidence ?? 1) * 100);
+                  const confColor = confPct >= 70 ? 'text-emerald-500' : confPct >= 50 ? 'text-amber-500' : 'text-destructive';
+                  return (
+                    <tr key={i} className={`border-b border-border/50 ${comp.is_weak ? 'bg-amber-500/5' : ''} ${comp._manual_edit ? 'bg-gold/5' : ''}`}>
+                      <td className="py-2 px-2 font-medium">
+                        {comp.address}
+                        {comp._manual_edit && <span className="ml-1 text-[9px] text-gold">✏️</span>}
+                      </td>
+                      <td className={`py-2 px-2 text-center text-[10px] font-medium uppercase ${catColor}`}>{comp.comp_category || '—'}</td>
+                      <td className="py-2 px-2 text-center">{comp.beds ?? '—'}</td>
+                      <td className="py-2 px-2 text-center">{comp.baths ?? '—'}</td>
+                      <td className="py-2 px-2 text-right">{comp.list_price ? `$${comp.list_price.toLocaleString()}` : '—'}</td>
+                      <td className="py-2 px-2 text-right">{comp.sold_price ? `$${comp.sold_price.toLocaleString()}` : '—'}</td>
+                      <td className="py-2 px-2 text-center">{comp.days_on_market ?? '—'}</td>
+                      <td className="py-2 px-2 text-center text-muted-foreground text-[10px]">{comp.source_page ?? '—'}</td>
+                      <td className={`py-2 px-2 text-center text-[10px] font-medium ${confColor}`}>{confPct}%</td>
+                      <td className="py-2 px-2 text-center">
+                        {comp.is_weak ? (
+                          <Badge variant="outline" className="text-[10px] border-amber-500 text-amber-500">Weak</Badge>
+                        ) : (
+                          <CheckCircle className="h-3.5 w-3.5 text-emerald-500 mx-auto" />
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </CardContent>
