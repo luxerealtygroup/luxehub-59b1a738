@@ -3,13 +3,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, AlertTriangle, CheckCircle, TrendingUp, Shield, MessageSquare, Target, Camera, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, AlertTriangle, CheckCircle, TrendingUp, Shield, MessageSquare, Target, Camera, ChevronLeft, ChevronRight, Wrench } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import CMAFubPush from './CMAFubPush';
 import CMALifecycleStatus from './CMALifecycleStatus';
 import CMAFubAutomation from './CMAFubAutomation';
 import CMAEquityRecheck from './CMAEquityRecheck';
 import CMAMarketShiftAlert from './CMAMarketShiftAlert';
+import CMAEditApprove from './CMAEditApprove';
+import CMAImprovements, { type ImprovementItem } from './CMAImprovements';
 
 interface Comp {
   address: string;
@@ -46,6 +48,7 @@ interface CMAReportFull {
   purchase_price: number;
   purchase_date: string;
   improvements_invested: number;
+  improvements_list: ImprovementItem[];
   analysis_status: string;
   cma_grade: string | null;
   pricing_band_low: number | null;
@@ -69,7 +72,6 @@ interface CMAReportFull {
   sale_to_list_ratio: number | null;
   fub_person_id: number | null;
   fub_person_name: string | null;
-  // Lifecycle fields
   listing_status: string;
   final_list_price: number | null;
   final_sold_price: number | null;
@@ -83,6 +85,15 @@ interface CMAReportFull {
   market_shift_detected: boolean;
   subject_photos: string[];
   cover_photo_index: number;
+  // Approval fields
+  approval_status: string;
+  approved_executive_summary: string | null;
+  approved_price_narrative: string | null;
+  approved_strategy: string | null;
+  approved_market_conditions: string | null;
+  approved_talking_points: string | null;
+  approved_risk_flags: string | null;
+  approved_objections: string | null;
 }
 
 const CMAAuditView = ({ reportId }: { reportId: string }) => {
@@ -90,6 +101,7 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
   const [loading, setLoading] = useState(true);
   const [photoIndex, setPhotoIndex] = useState(0);
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
+  const [savingImprovements, setSavingImprovements] = useState(false);
 
   const fetchReport = async () => {
     const { data, error } = await supabase
@@ -113,10 +125,11 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
         lifecycle_history: Array.isArray(r.lifecycle_history) ? r.lifecycle_history : [],
         fub_automation_log: Array.isArray(r.fub_automation_log) ? r.fub_automation_log : [],
         subject_photos: Array.isArray(r.subject_photos) ? r.subject_photos : [],
+        improvements_list: Array.isArray(r.improvements_list) ? r.improvements_list : [],
         cover_photo_index: r.cover_photo_index ?? 0,
+        approval_status: r.approval_status || 'draft',
       });
 
-      // Load signed URLs for photos
       const photos = Array.isArray(r.subject_photos) ? r.subject_photos : [];
       if (photos.length > 0) {
         const urls: string[] = [];
@@ -136,6 +149,29 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
   useEffect(() => {
     fetchReport();
   }, [reportId]);
+
+  const handleImprovementsChange = async (items: ImprovementItem[]) => {
+    if (!report) return;
+    const newReport = { ...report, improvements_list: items };
+    const total = items.reduce((sum, item) => sum + (item.amount || 0), 0);
+    newReport.improvements_invested = total;
+    // Recalc equity
+    if (report.pricing_band_low) newReport.equity_gain_low = report.pricing_band_low - report.purchase_price - total;
+    if (report.pricing_band_high) newReport.equity_gain_high = report.pricing_band_high - report.purchase_price - total;
+    setReport(newReport);
+
+    setSavingImprovements(true);
+    try {
+      await supabase.from('cma_reports').update({
+        improvements_list: items as any,
+        improvements_invested: total,
+        equity_gain_low: newReport.equity_gain_low,
+        equity_gain_high: newReport.equity_gain_high,
+      } as any).eq('id', reportId);
+    } catch { /* silent */ } finally {
+      setSavingImprovements(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -198,6 +234,8 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
     F: 'text-destructive border-destructive',
   };
 
+  const isApproved = ['approved', 'exported', 'pushed'].includes(report.approval_status);
+
   return (
     <div className="space-y-6 max-w-5xl">
       {/* Market Shift Alert */}
@@ -255,7 +293,6 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
                 <Badge className="absolute top-2 left-2 text-[9px] bg-gold text-gold-foreground">Cover Photo</Badge>
               )}
             </div>
-            {/* Thumbnails */}
             {photoUrls.length > 1 && (
               <div className="flex gap-1.5 mt-2 overflow-x-auto">
                 {photoUrls.map((url, i) => (
@@ -285,24 +322,34 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
         onUpdate={fetchReport}
       />
 
-      {/* FUB Push + Automation */}
+      {/* FUB Push + Automation — gated behind approval */}
       {report.fub_person_id && (
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="flex items-start">
-            <CMAFubPush
-              reportId={report.id}
-              fubPersonId={report.fub_person_id}
-              fubPersonName={report.fub_person_name}
-              propertyAddress={report.property_address}
-              cmaGrade={report.cma_grade}
-              pricingBandLow={report.pricing_band_low}
-              pricingBandRecommended={report.pricing_band_recommended}
-              pricingBandHigh={report.pricing_band_high}
-              strategyRecommendation={report.strategy_recommendation}
-              equityGainLow={report.equity_gain_low}
-              equityGainHigh={report.equity_gain_high}
-              pricingConfidence={report.pricing_confidence}
-            />
+            {isApproved ? (
+              <CMAFubPush
+                reportId={report.id}
+                fubPersonId={report.fub_person_id}
+                fubPersonName={report.fub_person_name}
+                propertyAddress={report.property_address}
+                cmaGrade={report.cma_grade}
+                pricingBandLow={report.pricing_band_low}
+                pricingBandRecommended={report.pricing_band_recommended}
+                pricingBandHigh={report.pricing_band_high}
+                strategyRecommendation={report.strategy_recommendation}
+                equityGainLow={report.equity_gain_low}
+                equityGainHigh={report.equity_gain_high}
+                pricingConfidence={report.pricing_confidence}
+                approvedSummary={report.approved_executive_summary}
+                approvalStatus={report.approval_status}
+                onStatusUpdate={fetchReport}
+              />
+            ) : (
+              <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                <AlertTriangle className="h-4 w-4" />
+                <span>Approve report before pushing to FUB</span>
+              </div>
+            )}
           </div>
           <CMAFubAutomation
             reportId={report.id}
@@ -356,7 +403,7 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
         </Card>
       </div>
 
-      {/* Equity Gain + Recheck */}
+      {/* Equity Gain */}
       <Card className="border-gold/20">
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
@@ -389,6 +436,14 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
         </CardContent>
       </Card>
 
+      {/* Improvements List */}
+      {(report.improvements_list.length > 0 || report.analysis_status === 'completed') && (
+        <CMAImprovements
+          items={report.improvements_list}
+          onChange={handleImprovementsChange}
+        />
+      )}
+
       {/* Equity Recheck */}
       <CMAEquityRecheck
         reportId={report.id}
@@ -404,6 +459,31 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
         soldListings={report.sold_listings}
         avgDaysOnMarket={report.avg_days_on_market}
         saleToListRatio={report.sale_to_list_ratio}
+        onUpdate={fetchReport}
+      />
+
+      {/* Edit & Approve Wording */}
+      <CMAEditApprove
+        reportId={report.id}
+        marketNarrative={report.market_narrative}
+        talkingPoints={report.talking_points}
+        riskFlags={report.risk_flags}
+        sellerObjections={report.seller_objections}
+        strategyRecommendation={report.strategy_recommendation}
+        pricingBandLow={report.pricing_band_low}
+        pricingBandRecommended={report.pricing_band_recommended}
+        pricingBandHigh={report.pricing_band_high}
+        pricingConfidence={report.pricing_confidence}
+        propertyAddress={report.property_address}
+        cityArea={report.city_area}
+        approvedExecutiveSummary={report.approved_executive_summary}
+        approvedPriceNarrative={report.approved_price_narrative}
+        approvedStrategy={report.approved_strategy}
+        approvedMarketConditions={report.approved_market_conditions}
+        approvedTalkingPoints={report.approved_talking_points}
+        approvedRiskFlags={report.approved_risk_flags}
+        approvedObjections={report.approved_objections}
+        approvalStatus={report.approval_status}
         onUpdate={fetchReport}
       />
 
@@ -456,7 +536,6 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
             <CardTitle className="text-base">Extracted Comparables ({report.extracted_comps.length})</CardTitle>
           </CardHeader>
           <CardContent className="overflow-x-auto">
-            {/* Category summary */}
             {(() => {
               const sold = report.extracted_comps.filter(c => c.comp_category === 'sold').length;
               const active = report.extracted_comps.filter(c => c.comp_category === 'active').length;

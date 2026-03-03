@@ -40,6 +40,7 @@ interface CMAReportFull {
   purchase_price: number;
   purchase_date: string;
   improvements_invested: number;
+  improvements_list: Array<{ description: string; amount: number; date?: string }>;
   analysis_status: string;
   cma_grade: string | null;
   pricing_band_low: number | null;
@@ -67,6 +68,12 @@ interface CMAReportFull {
   fub_person_name: string | null;
   subject_photos: string[];
   cover_photo_index: number;
+  // Approved text fields
+  approval_status: string;
+  approved_executive_summary: string | null;
+  approved_price_narrative: string | null;
+  approved_strategy: string | null;
+  approved_market_conditions: string | null;
 }
 
 const CMAClientReport = ({ reportId }: { reportId: string }) => {
@@ -96,7 +103,9 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
           seller_objections: Array.isArray(r.seller_objections) ? r.seller_objections : [],
           extracted_comps: Array.isArray(r.extracted_comps) ? r.extracted_comps : [],
           subject_photos: Array.isArray(r.subject_photos) ? r.subject_photos : [],
+          improvements_list: Array.isArray(r.improvements_list) ? r.improvements_list : [],
           cover_photo_index: r.cover_photo_index ?? 0,
+          approval_status: r.approval_status || 'draft',
         };
         setReport(reportData);
 
@@ -119,8 +128,12 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
   }, [reportId]);
 
   const handlePrint = () => {
+    // Update status to exported
+    supabase.from('cma_reports').update({ approval_status: 'exported' } as any).eq('id', reportId);
     window.print();
   };
+
+  const isApproved = report ? ['approved', 'exported', 'pushed'].includes(report.approval_status) : false;
 
   if (loading) {
     return (
@@ -135,6 +148,13 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
   }
 
   const fmt = (n: number | null | undefined) => n != null ? `$${n.toLocaleString()}` : '—';
+
+  // Use approved text if available, fall back to AI-generated
+  const executiveSummary = report.approved_executive_summary ||
+    `Based on a comprehensive analysis of comparable properties and current market conditions in ${report.city_area}, we recommend a listing price of ${fmt(report.pricing_band_recommended)} for ${report.property_address}. The recommended price band ranges from ${fmt(report.pricing_band_low)} to ${fmt(report.pricing_band_high)}, with a ${report.pricing_confidence?.toLowerCase() || 'moderate'} confidence level. Our recommended strategy is ${report.strategy_recommendation || 'Market'}.`;
+  const marketConditionsText = report.approved_market_conditions || report.market_narrative;
+  const strategyText = report.approved_strategy || `Strategy: ${report.strategy_recommendation}\n\n${report.talking_points.map((tp, i) => `${i + 1}. ${tp}`).join('\n')}`;
+  const priceNarrativeText = report.approved_price_narrative;
 
   // Market Stats Chart Data
   const marketComparisonData = [
@@ -183,8 +203,11 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
   return (
     <div>
       {/* Print Button & FUB Push - hidden in print */}
-      <div className="print:hidden mb-6 flex justify-end gap-3">
-        {report.fub_person_id && (
+      <div className="print:hidden mb-6 flex justify-end gap-3 items-center">
+        {!isApproved && (
+          <span className="text-xs text-amber-500 mr-2">⚠ Report not yet approved</span>
+        )}
+        {report.fub_person_id && isApproved && (
           <CMAFubPush
             reportId={report.id}
             fubPersonId={report.fub_person_id}
@@ -198,9 +221,11 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
             equityGainLow={report.equity_gain_low}
             equityGainHigh={report.equity_gain_high}
             pricingConfidence={report.pricing_confidence}
+            approvedSummary={report.approved_executive_summary}
+            approvalStatus={report.approval_status}
           />
         )}
-        <Button onClick={handlePrint} className="bg-gold hover:bg-gold/90 text-gold-foreground">
+        <Button onClick={handlePrint} disabled={!isApproved} className="bg-gold hover:bg-gold/90 text-gold-foreground">
           <Printer className="h-4 w-4 mr-2" /> Print / Save PDF
         </Button>
       </div>
@@ -232,16 +257,23 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
           <SectionTitle icon={FileText} title="Executive Summary" />
           <Card className="border-gold/20">
             <CardContent className="pt-6">
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Based on a comprehensive analysis of comparable properties and current market conditions in {report.city_area}, 
-                we recommend a listing price of <span className="font-bold text-gold">{fmt(report.pricing_band_recommended)}</span> for {report.property_address}. 
-                The recommended price band ranges from {fmt(report.pricing_band_low)} to {fmt(report.pricing_band_high)}, 
-                with a <span className="font-medium">{report.pricing_confidence?.toLowerCase()}</span> confidence level. 
-                Our recommended strategy is <span className="font-medium text-gold">{report.strategy_recommendation}</span>.
+              <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                {executiveSummary}
               </p>
             </CardContent>
           </Card>
         </section>
+
+        {/* Price Narrative (if approved) */}
+        {priceNarrativeText && (
+          <section className="print:break-inside-avoid">
+            <Card className="border-gold/20">
+              <CardContent className="pt-6">
+                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{priceNarrativeText}</p>
+              </CardContent>
+            </Card>
+          </section>
+        )}
 
         {/* Recommended Price Range */}
         <section className="print:break-inside-avoid">
@@ -271,10 +303,10 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
         {/* Market Conditions Overview */}
         <section className="print:break-inside-avoid">
           <SectionTitle icon={BarChart3} title="Market Conditions Overview" />
-          {report.market_narrative && (
+          {marketConditionsText && (
             <Card className="border-gold/20 mb-4">
               <CardContent className="pt-6">
-                <p className="text-sm text-muted-foreground leading-relaxed">{report.market_narrative}</p>
+                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{marketConditionsText}</p>
               </CardContent>
             </Card>
           )}
@@ -367,23 +399,35 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
           <SectionTitle icon={Target} title="Strategy Recommendation" />
           <Card className="border-gold/20">
             <CardContent className="pt-6">
-              <div className="flex items-center gap-3 mb-3">
-                <span className="text-lg font-bold text-gold">{report.strategy_recommendation}</span>
-                <span className="text-xs text-muted-foreground">Pricing Strategy</span>
-              </div>
-              {report.talking_points.length > 0 && (
-                <ul className="space-y-2">
-                  {report.talking_points.slice(0, 4).map((tp, i) => (
-                    <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
-                      <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-gold shrink-0" />
-                      {tp}
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                {strategyText}
+              </p>
             </CardContent>
           </Card>
         </section>
+
+        {/* Improvements Summary */}
+        {report.improvements_list.length > 0 && (
+          <section className="print:break-inside-avoid">
+            <SectionTitle icon={Home} title="Property Improvements" />
+            <Card className="border-gold/20">
+              <CardContent className="pt-6">
+                <div className="space-y-2">
+                  {report.improvements_list.map((item, i) => (
+                    <div key={i} className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">{item.description}</span>
+                      <span className="font-medium">${item.amount.toLocaleString()}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between text-sm font-bold border-t border-border pt-2 mt-2">
+                    <span>Total Invested</span>
+                    <span className="text-gold">${report.improvements_invested.toLocaleString()}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </section>
+        )}
 
         {/* Your Equity Journey */}
         <section className="print:break-inside-avoid">

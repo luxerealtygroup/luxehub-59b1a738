@@ -14,6 +14,7 @@ import { FUBContactTypeahead } from '@/components/FUBContactTypeahead';
 import { useHasFUB } from '@/hooks/useHasFUB';
 import CMACompReview, { type ReviewComp } from './CMACompReview';
 import CMAPhotoUpload from './CMAPhotoUpload';
+import CMAImprovements, { type ImprovementItem } from './CMAImprovements';
 
 interface CMAInputFormProps {
   onCreated: (reportId: string) => void;
@@ -54,6 +55,7 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
   const [purchasePrice, setPurchasePrice] = useState('');
   const [purchaseDate, setPurchaseDate] = useState('');
   const [improvements, setImprovements] = useState('');
+  const [improvementsList, setImprovementsList] = useState<ImprovementItem[]>([]);
 
   // CloudCMA PDF
   const [cmaPdf, setCmaPdf] = useState<File | null>(null);
@@ -118,6 +120,11 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
     return readable ? readable.join(' ').substring(0, 50000) : 'PDF text could not be extracted client-side';
   };
 
+  const getImprovementsTotal = () => {
+    const listTotal = improvementsList.reduce((sum, item) => sum + (item.amount || 0), 0);
+    return listTotal > 0 ? listTotal : (improvements ? parseFloat(improvements) : 0);
+  };
+
   const buildRequestBody = (pdfText: string, manualComps: ReviewComp[]) => ({
     pdfText,
     subjectProperty: {
@@ -132,7 +139,7 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
     purchaseHistory: {
       purchasePrice: parseFloat(purchasePrice),
       purchaseDate,
-      improvements: improvements ? parseFloat(improvements) : 0,
+      improvements: getImprovementsTotal(),
     },
     marketStats: {
       method: statsMethod,
@@ -298,8 +305,8 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
         intended_list_date: intendedListDate || null,
         purchase_price: parseFloat(purchasePrice),
         purchase_date: purchaseDate,
-        improvements_invested: improvements ? parseFloat(improvements) : 0,
-        cma_pdf_path: cmaPdfPath,
+        improvements_invested: getImprovementsTotal(),
+        improvements_list: improvementsList,
         cma_pdf_name: cmaPdfName,
         fub_person_id: selectedContact?.id || null,
         fub_person_name: selectedContact?.name || null,
@@ -342,7 +349,7 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
       if (fnData?.success && fnData.analysis) {
         const a = fnData.analysis;
         const pp = parseFloat(purchasePrice);
-        const imp = improvements ? parseFloat(improvements) : 0;
+        const imp = getImprovementsTotal();
         const eqLow = a.pricing_band_low ? a.pricing_band_low - pp - imp : null;
         const eqHigh = a.pricing_band_high ? a.pricing_band_high - pp - imp : null;
 
@@ -425,7 +432,8 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
         intended_list_date: intendedListDate || null,
         purchase_price: parseFloat(purchasePrice),
         purchase_date: purchaseDate,
-        improvements_invested: improvements ? parseFloat(improvements) : 0,
+        improvements_invested: getImprovementsTotal(),
+        improvements_list: improvementsList,
         cma_pdf_path: cmaPdfPath,
         cma_pdf_name: cmaPdfName,
         fub_person_id: selectedContact?.id || null,
@@ -560,7 +568,7 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
             <DollarSign className="h-4 w-4 text-gold" /> Client Purchase History
           </CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-3">
+        <CardContent className="grid gap-4 sm:grid-cols-2">
           <div>
             <Label>Purchase Price *</Label>
             <Input type="number" value={purchasePrice} onChange={e => setPurchasePrice(e.target.value)} placeholder="500000" />
@@ -569,12 +577,11 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
             <Label>Purchase Date *</Label>
             <Input type="date" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} />
           </div>
-          <div>
-            <Label>Improvements Invested</Label>
-            <Input type="number" value={improvements} onChange={e => setImprovements(e.target.value)} placeholder="0" />
-          </div>
         </CardContent>
       </Card>
+
+      {/* Improvements & Upgrades */}
+      <CMAImprovements items={improvementsList} onChange={setImprovementsList} />
 
       {/* CloudCMA Upload (Optional) */}
       <Card className="border-gold/20">
