@@ -505,16 +505,29 @@ export type Database = {
           created_at: string
           equity_gain_high: number | null
           equity_gain_low: number | null
+          equity_recalc_count: number
           extracted_comps: Json | null
+          final_list_price: number | null
+          final_sold_price: number | null
+          fub_automation_log: Json
           fub_person_id: number | null
           fub_person_name: string | null
           id: string
           improvements_invested: number | null
           intended_list_date: string | null
+          last_equity_update: string | null
+          lifecycle_history: Json
+          listing_active_at: string | null
+          listing_signed_at: string | null
+          listing_sold_at: string | null
+          listing_status: string
           market_narrative: string | null
           market_notes: string | null
+          market_shift_detected: boolean
           median_sale_price: number | null
           months_of_inventory: number | null
+          prev_avg_days_on_market: number | null
+          prev_median_sale_price: number | null
           pricing_band_high: number | null
           pricing_band_low: number | null
           pricing_band_recommended: number | null
@@ -554,16 +567,29 @@ export type Database = {
           created_at?: string
           equity_gain_high?: number | null
           equity_gain_low?: number | null
+          equity_recalc_count?: number
           extracted_comps?: Json | null
+          final_list_price?: number | null
+          final_sold_price?: number | null
+          fub_automation_log?: Json
           fub_person_id?: number | null
           fub_person_name?: string | null
           id?: string
           improvements_invested?: number | null
           intended_list_date?: string | null
+          last_equity_update?: string | null
+          lifecycle_history?: Json
+          listing_active_at?: string | null
+          listing_signed_at?: string | null
+          listing_sold_at?: string | null
+          listing_status?: string
           market_narrative?: string | null
           market_notes?: string | null
+          market_shift_detected?: boolean
           median_sale_price?: number | null
           months_of_inventory?: number | null
+          prev_avg_days_on_market?: number | null
+          prev_median_sale_price?: number | null
           pricing_band_high?: number | null
           pricing_band_low?: number | null
           pricing_band_recommended?: number | null
@@ -603,16 +629,29 @@ export type Database = {
           created_at?: string
           equity_gain_high?: number | null
           equity_gain_low?: number | null
+          equity_recalc_count?: number
           extracted_comps?: Json | null
+          final_list_price?: number | null
+          final_sold_price?: number | null
+          fub_automation_log?: Json
           fub_person_id?: number | null
           fub_person_name?: string | null
           id?: string
           improvements_invested?: number | null
           intended_list_date?: string | null
+          last_equity_update?: string | null
+          lifecycle_history?: Json
+          listing_active_at?: string | null
+          listing_signed_at?: string | null
+          listing_sold_at?: string | null
+          listing_status?: string
           market_narrative?: string | null
           market_notes?: string | null
+          market_shift_detected?: boolean
           median_sale_price?: number | null
           months_of_inventory?: number | null
+          prev_avg_days_on_market?: number | null
+          prev_median_sale_price?: number | null
           pricing_band_high?: number | null
           pricing_band_low?: number | null
           pricing_band_recommended?: number | null
