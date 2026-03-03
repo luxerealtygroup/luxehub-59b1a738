@@ -5,6 +5,7 @@ import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
 // ── Single source of truth for stage classification ──────────────────────
 export const CLOSED_STAGES = ['closed', 'won', 'sold', 'settled', 'completed'];
 export const PENDING_STAGES = ['pending', 'under contract', 'conditional', 'offer'];
+export const ACTIVE_LISTING_STAGES = ['active', 'listed', 'live', 'on market', 'coming soon', 'pre-market'];
 
 export const classifyStage = (stageName: string): 'closed' | 'pending' | 'other' => {
   const s = (stageName || '').toLowerCase();

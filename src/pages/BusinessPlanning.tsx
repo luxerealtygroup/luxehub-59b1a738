@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useHasFUB } from '@/hooks/useHasFUB';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useViewAsAgent } from '@/hooks/useViewAsAgent';
-import { useFubDealMetrics } from '@/hooks/useFubDealMetrics';
+import { useFubDealMetrics, ACTIVE_LISTING_STAGES, classifyStage } from '@/hooks/useFubDealMetrics';
 import { DebugMetricsPanel } from '@/components/DebugMetricsPanel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -162,7 +162,7 @@ const BusinessPlanning = () => {
   const { dateStart, dateEnd } = getDateBounds();
 
   // ─── Single source of truth: useFubDealMetrics (matches Goals & Reports) ───
-  const { metrics: dealMetrics, debugInfo, loading: metricsLoading } = useFubDealMetrics({
+  const { metrics: dealMetrics, debugInfo, loading: metricsLoading, allDeals } = useFubDealMetrics({
     userId: uid,
     fubUserId: effectiveFubUserId,
     year: currentYear,
@@ -172,13 +172,36 @@ const BusinessPlanning = () => {
     dateEnd,
   });
 
+  // ─── Derive active listings from FUB deals (agent-scoped) ───
+  const isActiveListing = (stageName: string) => {
+    const s = (stageName || '').toLowerCase();
+    return ACTIVE_LISTING_STAGES.some(als => s.includes(als));
+  };
+
+  const fubActiveListings = allDeals.filter(d => isActiveListing(d.stageName));
+  const fubActiveListingCount = fubActiveListings.length;
+
+  // Debug info for active listings (admin only)
+  const activeListingDebug = {
+    effectiveFubUserId,
+    stagesIncluded: ACTIVE_LISTING_STAGES,
+    rawDealCount: allDeals.length,
+    activeListingCount: fubActiveListingCount,
+    top5: fubActiveListings.slice(0, 5).map(d => ({
+      id: d.id,
+      stage: d.stageName,
+      pipeline: d.pipelineName,
+      users: d.users?.map(u => `${u.name} (${u.id})`).join(', ') || 'none',
+    })),
+  };
+
   // ─── Supplemental metrics (411 activity, CMA, pipeline, goals) ───
   const [suppMetrics, setSuppMetrics] = useState<{
     cmaToListingPct: number; totalCMAs: number; totalListings: number;
     contactToApptPct: number; apptToContractPct: number; dialsToApptPct: number;
     weeklyAvgDials: number; weeklyAvgContacts: number; weeklyAvgAppts: number; weeklyAvgCMAs: number;
     totalAppts: number; totalContracts: number; totalContacts: number; totalDials: number; weeksOfData: number;
-    activeListings: number; targetGCI: number;
+    targetGCI: number;
   } | null>(null);
   const [suppLoading, setSuppLoading] = useState(true);
 
@@ -205,20 +228,17 @@ const BusinessPlanning = () => {
     const yearStart = `${currentYear}-01-01`;
     setSuppLoading(true);
 
-    const [cmaRes, w411Res, pipelineRes, goalsRes] = await Promise.all([
+    const [cmaRes, w411Res, goalsRes] = await Promise.all([
       supabase.from('cma_reports').select('listing_status').eq('user_id', uid),
       supabase.from('weekly_411').select('dials, contacts_made, appointments_held, contracts_signed, week_start_date').eq('user_id', uid).gte('week_start_date', yearStart),
-      supabase.from('pipeline_clients').select('stage').eq('user_id', uid),
       supabase.from('production_goals').select('annual_gci_goal').eq('user_id', uid).eq('year', currentYear).maybeSingle(),
     ]);
 
     const cmas = cmaRes.data || [];
     const w411 = w411Res.data || [];
-    const pipeline = pipelineRes.data || [];
 
     const totalCMAs = cmas.length;
     const convertedCMAs = cmas.filter(c => ['Listing Signed', 'Active', 'Sold'].includes(c.listing_status)).length;
-    const activeListings = pipeline.filter(p => p.stage >= 8).length; // stages 8-10 = likely closings
 
     const totalDials = w411.reduce((s, w) => s + safe(w.dials), 0);
     const totalContacts = w411.reduce((s, w) => s + safe(w.contacts_made), 0);
@@ -238,7 +258,7 @@ const BusinessPlanning = () => {
       weeklyAvgAppts: Math.round(totalAppts / weeksOfData),
       weeklyAvgCMAs: Math.round(totalCMAs / weeksOfData),
       totalAppts, totalContracts, totalContacts, totalDials, weeksOfData,
-      activeListings, targetGCI,
+      targetGCI,
     });
     setSuppLoading(false);
   }, [uid]);
@@ -256,7 +276,7 @@ const BusinessPlanning = () => {
       ytdClosedDeals: dealMetrics.deals_closed,
       ytdGCI,
       pendingGCI: Math.round(dealMetrics.gci_pending),
-      activeListings: suppMetrics.activeListings,
+      activeListings: fubActiveListingCount,
       cmaToListingPct: suppMetrics.cmaToListingPct,
       apptToContractPct: suppMetrics.apptToContractPct,
       contactToApptPct: suppMetrics.contactToApptPct,
@@ -278,7 +298,7 @@ const BusinessPlanning = () => {
       totalDials: suppMetrics.totalDials,
       weeksOfData: suppMetrics.weeksOfData,
     });
-  }, [dealMetrics, suppMetrics]);
+  }, [dealMetrics, suppMetrics, fubActiveListingCount]);
 
   const loading = metricsLoading || suppLoading;
 
@@ -636,6 +656,25 @@ const BusinessPlanning = () => {
                 <StatCard label="Pending GCI" value={formatCurrency(metrics.pendingGCI)} />
                 <StatCard label="Active Listings" value={formatNumber(metrics.activeListings)} />
               </div>
+
+              {/* Active Listings Debug (admin only) */}
+              {isAdmin && (
+                <div className="rounded border border-destructive/20 bg-destructive/5 p-3 text-xs font-mono space-y-1">
+                  <p className="font-semibold text-destructive">Active Listings Debug</p>
+                  <p>effectiveFubUserId: <span className="font-bold">{activeListingDebug.effectiveFubUserId ?? 'null'}</span></p>
+                  <p>Stages included: {activeListingDebug.stagesIncluded.join(', ')}</p>
+                  <p>Raw deals for agent: <span className="font-bold">{activeListingDebug.rawDealCount}</span></p>
+                  <p>Active listings after filter: <span className="font-bold">{activeListingDebug.activeListingCount}</span></p>
+                  {activeListingDebug.top5.length > 0 && (
+                    <div className="mt-1">
+                      <p className="font-semibold">Top 5 active listing deals:</p>
+                      {activeListingDebug.top5.map((d, i) => (
+                        <p key={i} className="pl-2">#{d.id} — stage: "{d.stage}" pipeline: "{d.pipeline}" users: {d.users}</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               {/* Conversion Rates */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <StatCard label="CMA → Listing" value={`${metrics.cmaToListingPct}%`} />
