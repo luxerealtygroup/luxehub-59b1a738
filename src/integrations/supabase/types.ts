@@ -494,6 +494,14 @@ export type Database = {
           adjustment_observations: Json | null
           ai_raw_response: Json | null
           analysis_status: string | null
+          approval_status: string
+          approved_executive_summary: string | null
+          approved_market_conditions: string | null
+          approved_objections: string | null
+          approved_price_narrative: string | null
+          approved_risk_flags: string | null
+          approved_strategy: string | null
+          approved_talking_points: string | null
           approx_sqft: number | null
           avg_days_on_market: number | null
           bathrooms: number | null
@@ -515,6 +523,7 @@ export type Database = {
           fub_person_name: string | null
           id: string
           improvements_invested: number | null
+          improvements_list: Json
           intended_list_date: string | null
           last_equity_update: string | null
           lifecycle_history: Json
@@ -559,6 +568,14 @@ export type Database = {
           adjustment_observations?: Json | null
           ai_raw_response?: Json | null
           analysis_status?: string | null
+          approval_status?: string
+          approved_executive_summary?: string | null
+          approved_market_conditions?: string | null
+          approved_objections?: string | null
+          approved_price_narrative?: string | null
+          approved_risk_flags?: string | null
+          approved_strategy?: string | null
+          approved_talking_points?: string | null
           approx_sqft?: number | null
           avg_days_on_market?: number | null
           bathrooms?: number | null
@@ -580,6 +597,7 @@ export type Database = {
           fub_person_name?: string | null
           id?: string
           improvements_invested?: number | null
+          improvements_list?: Json
           intended_list_date?: string | null
           last_equity_update?: string | null
           lifecycle_history?: Json
@@ -624,6 +642,14 @@ export type Database = {
           adjustment_observations?: Json | null
           ai_raw_response?: Json | null
           analysis_status?: string | null
+          approval_status?: string
+          approved_executive_summary?: string | null
+          approved_market_conditions?: string | null
+          approved_objections?: string | null
+          approved_price_narrative?: string | null
+          approved_risk_flags?: string | null
+          approved_strategy?: string | null
+          approved_talking_points?: string | null
           approx_sqft?: number | null
           avg_days_on_market?: number | null
           bathrooms?: number | null
@@ -645,6 +671,7 @@ export type Database = {
           fub_person_name?: string | null
           id?: string
           improvements_invested?: number | null
+          improvements_list?: Json
           intended_list_date?: string | null
           last_equity_update?: string | null
           lifecycle_history?: Json
