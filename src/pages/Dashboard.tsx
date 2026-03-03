@@ -3,7 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useHasFUB } from '@/hooks/useHasFUB';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Building2, Phone, DollarSign, Target, Users, Search, Loader2, TrendingUp, Flame, Award, ArrowUp, CheckCircle, Clock, FileText, Briefcase, Calendar } from 'lucide-react';
+import { Building2, Phone, DollarSign, Target, Users, Search, Loader2, TrendingUp, Flame, Award, ArrowUp, CheckCircle, Clock, FileText, Briefcase, Calendar, Info } from 'lucide-react';
+import { useUserRole } from '@/hooks/useUserRole';
 import { FUBClientSearch } from '@/components/FUBClientSearch';
 import { followUpBossApi, FUBPerson } from '@/lib/api/followUpBoss';
 import { ManualModeBadge } from '@/components/ManualModeBadge';
@@ -104,6 +105,8 @@ const Dashboard = () => {
   const { user } = useAuth();
   const { hasFUB } = useHasFUB();
   const { toast } = useToast();
+  const { isPlanningAccess, isAgent } = useUserRole();
+  const isPlanningOnly = isPlanningAccess && !isAgent;
   const [stats, setStats] = useState<Stats>({
     totalDeals: 0,
     activeDeals: 0,
@@ -374,6 +377,15 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
+      {isPlanningOnly && (
+        <div className="flex items-center gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3">
+          <Info className="h-5 w-5 text-amber-500 shrink-0" />
+          <p className="text-sm text-foreground">
+            You're currently in <span className="font-semibold">Preview Mode</span>. Full LuxeHub access unlocks upon joining Luxe.
+          </p>
+        </div>
+      )}
+
       {/* Quick Actions - TOP */}
       <Card className="border-gold/20 bg-gradient-to-br from-card to-gold/5">
         <CardHeader className="pb-2">
