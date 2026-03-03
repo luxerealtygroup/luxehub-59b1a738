@@ -917,6 +917,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          access_expires_at: string | null
           avatar_url: string | null
           created_at: string
           fub_user_id: number | null
@@ -925,6 +926,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          access_expires_at?: string | null
           avatar_url?: string | null
           created_at?: string
           fub_user_id?: number | null
@@ -933,6 +935,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          access_expires_at?: string | null
           avatar_url?: string | null
           created_at?: string
           fub_user_id?: number | null
@@ -1451,7 +1454,7 @@ export type Database = {
         | "email"
         | "meeting"
         | "other"
-      app_role: "owner" | "admin" | "agent"
+      app_role: "owner" | "admin" | "agent" | "planning_access"
       deal_stage:
         | "lead"
         | "contacted"
@@ -1596,7 +1599,7 @@ export const Constants = {
         "meeting",
         "other",
       ],
-      app_role: ["owner", "admin", "agent"],
+      app_role: ["owner", "admin", "agent", "planning_access"],
       deal_stage: [
         "lead",
         "contacted",
