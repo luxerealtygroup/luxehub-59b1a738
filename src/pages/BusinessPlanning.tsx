@@ -270,29 +270,35 @@ const BusinessPlanning = () => {
       });
       setGoalsId(data.id);
     } else {
-      // For active mode, pre-fill from real conversion rates
-      if (mode === 'active' && metrics) {
-        setGoals(g => ({
-          ...g,
-          contact_to_appt_rate: metrics.contactToApptPct || 20,
-          appt_to_contract_rate: metrics.apptToContractPct || 25,
-          cma_to_listing_rate: metrics.cmaToListingPct || 30,
-          dials_to_appt_rate: metrics.dialsToApptPct || 10,
-          avg_commission: metrics.avgCommission || 15000,
-        }));
-      }
+      setGoals(defaultGoals);
       setGoalsId(null);
     }
-  }, [uid, quarter, mode, metrics]);
+  }, [uid, quarter]);
+
+  // Pre-fill goals from active metrics when no saved goals exist
+  useEffect(() => {
+    if (mode === 'active' && metrics && !goalsId) {
+      setGoals(g => ({
+        ...g,
+        contact_to_appt_rate: metrics.contactToApptPct || g.contact_to_appt_rate,
+        appt_to_contract_rate: metrics.apptToContractPct || g.appt_to_contract_rate,
+        cma_to_listing_rate: metrics.cmaToListingPct || g.cma_to_listing_rate,
+        dials_to_appt_rate: metrics.dialsToApptPct || g.dials_to_appt_rate,
+        avg_commission: metrics.avgCommission || g.avg_commission,
+      }));
+    }
+  }, [mode, metrics, goalsId]);
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
     const load = async () => {
       if (mode === 'active') await fetchActiveMetrics();
       await Promise.all([fetchReflection(), fetchGoals()]);
-      setLoading(false);
+      if (!cancelled) setLoading(false);
     };
     load();
+    return () => { cancelled = true; };
   }, [mode, uid, quarter, fetchActiveMetrics, fetchReflection, fetchGoals]);
 
   // Update mode when hasFUB changes
