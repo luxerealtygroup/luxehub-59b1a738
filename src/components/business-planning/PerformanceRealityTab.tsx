@@ -148,7 +148,9 @@ export function PerformanceRealityTab({
 }: Props) {
   const netPerDeal = goals.avg_commission * (goals.split_percent / 100);
   const requiredClosings = netPerDeal > 0 ? Math.ceil(goals.gci_target / netPerDeal) : 0;
-  const pipelineGap = metrics ? requiredClosings - (metrics.pendingDeals + Math.round(metrics.activeListings * 0.5)) : 0;
+  const pendingInQ = metrics ? metrics.pendingDeals : 0;
+  const activeLikelyClosings = metrics ? Math.round(metrics.activeListings * 0.5) : 0;
+  const pipelineGap = requiredClosings - pendingInQ - activeLikelyClosings;
   const gapCMAs = pipelineGap > 0 && effectiveRates.cmaToListing > 0 ? Math.ceil(pipelineGap / (effectiveRates.cmaToListing / 100)) : 0;
   const gapAppts = pipelineGap > 0 && effectiveRates.apptToContract > 0 ? Math.ceil(pipelineGap / (effectiveRates.apptToContract / 100)) : 0;
 
@@ -230,21 +232,39 @@ export function PerformanceRealityTab({
               <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
                 <Crosshair className="h-4 w-4" /> Pipeline Gap Analysis
               </h3>
-              <div className="flex items-center gap-3 mb-4">
+              {/* Subtraction formula */}
+              <div className="rounded-lg border border-border bg-card p-4 space-y-2 font-mono text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Required Q Closings</span>
+                  <span className="font-bold text-foreground">{formatNumber(requiredClosings)}</span>
+                </div>
+                <div className="flex items-center justify-between text-destructive">
+                  <span>− Pending Deals (closing in Q)</span>
+                  <span className="font-bold">{formatNumber(pendingInQ)}</span>
+                </div>
+                <div className="flex items-center justify-between text-destructive">
+                  <span>− Active Likely Closings (50% weight)</span>
+                  <span className="font-bold">{formatNumber(activeLikelyClosings)}</span>
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <span className={`font-bold ${pipelineGap > 0 ? 'text-destructive' : 'text-green-600'}`}>= Gap</span>
+                  <span className={`text-lg font-bold ${pipelineGap > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                    {pipelineGap > 0 ? `${pipelineGap} deals` : pipelineGap === 0 ? 'On Track' : `Ahead by ${Math.abs(pipelineGap)}`}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 mt-3">
                 <GapBadge gap={pipelineGap} />
               </div>
+
               {pipelineGap > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <StatCard label="Pipeline Gap" value={`${pipelineGap} deals`} danger />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                   <StatCard label="Additional CMAs Needed" value={formatNumber(gapCMAs)} danger />
                   <StatCard label="Additional Appts Needed" value={formatNumber(gapAppts)} danger />
                 </div>
               )}
-              <div className="grid grid-cols-3 gap-3 mt-3">
-                <StatCard label="Required Q Closings" value={formatNumber(requiredClosings)} />
-                <StatCard label="Pending Deals" value={formatNumber(metrics.pendingDeals)} />
-                <StatCard label="Active Likely Closings" value={formatNumber(Math.round(metrics.activeListings * 0.5))} />
-              </div>
             </div>
           </CardContent>
         </Card>
