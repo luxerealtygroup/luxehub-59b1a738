@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { UserPlus, Loader2, Copy, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -19,6 +20,7 @@ export function CreateAgentDialog({ onAgentCreated }: CreateAgentDialogProps) {
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [fubUserId, setFubUserId] = useState('');
+  const [role, setRole] = useState<'admin' | 'agent' | 'planning_access'>('agent');
   const [result, setResult] = useState<{ email: string; temp_password: string; full_name: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -33,6 +35,7 @@ export function CreateAgentDialog({ onAgentCreated }: CreateAgentDialogProps) {
           last_name: lastName,
           email,
           fub_user_id: fubUserId || null,
+          role,
         },
       });
 
@@ -69,6 +72,7 @@ export function CreateAgentDialog({ onAgentCreated }: CreateAgentDialogProps) {
     setLastName('');
     setEmail('');
     setFubUserId('');
+    setRole('agent');
     setResult(null);
     setCopied(false);
   };
@@ -123,6 +127,19 @@ export function CreateAgentDialog({ onAgentCreated }: CreateAgentDialogProps) {
             <div>
               <Label htmlFor="agentEmail">Email *</Label>
               <Input id="agentEmail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="john@example.com" />
+            </div>
+            <div>
+              <Label htmlFor="role">Role *</Label>
+              <Select value={role} onValueChange={(v) => setRole(v as 'admin' | 'agent' | 'planning_access')}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="agent">Agent</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="planning_access">Planning Access</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label htmlFor="fubUserId">Follow Up Boss User ID <span className="text-muted-foreground text-xs">(optional)</span></Label>
