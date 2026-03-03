@@ -140,8 +140,26 @@ const BusinessPlanning = () => {
   const [mode, setMode] = useState<'active' | 'planning'>(hasFUB ? 'active' : 'planning');
   const [saving, setSaving] = useState(false);
   const [quarter, setQuarter] = useState(2);
+  const [dateRange, setDateRange] = useState<'ytd' | 'q1' | 'q2' | 'q3' | 'q4' | 'custom'>('ytd');
+  const [customStart, setCustomStart] = useState(`${currentYear}-01-01`);
+  const [customEnd, setCustomEnd] = useState(`${currentYear}-12-31`);
 
   const uid = effectiveUserId || user?.id;
+
+  // ─── Compute date range bounds ───
+  const getDateBounds = (): { dateStart: string; dateEnd: string } => {
+    switch (dateRange) {
+      case 'q1': return { dateStart: `${currentYear}-01-01`, dateEnd: `${currentYear}-03-31` };
+      case 'q2': return { dateStart: `${currentYear}-04-01`, dateEnd: `${currentYear}-06-30` };
+      case 'q3': return { dateStart: `${currentYear}-07-01`, dateEnd: `${currentYear}-09-30` };
+      case 'q4': return { dateStart: `${currentYear}-10-01`, dateEnd: `${currentYear}-12-31` };
+      case 'custom': return { dateStart: customStart, dateEnd: customEnd };
+      case 'ytd':
+      default: return { dateStart: `${currentYear}-01-01`, dateEnd: `${currentYear}-12-31` };
+    }
+  };
+
+  const { dateStart, dateEnd } = getDateBounds();
 
   // ─── Single source of truth: useFubDealMetrics (matches Goals & Reports) ───
   const { metrics: dealMetrics, debugInfo, loading: metricsLoading } = useFubDealMetrics({
@@ -150,6 +168,8 @@ const BusinessPlanning = () => {
     year: currentYear,
     hasFUB,
     agentName: viewingAgentName,
+    dateStart,
+    dateEnd,
   });
 
   // ─── Supplemental metrics (411 activity, CMA, pipeline, goals) ───
@@ -549,13 +569,33 @@ const BusinessPlanning = () => {
           )}
         </div>
         <div className="flex items-center gap-4 flex-wrap">
-          <Select value={String(quarter)} onValueChange={v => setQuarter(Number(v))}>
-            <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
+          <Select value={dateRange} onValueChange={v => setDateRange(v as any)}>
+            <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="1">Q1</SelectItem>
-              <SelectItem value="2">Q2</SelectItem>
-              <SelectItem value="3">Q3</SelectItem>
-              <SelectItem value="4">Q4</SelectItem>
+              <SelectItem value="ytd">YTD</SelectItem>
+              <SelectItem value="q1">Q1</SelectItem>
+              <SelectItem value="q2">Q2</SelectItem>
+              <SelectItem value="q3">Q3</SelectItem>
+              <SelectItem value="q4">Q4</SelectItem>
+              <SelectItem value="custom">Custom</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {dateRange === 'custom' && (
+            <div className="flex items-center gap-2">
+              <Input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="w-36 text-xs" />
+              <span className="text-muted-foreground text-xs">to</span>
+              <Input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="w-36 text-xs" />
+            </div>
+          )}
+
+          <Select value={String(quarter)} onValueChange={v => setQuarter(Number(v))}>
+            <SelectTrigger className="w-24"><SelectValue placeholder="Quarter" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1">Q1 Goals</SelectItem>
+              <SelectItem value="2">Q2 Goals</SelectItem>
+              <SelectItem value="3">Q3 Goals</SelectItem>
+              <SelectItem value="4">Q4 Goals</SelectItem>
             </SelectContent>
           </Select>
 
@@ -581,6 +621,9 @@ const BusinessPlanning = () => {
           <CardTitle className="flex items-center gap-2 text-lg">
             <BarChart3 className="h-5 w-5 text-gold" />
             Performance Reality
+            <Badge variant="outline" className="ml-2 text-xs font-normal">
+              {dateRange === 'ytd' ? 'Year to Date' : dateRange === 'custom' ? `${customStart} → ${customEnd}` : dateRange.toUpperCase()} {currentYear}
+            </Badge>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -588,8 +631,8 @@ const BusinessPlanning = () => {
             <>
               {/* KPI Grid */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <StatCard label="YTD Closed Deals" value={formatNumber(metrics.ytdClosedDeals)} />
-                <StatCard label="YTD GCI" value={formatCurrency(metrics.ytdGCI)} />
+                <StatCard label={`${dateRange === 'ytd' ? 'YTD' : dateRange.toUpperCase()} Closed Deals`} value={formatNumber(metrics.ytdClosedDeals)} />
+                <StatCard label={`${dateRange === 'ytd' ? 'YTD' : dateRange.toUpperCase()} GCI`} value={formatCurrency(metrics.ytdGCI)} />
                 <StatCard label="Pending GCI" value={formatCurrency(metrics.pendingGCI)} />
                 <StatCard label="Active Listings" value={formatNumber(metrics.activeListings)} />
               </div>
