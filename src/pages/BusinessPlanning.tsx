@@ -96,11 +96,36 @@ const BusinessPlanning = () => {
     dateEnd: combinedQEnd,
   });
 
+  // ─── Q(n-1) carryover: actual closings from FUB vs goal ───
+  const getCloseDate = (d: any) => d.closedDate || d.closeDate || d.projectedCloseDate || null;
+  const prevQClosedDeals = allDeals.filter(d => {
+    if (classifyStage(d.stageName) !== 'closed') return false;
+    if (!isDealOwnedByAgent(d, effectiveFubUserId)) return false;
+    const cd = getCloseDate(d);
+    return cd && cd >= prevQRange.start && cd <= prevQRange.end;
+  });
+
+  const [prevQGoalClosings, setPrevQGoalClosings] = useState(0);
+  useEffect(() => {
+    if (!uid) return;
+    supabase.from('planning_assumptions').select('gci_target, avg_commission')
+      .eq('user_id', uid).eq('year', currentYear).eq('quarter', prevQ).maybeSingle()
+      .then(({ data }) => {
+        if (data && safe(data.avg_commission) > 0 && safe(data.gci_target) > 0) {
+          setPrevQGoalClosings(Math.ceil(safe(data.gci_target) / safe(data.avg_commission)));
+        } else {
+          setPrevQGoalClosings(0);
+        }
+      });
+  }, [uid, prevQ]);
+
   const pipelineGapData: PipelineGapData = {
     pipelineTotal: pipelineMetrics.clientsInDateRange,
     pipelineTotalAll: pipelineMetrics.totalClients,
     missingDateCount: pipelineMetrics.missingDateCount,
     pipelineDebug: pipelineMetrics.debug,
+    prevQActualClosings: prevQClosedDeals.length,
+    prevQRequiredClosings: prevQGoalClosings,
   };
 
   // ─── Supplemental metrics (411, CMA, production goals) ───
