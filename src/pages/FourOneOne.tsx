@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { ChevronLeft, ChevronRight, Save, Target, Trophy, TrendingUp, FileText, ArrowRight, Plus, Trash2, CalendarDays } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format, startOfWeek, addWeeks, subWeeks } from 'date-fns';
-import { FUBClientInput, FUBClient } from '@/components/submissions/FUBClientInput';
+import { FUBContactTypeahead } from '@/components/FUBContactTypeahead';
 
 interface Weekly411 {
   id?: string;
@@ -320,7 +320,7 @@ const FourOneOne = () => {
   };
 
   const addAppointmentRecord = async () => {
-    if (!user || !newAppointment.contact_name) return;
+    if (!user || !newAppointment.fub_contact_id || !newAppointment.contact_name || !newAppointment.outcome || !newAppointment.appointment_type) return;
     const weekStart = format(currentWeek, 'yyyy-MM-dd');
 
     const { error } = await supabase.from('appointment_records').insert({
@@ -360,11 +360,19 @@ const FourOneOne = () => {
     }
   };
 
-  const handleFUBClientSelect = (client: FUBClient) => {
+  const handleFUBContactSelect = (contact: { id: number; name: string; email?: string; phone?: string }) => {
     setNewAppointment(prev => ({
       ...prev,
-      contact_name: client.name,
-      fub_contact_id: client.id,
+      contact_name: contact.name,
+      fub_contact_id: contact.id,
+    }));
+  };
+
+  const clearFUBContact = () => {
+    setNewAppointment(prev => ({
+      ...prev,
+      contact_name: '',
+      fub_contact_id: null,
     }));
   };
 
@@ -654,19 +662,21 @@ const FourOneOne = () => {
                   </DialogHeader>
                   <div className="space-y-4 pt-2">
                     <div className="space-y-2">
-                      <Label>Contact (Search Follow Up Boss)</Label>
-                      <FUBClientInput
-                        value={newAppointment.contact_name}
-                        onChange={(val) => setNewAppointment(prev => ({ ...prev, contact_name: val, fub_contact_id: null }))}
-                        onClientSelect={handleFUBClientSelect}
-                        placeholder="Search or type contact name"
+                      <Label>Contact (Follow Up Boss) <span className="text-destructive">*</span></Label>
+                      <FUBContactTypeahead
+                        selectedContact={newAppointment.fub_contact_id ? {
+                          id: newAppointment.fub_contact_id,
+                          name: newAppointment.contact_name,
+                        } : null}
+                        onSelect={handleFUBContactSelect}
+                        onClear={clearFUBContact}
                       />
-                      {newAppointment.fub_contact_id && (
-                        <p className="text-xs text-green-600">✓ Linked to FUB Contact #{newAppointment.fub_contact_id}</p>
+                      {!newAppointment.fub_contact_id && (
+                        <p className="text-xs text-muted-foreground">Search and select a contact from Follow Up Boss</p>
                       )}
                     </div>
                     <div className="space-y-2">
-                      <Label>Appointment Date</Label>
+                      <Label>Appointment Date <span className="text-destructive">*</span></Label>
                       <Input
                         type="date"
                         value={newAppointment.appointment_date}
@@ -674,7 +684,7 @@ const FourOneOne = () => {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Appointment Type</Label>
+                      <Label>Appointment Type <span className="text-destructive">*</span></Label>
                       <Select
                         value={newAppointment.appointment_type}
                         onValueChange={(val) => setNewAppointment(prev => ({ ...prev, appointment_type: val }))}
@@ -691,7 +701,7 @@ const FourOneOne = () => {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Outcome</Label>
+                      <Label>Outcome <span className="text-destructive">*</span></Label>
                       <Select
                         value={newAppointment.outcome}
                         onValueChange={(val) => setNewAppointment(prev => ({ ...prev, outcome: val }))}
@@ -700,6 +710,7 @@ const FourOneOne = () => {
                           <SelectValue placeholder="Select outcome" />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="Held">Held</SelectItem>
                           <SelectItem value="No show">No show</SelectItem>
                           <SelectItem value="Follow up">Follow up</SelectItem>
                           <SelectItem value="Signed">Signed</SelectItem>
@@ -718,7 +729,7 @@ const FourOneOne = () => {
                     </div>
                     <Button
                       onClick={addAppointmentRecord}
-                      disabled={!newAppointment.contact_name}
+                      disabled={!newAppointment.fub_contact_id || !newAppointment.outcome || !newAppointment.appointment_date}
                       className="w-full bg-primary text-primary-foreground"
                     >
                       <Plus className="h-4 w-4 mr-2" /> Add Appointment
