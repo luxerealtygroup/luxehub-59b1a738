@@ -5,6 +5,7 @@ import { useHasFUB } from '@/hooks/useHasFUB';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useViewAsAgent } from '@/hooks/useViewAsAgent';
 import { useFubDealMetrics, ACTIVE_LISTING_STAGES, classifyStage, CLOSED_STAGES, PENDING_STAGES } from '@/hooks/useFubDealMetrics';
+import { usePipelineMetrics } from '@/hooks/usePipelineMetrics';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -75,7 +76,7 @@ const BusinessPlanning = () => {
     })),
   };
 
-  // ─── Pipeline Gap Data (from allDeals — same source as Pipeline tab) ───
+  // ─── Pipeline metrics from shared hook (same source as Pipeline tab) ───
   const getQDateRange = (q: number) => {
     const starts: Record<number, string> = { 1: `${currentYear}-01-01`, 2: `${currentYear}-04-01`, 3: `${currentYear}-07-01`, 4: `${currentYear}-10-01` };
     const ends: Record<number, string> = { 1: `${currentYear}-03-31`, 2: `${currentYear}-06-30`, 3: `${currentYear}-09-30`, 4: `${currentYear}-12-31` };
@@ -85,56 +86,21 @@ const BusinessPlanning = () => {
   const prevQ = quarter > 1 ? quarter - 1 : 4;
   const prevQRange = getQDateRange(prevQ);
   const currQRange = getQDateRange(quarter);
-
-  const isPipelineDeal = (stageName: string) => {
-    const s = (stageName || '').toLowerCase();
-    if (CLOSED_STAGES.some(cs => s.includes(cs))) return false;
-    if (['lost', 'dead', 'withdrawn', 'expired', 'cancelled'].some(x => s.includes(x))) return false;
-    return true;
-  };
-
-  const agentPipelineAll = allDeals.filter(d => isPipelineDeal(d.stageName) && isDealOwnedByAgent(d, effectiveFubUserId));
   const combinedQStart = prevQRange.start < currQRange.start ? prevQRange.start : currQRange.start;
   const combinedQEnd = currQRange.end;
-  const agentPipelineInQ = agentPipelineAll.filter(d => {
-    const cd = (d as any).closedDate || (d as any).closeDate || d.projectedCloseDate;
-    if (!cd) return true; // no date = include (active deal)
-    return cd >= combinedQStart && cd <= combinedQEnd;
+
+  // Shared pipeline_clients query — same table as Pipeline tab
+  const pipelineMetrics = usePipelineMetrics({
+    userId: uid,
+    dateStart: combinedQStart,
+    dateEnd: combinedQEnd,
   });
-
-  const getCloseDate = (d: any) => d.closedDate || d.closeDate || d.projectedCloseDate || null;
-  const prevQClosedDeals = allDeals.filter(d => {
-    if (classifyStage(d.stageName) !== 'closed') return false;
-    if (!isDealOwnedByAgent(d, effectiveFubUserId)) return false;
-    const cd = getCloseDate(d);
-    return cd && cd >= prevQRange.start && cd <= prevQRange.end;
-  });
-
-  // prevQ required closings — will be updated once goals load
-  const [prevQGoalClosings, setPrevQGoalClosings] = useState(0);
-
-  // Fetch prev quarter goal for carryover
-  useEffect(() => {
-    if (!uid) return;
-    supabase.from('planning_assumptions').select('gci_target, avg_commission')
-      .eq('user_id', uid).eq('year', currentYear).eq('quarter', prevQ).maybeSingle()
-      .then(({ data }) => {
-        if (data && safe(data.avg_commission) > 0 && safe(data.gci_target) > 0) {
-          setPrevQGoalClosings(Math.ceil(safe(data.gci_target) / safe(data.avg_commission)));
-        } else {
-          setPrevQGoalClosings(0);
-        }
-      });
-  }, [uid, prevQ]);
 
   const pipelineGapData: PipelineGapData = {
-    prevQActualClosings: prevQClosedDeals.length,
-    prevQRequiredClosings: prevQGoalClosings,
-    pipelineTotal: agentPipelineInQ.length,
-    pipelineBeforeDateFilter: agentPipelineAll.length,
-    pipelineStagesIncluded: [...new Set(agentPipelineInQ.map(d => d.stageName))],
-    pipelineDateRange: { start: combinedQStart, end: combinedQEnd },
-    effectiveFubUserId,
+    pipelineTotal: pipelineMetrics.clientsInDateRange,
+    pipelineTotalAll: pipelineMetrics.totalClients,
+    missingDateCount: pipelineMetrics.missingDateCount,
+    pipelineDebug: pipelineMetrics.debug,
   };
 
   // ─── Supplemental metrics (411, CMA, production goals) ───
