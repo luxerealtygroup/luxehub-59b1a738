@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { formatCurrency } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -485,7 +486,7 @@ const Reports = () => {
             </div>
             <div className="p-3 rounded-lg bg-background/50 border border-green-500/20 text-center">
               <p className="text-xs text-muted-foreground">Pipeline GCI</p>
-              <p className="text-2xl font-bold text-green-400">${totalPipelineGCI.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-green-400">{formatCurrency(totalPipelineGCI)}</p>
             </div>
           </div>
 
@@ -915,7 +916,7 @@ const Reports = () => {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Total Pipeline GCI</p>
-                    <p className="text-xl font-bold text-foreground">${totalPipelineGCI.toLocaleString()}</p>
+                    <p className="text-xl font-bold text-foreground">{formatCurrency(totalPipelineGCI)}</p>
                   </div>
                 </div>
               </div>
