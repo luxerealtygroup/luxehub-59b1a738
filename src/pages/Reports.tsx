@@ -4,6 +4,10 @@ import ConversionReport from '@/components/ConversionReport';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useViewAsAgent } from '@/hooks/useViewAsAgent';
+import { useHasFUB } from '@/hooks/useHasFUB';
+import { useUserRole } from '@/hooks/useUserRole';
+import { useFubDealMetrics } from '@/hooks/useFubDealMetrics';
+import { DebugMetricsPanel } from '@/components/DebugMetricsPanel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Target, DollarSign, Home, Users, TrendingUp, Calendar, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -69,9 +73,20 @@ const currentYear = 2026;
 
 const Reports = () => {
   const { user } = useAuth();
-  const { effectiveUserId } = useViewAsAgent();
+  const { effectiveUserId, effectiveFubUserId, viewingAgentName } = useViewAsAgent();
+  const { hasFUB } = useHasFUB();
+  const { isAdmin } = useUserRole();
   const queryUserId = effectiveUserId;
   const [loading, setLoading] = useState(true);
+
+  // ── Shared metrics hook (single source of truth) ──
+  const { metrics: actualMetrics, debugInfo, loading: metricsLoading } = useFubDealMetrics({
+    userId: queryUserId,
+    fubUserId: effectiveFubUserId,
+    year: currentYear,
+    hasFUB,
+    agentName: viewingAgentName,
+  });
   
   // Goal data
   const [goalSettings, setGoalSettings] = useState({
@@ -82,14 +97,6 @@ const Reports = () => {
     split_percent: 70,
     fallout_rate: 50,
     monthlyDeals: Array(12).fill(0) as number[]
-  });
-  
-  // Actual metrics
-  const [actualMetrics, setActualMetrics] = useState({
-    deals_closed: 0,
-    deals_pending: 0,
-    gci_earned: 0,
-    gci_pending: 0
   });
   
   // Pipeline data
@@ -145,37 +152,8 @@ const Reports = () => {
       monthlyDeals
     });
     
-    // Fetch actual metrics
-    const { data: closedDeals } = await supabase
-      .from('deals')
-      .select('id')
-      .eq('user_id', queryUserId)
-      .eq('stage', 'closed');
+    // Metrics are now provided by useFubDealMetrics hook
     
-    const { data: pendingDeals } = await supabase
-      .from('deals')
-      .select('id')
-      .eq('user_id', queryUserId)
-      .in('stage', ['under_contract', 'offer']);
-    
-    const { data: paidCommissions } = await supabase
-      .from('commissions')
-      .select('gross_commission, amount')
-      .eq('user_id', queryUserId)
-      .eq('status', 'paid');
-    
-    const { data: pendingCommissions } = await supabase
-      .from('commissions')
-      .select('gross_commission, amount')
-      .eq('user_id', queryUserId)
-      .eq('status', 'pending');
-    
-    setActualMetrics({
-      deals_closed: closedDeals?.length || 0,
-      deals_pending: pendingDeals?.length || 0,
-      gci_earned: paidCommissions?.reduce((sum, c) => sum + (c.gross_commission || c.amount || 0), 0) || 0,
-      gci_pending: pendingCommissions?.reduce((sum, c) => sum + (c.gross_commission || c.amount || 0), 0) || 0
-    });
     
     // Fetch pipeline clients
     const { data: clients } = await supabase
@@ -396,12 +374,13 @@ const Reports = () => {
     .map(([source, data]) => ({ source, ...data }))
     .sort((a, b) => b.count - a.count);
 
-  if (loading) {
+  if (loading && metricsLoading) {
     return <div className="flex items-center justify-center h-64 text-gold animate-pulse">Loading reports...</div>;
   }
 
   return (
     <div className="space-y-6">
+      <DebugMetricsPanel debugInfo={debugInfo} isAdmin={isAdmin} />
       <div>
         <h1 className="text-3xl font-display font-bold text-foreground">{currentYear} Performance Report</h1>
         <p className="text-muted-foreground mt-1">Complete overview of your goals, pipeline, and weekly progress</p>
