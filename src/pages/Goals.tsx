@@ -214,46 +214,48 @@ const Goals = () => {
     let gciEarned = paidCommRes.data?.reduce((sum, c) => sum + Number(c.gross_commission || c.amount || 0), 0) || 0;
     let gciPending = pendingCommRes.data?.reduce((sum, c) => sum + Number(c.gross_commission || c.amount || 0), 0) || 0;
 
-    // 2. For FUB-connected agents, also pull FUB deals (same source as Transactions list)
+    // 2. For FUB-connected agents, use FUB as source of truth (match Transactions page behavior)
     if (hasFUB) {
       try {
+        const classifyStage = (stageName: string): 'closed' | 'pending' | 'conditional' | 'other' => {
+          const s = (stageName || '').toLowerCase();
+          if (s.includes('closed') || s.includes('won') || s.includes('sold')) return 'closed';
+          if (s.includes('pending') || s.includes('under contract')) return 'pending';
+          if (s.includes('offer') || s.includes('conditional')) return 'conditional';
+          return 'other';
+        };
+
         // Get the agent's fub_user_id for matching
         const { data: profile } = await supabase
           .from('profiles')
           .select('fub_user_id')
           .eq('id', queryUserId)
           .maybeSingle();
-        
-        const fubUserId = profile?.fub_user_id;
 
+        const fubUserId = profile?.fub_user_id;
         const response = await followUpBossApi.getDeals(200, 0);
+
         if (response.success && response.data?.deals) {
-          // Filter deals assigned to this agent by FUB user ID
           const agentDeals = fubUserId
             ? response.data.deals.filter(d => d.users?.some(u => u.id === fubUserId))
-            : response.data.deals;
+            : [];
 
-          const fubClosed = agentDeals.filter(d => {
-            const stage = d.stageName?.toLowerCase() || '';
-            return stage.includes('closed') || stage.includes('won');
-          });
-          const fubPending = agentDeals.filter(d => {
-            const stage = d.stageName?.toLowerCase() || '';
-            return stage === 'pending' || stage === 'offer';
+          const fubClosedDeals = agentDeals.filter(d => classifyStage(d.stageName || '') === 'closed');
+          const fubPendingDeals = agentDeals.filter(d => {
+            const stage = classifyStage(d.stageName || '');
+            return stage === 'pending' || stage === 'conditional';
           });
 
-          // Use FUB counts if they exceed local counts (avoids double-counting imported deals)
-          if (fubClosed.length > dealsClosed) {
-            dealsClosed = fubClosed.length;
-            // Sum FUB GCI for closed deals
-            const fubGci = fubClosed.reduce((sum, d) => sum + (d.agentCommission || d.commissionValue || 0), 0);
-            if (fubGci > gciEarned) gciEarned = fubGci;
-          }
-          if (fubPending.length > dealsPending) {
-            dealsPending = fubPending.length;
-            const fubPendingGci = fubPending.reduce((sum, d) => sum + (d.agentCommission || d.commissionValue || 0), 0);
-            if (fubPendingGci > gciPending) gciPending = fubPendingGci;
-          }
+          // Counts from all matched deals
+          dealsClosed = fubClosedDeals.length;
+          dealsPending = fubPendingDeals.length;
+
+          // GCI should match Transactions cards/table logic: use agentCommission only
+          gciEarned = fubClosedDeals.reduce((sum, d) => sum + Number(d.agentCommission || 0), 0);
+          gciPending = fubPendingDeals.reduce((sum, d) => sum + Number(d.agentCommission || 0), 0);
+        } else {
+          // Fallback to local values if FUB request fails
+          console.warn('FUB deals unavailable, falling back to local goals metrics source');
         }
       } catch (err) {
         console.error('Error fetching FUB deals for goals:', err);
