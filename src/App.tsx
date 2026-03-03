@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import RoleGuard from "@/components/RoleGuard";
 import DashboardLayout from "@/components/DashboardLayout";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -52,16 +53,16 @@ const App = () => (
               </ProtectedRoute>
             }>
               <Route index element={<Dashboard />} />
-              <Route path="activities" element={<Activities />} />
-              <Route path="pipeline" element={<Pipeline />} />
-              <Route path="commissions" element={<Commissions />} />
+              <Route path="submissions" element={<RoleGuard><Submissions /></RoleGuard>} />
+              <Route path="activities" element={<RoleGuard><Activities /></RoleGuard>} />
+              <Route path="pipeline" element={<RoleGuard><Pipeline /></RoleGuard>} />
+              <Route path="commissions" element={<RoleGuard><Commissions /></RoleGuard>} />
               <Route path="goals" element={<Goals />} />
               <Route path="411" element={<FourOneOne />} />
               <Route path="reports" element={<Reports />} />
-              <Route path="submissions" element={<Submissions />} />
-              <Route path="library" element={<Library />} />
-              <Route path="admin" element={<AdminReports />} />
-              <Route path="admin/agent/:agentId" element={<AgentProfile />} />
+              <Route path="library" element={<RoleGuard><Library /></RoleGuard>} />
+              <Route path="admin" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><AdminReports /></RoleGuard>} />
+              <Route path="admin/agent/:agentId" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><AgentProfile /></RoleGuard>} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
