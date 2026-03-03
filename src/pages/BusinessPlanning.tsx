@@ -172,25 +172,40 @@ const BusinessPlanning = () => {
     dateEnd,
   });
 
-  // ─── Derive active listings from FUB deals (agent-scoped) ───
+  // ─── Derive active listings from FUB deals (agent-scoped by ownership) ───
   const isActiveListing = (stageName: string) => {
     const s = (stageName || '').toLowerCase();
     return ACTIVE_LISTING_STAGES.some(als => s.includes(als));
   };
 
-  const fubActiveListings = allDeals.filter(d => isActiveListing(d.stageName));
+  const isDealOwnedByAgent = (deal: any, fubId: number | null): boolean => {
+    if (!fubId) return true; // no FUB id = show all (fallback)
+    return (
+      deal.assignedUserId === fubId ||
+      deal.userId === fubId ||
+      deal.users?.some((u: any) => u.id === fubId)
+    );
+  };
+
+  const fubActiveListings = allDeals.filter(d =>
+    isActiveListing(d.stageName) && isDealOwnedByAgent(d, effectiveFubUserId)
+  );
   const fubActiveListingCount = fubActiveListings.length;
 
   // Debug info for active listings (admin only)
+  const activeListingsBeforeOwnerFilter = allDeals.filter(d => isActiveListing(d.stageName));
   const activeListingDebug = {
     effectiveFubUserId,
     stagesIncluded: ACTIVE_LISTING_STAGES,
     rawDealCount: allDeals.length,
+    activeBeforeOwnerFilter: activeListingsBeforeOwnerFilter.length,
     activeListingCount: fubActiveListingCount,
     top5: fubActiveListings.slice(0, 5).map(d => ({
       id: d.id,
       stage: d.stageName,
       pipeline: d.pipelineName,
+      assignedUserId: (d as any).assignedUserId,
+      userId: (d as any).userId,
       users: d.users?.map(u => `${u.name} (${u.id})`).join(', ') || 'none',
     })),
   };
@@ -664,12 +679,13 @@ const BusinessPlanning = () => {
                   <p>effectiveFubUserId: <span className="font-bold">{activeListingDebug.effectiveFubUserId ?? 'null'}</span></p>
                   <p>Stages included: {activeListingDebug.stagesIncluded.join(', ')}</p>
                   <p>Raw deals for agent: <span className="font-bold">{activeListingDebug.rawDealCount}</span></p>
-                  <p>Active listings after filter: <span className="font-bold">{activeListingDebug.activeListingCount}</span></p>
+                  <p>Active stage match (before owner filter): <span className="font-bold">{activeListingDebug.activeBeforeOwnerFilter}</span></p>
+                  <p>Active listings (after owner filter): <span className="font-bold">{activeListingDebug.activeListingCount}</span></p>
                   {activeListingDebug.top5.length > 0 && (
                     <div className="mt-1">
                       <p className="font-semibold">Top 5 active listing deals:</p>
                       {activeListingDebug.top5.map((d, i) => (
-                        <p key={i} className="pl-2">#{d.id} — stage: "{d.stage}" pipeline: "{d.pipeline}" users: {d.users}</p>
+                        <p key={i} className="pl-2">#{d.id} — stage: "{d.stage}" pipeline: "{d.pipeline}" assignedUserId: {d.assignedUserId} userId: {d.userId} users: {d.users}</p>
                       ))}
                     </div>
                   )}
