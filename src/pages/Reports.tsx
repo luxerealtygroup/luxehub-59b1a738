@@ -3,6 +3,7 @@ import { formatCurrency } from '@/lib/utils';
 import ConversionReport from '@/components/ConversionReport';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useViewAsAgent } from '@/hooks/useViewAsAgent';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Target, DollarSign, Home, Users, TrendingUp, Calendar, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -68,6 +69,8 @@ const currentYear = 2026;
 
 const Reports = () => {
   const { user } = useAuth();
+  const { effectiveUserId } = useViewAsAgent();
+  const queryUserId = effectiveUserId;
   const [loading, setLoading] = useState(true);
   
   // Goal data
@@ -102,10 +105,10 @@ const Reports = () => {
   const [weekly411, setWeekly411] = useState<Weekly411 | null>(null);
 
   const fetchAllData = async () => {
-    if (!user) return;
+    if (!queryUserId) return;
     
     // Fetch goal settings
-    const savedCalcValues = localStorage.getItem(`goalCalcValues_${user.id}_${currentYear}`);
+    const savedCalcValues = localStorage.getItem(`goalCalcValues_${queryUserId}_${currentYear}`);
     const calcValues = savedCalcValues ? JSON.parse(savedCalcValues) : {
       avg_sale_price: 350000,
       commission_rate: 3,
@@ -117,7 +120,7 @@ const Reports = () => {
     const { data: goalsData } = await supabase
       .from('agent_goals')
       .select('target_value, goal_type')
-      .eq('user_id', user.id)
+      .eq('user_id', queryUserId)
       .eq('period', 'yearly')
       .in('goal_type', ['deals_closed', 'revenue']);
     
@@ -125,7 +128,7 @@ const Reports = () => {
     const gciGoal = goalsData?.find(g => g.goal_type === 'revenue')?.target_value || 0;
     
     // Fetch monthly goals
-    const savedMonthlyGoals = localStorage.getItem(`monthlyGoals_${user.id}_${currentYear}`);
+    const savedMonthlyGoals = localStorage.getItem(`monthlyGoals_${queryUserId}_${currentYear}`);
     let monthlyDeals = Array(12).fill(dealsGoal / 12);
     if (savedMonthlyGoals) {
       const parsed = JSON.parse(savedMonthlyGoals);
@@ -146,25 +149,25 @@ const Reports = () => {
     const { data: closedDeals } = await supabase
       .from('deals')
       .select('id')
-      .eq('user_id', user.id)
+      .eq('user_id', queryUserId)
       .eq('stage', 'closed');
     
     const { data: pendingDeals } = await supabase
       .from('deals')
       .select('id')
-      .eq('user_id', user.id)
+      .eq('user_id', queryUserId)
       .in('stage', ['under_contract', 'offer']);
     
     const { data: paidCommissions } = await supabase
       .from('commissions')
       .select('gross_commission, amount')
-      .eq('user_id', user.id)
+      .eq('user_id', queryUserId)
       .eq('status', 'paid');
     
     const { data: pendingCommissions } = await supabase
       .from('commissions')
       .select('gross_commission, amount')
-      .eq('user_id', user.id)
+      .eq('user_id', queryUserId)
       .eq('status', 'pending');
     
     setActualMetrics({
@@ -178,7 +181,7 @@ const Reports = () => {
     const { data: clients } = await supabase
       .from('pipeline_clients')
       .select('*')
-      .eq('user_id', user.id);
+      .eq('user_id', queryUserId);
     
     setPipelineClients((clients as PipelineClient[]) || []);
     
@@ -186,7 +189,7 @@ const Reports = () => {
     const { data: dealsData } = await supabase
       .from('deals')
       .select('id, source, deal_value')
-      .eq('user_id', user.id);
+      .eq('user_id', queryUserId);
     
     setDealsWithSource((dealsData as DealWithSource[]) || []);
     
@@ -204,7 +207,7 @@ const Reports = () => {
           gross_commission
         )
       `)
-      .eq('user_id', user.id)
+      .eq('user_id', queryUserId)
       .in('stage', ['under_contract', 'offer', 'closed']);
     
     // Transform the data to include commission amounts
@@ -230,7 +233,7 @@ const Reports = () => {
     const { data: weeklyData } = await supabase
       .from('weekly_411')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', queryUserId)
       .eq('week_start_date', weekStart)
       .maybeSingle();
     
@@ -241,7 +244,7 @@ const Reports = () => {
 
   useEffect(() => {
     fetchAllData();
-  }, [user]);
+  }, [queryUserId]);
 
   // Calculations
   const totalDealsGoal = goalSettings.monthlyDeals.reduce((sum, d) => sum + d, 0);

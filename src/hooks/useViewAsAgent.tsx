@@ -1,0 +1,148 @@
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { useUserRole } from '@/hooks/useUserRole';
+
+interface AgentOption {
+  id: string;
+  full_name: string;
+}
+
+interface ViewAsAgentContextType {
+  /** True when admin has toggled "View as Agent" */
+  isViewingAsAgent: boolean;
+  /** The agent being impersonated (null when off) */
+  viewingAgentId: string | null;
+  /** Display name of the viewed agent */
+  viewingAgentName: string | null;
+  /** The user ID to use for data queries – returns viewed agent when active, otherwise real user */
+  effectiveUserId: string | null;
+  /** Whether the admin feature is available (admin only) */
+  canViewAsAgent: boolean;
+  /** Toggle the mode on/off */
+  setIsViewingAsAgent: (enabled: boolean) => void;
+  /** Select which agent to view as */
+  setViewingAgentId: (agentId: string) => void;
+  /** List of agents available for selection */
+  agentOptions: AgentOption[];
+}
+
+const ViewAsAgentContext = createContext<ViewAsAgentContextType | undefined>(undefined);
+
+const STORAGE_KEY = 'viewAsAgent';
+
+export function ViewAsAgentProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  const { isAdmin } = useUserRole();
+  const [isViewingAsAgent, setIsViewingAsAgentState] = useState(false);
+  const [viewingAgentId, setViewingAgentIdState] = useState<string | null>(null);
+  const [agentOptions, setAgentOptions] = useState<AgentOption[]>([]);
+
+  // Load persisted state from localStorage on mount
+  useEffect(() => {
+    if (!isAdmin) {
+      setIsViewingAsAgentState(false);
+      setViewingAgentIdState(null);
+      return;
+    }
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.enabled && parsed.agentId) {
+          setIsViewingAsAgentState(true);
+          setViewingAgentIdState(parsed.agentId);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [isAdmin]);
+
+  // Fetch agent options for admins
+  useEffect(() => {
+    if (!isAdmin) return;
+    const fetch = async () => {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .not('full_name', 'is', null);
+
+      const { data: usersWith411 } = await supabase
+        .from('weekly_411')
+        .select('user_id');
+
+      const activeIds = new Set((usersWith411 || []).map(w => w.user_id));
+
+      const { data: fubProfiles } = await supabase
+        .from('profiles')
+        .select('id, fub_user_id')
+        .not('fub_user_id', 'is', null);
+
+      const fubMap = new Map((fubProfiles || []).map(p => [p.id, p.fub_user_id]));
+
+      const filtered = (profiles || [])
+        .filter(p => {
+          const hasFub = fubMap.has(p.id) && fubMap.get(p.id) !== 8;
+          return (hasFub || activeIds.has(p.id)) && p.full_name;
+        })
+        .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+
+      setAgentOptions(filtered as AgentOption[]);
+    };
+    fetch();
+  }, [isAdmin]);
+
+  const persist = (enabled: boolean, agentId: string | null) => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ enabled, agentId }));
+  };
+
+  const setIsViewingAsAgent = useCallback((enabled: boolean) => {
+    setIsViewingAsAgentState(enabled);
+    if (!enabled) {
+      setViewingAgentIdState(null);
+      persist(false, null);
+    } else {
+      // Default to first agent if none selected
+      const defaultId = viewingAgentId || agentOptions[0]?.id || null;
+      setViewingAgentIdState(defaultId);
+      persist(true, defaultId);
+    }
+  }, [agentOptions, viewingAgentId]);
+
+  const setViewingAgentId = useCallback((agentId: string) => {
+    setViewingAgentIdState(agentId);
+    persist(true, agentId);
+  }, []);
+
+  const viewingAgentName = isViewingAsAgent && viewingAgentId
+    ? agentOptions.find(a => a.id === viewingAgentId)?.full_name || null
+    : null;
+
+  const effectiveUserId = isAdmin && isViewingAsAgent && viewingAgentId
+    ? viewingAgentId
+    : user?.id || null;
+
+  return (
+    <ViewAsAgentContext.Provider value={{
+      isViewingAsAgent: isAdmin && isViewingAsAgent,
+      viewingAgentId: isAdmin && isViewingAsAgent ? viewingAgentId : null,
+      viewingAgentName,
+      effectiveUserId,
+      canViewAsAgent: isAdmin,
+      setIsViewingAsAgent,
+      setViewingAgentId,
+      agentOptions,
+    }}>
+      {children}
+    </ViewAsAgentContext.Provider>
+  );
+}
+
+export function useViewAsAgent() {
+  const context = useContext(ViewAsAgentContext);
+  if (!context) {
+    throw new Error('useViewAsAgent must be used within a ViewAsAgentProvider');
+  }
+  return context;
+}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useViewAsAgent } from '@/hooks/useViewAsAgent';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,7 +57,10 @@ const createDefaultMonthlyGoals = (dealsGoal: number, gciGoal: number): MonthlyG
 
 const Goals = () => {
   const { user } = useAuth();
+  const { isViewingAsAgent, effectiveUserId, viewingAgentName } = useViewAsAgent();
   const { toast } = useToast();
+  const isReadOnly = isViewingAsAgent; // Admin viewing as agent = read-only
+  const queryUserId = effectiveUserId; // Use effective user for all READ queries
   const [loading, setLoading] = useState(true);
   const [showSetup, setShowSetup] = useState(false);
   const [breakdownView, setBreakdownView] = useState<'monthly' | 'quarterly'>('monthly');
@@ -95,12 +99,12 @@ const Goals = () => {
   const currentYear = 2026;
 
   const fetchAnnualGoals = async () => {
-    if (!user) return;
+    if (!queryUserId) return;
     
     const { data } = await supabase
       .from('agent_goals')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', queryUserId)
       .eq('period', 'yearly')
       .in('goal_type', ['deals_closed', 'revenue']);
     
@@ -108,7 +112,7 @@ const Goals = () => {
     const { data: productionData } = await supabase
       .from('production_goals')
       .select('monthly_goals')
-      .eq('user_id', user.id)
+      .eq('user_id', queryUserId)
       .eq('year', currentYear)
       .maybeSingle();
     
@@ -122,7 +126,7 @@ const Goals = () => {
       const gciValue = gciGoal?.target_value || 0;
       
       // Load saved calculation values from localStorage
-      const savedCalcValues = localStorage.getItem(`goalCalcValues_${user.id}_${currentYear}`);
+      const savedCalcValues = localStorage.getItem(`goalCalcValues_${queryUserId}_${currentYear}`);
       const calcValues = savedCalcValues ? JSON.parse(savedCalcValues) : {
         avg_sale_price: 350000,
         commission_rate: 3,
@@ -150,7 +154,7 @@ const Goals = () => {
       });
       
       // Initialize monthly goals - check if saved in localStorage
-      const savedMonthlyGoals = localStorage.getItem(`monthlyGoals_${user.id}_${currentYear}`);
+      const savedMonthlyGoals = localStorage.getItem(`monthlyGoals_${queryUserId}_${currentYear}`);
       if (savedMonthlyGoals) {
         const parsed = JSON.parse(savedMonthlyGoals);
         // Merge with 411 goals
@@ -192,34 +196,34 @@ const Goals = () => {
   };
 
   const fetchActualMetrics = async () => {
-    if (!user) return;
+    if (!queryUserId) return;
     
     // Fetch closed deals
     const { data: closedDeals } = await supabase
       .from('deals')
       .select('id')
-      .eq('user_id', user.id)
+      .eq('user_id', queryUserId)
       .eq('stage', 'closed');
     
     // Fetch pending deals
     const { data: pendingDeals } = await supabase
       .from('deals')
       .select('id')
-      .eq('user_id', user.id)
+      .eq('user_id', queryUserId)
       .in('stage', ['under_contract', 'offer']);
     
     // Fetch paid commissions (use gross_commission with fallback to amount, matching Dashboard)
     const { data: paidCommissions } = await supabase
       .from('commissions')
       .select('gross_commission, amount')
-      .eq('user_id', user.id)
+      .eq('user_id', queryUserId)
       .eq('status', 'paid');
     
     // Fetch pending commissions (use gross_commission with fallback to amount, matching Dashboard)
     const { data: pendingCommissions } = await supabase
       .from('commissions')
       .select('gross_commission, amount')
-      .eq('user_id', user.id)
+      .eq('user_id', queryUserId)
       .eq('status', 'pending');
     
     setActualMetrics({
@@ -235,7 +239,7 @@ const Goals = () => {
   useEffect(() => {
     fetchAnnualGoals();
     fetchActualMetrics();
-  }, [user]);
+  }, [queryUserId]);
 
   const handleSaveGoals = async () => {
     if (!user) return;
@@ -380,20 +384,26 @@ const Goals = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-display font-bold text-foreground">{currentYear} Goals</h1>
-          <p className="text-muted-foreground mt-1">Track your annual targets</p>
+          <h1 className="text-3xl font-display font-bold text-foreground">
+            {isReadOnly ? `${viewingAgentName}'s ${currentYear} Goals` : `${currentYear} Goals`}
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            {isReadOnly ? 'Viewing agent goals (read-only)' : 'Track your annual targets'}
+          </p>
         </div>
-        <Button 
-          variant="outline" 
-          className="border-gold/30 text-gold hover:bg-gold/10"
-          onClick={() => setShowSetup(true)}
-        >
-          <Edit2 className="h-4 w-4 mr-2" /> {hasGoalsSet ? 'Edit Goals' : 'Set Goals'}
-        </Button>
+        {!isReadOnly && (
+          <Button 
+            variant="outline" 
+            className="border-gold/30 text-gold hover:bg-gold/10"
+            onClick={() => setShowSetup(true)}
+          >
+            <Edit2 className="h-4 w-4 mr-2" /> {hasGoalsSet ? 'Edit Goals' : 'Set Goals'}
+          </Button>
+        )}
       </div>
 
       {/* Goal Setup Dialog */}
-      <Dialog open={showSetup || !hasGoalsSet} onOpenChange={setShowSetup}>
+      <Dialog open={!isReadOnly && (showSetup || !hasGoalsSet)} onOpenChange={setShowSetup}>
         <DialogContent className="border-gold/20 bg-card">
           <DialogHeader>
             <DialogTitle className="text-gold font-display text-xl">Set Your {currentYear} Goals</DialogTitle>
