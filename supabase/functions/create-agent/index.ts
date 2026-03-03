@@ -46,7 +46,8 @@ serve(async (req) => {
       });
     }
 
-    const { first_name, last_name, email, fub_user_id } = await req.json();
+    const { first_name, last_name, email, fub_user_id, role } = await req.json();
+    const assignedRole = role && ['admin', 'agent', 'planning_access'].includes(role) ? role : 'agent';
 
     if (!first_name || !last_name || !email) {
       return new Response(JSON.stringify({ error: "First name, last name, and email are required" }), {
@@ -79,7 +80,7 @@ serve(async (req) => {
     // Assign agent role
     const { error: roleError } = await supabaseAdmin
       .from("user_roles")
-      .insert({ user_id: userId, role: "agent" });
+      .insert({ user_id: userId, role: assignedRole });
 
     if (roleError) {
       console.error("Error assigning role:", roleError);
