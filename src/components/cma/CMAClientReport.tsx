@@ -133,7 +133,7 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
     window.print();
   };
 
-  const isApproved = report ? ['approved', 'exported', 'pushed'].includes(report.approval_status) : false;
+  const isApproved = report ? ['approved', 'exported', 'pushed', 'converted'].includes(report.approval_status) : false;
 
   if (loading) {
     return (

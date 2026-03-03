@@ -234,10 +234,43 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
     F: 'text-destructive border-destructive',
   };
 
-  const isApproved = ['approved', 'exported', 'pushed'].includes(report.approval_status);
+  const isApproved = ['approved', 'exported', 'pushed', 'converted'].includes(report.approval_status);
+
+  const approvalBadgeColors: Record<string, string> = {
+    draft: 'bg-muted text-muted-foreground border-muted',
+    reviewing: 'bg-blue-500/20 text-blue-500 border-blue-500/30',
+    approved: 'bg-emerald-500/20 text-emerald-500 border-emerald-500/30',
+    exported: 'bg-gold/20 text-gold border-gold/30',
+    pushed: 'bg-primary/20 text-primary border-primary/30',
+    converted: 'bg-green-600/20 text-green-600 border-green-600/30',
+    lost: 'bg-destructive/20 text-destructive border-destructive/30',
+  };
+
+  const approvalLabel: Record<string, string> = {
+    draft: 'Draft',
+    reviewing: 'Reviewing',
+    approved: 'Approved',
+    exported: 'PDF Exported',
+    pushed: 'Pushed to FUB',
+    converted: 'Converted to Listing',
+    lost: 'Lost',
+  };
 
   return (
     <div className="space-y-6 max-w-5xl">
+      {/* Workflow Status Badge */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Workflow Status:</span>
+        <Badge
+          variant="outline"
+          className={`text-sm px-3 py-1 ${approvalBadgeColors[report.approval_status] || approvalBadgeColors.draft}`}
+        >
+          {approvalLabel[report.approval_status] || 'Draft'}
+        </Badge>
+        {!isApproved && report.analysis_status === 'completed' && (
+          <span className="text-xs text-amber-500">⚠ Approve before exporting PDF or pushing to FUB</span>
+        )}
+      </div>
       {/* Market Shift Alert */}
       <CMAMarketShiftAlert
         reportId={report.id}
