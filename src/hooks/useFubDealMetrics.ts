@@ -51,6 +51,10 @@ interface UseFubDealMetricsOptions {
   year?: number;
   hasFUB?: boolean;
   agentName?: string | null;
+  /** Optional override for date range start (YYYY-MM-DD). Defaults to Jan 1 of `year`. */
+  dateStart?: string | null;
+  /** Optional override for date range end (YYYY-MM-DD). Defaults to Dec 31 of `year`. */
+  dateEnd?: string | null;
 }
 
 export function useFubDealMetrics({
@@ -59,6 +63,8 @@ export function useFubDealMetrics({
   year = new Date().getFullYear(),
   hasFUB = false,
   agentName = null,
+  dateStart = null,
+  dateEnd = null,
 }: UseFubDealMetricsOptions) {
   const [metrics, setMetrics] = useState<DealMetrics>({
     deals_closed: 0, deals_pending: 0, gci_earned: 0, gci_pending: 0,
@@ -67,8 +73,8 @@ export function useFubDealMetrics({
   const [loading, setLoading] = useState(true);
   const [allDeals, setAllDeals] = useState<FUBDeal[]>([]);
 
-  const dateRangeStart = `${year}-01-01`;
-  const dateRangeEnd = `${year}-12-31`;
+  const dateRangeStart = dateStart || `${year}-01-01`;
+  const dateRangeEnd = dateEnd || `${year}-12-31`;
 
   const fetchMetrics = useCallback(async () => {
     if (!userId) { setLoading(false); return; }
@@ -209,7 +215,7 @@ export function useFubDealMetrics({
     setMetrics({ deals_closed: dealsClosed, deals_pending: dealsPending, gci_earned: gciEarned, gci_pending: gciPending });
     setDebugInfo(debug);
     setLoading(false);
-  }, [userId, fubUserId, year, agentName, dateRangeStart, dateRangeEnd]);
+  }, [userId, fubUserId, year, agentName, dateRangeStart, dateRangeEnd, dateStart, dateEnd]);
 
   useEffect(() => {
     setLoading(true);
