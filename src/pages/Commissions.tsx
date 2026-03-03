@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useHasFUB } from '@/hooks/useHasFUB';
+import { useViewAsAgent } from '@/hooks/useViewAsAgent';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -48,8 +49,11 @@ interface FUBDealDisplay {
 const Commissions = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { hasRole } = useUserRole();
+  const { hasRole, isAdmin } = useUserRole();
   const { hasFUB } = useHasFUB();
+  const { isViewingAsAgent, effectiveUserId, effectiveFubUserId } = useViewAsAgent();
+  const isReadOnly = isViewingAsAgent;
+  const queryUserId = effectiveUserId;
   const [commissions, setCommissions] = useState<Commission[]>([]);
   const [fubDeals, setFUBDeals] = useState<FUBDeal[]>([]);
   const [fubDealsDisplay, setFUBDealsDisplay] = useState<FUBDealDisplay[]>([]);
@@ -75,13 +79,15 @@ const Commissions = () => {
 
   const { isConnected: calendarConnected, createEvent } = useGoogleCalendar();
 
+  // Fetch local commissions scoped to effective user
   useEffect(() => {
     const fetchCommissions = async () => {
+      if (!queryUserId) return;
       try {
         const { data, error } = await supabase
           .from('commissions')
           .select('*, deals(client_name, property_address)')
-          .eq('user_id', user?.id)
+          .eq('user_id', queryUserId)
           .order('created_at', { ascending: false });
 
         if (error) {
@@ -96,19 +102,36 @@ const Commissions = () => {
       }
     };
 
-    if (user) {
-      fetchCommissions();
-    }
-  }, [user]);
+    fetchCommissions();
+  }, [queryUserId]);
 
+  // Fetch FUB deals – scoped to effective agent when in agent view
   useEffect(() => {
     const fetchFUBDeals = async () => {
-      if (!hasRole('admin') || !hasFUB) return;
+      if (!hasFUB) return;
       setFubLoading(true);
       try {
         const response = await followUpBossApi.getDeals(200, 0);
         if (response.success && response.data?.deals) {
-          setFUBDeals(response.data.deals);
+          let deals = response.data.deals;
+
+          // If viewing as a specific agent, filter by their fub_user_id
+          if (isViewingAsAgent && effectiveFubUserId) {
+            deals = deals.filter(d => d.users?.some(u => u.id === effectiveFubUserId));
+          } else if (!isAdmin) {
+            // Non-admin agent: get their own fub_user_id from profile
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('fub_user_id')
+              .eq('id', user?.id)
+              .maybeSingle();
+            if (profile?.fub_user_id) {
+              deals = deals.filter(d => d.users?.some(u => u.id === profile.fub_user_id));
+            }
+          }
+          // Admin not viewing as agent: show all deals (company view)
+
+          setFUBDeals(deals);
         }
       } catch (error) {
         console.error('Error fetching FUB deals:', error);
@@ -118,7 +141,7 @@ const Commissions = () => {
     };
 
     fetchFUBDeals();
-  }, [hasRole, hasFUB, toast]);
+  }, [hasFUB, isAdmin, isViewingAsAgent, effectiveFubUserId, user]);
 
   useEffect(() => {
     const displayDeals = fubDeals
@@ -140,33 +163,29 @@ const Commissions = () => {
     setFUBDealsDisplay(displayDeals);
   }, [fubDeals]);
 
-  const fetchMyFUBDeals = async () => {
+  const refreshFUBDeals = async () => {
     if (!hasFUB) return;
     setFubLoading(true);
     try {
       const response = await followUpBossApi.getDeals(200, 0);
       if (response.success && response.data?.deals) {
-        const myDeals = response.data.deals.filter((deal) =>
-          deal.users?.some((u) => u.name && user?.email && u.name.toLowerCase().includes(user.email.split('@')[0].toLowerCase()))
-        );
+        let deals = response.data.deals;
 
-        const displayDeals = myDeals
-          .filter((deal) => deal.agentCommission)
-          .map((deal) => ({
-            id: deal.id,
-            clientName: deal.people?.[0]?.name || deal.name || 'Unknown Client',
-            propertyAddress: [deal.propertyStreet, deal.propertyCity, deal.propertyState]
-              .filter(Boolean)
-              .join(', ') || 'Address TBD',
-            stageName: deal.stageName || 'Unknown Stage',
-            dealValue: deal.price || 0,
-            grossCommission: deal.agentCommission || 0,
-            createdAt: deal.createdAt || '',
-            status: deal.stageName || 'Unknown',
-            source: 'fub',
-          }));
+        // Apply same agent filtering
+        if (isViewingAsAgent && effectiveFubUserId) {
+          deals = deals.filter(d => d.users?.some(u => u.id === effectiveFubUserId));
+        } else if (!isAdmin) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('fub_user_id')
+            .eq('id', user?.id)
+            .maybeSingle();
+          if (profile?.fub_user_id) {
+            deals = deals.filter(d => d.users?.some(u => u.id === profile.fub_user_id));
+          }
+        }
 
-        setFUBDealsDisplay(displayDeals);
+        setFUBDeals(deals);
       }
     } catch (error) {
       console.error('Error fetching FUB deals:', error);
@@ -418,9 +437,10 @@ const Commissions = () => {
     <div className="container py-10">
       <div className="mb-8 flex items-center justify-between">
         <div className="flex items-center gap-3 flex-wrap">
-          <h1 className="text-3xl font-bold text-foreground">Commissions</h1>
+          <h1 className="text-3xl font-bold text-foreground">{isViewingAsAgent ? 'Agent Transactions' : 'Commissions'}</h1>
           {!hasFUB && <ManualModeBadge />}
         </div>
+        {!isReadOnly && (
         <div>
           <Dialog open={addDealOpen} onOpenChange={setAddDealOpen}>
             <DialogTrigger asChild>
@@ -535,6 +555,7 @@ const Commissions = () => {
             </DialogContent>
           </Dialog>
         </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -572,7 +593,7 @@ const Commissions = () => {
       <Card className="border-gold/10 bg-card/50 mt-6">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-gold font-display">My Transactions</CardTitle>
-          <Button variant="outline" size="sm" onClick={fetchMyFUBDeals} className="border-gold/30 text-gold hover:bg-gold/10">
+          <Button variant="outline" size="sm" onClick={refreshFUBDeals} className="border-gold/30 text-gold hover:bg-gold/10">
             <RefreshCw className="h-4 w-4 mr-2" />Refresh
           </Button>
         </CardHeader>

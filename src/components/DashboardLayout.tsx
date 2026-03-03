@@ -51,15 +51,18 @@ const ViewAsAgentControls = () => {
 };
 
 const ViewAsAgentBanner = () => {
-  const { isViewingAsAgent, viewingAgentName } = useViewAsAgent();
-  if (!isViewingAsAgent || !viewingAgentName) return null;
+  const { isViewingAsAgent, viewingAgentName, canViewAsAgent } = useViewAsAgent();
+
+  if (!canViewAsAgent) return null;
 
   return (
-    <div className="bg-primary/10 border-b border-primary/20 px-4 py-1.5 text-center">
-      <span className="text-xs font-medium text-primary">
+    <div className={`border-b px-4 py-1.5 text-center ${isViewingAsAgent ? 'bg-primary/10 border-primary/20' : 'bg-muted/30 border-border'}`}>
+      <span className="text-xs font-medium text-foreground">
         <Eye className="h-3 w-3 inline mr-1.5 -mt-0.5" />
-        Viewing as: {viewingAgentName}
-        <span className="text-muted-foreground ml-2">(Read-only)</span>
+        {isViewingAsAgent
+          ? <>Viewing: <span className="text-primary font-semibold">Agent ({viewingAgentName})</span><span className="text-muted-foreground ml-2">(Read-only)</span></>
+          : <>Viewing: <span className="font-semibold">Company</span></>
+        }
       </span>
     </div>
   );

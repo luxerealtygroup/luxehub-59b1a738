@@ -6,6 +6,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 interface AgentOption {
   id: string;
   full_name: string;
+  fub_user_id: number | null;
 }
 
 interface ViewAsAgentContextType {
@@ -17,6 +18,8 @@ interface ViewAsAgentContextType {
   viewingAgentName: string | null;
   /** The user ID to use for data queries – returns viewed agent when active, otherwise real user */
   effectiveUserId: string | null;
+  /** The FUB user ID mapped to the effective user (for FUB deal filtering) */
+  effectiveFubUserId: number | null;
   /** Whether the admin feature is available (admin only) */
   canViewAsAgent: boolean;
   /** Toggle the mode on/off */
@@ -59,13 +62,13 @@ export function ViewAsAgentProvider({ children }: { children: ReactNode }) {
     }
   }, [isAdmin]);
 
-  // Fetch agent options for admins
+  // Fetch agent options for admins (include fub_user_id)
   useEffect(() => {
     if (!isAdmin) return;
     const fetch = async () => {
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('id, full_name')
+        .select('id, full_name, fub_user_id')
         .not('full_name', 'is', null);
 
       const { data: usersWith411 } = await supabase
@@ -74,16 +77,9 @@ export function ViewAsAgentProvider({ children }: { children: ReactNode }) {
 
       const activeIds = new Set((usersWith411 || []).map(w => w.user_id));
 
-      const { data: fubProfiles } = await supabase
-        .from('profiles')
-        .select('id, fub_user_id')
-        .not('fub_user_id', 'is', null);
-
-      const fubMap = new Map((fubProfiles || []).map(p => [p.id, p.fub_user_id]));
-
       const filtered = (profiles || [])
         .filter(p => {
-          const hasFub = fubMap.has(p.id) && fubMap.get(p.id) !== 8;
+          const hasFub = p.fub_user_id != null && p.fub_user_id !== 8;
           return (hasFub || activeIds.has(p.id)) && p.full_name;
         })
         .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
@@ -115,20 +111,29 @@ export function ViewAsAgentProvider({ children }: { children: ReactNode }) {
     persist(true, agentId);
   }, []);
 
-  const viewingAgentName = isViewingAsAgent && viewingAgentId
-    ? agentOptions.find(a => a.id === viewingAgentId)?.full_name || null
+  const activeViewing = isAdmin && isViewingAsAgent;
+
+  const viewingAgent = activeViewing && viewingAgentId
+    ? agentOptions.find(a => a.id === viewingAgentId)
     : null;
 
-  const effectiveUserId = isAdmin && isViewingAsAgent && viewingAgentId
+  const viewingAgentName = viewingAgent?.full_name || null;
+
+  const effectiveUserId = activeViewing && viewingAgentId
     ? viewingAgentId
     : user?.id || null;
 
+  const effectiveFubUserId = activeViewing && viewingAgent
+    ? viewingAgent.fub_user_id
+    : null; // null means "use current user's own fub_user_id from their profile"
+
   return (
     <ViewAsAgentContext.Provider value={{
-      isViewingAsAgent: isAdmin && isViewingAsAgent,
-      viewingAgentId: isAdmin && isViewingAsAgent ? viewingAgentId : null,
+      isViewingAsAgent: activeViewing,
+      viewingAgentId: activeViewing ? viewingAgentId : null,
       viewingAgentName,
       effectiveUserId,
+      effectiveFubUserId,
       canViewAsAgent: isAdmin,
       setIsViewingAsAgent,
       setViewingAgentId,

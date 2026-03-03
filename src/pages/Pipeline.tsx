@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useViewAsAgent } from '@/hooks/useViewAsAgent';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -63,6 +64,9 @@ const stageLabels: { [key: number]: string } = {
 
 const Pipeline = () => {
   const { user } = useAuth();
+  const { isViewingAsAgent, effectiveUserId } = useViewAsAgent();
+  const isReadOnly = isViewingAsAgent;
+  const queryUserId = effectiveUserId;
   const { toast } = useToast();
   const [clients, setClients] = useState<PipelineClient[]>([]);
   const [filteredClients, setFilteredClients] = useState<PipelineClient[]>([]);
@@ -87,19 +91,19 @@ const Pipeline = () => {
   });
 
   useEffect(() => {
-    if (user) fetchClients();
-  }, [user]);
+    if (queryUserId) fetchClients();
+  }, [queryUserId]);
 
   useEffect(() => {
     filterClients();
   }, [clients, searchTerm, filterType, filterStage]);
 
   const fetchClients = async () => {
-    if (!user) return;
+    if (!queryUserId) return;
     const { data, error } = await supabase
       .from('pipeline_clients')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', queryUserId)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -256,6 +260,7 @@ const Pipeline = () => {
           <h1 className="text-3xl font-bold text-foreground font-display">Pipeline</h1>
           <p className="text-muted-foreground">Manage your active clients and deals</p>
         </div>
+        {!isReadOnly && (
         <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
           <DialogTrigger asChild>
             <Button className="bg-gold hover:bg-gold/90"><Plus className="h-4 w-4 mr-2" />Add Client</Button>
@@ -336,6 +341,7 @@ const Pipeline = () => {
             </div>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       {/* Summary Cards */}
