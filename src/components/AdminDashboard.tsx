@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Building2, DollarSign, Users, TrendingUp, Target, Loader2, BarChart3, Calendar, FileText } from 'lucide-react';
+import { Building2, DollarSign, Users, TrendingUp, Target, Loader2, BarChart3, Calendar, FileText, ArrowRightLeft } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -19,6 +19,7 @@ import CompanyBudget from './CompanyBudget';
 import AnnualBudgetChart from './AnnualBudgetChart';
 import AccountsPayable from './AccountsPayable';
 import Team411 from './Team411';
+import ConversionReport from './ConversionReport';
 
 interface AgentData {
   id: string;
@@ -746,6 +747,9 @@ const AdminDashboard = () => {
           <TabsTrigger value="team411" className="flex items-center gap-2">
             <Target className="h-4 w-4" /> Team 4-1-1
           </TabsTrigger>
+          <TabsTrigger value="conversions" className="flex items-center gap-2">
+            <ArrowRightLeft className="h-4 w-4" /> Conversions
+          </TabsTrigger>
         </TabsList>
 
         {/* PIPELINE & SALES TAB */}
@@ -1236,6 +1240,10 @@ const AdminDashboard = () => {
         {/* TEAM 4-1-1 TAB */}
         <TabsContent value="team411" className="space-y-6">
           <Team411 />
+        </TabsContent>
+        {/* CONVERSION REPORT TAB */}
+        <TabsContent value="conversions" className="space-y-6">
+          <ConversionReport />
         </TabsContent>
       </Tabs>
     </div>
