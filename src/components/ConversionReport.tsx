@@ -5,7 +5,6 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -109,8 +108,10 @@ const ConversionReport = () => {
         .gte('week_start_date', fromStr)
         .lte('week_start_date', toStr);
 
-      // Filter: admin can pick agent or "all"; non-admin always filtered to self
-      if (effectiveAgent !== 'all') {
+      // Query-level safety: non-admins are always scoped to their own rows
+      if (!isAdmin) {
+        query = query.eq('user_id', user.id);
+      } else if (effectiveAgent !== 'all') {
         query = query.eq('user_id', effectiveAgent);
       }
 
@@ -162,6 +163,9 @@ const ConversionReport = () => {
       appointments_held: 0, pipeline_additions: 0, contracts_signed: 0,
       firm_deals: 0, database_size: 0,
     };
+
+    if (!isAdmin) return totals;
+
     agentTotals.forEach(t => {
       totals.contacts_made += t.contacts_made;
       totals.dials += t.dials;
@@ -173,8 +177,25 @@ const ConversionReport = () => {
       totals.firm_deals += t.firm_deals;
       totals.database_size += t.database_size;
     });
+
     return totals;
-  }, [agentTotals]);
+  }, [agentTotals, isAdmin]);
+
+  const selfTotals = useMemo<AgentTotals>(() => {
+    if (!user?.id) {
+      return {
+        contacts_made: 0, dials: 0, doors_knocked: 0, appointments_set: 0,
+        appointments_held: 0, pipeline_additions: 0, contracts_signed: 0,
+        firm_deals: 0, database_size: 0,
+      };
+    }
+
+    return agentTotals.get(user.id) || {
+      contacts_made: 0, dials: 0, doors_knocked: 0, appointments_set: 0,
+      appointments_held: 0, pipeline_additions: 0, contracts_signed: 0,
+      firm_deals: 0, database_size: 0,
+    };
+  }, [agentTotals, user?.id]);
 
   const conversionMetrics = [
     { label: 'Contact → Appt Set', num: 'appointments_set', den: 'contacts_made' },
@@ -250,7 +271,37 @@ const ConversionReport = () => {
         </CardContent>
       </Card>
 
-      {/* Team Summary (only for admin viewing all) */}
+      {/* Agent view: only personal conversion metrics */}
+      {!isAdmin && (
+        <Card className="border-primary/10">
+          <CardHeader>
+            <CardTitle className="text-lg font-display">Your Conversion Rates</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {weeklyRows.length === 0 ? (
+              <div className="p-4 text-center text-muted-foreground">
+                No activity data found for the selected date range.
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+                {conversionMetrics.map(m => {
+                  const numVal = selfTotals[m.num as keyof AgentTotals];
+                  const denVal = selfTotals[m.den as keyof AgentTotals];
+                  return (
+                    <div key={m.label} className="text-center p-2 rounded-lg bg-background/50">
+                      <p className="text-lg font-bold text-foreground">{pct(numVal, denVal)}</p>
+                      <p className="text-xs text-muted-foreground leading-tight">{m.label}</p>
+                      <p className="text-xs text-muted-foreground">{numVal}/{denVal}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Admin-only team summary */}
       {isAdmin && selectedAgent === 'all' && displayAgents.length > 0 && (
         <Card className="border-primary/20 bg-primary/5">
           <CardHeader className="pb-3">
@@ -276,8 +327,8 @@ const ConversionReport = () => {
         </Card>
       )}
 
-      {/* Per-Agent Table */}
-      {displayAgents.length === 0 ? (
+      {/* Admin-only per-agent table */}
+      {isAdmin && (displayAgents.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="p-8 text-center text-muted-foreground">
             No activity data found for the selected date range.
@@ -286,9 +337,7 @@ const ConversionReport = () => {
       ) : (
         <Card className="border-primary/10">
           <CardHeader>
-            <CardTitle className="text-lg font-display">
-              {isAdmin ? 'Conversion Rates by Agent' : 'Your Conversion Rates'}
-            </CardTitle>
+            <CardTitle className="text-lg font-display">Conversion Rates by Agent</CardTitle>
           </CardHeader>
           <CardContent className="overflow-x-auto">
             <Table>
@@ -323,8 +372,7 @@ const ConversionReport = () => {
                     </TableRow>
                   );
                 })}
-                {/* Team total row - only for admin with multiple agents */}
-                {isAdmin && displayAgents.length > 1 && (
+                {displayAgents.length > 1 && (
                   <TableRow className="bg-muted/50 font-semibold">
                     <TableCell>Team Total</TableCell>
                     {conversionMetrics.map(m => {
@@ -344,7 +392,7 @@ const ConversionReport = () => {
             </Table>
           </CardContent>
         </Card>
-      )}
+      ))}
     </div>
   );
 };
