@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format, startOfWeek, addWeeks, subWeeks } from 'date-fns';
 import { FUBContactTypeahead } from '@/components/FUBContactTypeahead';
 import { formatCurrency } from '@/lib/utils';
+import { useHasFUB } from '@/hooks/useHasFUB';
 
 interface Weekly411 {
   id?: string;
@@ -135,6 +136,7 @@ const emptyWeekly: Weekly411 = {
 const FourOneOne = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { hasFUB } = useHasFUB();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -321,7 +323,8 @@ const FourOneOne = () => {
   };
 
   const addAppointmentRecord = async () => {
-    if (!user || !newAppointment.fub_contact_id || !newAppointment.contact_name || !newAppointment.outcome || !newAppointment.appointment_type) return;
+    if (!user || !newAppointment.contact_name || !newAppointment.outcome || !newAppointment.appointment_type) return;
+    if (hasFUB && !newAppointment.fub_contact_id) return;
     const weekStart = format(currentWeek, 'yyyy-MM-dd');
 
     const { error } = await supabase.from('appointment_records').insert({
@@ -662,20 +665,32 @@ const FourOneOne = () => {
                     <DialogTitle>Log Appointment Held</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4 pt-2">
-                    <div className="space-y-2">
-                      <Label>Contact (Follow Up Boss) <span className="text-destructive">*</span></Label>
-                      <FUBContactTypeahead
-                        selectedContact={newAppointment.fub_contact_id ? {
-                          id: newAppointment.fub_contact_id,
-                          name: newAppointment.contact_name,
-                        } : null}
-                        onSelect={handleFUBContactSelect}
-                        onClear={clearFUBContact}
-                      />
-                      {!newAppointment.fub_contact_id && (
-                        <p className="text-xs text-muted-foreground">Search and select a contact from Follow Up Boss</p>
-                      )}
-                    </div>
+                    {hasFUB ? (
+                      <div className="space-y-2">
+                        <Label>Contact (Follow Up Boss) <span className="text-destructive">*</span></Label>
+                        <FUBContactTypeahead
+                          selectedContact={newAppointment.fub_contact_id ? {
+                            id: newAppointment.fub_contact_id,
+                            name: newAppointment.contact_name,
+                          } : null}
+                          onSelect={handleFUBContactSelect}
+                          onClear={clearFUBContact}
+                        />
+                        {!newAppointment.fub_contact_id && (
+                          <p className="text-xs text-muted-foreground">Search and select a contact from Follow Up Boss</p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <Label>Contact Name <span className="text-destructive">*</span></Label>
+                        <Input
+                          placeholder="Enter contact name"
+                          value={newAppointment.contact_name}
+                          onChange={(e) => setNewAppointment(prev => ({ ...prev, contact_name: e.target.value }))}
+                        />
+                        <p className="text-xs text-muted-foreground">Manual Entry (No FUB ID)</p>
+                      </div>
+                    )}
                     <div className="space-y-2">
                       <Label>Appointment Date <span className="text-destructive">*</span></Label>
                       <Input
@@ -730,7 +745,7 @@ const FourOneOne = () => {
                     </div>
                     <Button
                       onClick={addAppointmentRecord}
-                      disabled={!newAppointment.fub_contact_id || !newAppointment.outcome || !newAppointment.appointment_date}
+                      disabled={(!hasFUB ? !newAppointment.contact_name : !newAppointment.fub_contact_id) || !newAppointment.outcome || !newAppointment.appointment_date}
                       className="w-full bg-primary text-primary-foreground"
                     >
                       <Plus className="h-4 w-4 mr-2" /> Add Appointment
@@ -751,8 +766,10 @@ const FourOneOne = () => {
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-sm">{appt.contact_name}</span>
-                          {appt.fub_contact_id && (
+                          {appt.fub_contact_id ? (
                             <Badge variant="outline" className="text-xs">FUB #{appt.fub_contact_id}</Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs border-amber-500/30 text-amber-600">Manual Entry</Badge>
                           )}
                           <Badge variant="outline" className="text-xs capitalize">{appt.appointment_type}</Badge>
                           {appt.outcome && (
