@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useHasFUB } from '@/hooks/useHasFUB';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +19,7 @@ import { useToast } from '@/hooks/use-toast';
 import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
 import { useGoogleCalendar } from '@/hooks/useGoogleCalendar';
 import { formatCurrency, formatNumber } from '@/lib/utils';
+import { ManualModeBadge } from '@/components/ManualModeBadge';
 
 interface Commission {
   id: string;
@@ -47,6 +49,7 @@ const Commissions = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { hasRole } = useUserRole();
+  const { hasFUB } = useHasFUB();
   const [commissions, setCommissions] = useState<Commission[]>([]);
   const [fubDeals, setFUBDeals] = useState<FUBDeal[]>([]);
   const [fubDealsDisplay, setFUBDealsDisplay] = useState<FUBDealDisplay[]>([]);
@@ -100,7 +103,7 @@ const Commissions = () => {
 
   useEffect(() => {
     const fetchFUBDeals = async () => {
-      if (!hasRole('admin')) return;
+      if (!hasRole('admin') || !hasFUB) return;
       setFubLoading(true);
       try {
         const response = await followUpBossApi.getDeals(200, 0);
@@ -115,7 +118,7 @@ const Commissions = () => {
     };
 
     fetchFUBDeals();
-  }, [hasRole, toast]);
+  }, [hasRole, hasFUB, toast]);
 
   useEffect(() => {
     const displayDeals = fubDeals
@@ -138,6 +141,7 @@ const Commissions = () => {
   }, [fubDeals]);
 
   const fetchMyFUBDeals = async () => {
+    if (!hasFUB) return;
     setFubLoading(true);
     try {
       const response = await followUpBossApi.getDeals(200, 0);
@@ -413,7 +417,10 @@ const Commissions = () => {
   return (
     <div className="container py-10">
       <div className="mb-8 flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-foreground">Commissions</h1>
+        <div className="flex items-center gap-3 flex-wrap">
+          <h1 className="text-3xl font-bold text-foreground">Commissions</h1>
+          {!hasFUB && <ManualModeBadge />}
+        </div>
         <div>
           <Dialog open={addDealOpen} onOpenChange={setAddDealOpen}>
             <DialogTrigger asChild>
