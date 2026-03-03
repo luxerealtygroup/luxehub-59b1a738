@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { formatCurrency } from '@/lib/utils';
+import ConversionReport from '@/components/ConversionReport';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -922,6 +923,19 @@ const Reports = () => {
               </div>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Conversion Report */}
+      <Card className="border-primary/10">
+        <CardHeader>
+          <CardTitle className="text-lg font-display flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-primary" />
+            Conversion Report
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ConversionReport />
         </CardContent>
       </Card>
     </div>
