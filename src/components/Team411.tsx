@@ -428,7 +428,9 @@ const Team411 = () => {
                       {monthNames.map((name, idx) => {
                         const monthGoal = monthlyGoals.find((g: any) => g.month === idx) || {};
                         const isCurrentMonth = idx === currentMonth;
-                        const hasFocus = monthGoal.focus || monthGoal.target || monthGoal.personal_focus || monthGoal.personal_target;
+                        const businessLines = [monthGoal.focus, monthGoal.target, monthGoal.line_3, monthGoal.line_4, monthGoal.line_5, monthGoal.line_6, monthGoal.line_7].filter(Boolean);
+                        const personalLines = [monthGoal.personal_focus, monthGoal.personal_target, monthGoal.personal_line_3, monthGoal.personal_line_4, monthGoal.personal_line_5, monthGoal.personal_line_6, monthGoal.personal_line_7].filter(Boolean);
+                        const hasFocus = businessLines.length > 0 || personalLines.length > 0;
                         if (!hasFocus && selectedAgent === 'all') return null;
 
                         return (
@@ -439,18 +441,20 @@ const Team411 = () => {
                             <p className={`font-medium mb-1 ${isCurrentMonth ? 'text-primary' : ''}`}>
                               {name} {isCurrentMonth && '•'}
                             </p>
-                            {monthGoal.focus && (
-                              <p className="text-muted-foreground"><span className="font-medium text-foreground">Biz:</span> {monthGoal.focus}</p>
-                            )}
-                            {monthGoal.target && (
-                              <p className="text-muted-foreground"><span className="font-medium text-foreground">Target:</span> {monthGoal.target}</p>
-                            )}
-                            {monthGoal.personal_focus && (
-                              <p className="text-green-600"><span className="font-medium">Personal:</span> {monthGoal.personal_focus}</p>
-                            )}
-                            {monthGoal.personal_target && (
-                              <p className="text-green-600"><span className="font-medium">Target:</span> {monthGoal.personal_target}</p>
-                            )}
+                            {businessLines.map((line, i) => (
+                              <p key={i} className="text-muted-foreground">
+                                {i === 0 && <span className="font-medium text-foreground">Biz: </span>}
+                                {i > 0 && <span className="ml-3">• </span>}
+                                {line}
+                              </p>
+                            ))}
+                            {personalLines.map((line, i) => (
+                              <p key={`p${i}`} className="text-green-600">
+                                {i === 0 && <span className="font-medium">Personal: </span>}
+                                {i > 0 && <span className="ml-3">• </span>}
+                                {line}
+                              </p>
+                            ))}
                           </div>
                         );
                       })}

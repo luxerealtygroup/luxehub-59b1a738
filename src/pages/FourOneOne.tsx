@@ -80,8 +80,18 @@ interface ProductionGoals {
     month: number; 
     focus: string; 
     target: string;
+    line_3?: string;
+    line_4?: string;
+    line_5?: string;
+    line_6?: string;
+    line_7?: string;
     personal_focus?: string;
     personal_target?: string;
+    personal_line_3?: string;
+    personal_line_4?: string;
+    personal_line_5?: string;
+    personal_line_6?: string;
+    personal_line_7?: string;
   }[];
 }
 
@@ -407,18 +417,31 @@ const FourOneOne = () => {
       month, 
       focus: '', 
       target: '',
+      line_3: '',
+      line_4: '',
+      line_5: '',
+      line_6: '',
+      line_7: '',
       personal_focus: '',
-      personal_target: ''
+      personal_target: '',
+      personal_line_3: '',
+      personal_line_4: '',
+      personal_line_5: '',
+      personal_line_6: '',
+      personal_line_7: '',
     };
   };
 
-  const updateMonthlyGoal = (month: number, field: 'focus' | 'target' | 'personal_focus' | 'personal_target', value: string) => {
+  const businessLineKeys = ['focus', 'target', 'line_3', 'line_4', 'line_5', 'line_6', 'line_7'] as const;
+  const personalLineKeys = ['personal_focus', 'personal_target', 'personal_line_3', 'personal_line_4', 'personal_line_5', 'personal_line_6', 'personal_line_7'] as const;
+
+  const updateMonthlyGoal = (month: number, field: string, value: string) => {
     const updated = [...annualGoals.monthly_goals];
     const idx = updated.findIndex(g => g.month === month);
     if (idx >= 0) {
       updated[idx] = { ...updated[idx], [field]: value };
     } else {
-      const newGoal = { month, focus: '', target: '', personal_focus: '', personal_target: '' };
+      const newGoal: any = { month, focus: '', target: '', personal_focus: '', personal_target: '' };
       newGoal[field] = value;
       updated.push(newGoal);
     }
@@ -980,18 +1003,15 @@ const FourOneOne = () => {
                     <p className={`font-medium text-sm mb-2 ${isCurrentMonth ? 'text-primary' : ''}`}>
                       {name} {isCurrentMonth && '(Current)'}
                     </p>
-                    <Input
-                      placeholder="Business Focus"
-                      value={goal.focus}
-                      onChange={(e) => updateMonthlyGoal(idx, 'focus', e.target.value)}
-                      className="mb-2 text-sm"
-                    />
-                    <Input
-                      placeholder="Target (e.g., 2 closings)"
-                      value={goal.target}
-                      onChange={(e) => updateMonthlyGoal(idx, 'target', e.target.value)}
-                      className="text-sm"
-                    />
+                    {businessLineKeys.map((key, lineIdx) => (
+                      <Input
+                        key={key}
+                        placeholder={lineIdx === 0 ? 'Business Focus' : lineIdx === 1 ? 'Target (e.g., 2 closings)' : `Goal ${lineIdx + 1}`}
+                        value={(goal as any)[key] || ''}
+                        onChange={(e) => updateMonthlyGoal(idx, key, e.target.value)}
+                        className={`text-sm ${lineIdx < 6 ? 'mb-1.5' : ''}`}
+                      />
+                    ))}
                   </div>
                 );
               })}
@@ -1017,18 +1037,15 @@ const FourOneOne = () => {
                     <p className={`font-medium text-sm mb-2 ${isCurrentMonth ? 'text-green-600' : ''}`}>
                       {name} {isCurrentMonth && '(Current)'}
                     </p>
-                    <Input
-                      placeholder="Personal Focus"
-                      value={goal.personal_focus || ''}
-                      onChange={(e) => updateMonthlyGoal(idx, 'personal_focus', e.target.value)}
-                      className="mb-2 text-sm border-green-500/20 focus:border-green-500"
-                    />
-                    <Input
-                      placeholder="Target (e.g., gym 3x/week)"
-                      value={goal.personal_target || ''}
-                      onChange={(e) => updateMonthlyGoal(idx, 'personal_target', e.target.value)}
-                      className="text-sm border-green-500/20 focus:border-green-500"
-                    />
+                    {personalLineKeys.map((key, lineIdx) => (
+                      <Input
+                        key={key}
+                        placeholder={lineIdx === 0 ? 'Personal Focus' : lineIdx === 1 ? 'Target (e.g., gym 3x/week)' : `Goal ${lineIdx + 1}`}
+                        value={(goal as any)[key] || ''}
+                        onChange={(e) => updateMonthlyGoal(idx, key, e.target.value)}
+                        className={`text-sm border-green-500/20 focus:border-green-500 ${lineIdx < 6 ? 'mb-1.5' : ''}`}
+                      />
+                    ))}
                   </div>
                 );
               })}
