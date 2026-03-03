@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { PipelineDebug } from '@/hooks/usePipelineMetrics';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,22 +15,16 @@ import { ActiveMetrics, ActiveListingDebug, GoalInputs, currentYear, safe } from
 import { StatCard } from './shared';
 import { toast } from 'sonner';
 
-// ── Pipeline gap data computed in parent from allDeals (same source as Pipeline tab) ──
+// ── Pipeline data from shared usePipelineMetrics hook (same source as Pipeline tab) ──
 export interface PipelineGapData {
-  /** Q(n-1) actual closings from FUB */
-  prevQActualClosings: number;
-  /** Q(n-1) required closings (goal-based) */
-  prevQRequiredClosings: number;
-  /** Pipeline total: non-closed, non-lost deals with projectedCloseDate in prev+current Q */
+  /** Pipeline clients in Q(n-1)+Q(n) date range — from pipeline_clients table */
   pipelineTotal: number;
-  /** Count before date filter (debug) */
-  pipelineBeforeDateFilter: number;
-  /** Stages included in pipeline count */
-  pipelineStagesIncluded: string[];
-  /** Date range used for pipeline */
-  pipelineDateRange: { start: string; end: string };
-  /** effectiveFubUserId used */
-  effectiveFubUserId: number | null;
+  /** Total pipeline clients (no date filter) */
+  pipelineTotalAll: number;
+  /** Clients missing expected_pending_date */
+  missingDateCount: number;
+  /** Debug info from shared hook */
+  pipelineDebug: PipelineDebug;
 }
 
 interface ManualPerformance {
@@ -181,6 +176,7 @@ export function PerformanceRealityTab({
   const currentPipelineDeals = pipelineGapData.pipelineTotal;
   const pipelineDeficit = hasTarget ? Math.max(0, requiredPipelineDeals - currentPipelineDeals) : null;
   const pipelineSurplus = hasTarget ? Math.max(0, currentPipelineDeals - requiredPipelineDeals) : 0;
+  const missingDateCount = pipelineGapData.missingDateCount;
 
   const prevQ = quarter > 1 ? quarter - 1 : 4;
 
@@ -287,8 +283,13 @@ export function PerformanceRealityTab({
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Current Pipeline (Q{prevQ}+Q{quarter})</span>
-                      <span className="font-bold text-foreground">{formatNumber(currentPipelineDeals)}</span>
-                    </div>
+                       <span className="font-bold text-foreground">{formatNumber(currentPipelineDeals)}</span>
+                     </div>
+                     {missingDateCount > 0 && (
+                       <div className="flex items-center justify-between text-amber-600 text-xs">
+                         <span><AlertTriangle className="h-3 w-3 inline mr-1" />{missingDateCount} client(s) missing expected pending date — not counted</span>
+                       </div>
+                     )}
                     <Separator />
                     <div className="flex items-center justify-between">
                       {pipelineDeficit > 0 ? (
@@ -321,16 +322,24 @@ export function PerformanceRealityTab({
                   </div>
 
                   {isAdmin && (
-                    <div className="rounded border border-muted bg-muted/30 p-3 text-xs font-mono space-y-1 mt-3">
-                      <p className="font-semibold text-muted-foreground">Pipeline Deficit Debug</p>
-                      <p>effectiveFubUserId: <span className="font-bold">{pipelineGapData.effectiveFubUserId ?? 'null'}</span></p>
-                      <p>Q{prevQ}+Q{quarter} date range: <span className="font-bold">{pipelineGapData.pipelineDateRange.start} → {pipelineGapData.pipelineDateRange.end}</span></p>
-                      <p>Pipeline stages: {pipelineGapData.pipelineStagesIncluded.join(', ') || 'none'}</p>
-                      <p>Current Pipeline (from Pipeline tab source): <span className="font-bold">{currentPipelineDeals}</span></p>
-                      <p>Pipeline before date filter: <span className="font-bold">{pipelineGapData.pipelineBeforeDateFilter}</span></p>
-                      <p>Q{quarter} Target GCI: <span className="font-bold">{formatCurrency(qTargetGCI)}</span> {goals.gci_target > 0 ? '(from Q goals)' : '(annual ÷ 4)'}</p>
-                      <p>Avg GCI/deal: <span className="font-bold">{formatCurrency(avgGCIPerDeal)}</span></p>
-                      <p>Q{quarter} Closings Goal: {q2ClosingsGoal} | Fallout: {Math.round(falloutRate * 100)}% | Required Pipeline: {requiredPipelineDeals}</p>
+                     <div className="rounded border border-muted bg-muted/30 p-3 text-xs font-mono space-y-1 mt-3">
+                       <p className="font-semibold text-muted-foreground">Pipeline Deficit Debug (pipeline_clients table)</p>
+                       <p>effectiveUserId: <span className="font-bold">{pipelineGapData.pipelineDebug.effectiveUserId ?? 'null'}</span></p>
+                       <p>Date range: <span className="font-bold">{pipelineGapData.pipelineDebug.dateRangeStart} → {pipelineGapData.pipelineDebug.dateRangeEnd}</span></p>
+                       <p>Total pipeline clients (all): <span className="font-bold">{pipelineGapData.pipelineTotalAll}</span></p>
+                       <p>After date filter (Q{prevQ}+Q{quarter}): <span className="font-bold">{pipelineGapData.pipelineDebug.afterDateFilter}</span></p>
+                       <p>Missing expected_pending_date: <span className="font-bold">{pipelineGapData.pipelineDebug.missingDateCount}</span></p>
+                       <p>Q{quarter} Target GCI: <span className="font-bold">{formatCurrency(qTargetGCI)}</span> {goals.gci_target > 0 ? '(from Q goals)' : '(annual ÷ 4)'}</p>
+                       <p>Avg GCI/deal: <span className="font-bold">{formatCurrency(avgGCIPerDeal)}</span></p>
+                       <p>Q{quarter} Closings Goal: {q2ClosingsGoal} | Fallout: {Math.round(falloutRate * 100)}% | Required Pipeline: {requiredPipelineDeals}</p>
+                       {pipelineGapData.pipelineDebug.top5.length > 0 && (
+                         <div className="mt-1">
+                           <p className="font-semibold">First 5 pipeline clients:</p>
+                           {pipelineGapData.pipelineDebug.top5.map((c, i) => (
+                             <p key={i} className="pl-2">#{c.id.slice(0,8)} — {c.client_name} stage:{c.stage} pendingDate:{c.expected_pending_date ?? 'null'}</p>
+                           ))}
+                         </div>
+                       )}
                     </div>
                   )}
                 </>
