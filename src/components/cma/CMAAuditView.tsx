@@ -5,6 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, AlertTriangle, CheckCircle, TrendingUp, Shield, MessageSquare, Target } from 'lucide-react';
 import CMAFubPush from './CMAFubPush';
+import CMALifecycleStatus from './CMALifecycleStatus';
+import CMAFubAutomation from './CMAFubAutomation';
+import CMAEquityRecheck from './CMAEquityRecheck';
+import CMAMarketShiftAlert from './CMAMarketShiftAlert';
 
 interface Comp {
   address: string;
@@ -59,38 +63,51 @@ interface CMAReportFull {
   sale_to_list_ratio: number | null;
   fub_person_id: number | null;
   fub_person_name: string | null;
+  // Lifecycle fields
+  listing_status: string;
+  final_list_price: number | null;
+  final_sold_price: number | null;
+  lifecycle_history: Array<{ status: string; at: string }>;
+  fub_automation_log: Array<{ action: string; at: string; fub_task_id?: string }>;
+  equity_recalc_count: number;
+  last_equity_update: string | null;
+  prev_median_sale_price: number | null;
+  prev_avg_days_on_market: number | null;
+  market_shift_detected: boolean;
 }
 
 const CMAAuditView = ({ reportId }: { reportId: string }) => {
   const [report, setReport] = useState<CMAReportFull | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const fetchReport = async () => {
+    const { data, error } = await supabase
+      .from('cma_reports')
+      .select('*')
+      .eq('id', reportId)
+      .single();
+    if (error) {
+      toast.error('Failed to load report');
+      console.error(error);
+    } else {
+      const r = data as any;
+      setReport({
+        ...r,
+        risk_flags: Array.isArray(r.risk_flags) ? r.risk_flags : [],
+        weak_comp_alerts: Array.isArray(r.weak_comp_alerts) ? r.weak_comp_alerts : [],
+        adjustment_observations: Array.isArray(r.adjustment_observations) ? r.adjustment_observations : [],
+        talking_points: Array.isArray(r.talking_points) ? r.talking_points : [],
+        seller_objections: Array.isArray(r.seller_objections) ? r.seller_objections : [],
+        extracted_comps: Array.isArray(r.extracted_comps) ? r.extracted_comps : [],
+        lifecycle_history: Array.isArray(r.lifecycle_history) ? r.lifecycle_history : [],
+        fub_automation_log: Array.isArray(r.fub_automation_log) ? r.fub_automation_log : [],
+      });
+    }
+    setLoading(false);
+  };
+
   useEffect(() => {
-    const fetch = async () => {
-      const { data, error } = await supabase
-        .from('cma_reports')
-        .select('*')
-        .eq('id', reportId)
-        .single();
-      if (error) {
-        toast.error('Failed to load report');
-        console.error(error);
-      } else {
-        // Cast JSONB arrays
-        const r = data as any;
-        setReport({
-          ...r,
-          risk_flags: Array.isArray(r.risk_flags) ? r.risk_flags : [],
-          weak_comp_alerts: Array.isArray(r.weak_comp_alerts) ? r.weak_comp_alerts : [],
-          adjustment_observations: Array.isArray(r.adjustment_observations) ? r.adjustment_observations : [],
-          talking_points: Array.isArray(r.talking_points) ? r.talking_points : [],
-          seller_objections: Array.isArray(r.seller_objections) ? r.seller_objections : [],
-          extracted_comps: Array.isArray(r.extracted_comps) ? r.extracted_comps : [],
-        });
-      }
-      setLoading(false);
-    };
-    fetch();
+    fetchReport();
   }, [reportId]);
 
   if (loading) {
@@ -105,11 +122,21 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
 
   if (report.analysis_status === 'draft') {
     return (
-      <Card className="border-gold/20">
-        <CardContent className="py-12 text-center">
-          <p className="text-muted-foreground">This report is a draft. Run analysis to see results.</p>
-        </CardContent>
-      </Card>
+      <div className="space-y-6 max-w-5xl">
+        <CMALifecycleStatus
+          reportId={report.id}
+          currentStatus={report.listing_status}
+          finalListPrice={report.final_list_price}
+          finalSoldPrice={report.final_sold_price}
+          lifecycleHistory={report.lifecycle_history}
+          onUpdate={fetchReport}
+        />
+        <Card className="border-gold/20">
+          <CardContent className="py-12 text-center">
+            <p className="text-muted-foreground">This report is a draft. Run analysis to see results.</p>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
@@ -144,29 +171,63 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
 
   return (
     <div className="space-y-6 max-w-5xl">
-      {/* FUB Push */}
+      {/* Market Shift Alert */}
+      <CMAMarketShiftAlert
+        reportId={report.id}
+        currentMedian={report.median_sale_price}
+        prevMedian={report.prev_median_sale_price}
+        currentDOM={report.avg_days_on_market}
+        prevDOM={report.prev_avg_days_on_market}
+        marketShiftDetected={report.market_shift_detected}
+        fubPersonId={report.fub_person_id}
+        fubPersonName={report.fub_person_name}
+        propertyAddress={report.property_address}
+        onUpdate={fetchReport}
+      />
+
+      {/* Lifecycle Status */}
+      <CMALifecycleStatus
+        reportId={report.id}
+        currentStatus={report.listing_status}
+        finalListPrice={report.final_list_price}
+        finalSoldPrice={report.final_sold_price}
+        lifecycleHistory={report.lifecycle_history}
+        onUpdate={fetchReport}
+      />
+
+      {/* FUB Push + Automation */}
       {report.fub_person_id && (
-        <div className="flex justify-end">
-          <CMAFubPush
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="flex items-start">
+            <CMAFubPush
+              reportId={report.id}
+              fubPersonId={report.fub_person_id}
+              fubPersonName={report.fub_person_name}
+              propertyAddress={report.property_address}
+              cmaGrade={report.cma_grade}
+              pricingBandLow={report.pricing_band_low}
+              pricingBandRecommended={report.pricing_band_recommended}
+              pricingBandHigh={report.pricing_band_high}
+              strategyRecommendation={report.strategy_recommendation}
+              equityGainLow={report.equity_gain_low}
+              equityGainHigh={report.equity_gain_high}
+              pricingConfidence={report.pricing_confidence}
+            />
+          </div>
+          <CMAFubAutomation
             reportId={report.id}
             fubPersonId={report.fub_person_id}
             fubPersonName={report.fub_person_name}
             propertyAddress={report.property_address}
-            cmaGrade={report.cma_grade}
-            pricingBandLow={report.pricing_band_low}
-            pricingBandRecommended={report.pricing_band_recommended}
-            pricingBandHigh={report.pricing_band_high}
-            strategyRecommendation={report.strategy_recommendation}
-            equityGainLow={report.equity_gain_low}
-            equityGainHigh={report.equity_gain_high}
-            pricingConfidence={report.pricing_confidence}
+            listingStatus={report.listing_status}
+            fubAutomationLog={report.fub_automation_log}
+            onUpdate={fetchReport}
           />
         </div>
       )}
 
       {/* Header Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Grade */}
         <Card className="border-gold/20">
           <CardContent className="pt-6 text-center">
             <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">CMA Quality</p>
@@ -177,7 +238,6 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
           </CardContent>
         </Card>
 
-        {/* Pricing Band */}
         <Card className="border-gold/20 sm:col-span-2">
           <CardContent className="pt-6">
             <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">Recommended Price Band</p>
@@ -198,7 +258,6 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
           </CardContent>
         </Card>
 
-        {/* Strategy */}
         <Card className="border-gold/20">
           <CardContent className="pt-6 text-center">
             <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Strategy</p>
@@ -207,7 +266,7 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
         </Card>
       </div>
 
-      {/* Equity Gain */}
+      {/* Equity Gain + Recheck */}
       <Card className="border-gold/20">
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
@@ -239,6 +298,24 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Equity Recheck */}
+      <CMAEquityRecheck
+        reportId={report.id}
+        purchasePrice={report.purchase_price}
+        improvementsInvested={report.improvements_invested}
+        equityRecalcCount={report.equity_recalc_count}
+        lastEquityUpdate={report.last_equity_update}
+        fubPersonId={report.fub_person_id}
+        fubPersonName={report.fub_person_name}
+        propertyAddress={report.property_address}
+        medianSalePrice={report.median_sale_price}
+        activeListings={report.active_listings}
+        soldListings={report.sold_listings}
+        avgDaysOnMarket={report.avg_days_on_market}
+        saleToListRatio={report.sale_to_list_ratio}
+        onUpdate={fetchReport}
+      />
 
       {/* Risk Flags */}
       {report.risk_flags.length > 0 && (
