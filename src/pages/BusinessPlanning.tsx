@@ -108,13 +108,23 @@ const BusinessPlanning = () => {
   const [prevQGoalClosings, setPrevQGoalClosings] = useState(0);
   useEffect(() => {
     if (!uid) return;
-    supabase.from('planning_assumptions').select('gci_target, avg_commission')
-      .eq('user_id', uid).eq('year', currentYear).eq('quarter', prevQ).maybeSingle()
+    // Derive quarterly deal goal from Goals tab (agent_goals annual deals_closed ÷ 4)
+    supabase.from('agent_goals').select('target_value')
+      .eq('user_id', uid).eq('period', 'yearly').eq('goal_type', 'deals_closed').maybeSingle()
       .then(({ data }) => {
-        if (data && safe(data.avg_commission) > 0 && safe(data.gci_target) > 0) {
-          setPrevQGoalClosings(Math.ceil(safe(data.gci_target) / safe(data.avg_commission)));
+        if (data && safe(data.target_value) > 0) {
+          setPrevQGoalClosings(Math.ceil(safe(data.target_value) / 4));
         } else {
-          setPrevQGoalClosings(0);
+          // Fallback: try planning_assumptions
+          supabase.from('planning_assumptions').select('gci_target, avg_commission')
+            .eq('user_id', uid).eq('year', currentYear).eq('quarter', prevQ).maybeSingle()
+            .then(({ data: pa }) => {
+              if (pa && safe(pa.avg_commission) > 0 && safe(pa.gci_target) > 0) {
+                setPrevQGoalClosings(Math.ceil(safe(pa.gci_target) / safe(pa.avg_commission)));
+              } else {
+                setPrevQGoalClosings(0);
+              }
+            });
         }
       });
   }, [uid, prevQ]);
