@@ -12,7 +12,7 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const { pdfText, subjectProperty, purchaseHistory, marketStats, existingManualComps } = await req.json();
+    const { pdfText, subjectProperty, purchaseHistory, marketStats, existingManualComps, reviewedComps } = await req.json();
 
     const systemPrompt = `You are a real estate CMA (Comparative Market Analysis) expert analyst. You will analyze CMA data and provide a comprehensive audit.
 
@@ -79,6 +79,11 @@ When analyzing:
 9. Generate talking points and anticipate seller objections with responses
 10. If fewer than 3 comps are found with confidence >= 0.5, re-scan the entire text specifically looking for any property data patterns (addresses with prices, MLS data, tabular data)`;
 
+    // If agent already reviewed comps, include them in the prompt so AI bases analysis on them
+    const reviewedCompsSection = reviewedComps && Array.isArray(reviewedComps) && reviewedComps.length > 0
+      ? `\n\nAGENT-REVIEWED COMPS (use these as the definitive comparable data, do NOT re-extract from PDF):\n${JSON.stringify(reviewedComps, null, 2)}`
+      : '';
+
     const userPrompt = `Analyze this CMA data:
 
 SUBJECT PROPERTY:
@@ -91,9 +96,11 @@ MARKET STATS:
 ${JSON.stringify(marketStats, null, 2)}
 
 CMA PDF CONTENT:
-${pdfText || "No PDF text extracted - analyze based on available data only."}
+${pdfText || "No PDF text extracted - analyze based on available data only."}${reviewedCompsSection}
 
-Provide your complete analysis as a JSON object. Remember to extract comps from ALL pages and sections, categorize them, and include confidence scores.`;
+${reviewedComps?.length > 0 
+  ? 'Use the AGENT-REVIEWED COMPS as extracted_comps in your response. Focus on grading, pricing, risk analysis, and generating insights from these comps.'
+  : 'Provide your complete analysis as a JSON object. Remember to extract comps from ALL pages and sections, categorize them, and include confidence scores.'}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",

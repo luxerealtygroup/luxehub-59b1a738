@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Upload, Loader2, Home, DollarSign, BarChart3, FileUp, Users } from 'lucide-react';
 import { FUBContactTypeahead } from '@/components/FUBContactTypeahead';
 import { useHasFUB } from '@/hooks/useHasFUB';
+import CMACompReview, { type ReviewComp } from './CMACompReview';
 
 interface CMAInputFormProps {
   onCreated: (reportId: string) => void;
@@ -25,11 +26,15 @@ interface SelectedContact {
   phone?: string;
 }
 
+type FormStep = 'input' | 'review';
+
 const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
   const { user } = useAuth();
   const { hasFUB } = useHasFUB();
   const [saving, setSaving] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [step, setStep] = useState<FormStep>('input');
+  const [extracting, setExtracting] = useState(false);
 
   // FUB Contact
   const [selectedContact, setSelectedContact] = useState<SelectedContact | null>(null);
@@ -66,6 +71,9 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
   const [statsPdf, setStatsPdf] = useState<File | null>(null);
   const [pastedStats, setPastedStats] = useState('');
 
+  // Review comps
+  const [reviewComps, setReviewComps] = useState<ReviewComp[]>([]);
+
   const hasMarketStats = () => {
     if (statsMethod === 'manual') return activeListings || soldListings || medianSalePrice || avgDOM || saleToListRatio;
     if (statsMethod === 'pdf') return !!statsPdf;
@@ -95,20 +103,130 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
     return readable ? readable.join(' ').substring(0, 50000) : 'PDF text could not be extracted client-side';
   };
 
-  const handleSubmit = async (andAnalyze: boolean) => {
-    if (!user) return;
+  const buildRequestBody = (pdfText: string, manualComps: ReviewComp[]) => ({
+    pdfText,
+    subjectProperty: {
+      address: propertyAddress,
+      city: cityArea,
+      type: propertyType,
+      beds: bedrooms || null,
+      baths: bathrooms || null,
+      sqft: sqft || null,
+      targetPrice: targetListPrice || null,
+    },
+    purchaseHistory: {
+      purchasePrice: parseFloat(purchasePrice),
+      purchaseDate,
+      improvements: improvements ? parseFloat(improvements) : 0,
+    },
+    marketStats: {
+      method: statsMethod,
+      dateRange: statsDateRange,
+      activeListings: activeListings || null,
+      soldListings: soldListings || null,
+      medianSalePrice: medianSalePrice || null,
+      avgDOM: avgDOM || null,
+      saleToListRatio: saleToListRatio || null,
+      monthsOfInventory: monthsOfInventory || null,
+      notes: marketNotes || null,
+      pastedText: pastedStats || null,
+    },
+    existingManualComps: manualComps.filter(c => c._manual_edit),
+  });
+
+  const runExtraction = async (): Promise<ReviewComp[]> => {
+    if (!cmaPdf) return [];
+    const pdfText = await extractPdfText(cmaPdf);
+    const { data: fnData, error: fnError } = await supabase.functions.invoke('cma-analyze', {
+      body: buildRequestBody(pdfText, reviewComps),
+    });
+    if (fnError) throw fnError;
+    if (!fnData?.success || !fnData.analysis?.extracted_comps) {
+      toast.error(fnData?.error || 'Extraction failed');
+      return [];
+    }
+    const aiComps: any[] = fnData.analysis.extracted_comps || [];
+    return aiComps.map((c: any) => ({
+      id: crypto.randomUUID(),
+      address: c.address || '',
+      comp_category: c.comp_category || 'sold',
+      list_price: c.list_price ?? null,
+      sold_price: c.sold_price ?? null,
+      sale_date: c.sale_date ?? null,
+      days_on_market: c.days_on_market ?? null,
+      beds: c.beds ?? null,
+      baths: c.baths ?? null,
+      sqft: c.sqft ?? null,
+      notes: null,
+      excluded: false,
+      _manual_edit: !!c._manual_edit,
+      confidence: c.confidence ?? 1,
+      source_page: c.source_page ?? null,
+      area: c.area || '',
+      is_weak: c.is_weak || false,
+      weak_reason: c.weak_reason || null,
+    }));
+  };
+
+  // Step 1: Move to review (extract if PDF present, else empty review)
+  const handleProceedToReview = async () => {
     if (!propertyAddress || !cityArea || !purchasePrice || !purchaseDate) {
       toast.error('Please fill in all required fields');
       return;
     }
-    if (andAnalyze && !hasMarketStats()) {
-      toast.error('Please provide market stats before generating analysis');
+    if (!hasMarketStats()) {
+      toast.error('Please provide market stats before proceeding');
       return;
     }
 
-    setSaving(true);
+    if (cmaPdf) {
+      setExtracting(true);
+      try {
+        const extracted = await runExtraction();
+        setReviewComps(extracted);
+        toast.success(`Extracted ${extracted.length} comps from PDF`);
+      } catch (err) {
+        console.error('Extraction error:', err);
+        toast.error('Failed to extract comps from PDF');
+      } finally {
+        setExtracting(false);
+      }
+    }
+
+    setStep('review');
+  };
+
+  // Re-run extraction preserving manual edits
+  const handleReRunExtraction = async () => {
+    if (!cmaPdf) {
+      toast.error('No PDF uploaded to extract from');
+      return;
+    }
+    setExtracting(true);
     try {
-      // Upload PDFs if present
+      const manualComps = reviewComps.filter(c => c._manual_edit);
+      const extracted = await runExtraction();
+      // Merge: keep all manual comps, add new AI comps not duplicating manual addresses
+      const manualAddresses = new Set(manualComps.map(c => c.address.toLowerCase().trim()));
+      const newAiComps = extracted.filter(c => !c._manual_edit && !manualAddresses.has(c.address.toLowerCase().trim()));
+      setReviewComps([...manualComps, ...newAiComps]);
+      toast.success(`Re-extracted. ${newAiComps.length} new comps added, ${manualComps.length} manual comps preserved.`);
+    } catch (err) {
+      console.error('Re-extraction error:', err);
+      toast.error('Re-extraction failed');
+    } finally {
+      setExtracting(false);
+    }
+  };
+
+  // Step 2: Confirm comps & generate report
+  const handleConfirmAndAnalyze = async () => {
+    if (!user) return;
+    setSaving(true);
+    setAnalyzing(true);
+
+    try {
+      // Upload PDFs
       let cmaPdfPath: string | null = null;
       let cmaPdfName: string | null = null;
       if (cmaPdf) {
@@ -124,6 +242,28 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
         statsPdfPath = await uploadFile(statsPdf, 'stats-pdfs');
         setUploading(false);
       }
+
+      // Build final comps (only non-excluded)
+      const finalComps = reviewComps
+        .filter(c => !c.excluded)
+        .map(c => ({
+          address: c.address,
+          area: c.area || '',
+          beds: c.beds,
+          baths: c.baths,
+          list_price: c.list_price,
+          sold_price: c.sold_price,
+          days_on_market: c.days_on_market,
+          sale_date: c.sale_date,
+          is_weak: c.is_weak || false,
+          weak_reason: c.weak_reason || null,
+          comp_category: c.comp_category,
+          source_page: c.source_page ?? null,
+          confidence: c.confidence ?? 1,
+          _manual_edit: c._manual_edit,
+          sqft: c.sqft,
+          notes: c.notes,
+        }));
 
       // Insert record
       const insertData: Record<string, unknown> = {
@@ -154,7 +294,8 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
         market_notes: marketNotes || null,
         stats_pdf_path: statsPdfPath,
         stats_pasted_text: statsMethod === 'paste' ? pastedStats : null,
-        analysis_status: andAnalyze ? 'processing' : 'draft',
+        analysis_status: 'processing',
+        extracted_comps: finalComps,
       };
 
       const { data, error } = await supabase
@@ -165,82 +306,48 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
 
       if (error) throw error;
 
-      if (andAnalyze && data) {
-        setAnalyzing(true);
-        // Extract PDF text if uploaded
-        const pdfText = cmaPdf ? await extractPdfText(cmaPdf) : '';
+      // Run analysis with reviewed comps included in the request
+      const pdfText = cmaPdf ? await extractPdfText(cmaPdf) : '';
+      const { data: fnData, error: fnError } = await supabase.functions.invoke('cma-analyze', {
+        body: {
+          ...buildRequestBody(pdfText, finalComps as any),
+          reviewedComps: finalComps,
+        },
+      });
 
-        const { data: fnData, error: fnError } = await supabase.functions.invoke('cma-analyze', {
-          body: {
-            pdfText,
-            subjectProperty: {
-              address: propertyAddress,
-              city: cityArea,
-              type: propertyType,
-              beds: bedrooms || null,
-              baths: bathrooms || null,
-              sqft: sqft || null,
-              targetPrice: targetListPrice || null,
-            },
-            purchaseHistory: {
-              purchasePrice: parseFloat(purchasePrice),
-              purchaseDate,
-              improvements: improvements ? parseFloat(improvements) : 0,
-            },
-            marketStats: {
-              method: statsMethod,
-              dateRange: statsDateRange,
-              activeListings: activeListings || null,
-              soldListings: soldListings || null,
-              medianSalePrice: medianSalePrice || null,
-              avgDOM: avgDOM || null,
-              saleToListRatio: saleToListRatio || null,
-              monthsOfInventory: monthsOfInventory || null,
-              notes: marketNotes || null,
-              pastedText: pastedStats || null,
-            },
-            existingManualComps: [], // New reports have no manual comps
-          },
-        });
+      if (fnError) throw fnError;
 
-        if (fnError) throw fnError;
+      if (fnData?.success && fnData.analysis) {
+        const a = fnData.analysis;
+        const pp = parseFloat(purchasePrice);
+        const imp = improvements ? parseFloat(improvements) : 0;
+        const eqLow = a.pricing_band_low ? a.pricing_band_low - pp - imp : null;
+        const eqHigh = a.pricing_band_high ? a.pricing_band_high - pp - imp : null;
 
-        if (fnData?.success && fnData.analysis) {
-          const a = fnData.analysis;
-          // Calculate equity
-          const pp = parseFloat(purchasePrice);
-          const imp = improvements ? parseFloat(improvements) : 0;
-          const eqLow = a.pricing_band_low ? a.pricing_band_low - pp - imp : null;
-          const eqHigh = a.pricing_band_high ? a.pricing_band_high - pp - imp : null;
+        await supabase.from('cma_reports').update({
+          analysis_status: 'completed',
+          extracted_comps: finalComps,
+          cma_grade: a.cma_grade,
+          pricing_band_low: a.pricing_band_low,
+          pricing_band_recommended: a.pricing_band_recommended,
+          pricing_band_high: a.pricing_band_high,
+          pricing_confidence: a.pricing_confidence,
+          risk_flags: a.risk_flags || [],
+          weak_comp_alerts: a.weak_comp_alerts || [],
+          adjustment_observations: a.adjustment_observations || [],
+          talking_points: a.talking_points || [],
+          seller_objections: a.seller_objections || [],
+          strategy_recommendation: a.strategy_recommendation,
+          market_narrative: a.market_narrative,
+          equity_gain_low: eqLow,
+          equity_gain_high: eqHigh,
+          ai_raw_response: fnData.analysis,
+        }).eq('id', data.id);
 
-          await supabase.from('cma_reports').update({
-            analysis_status: 'completed',
-            extracted_comps: a.extracted_comps || [],
-            cma_grade: a.cma_grade,
-            pricing_band_low: a.pricing_band_low,
-            pricing_band_recommended: a.pricing_band_recommended,
-            pricing_band_high: a.pricing_band_high,
-            pricing_confidence: a.pricing_confidence,
-            risk_flags: a.risk_flags || [],
-            weak_comp_alerts: a.weak_comp_alerts || [],
-            adjustment_observations: a.adjustment_observations || [],
-            talking_points: a.talking_points || [],
-            seller_objections: a.seller_objections || [],
-            strategy_recommendation: a.strategy_recommendation,
-            market_narrative: a.market_narrative,
-            equity_gain_low: eqLow,
-            equity_gain_high: eqHigh,
-            ai_raw_response: fnData.analysis,
-          }).eq('id', data.id);
-
-          toast.success('CMA analysis complete!');
-        } else {
-          await supabase.from('cma_reports').update({ analysis_status: 'error' }).eq('id', data.id);
-          toast.error(fnData?.error || 'Analysis failed');
-        }
-        setAnalyzing(false);
+        toast.success('CMA analysis complete!');
       } else {
-        toast.success('CMA report saved as draft');
+        await supabase.from('cma_reports').update({ analysis_status: 'error' }).eq('id', data.id);
+        toast.error(fnData?.error || 'Analysis failed');
       }
 
       onCreated(data!.id);
@@ -253,8 +360,98 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
     }
   };
 
-  const isProcessing = saving || uploading || analyzing;
+  // Save as draft (skip review)
+  const handleSaveDraft = async () => {
+    if (!user) return;
+    if (!propertyAddress || !cityArea || !purchasePrice || !purchaseDate) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
 
+    setSaving(true);
+    try {
+      let cmaPdfPath: string | null = null;
+      let cmaPdfName: string | null = null;
+      if (cmaPdf) {
+        setUploading(true);
+        cmaPdfPath = await uploadFile(cmaPdf, 'cma-pdfs');
+        cmaPdfName = cmaPdf.name;
+        setUploading(false);
+      }
+
+      let statsPdfPath: string | null = null;
+      if (statsMethod === 'pdf' && statsPdf) {
+        setUploading(true);
+        statsPdfPath = await uploadFile(statsPdf, 'stats-pdfs');
+        setUploading(false);
+      }
+
+      const insertData: Record<string, unknown> = {
+        user_id: user.id,
+        property_address: propertyAddress,
+        city_area: cityArea,
+        property_type: propertyType,
+        bedrooms: bedrooms ? parseInt(bedrooms) : null,
+        bathrooms: bathrooms ? parseInt(bathrooms) : null,
+        approx_sqft: sqft ? parseInt(sqft) : null,
+        target_list_price: targetListPrice ? parseFloat(targetListPrice) : null,
+        intended_list_date: intendedListDate || null,
+        purchase_price: parseFloat(purchasePrice),
+        purchase_date: purchaseDate,
+        improvements_invested: improvements ? parseFloat(improvements) : 0,
+        cma_pdf_path: cmaPdfPath,
+        cma_pdf_name: cmaPdfName,
+        fub_person_id: selectedContact?.id || null,
+        fub_person_name: selectedContact?.name || null,
+        stats_method: statsMethod,
+        stats_date_range: statsDateRange ? `Last ${statsDateRange} Days` : null,
+        active_listings: activeListings ? parseInt(activeListings) : null,
+        sold_listings: soldListings ? parseInt(soldListings) : null,
+        median_sale_price: medianSalePrice ? parseFloat(medianSalePrice) : null,
+        avg_days_on_market: avgDOM ? parseFloat(avgDOM) : null,
+        sale_to_list_ratio: saleToListRatio ? parseFloat(saleToListRatio) : null,
+        months_of_inventory: monthsOfInventory ? parseFloat(monthsOfInventory) : null,
+        market_notes: marketNotes || null,
+        stats_pdf_path: statsPdfPath,
+        stats_pasted_text: statsMethod === 'paste' ? pastedStats : null,
+        analysis_status: 'draft',
+      };
+
+      const { data, error } = await supabase
+        .from('cma_reports')
+        .insert(insertData as any)
+        .select('id')
+        .single();
+
+      if (error) throw error;
+      toast.success('CMA report saved as draft');
+      onCreated(data!.id);
+    } catch (err) {
+      console.error('CMA draft error:', err);
+      toast.error('Failed to save CMA report');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const isProcessing = saving || uploading || analyzing || extracting;
+
+  // ============= STEP 2: REVIEW COMPS =============
+  if (step === 'review') {
+    return (
+      <CMACompReview
+        comps={reviewComps}
+        onCompsChange={setReviewComps}
+        onReRunExtraction={handleReRunExtraction}
+        isExtracting={extracting}
+        onConfirm={handleConfirmAndAnalyze}
+        onBack={() => setStep('input')}
+        isSubmitting={analyzing}
+      />
+    );
+  }
+
+  // ============= STEP 1: INPUT FORM =============
   return (
     <div className="space-y-6 max-w-4xl">
       {/* FUB Client Search */}
@@ -487,19 +684,19 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
         <Button variant="outline" onClick={onCancel} disabled={isProcessing}>Cancel</Button>
         <Button
           variant="outline"
-          onClick={() => handleSubmit(false)}
+          onClick={handleSaveDraft}
           disabled={isProcessing}
         >
           {saving && !analyzing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
           Save Draft
         </Button>
         <Button
-          onClick={() => handleSubmit(true)}
+          onClick={handleProceedToReview}
           disabled={isProcessing}
           className="bg-gold hover:bg-gold/90 text-gold-foreground"
         >
-          {analyzing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-          {analyzing ? 'Analyzing...' : 'Save & Analyze'}
+          {extracting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+          {extracting ? 'Extracting Comps...' : 'Review Comps & Analyze'}
         </Button>
       </div>
     </div>
