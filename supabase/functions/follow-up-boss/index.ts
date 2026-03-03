@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 const FUB_API_KEY = Deno.env.get('FOLLOW_UP_BOSS_API_KEY');
@@ -25,7 +25,6 @@ serve(async (req) => {
     const { action, params } = await req.json();
     console.log('FUB Action:', action, 'Params:', params);
 
-    // Base64 encode the API key for Basic Auth (FUB uses API key as username, no password)
     const authHeader = 'Basic ' + btoa(FUB_API_KEY + ':');
 
     let endpoint = '';
@@ -33,87 +32,82 @@ serve(async (req) => {
     let body = null;
 
     switch (action) {
-      case 'search_people':
-        // Search for people/contacts - use name parameter for better matching
+      case 'search_people': {
         const searchParams = new URLSearchParams();
         if (params?.query) {
-          // FUB supports 'name' for name search and 'q' for general search
           searchParams.append('name', params.query);
         }
         if (params?.limit) searchParams.append('limit', params.limit.toString());
         endpoint = `/people?${searchParams.toString()}`;
         break;
+      }
 
       case 'get_person':
-        // Get a specific person by ID
         endpoint = `/people/${params.id}`;
         break;
 
-      case 'get_people':
-        // Get all people with optional filters
+      case 'get_people': {
         const peopleParams = new URLSearchParams();
         if (params?.limit) peopleParams.append('limit', params.limit.toString());
         if (params?.offset) peopleParams.append('offset', params.offset.toString());
         if (params?.sort) peopleParams.append('sort', params.sort);
         endpoint = `/people?${peopleParams.toString()}`;
         break;
+      }
 
-      case 'get_deals':
-        // Get deals from FUB
+      case 'get_deals': {
         const dealParams = new URLSearchParams();
         if (params?.limit) dealParams.append('limit', params.limit.toString());
         if (params?.offset) dealParams.append('offset', params.offset.toString());
         if (params?.stage) dealParams.append('stage', params.stage);
         endpoint = `/deals?${dealParams.toString()}`;
         break;
+      }
 
-      case 'get_notes':
-        // Get notes/activities from FUB
+      case 'get_notes': {
         const notesParams = new URLSearchParams();
         if (params?.limit) notesParams.append('limit', params.limit.toString());
         if (params?.offset) notesParams.append('offset', params.offset.toString());
         if (params?.personId) notesParams.append('personId', params.personId.toString());
         endpoint = `/notes?${notesParams.toString()}`;
         break;
+      }
 
-      case 'get_calls':
-        // Get call logs from FUB
+      case 'get_calls': {
         const callsParams = new URLSearchParams();
         if (params?.limit) callsParams.append('limit', params.limit.toString());
         if (params?.offset) callsParams.append('offset', params.offset.toString());
         if (params?.personId) callsParams.append('personId', params.personId.toString());
         endpoint = `/calls?${callsParams.toString()}`;
         break;
+      }
 
-      // Note: FUB does not expose text messages via public API
-
-      case 'get_smartlists':
-        // Get smart lists from FUB
+      case 'get_smartlists': {
         const smartListParams = new URLSearchParams();
         if (params?.limit) smartListParams.append('limit', params.limit.toString());
         if (params?.offset) smartListParams.append('offset', params.offset.toString());
-        smartListParams.append('all', 'true'); // Get both classic and new smart lists
+        smartListParams.append('all', 'true');
         endpoint = `/smartLists?${smartListParams.toString()}`;
         break;
+      }
 
-      case 'get_smartlist_people':
-        // Get people from a specific smart list using the people endpoint with smartListId filter
+      case 'get_smartlist_people': {
         const smartListPeopleParams = new URLSearchParams();
         smartListPeopleParams.append('smartListId', params.id.toString());
         if (params?.limit) smartListPeopleParams.append('limit', params.limit.toString());
         if (params?.offset) smartListPeopleParams.append('offset', params.offset.toString());
         endpoint = `/people?${smartListPeopleParams.toString()}`;
         break;
+      }
 
-      case 'get_users':
-        // Get FUB users/team members
+      case 'get_users': {
         const usersParams = new URLSearchParams();
         if (params?.limit) usersParams.append('limit', params.limit.toString());
         endpoint = `/users?${usersParams.toString()}`;
         break;
+      }
 
-      case 'create_person':
-        // Create a new person in Follow Up Boss
+      case 'create_person': {
         method = 'POST';
         endpoint = '/people';
         body = {
@@ -126,9 +120,9 @@ serve(async (req) => {
           ...(params.notes && { background: params.notes }),
         };
         break;
+      }
 
-      case 'update_person':
-        // Update an existing person in Follow Up Boss
+      case 'update_person': {
         method = 'PUT';
         endpoint = `/people/${params.id}`;
         const updateBody: Record<string, unknown> = {};
@@ -140,6 +134,20 @@ serve(async (req) => {
         if (params.notes) updateBody.background = params.notes;
         body = updateBody;
         break;
+      }
+
+      case 'create_note': {
+        // Create a note on a FUB contact
+        method = 'POST';
+        endpoint = '/notes';
+        body = {
+          personId: params.personId,
+          subject: params.subject || 'CMA Report',
+          body: params.body || '',
+          isHtml: params.isHtml || false,
+        };
+        break;
+      }
 
       default:
         return new Response(

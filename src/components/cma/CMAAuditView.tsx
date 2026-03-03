@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, AlertTriangle, CheckCircle, TrendingUp, Shield, MessageSquare, Target } from 'lucide-react';
+import CMAFubPush from './CMAFubPush';
 
 interface Comp {
   address: string;
@@ -56,6 +57,8 @@ interface CMAReportFull {
   median_sale_price: number | null;
   avg_days_on_market: number | null;
   sale_to_list_ratio: number | null;
+  fub_person_id: number | null;
+  fub_person_name: string | null;
 }
 
 const CMAAuditView = ({ reportId }: { reportId: string }) => {
@@ -141,6 +144,26 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
 
   return (
     <div className="space-y-6 max-w-5xl">
+      {/* FUB Push */}
+      {report.fub_person_id && (
+        <div className="flex justify-end">
+          <CMAFubPush
+            reportId={report.id}
+            fubPersonId={report.fub_person_id}
+            fubPersonName={report.fub_person_name}
+            propertyAddress={report.property_address}
+            cmaGrade={report.cma_grade}
+            pricingBandLow={report.pricing_band_low}
+            pricingBandRecommended={report.pricing_band_recommended}
+            pricingBandHigh={report.pricing_band_high}
+            strategyRecommendation={report.strategy_recommendation}
+            equityGainLow={report.equity_gain_low}
+            equityGainHigh={report.equity_gain_high}
+            pricingConfidence={report.pricing_confidence}
+          />
+        </div>
+      )}
+
       {/* Header Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {/* Grade */}
