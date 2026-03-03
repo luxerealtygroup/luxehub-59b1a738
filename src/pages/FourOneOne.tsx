@@ -16,6 +16,7 @@ import { ChevronLeft, ChevronRight, Save, Target, Trophy, TrendingUp, FileText, 
 import { useToast } from '@/hooks/use-toast';
 import { format, startOfWeek, addWeeks, subWeeks } from 'date-fns';
 import { FUBContactTypeahead } from '@/components/FUBContactTypeahead';
+import { formatCurrency } from '@/lib/utils';
 
 interface Weekly411 {
   id?: string;
@@ -500,7 +501,7 @@ const FourOneOne = () => {
                 </div>
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">Annual GCI Goal</p>
-                  <p className="text-2xl font-bold text-primary">${syncedGoals.gci_goal.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-primary">{formatCurrency(syncedGoals.gci_goal)}</p>
                 </div>
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">{monthNames[weekMonth]} Deals</p>
@@ -508,7 +509,7 @@ const FourOneOne = () => {
                 </div>
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">{monthNames[weekMonth]} GCI</p>
-                  <p className="text-2xl font-bold text-foreground">${Math.round(syncedGoals.monthly_gci[weekMonth]).toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-foreground">{formatCurrency(Math.round(syncedGoals.monthly_gci[weekMonth]))}</p>
                 </div>
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">{monthNames[weekMonth]} Pipeline</p>
@@ -554,7 +555,7 @@ const FourOneOne = () => {
                 const pipelineCurrent = syncedGoals.pipeline_by_month[weekMonth];
                 return (
                   <p className="text-sm text-muted-foreground">
-                    {monthNames[weekMonth]}: {Math.round(syncedGoals.monthly_deals[weekMonth] * 10) / 10} deals • ${Math.round(syncedGoals.monthly_gci[weekMonth]).toLocaleString()} GCI • Pipeline: {pipelineCurrent}/{pipelineNeeded}
+                    {monthNames[weekMonth]}: {Math.round(syncedGoals.monthly_deals[weekMonth] * 10) / 10} deals • {formatCurrency(Math.round(syncedGoals.monthly_gci[weekMonth]))} GCI • Pipeline: {pipelineCurrent}/{pipelineNeeded}
                   </p>
                 );
               })()}

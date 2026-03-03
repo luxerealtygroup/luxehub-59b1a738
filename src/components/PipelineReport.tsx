@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Printer, X } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
+import { formatCurrency } from '@/lib/utils';
 
 interface PipelineReportProps {
   onClose: () => void;
@@ -74,9 +75,6 @@ const PipelineReport = ({ onClose }: PipelineReportProps) => {
   const pendingRevenue = pendingTotal * 0.30;
   const conditionalRevenue = conditionalTotal * 0.30;
   const totalRevenue = pendingRevenue + conditionalRevenue;
-
-  const formatCurrency = (value: number) => 
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
 
   if (loading) {
     return (

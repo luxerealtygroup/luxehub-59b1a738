@@ -17,646 +17,505 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { differenceInDays, format, parseISO } from 'date-fns';
 import { SOURCE_OPTIONS } from '@/lib/constants/sourceOptions';
+import { formatCurrency, formatNumber } from '@/lib/utils';
 
 interface PipelineClient {
   id: string;
   client_name: string;
-  email: string | null;
-  phone: string | null;
-  stage: number;
-  notes: string | null;
-  property_interest: string | null;
-  source: string | null;
-  created_at: string;
   client_type: 'buyer' | 'seller';
-  projected_sale_amount: number | null;
-  projected_gci: number | null;
-  expected_pending_date: string | null;
-  status: string | null;
+  stage: number;
+  source?: string;
+  phone?: string;
+  email?: string;
+  notes?: string;
+  projected_sale_amount: number;
+  projected_gci: number;
+  commission_percent: number;
+  split_percent: number;
+  expected_pending_date?: string;
+  created_at: string;
+  last_contact?: string;
+  fub_person_id?: number;
 }
 
-// Status options based on client type
-const buyerStatusOptions = [
-  { value: 'appointment_set', label: 'Appointment Set', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
-  { value: 'appointment_held', label: 'Appointment Held', color: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
-  { value: 'under_contract', label: 'Under Contract', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
-];
+interface NewClient {
+  client_name: string;
+  client_type: 'buyer' | 'seller';
+  stage: number;
+  source: string;
+  phone: string;
+  email: string;
+  notes: string;
+  projected_sale_amount: number;
+  commission_percent: number;
+  split_percent: number;
+  expected_pending_date: string;
+  fub_person_id?: number;
+}
 
-const sellerStatusOptions = [
-  { value: 'appointment_set', label: 'Appointment Set', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
-  { value: 'appointment_held', label: 'Appointment Held', color: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
-  { value: 'active_listing', label: 'Active/Exclusive Listing', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
-];
-
-const getStatusLabel = (status: string | null, clientType: 'buyer' | 'seller'): { label: string; color: string } | null => {
-  if (!status) return null;
-  const options = clientType === 'buyer' ? buyerStatusOptions : sellerStatusOptions;
-  return options.find(o => o.value === status) || null;
+const stageLabels: { [key: number]: string } = {
+  1: 'Lead',
+  2: 'Qualified',
+  3: 'Showing',
+  4: 'Offer',
+  5: 'Pending',
 };
-
-// Calculate stage based on days until expected pending date
-const calculateStageFromDate = (expectedPendingDate: string | null): number => {
-  if (!expectedPendingDate) return 5;
-  const daysUntil = differenceInDays(parseISO(expectedPendingDate), new Date());
-  
-  if (daysUntil <= 30) return 10;
-  if (daysUntil <= 60) return 9;
-  if (daysUntil <= 90) return 8;
-  if (daysUntil <= 120) return 7;
-  if (daysUntil <= 180) return 6;
-  if (daysUntil <= 270) return 5;
-  if (daysUntil <= 365) return 4;
-  if (daysUntil <= 540) return 3;
-  if (daysUntil <= 730) return 2;
-  return 1;
-};
-
-// Convert month/year to first day of that month as date string
-const monthYearToDateString = (month: string, year: string): string => {
-  if (!month || !year) return '';
-  return `${year}-${month.padStart(2, '0')}-01`;
-};
-
-// Parse date string to get month and year
-const getMonthYearFromDate = (dateStr: string | null): { month: string; year: string } => {
-  if (!dateStr) return { month: '', year: '' };
-  const date = parseISO(dateStr);
-  return {
-    month: (date.getMonth() + 1).toString(),
-    year: date.getFullYear().toString()
-  };
-};
-
-const months = [
-  { value: '1', label: 'January' },
-  { value: '2', label: 'February' },
-  { value: '3', label: 'March' },
-  { value: '4', label: 'April' },
-  { value: '5', label: 'May' },
-  { value: '6', label: 'June' },
-  { value: '7', label: 'July' },
-  { value: '8', label: 'August' },
-  { value: '9', label: 'September' },
-  { value: '10', label: 'October' },
-  { value: '11', label: 'November' },
-  { value: '12', label: 'December' }
-];
-
-const years = ['2026', '2027', '2028', '2029', '2030'];
-
-// Stage definitions with timeline descriptions
-const stageDefinitions: Record<number, { label: string; description: string; color: string }> = {
-  10: { label: '10', description: 'Next 30 days', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
-  9: { label: '9', description: 'Next 60 days', color: 'bg-green-500/20 text-green-400 border-green-500/30' },
-  8: { label: '8', description: 'Next 90 days', color: 'bg-lime-500/20 text-lime-400 border-lime-500/30' },
-  7: { label: '7', description: 'Next 120 days', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' },
-  6: { label: '6', description: 'Next 6 months', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
-  5: { label: '5', description: 'Next 9 months', color: 'bg-orange-500/20 text-orange-400 border-orange-500/30' },
-  4: { label: '4', description: 'Next 12 months', color: 'bg-red-500/20 text-red-400 border-red-500/30' },
-  3: { label: '3', description: '12-18 months', color: 'bg-rose-500/20 text-rose-400 border-rose-500/30' },
-  2: { label: '2', description: '18-24 months', color: 'bg-pink-500/20 text-pink-400 border-pink-500/30' },
-  1: { label: '1', description: '24+ months', color: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
-};
-
-const stageOrder = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 
 const Pipeline = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [clients, setClients] = useState<PipelineClient[]>([]);
+  const [filteredClients, setFilteredClients] = useState<PipelineClient[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editClient, setEditClient] = useState<PipelineClient | null>(null);
-  
-  const [submitting, setSubmitting] = useState(false);
-  const [activeTab, setActiveTab] = useState<'buyer' | 'seller'>('buyer');
-  
-  // Goal-related state for pipeline requirements
-  const [goalSettings, setGoalSettings] = useState({
-    fallout_rate: 50,
-    monthlyDeals: Array(12).fill(0) as number[]
-  });
-  
-  const [newClient, setNewClient] = useState({
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [editingClient, setEditingClient] = useState<PipelineClient | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState<'all' | 'buyer' | 'seller'>('all');
+  const [filterStage, setFilterStage] = useState<string>('all');
+  const [newClient, setNewClient] = useState<NewClient>({
     client_name: '',
-    email: '',
-    phone: '',
-    notes: '',
-    property_interest: '',
+    client_type: 'buyer',
+    stage: 1,
     source: '',
-    client_type: 'buyer' as 'buyer' | 'seller',
-    projected_sale_amount: '',
-    commission_percent: '2',
-    split_percent: '70',
+    phone: '',
+    email: '',
+    notes: '',
+    projected_sale_amount: 0,
+    commission_percent: 3,
+    split_percent: 70,
     expected_pending_date: '',
-    status: ''
   });
 
-  // Auto-calculate GCI from sale amount, commission %, and split %
-  const calculateGCI = (saleAmount: string, commissionPercent: string, splitPercent: string): number => {
-    const sale = parseFloat(saleAmount) || 0;
-    const commission = parseFloat(commissionPercent) || 0;
-    const split = parseFloat(splitPercent) || 0;
-    return sale * (commission / 100) * (split / 100);
-  };
+  useEffect(() => {
+    if (user) {
+      fetchClients();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    filterClients();
+  }, [clients, searchTerm, filterType, filterStage]);
 
   const fetchClients = async () => {
     if (!user) return;
+
     const { data, error } = await supabase
       .from('pipeline_clients')
       .select('*')
       .eq('user_id', user.id)
-      .order('stage', { ascending: false });
-    
+      .order('created_at', { ascending: false });
+
     if (error) {
-      console.error('Error fetching clients:', error);
-    } else {
-      setClients((data as PipelineClient[]) || []);
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch pipeline clients',
+        variant: 'destructive',
+      });
+      return;
     }
+
+    setClients(data || []);
     setLoading(false);
   };
 
-  const fetchGoalSettings = async () => {
-    if (!user) return;
-    
-    const currentYear = 2026;
-    
-    // Fetch goal calculation values from localStorage
-    const savedCalcValues = localStorage.getItem(`goalCalcValues_${user.id}_${currentYear}`);
-    const falloutRate = savedCalcValues ? JSON.parse(savedCalcValues).fallout_rate ?? 50 : 50;
-    
-    // Fetch monthly goals from localStorage
-    const savedMonthlyGoals = localStorage.getItem(`monthlyGoals_${user.id}_${currentYear}`);
-    let monthlyDeals = Array(12).fill(0);
-    
-    if (savedMonthlyGoals) {
-      const parsed = JSON.parse(savedMonthlyGoals);
-      monthlyDeals = parsed.map((m: { deals: number }) => m.deals || 0);
-    } else {
-      // Try to get from agent_goals if no monthly breakdown exists
-      const { data } = await supabase
-        .from('agent_goals')
-        .select('target_value')
-        .eq('user_id', user.id)
-        .eq('period', 'yearly')
-        .eq('goal_type', 'deals_closed')
-        .maybeSingle();
-      
-      if (data?.target_value) {
-        const evenMonthly = data.target_value / 12;
-        monthlyDeals = Array(12).fill(evenMonthly);
-      }
+  const filterClients = () => {
+    let filtered = [...clients];
+
+    if (searchTerm) {
+      filtered = filtered.filter(
+        (c) =>
+          c.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          c.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          c.phone?.includes(searchTerm)
+      );
     }
-    
-    setGoalSettings({ fallout_rate: falloutRate, monthlyDeals });
+
+    if (filterType !== 'all') {
+      filtered = filtered.filter((c) => c.client_type === filterType);
+    }
+
+    if (filterStage !== 'all') {
+      filtered = filtered.filter((c) => c.stage === parseInt(filterStage));
+    }
+
+    setFilteredClients(filtered);
   };
 
-  useEffect(() => {
-    fetchClients();
-    fetchGoalSettings();
-  }, [user]);
+  const calculateGCI = (saleAmount: number, commissionPercent: number, splitPercent: number) => {
+    return (saleAmount * (commissionPercent / 100) * (splitPercent / 100));
+  };
 
-  const syncClientToFUB = async (clientData: typeof newClient) => {
-    try {
-      const nameParts = clientData.client_name.trim().split(' ');
-      const firstName = nameParts[0] || '';
-      const lastName = nameParts.slice(1).join(' ') || '';
-      
-      const stageNum = calculateStageFromDate(clientData.expected_pending_date || null);
-      const stageTag = `pipeline_stage_${stageNum}`;
-      const timelineTag = `timeline_${stageDefinitions[stageNum]?.description || 'unknown'}`;
-      
-      const { data, error } = await supabase.functions.invoke('follow-up-boss', {
-        body: {
-          action: 'create_person',
-          params: {
-            firstName,
-            lastName,
-            email: clientData.email || undefined,
-            phone: clientData.phone || undefined,
-            source: clientData.source || 'Lovable Pipeline',
-            tags: [stageTag, timelineTag, 'pipeline_client', clientData.client_type],
-            notes: [clientData.notes, clientData.property_interest].filter(Boolean).join(' | ')
-          }
-        }
+  const handleAddClient = async () => {
+    if (!user || !newClient.client_name) {
+      toast({
+        title: 'Error',
+        description: 'Please fill in required fields',
+        variant: 'destructive',
       });
-      
-      if (error) throw error;
-      return { success: true, data };
-    } catch (error) {
-      console.error('Error syncing to FUB:', error);
-      return { success: false, error };
+      return;
     }
-  };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-    
-    setSubmitting(true);
-    const calculatedStage = calculateStageFromDate(newClient.expected_pending_date || null);
+    const gci = calculateGCI(
+      newClient.projected_sale_amount,
+      newClient.commission_percent,
+      newClient.split_percent
+    );
 
-    const calculatedGCI = calculateGCI(newClient.projected_sale_amount, newClient.commission_percent, newClient.split_percent);
+    const { error } = await supabase.from('pipeline_clients').insert({
+      user_id: user.id,
+      ...newClient,
+      projected_gci: gci,
+    });
 
-    if (editClient) {
-      const { error } = await supabase
-        .from('pipeline_clients')
-        .update({
-          client_name: newClient.client_name,
-          email: newClient.email || null,
-          phone: newClient.phone || null,
-          stage: calculatedStage,
-          notes: newClient.notes || null,
-          property_interest: newClient.property_interest || null,
-          source: newClient.source || null,
-          client_type: newClient.client_type,
-          projected_sale_amount: parseFloat(newClient.projected_sale_amount) || 0,
-          projected_gci: calculatedGCI,
-          expected_pending_date: newClient.expected_pending_date || null,
-          status: newClient.status || null
-        })
-        .eq('id', editClient.id);
-
-      if (error) {
-        toast({ title: 'Error', description: error.message, variant: 'destructive' });
-      } else {
-        toast({ title: 'Client updated!' });
-        closeDialog();
-        fetchClients();
-      }
-    } else {
-      const { error } = await supabase.from('pipeline_clients').insert({
-        user_id: user.id,
-        client_name: newClient.client_name,
-        email: newClient.email || null,
-        phone: newClient.phone || null,
-        stage: calculatedStage,
-        notes: newClient.notes || null,
-        property_interest: newClient.property_interest || null,
-        source: newClient.source || null,
-        client_type: newClient.client_type,
-        projected_sale_amount: parseFloat(newClient.projected_sale_amount) || 0,
-        projected_gci: calculatedGCI,
-        expected_pending_date: newClient.expected_pending_date || null,
-        status: newClient.status || null
+    if (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to add client',
+        variant: 'destructive',
       });
-
-      if (error) {
-        toast({ title: 'Error', description: error.message, variant: 'destructive' });
-        setSubmitting(false);
-        return;
-      }
-      
-      toast({ title: 'Client added to pipeline!' });
-      
-      closeDialog();
-      fetchClients();
+      return;
     }
-    
-    setSubmitting(false);
-  };
 
-  const closeDialog = () => {
-    setDialogOpen(false);
-    setEditClient(null);
-    
-    setNewClient({ 
-      client_name: '', email: '', phone: '', notes: '', 
-      property_interest: '', source: '', client_type: activeTab,
-      projected_sale_amount: '', commission_percent: '2', split_percent: '70', expected_pending_date: '', status: ''
+    toast({
+      title: 'Success',
+      description: 'Client added to pipeline',
     });
-  };
 
-  const openAddDialog = () => {
-    setNewClient({ 
-      client_name: '', email: '', phone: '', notes: '', 
-      property_interest: '', source: '', client_type: activeTab,
-      projected_sale_amount: '', commission_percent: '2', split_percent: '70', expected_pending_date: '', status: ''
-    });
-    setDialogOpen(true);
-  };
-
-  const openEditDialog = (client: PipelineClient) => {
-    setEditClient(client);
+    setAddDialogOpen(false);
     setNewClient({
-      client_name: client.client_name,
-      email: client.email || '',
-      phone: client.phone || '',
-      notes: client.notes || '',
-      property_interest: client.property_interest || '',
-      source: client.source || '',
-      client_type: client.client_type,
-      projected_sale_amount: client.projected_sale_amount?.toString() || '',
-      commission_percent: '2',
-      split_percent: '70',
-      expected_pending_date: client.expected_pending_date || '',
-      status: client.status || ''
+      client_name: '',
+      client_type: 'buyer',
+      stage: 1,
+      source: '',
+      phone: '',
+      email: '',
+      notes: '',
+      projected_sale_amount: 0,
+      commission_percent: 3,
+      split_percent: 70,
+      expected_pending_date: '',
     });
-    setDialogOpen(true);
+    fetchClients();
   };
 
-  const updateExpectedPendingDate = async (clientId: string, newDate: string) => {
-    const newStage = calculateStageFromDate(newDate);
+  const handleUpdateClient = async () => {
+    if (!editingClient) return;
+
+    const gci = calculateGCI(
+      editingClient.projected_sale_amount,
+      editingClient.commission_percent,
+      editingClient.split_percent
+    );
+
     const { error } = await supabase
       .from('pipeline_clients')
-      .update({ expected_pending_date: newDate, stage: newStage })
-      .eq('id', clientId);
-    
-    if (!error) {
-      fetchClients();
-      toast({ title: `Expected pending date updated` });
+      .update({
+        ...editingClient,
+        projected_gci: gci,
+      })
+      .eq('id', editingClient.id);
+
+    if (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to update client',
+        variant: 'destructive',
+      });
+      return;
     }
+
+    toast({
+      title: 'Success',
+      description: 'Client updated',
+    });
+
+    setEditingClient(null);
+    fetchClients();
   };
 
-  const deleteClient = async (clientId: string) => {
-    const { error } = await supabase
-      .from('pipeline_clients')
-      .delete()
-      .eq('id', clientId);
-    
-    if (!error) {
-      fetchClients();
-      toast({ title: 'Client removed from pipeline' });
+  const handleDeleteClient = async (id: string) => {
+    const { error } = await supabase.from('pipeline_clients').delete().eq('id', id);
+
+    if (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete client',
+        variant: 'destructive',
+      });
+      return;
     }
+
+    toast({
+      title: 'Success',
+      description: 'Client removed from pipeline',
+    });
+
+    fetchClients();
   };
 
-  const handleFUBClientSelect = (client: { name: string; email?: string; phone?: string; source?: string }) => {
+  const handleFUBSelect = (person: any) => {
     setNewClient({
       ...newClient,
-      client_name: client.name,
-      email: client.email || newClient.email,
-      phone: client.phone || newClient.phone,
-      source: client.source || 'Follow Up Boss'
+      client_name: person.name || '',
+      email: person.emails?.[0]?.value || '',
+      phone: person.phones?.[0]?.value || '',
+      fub_person_id: person.id,
     });
   };
 
+  const totalProjectedGCI = filteredClients.reduce((sum, c) => sum + c.projected_gci, 0);
+  const totalProjectedVolume = filteredClients.reduce((sum, c) => sum + c.projected_sale_amount, 0);
+  const buyers = filteredClients.filter((c) => c.client_type === 'buyer');
+  const sellers = filteredClients.filter((c) => c.client_type === 'seller');
+  const buyerGCI = buyers.reduce((sum, c) => sum + c.projected_gci, 0);
+  const sellerGCI = sellers.reduce((sum, c) => sum + c.projected_gci, 0);
+
+  // Calculate quarterly projections
+  const currentMonth = new Date().getMonth();
+  const currentQuarter = Math.floor(currentMonth / 3);
+  const quarters = [
+    { name: 'Q1', months: [0, 1, 2], label: 'Jan-Mar' },
+    { name: 'Q2', months: [3, 4, 5], label: 'Apr-Jun' },
+    { name: 'Q3', months: [6, 7, 8], label: 'Jul-Sep' },
+    { name: 'Q4', months: [9, 10, 11], label: 'Oct-Dec' },
+  ];
+
+  const quarterlyProjections = quarters.map((quarter, index) => {
+    const quarterClients = filteredClients.filter((client) => {
+      if (!client.expected_pending_date) return false;
+      const pendingMonth = new Date(client.expected_pending_date).getMonth();
+      return quarter.months.includes(pendingMonth);
+    });
+
+    const projectedGci = quarterClients.reduce((sum, c) => sum + c.projected_gci, 0);
+    const dealCount = quarterClients.length;
+
+    return {
+      ...quarter,
+      projectedGci,
+      dealCount,
+      isPast: index < currentQuarter,
+      isCurrent: index === currentQuarter,
+    };
+  });
+
   if (loading) {
-    return <div className="flex items-center justify-center h-64 text-primary animate-pulse">Loading pipeline...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-gold" />
+      </div>
+    );
   }
 
-  const buyers = clients.filter(c => c.client_type === 'buyer');
-  const sellers = clients.filter(c => c.client_type === 'seller');
-  const activeClients = activeTab === 'buyer' ? buyers : sellers;
-
-  const clientsByStage = stageOrder.reduce((acc, stage) => {
-    acc[stage] = activeClients.filter(c => c.stage === stage);
-    return acc;
-  }, {} as Record<number, PipelineClient[]>);
-
-  // Calculate totals
-  const totalProjectedVolume = clients.reduce((sum, c) => sum + (c.projected_sale_amount || 0), 0);
-  const totalProjectedGCI = clients.reduce((sum, c) => sum + (c.projected_gci || 0), 0);
-  const buyerVolume = buyers.reduce((sum, c) => sum + (c.projected_sale_amount || 0), 0);
-  const buyerGCI = buyers.reduce((sum, c) => sum + (c.projected_gci || 0), 0);
-  const sellerVolume = sellers.reduce((sum, c) => sum + (c.projected_sale_amount || 0), 0);
-  const sellerGCI = sellers.reduce((sum, c) => sum + (c.projected_gci || 0), 0);
-
-  const hotLeads = activeClients.filter(c => c.stage >= 8).length;
-
-  // Pipeline requirement calculations
-  const conversionRate = (100 - goalSettings.fallout_rate) / 100;
-  const totalDealsGoal = goalSettings.monthlyDeals.reduce((sum, d) => sum + d, 0);
-  
-  const getQuarterlyDeals = (qIndex: number) => {
-    const startMonth = qIndex * 3;
-    return goalSettings.monthlyDeals.slice(startMonth, startMonth + 3).reduce((sum, d) => sum + d, 0);
-  };
-  
-  const getPipelineNeeded = (deals: number) => {
-    if (conversionRate <= 0) return 0;
-    return Math.ceil(deals / conversionRate);
-  };
-
-  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-  // Get clients by quarter based on expected_pending_date
-  const getClientsInQuarter = (qIndex: number) => {
-    const currentYear = 2026;
-    const startMonth = qIndex * 3; // 0, 3, 6, 9
-    const endMonth = startMonth + 2; // 2, 5, 8, 11
-    
-    return clients.filter(c => {
-      if (!c.expected_pending_date) return false;
-      const date = parseISO(c.expected_pending_date);
-      const month = date.getMonth();
-      const year = date.getFullYear();
-      return year === currentYear && month >= startMonth && month <= endMonth;
-    }).length;
-  };
-
-  // Get clients by month based on expected_pending_date
-  const getClientsInMonth = (monthIndex: number) => {
-    const currentYear = 2026;
-    return clients.filter(c => {
-      if (!c.expected_pending_date) return false;
-      const date = parseISO(c.expected_pending_date);
-      return date.getFullYear() === currentYear && date.getMonth() === monthIndex;
-    }).length;
-  };
-
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-display font-bold text-foreground">Client Pipeline</h1>
-          <p className="text-muted-foreground mt-1">
-            {clients.length} clients in pipeline • {buyers.length} buyers • {sellers.length} sellers
-          </p>
+          <h1 className="text-3xl font-bold text-foreground font-display">Pipeline</h1>
+          <p className="text-muted-foreground">Manage your active clients and deals</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) closeDialog(); else openAddDialog(); }}>
+        <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
-              <Plus className="h-4 w-4 mr-2" /> Add Client
+            <Button className="bg-gold hover:bg-gold/90">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Client
             </Button>
           </DialogTrigger>
-          <DialogContent className="border-primary/20 bg-card max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="text-primary font-display">
-                {editClient ? 'Edit Client' : 'Add Client to Pipeline'}
-              </DialogTitle>
+              <DialogTitle>Add Pipeline Client</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label>Client Type</Label>
-                <Select value={newClient.client_type} onValueChange={(v: 'buyer' | 'seller') => setNewClient({ ...newClient, client_type: v, status: '' })}>
-                  <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="buyer">Buyer</SelectItem>
-                    <SelectItem value="seller">Seller</SelectItem>
-                  </SelectContent>
-                </Select>
+            <div className="space-y-4">
+              <div>
+                <Label>Search Follow Up Boss</Label>
+                <FUBClientSearch onSelect={handleFUBSelect} />
               </div>
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <Select value={newClient.status || 'none'} onValueChange={(v) => setNewClient({ ...newClient, status: v === 'none' ? '' : v })}>
-                  <SelectTrigger><SelectValue placeholder="Select status (optional)" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No Status</SelectItem>
-                    {(newClient.client_type === 'buyer' ? buyerStatusOptions : sellerStatusOptions).map(opt => (
-                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Client name *"
-                  value={newClient.client_name}
-                  onChange={(e) => setNewClient({ ...newClient, client_name: e.target.value })}
-                  required
-                  className="flex-1"
-                />
-                <FUBClientSearch 
-                  onSelectClient={handleFUBClientSelect}
-                  trigger={
-                    <Button type="button" variant="outline" size="icon" title="Import from Follow Up Boss">
-                      <Search className="h-4 w-4" />
-                    </Button>
-                  }
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Input
-                  type="email"
-                  placeholder="Email"
-                  value={newClient.email}
-                  onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
-                />
-                <Input
-                  type="tel"
-                  placeholder="Phone"
-                  value={newClient.phone}
-                  onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Expected Pending Month</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <Select 
-                    value={getMonthYearFromDate(newClient.expected_pending_date).month} 
-                    onValueChange={(m) => {
-                      const { year } = getMonthYearFromDate(newClient.expected_pending_date);
-                      setNewClient({ ...newClient, expected_pending_date: monthYearToDateString(m, year || '2026') });
-                    }}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Client Name *</Label>
+                  <Input
+                    value={newClient.client_name}
+                    onChange={(e) => setNewClient({ ...newClient, client_name: e.target.value })}
+                    placeholder="John Doe"
+                  />
+                </div>
+                <div>
+                  <Label>Client Type *</Label>
+                  <Select
+                    value={newClient.client_type}
+                    onValueChange={(value: 'buyer' | 'seller') =>
+                      setNewClient({ ...newClient, client_type: value })
+                    }
                   >
-                    <SelectTrigger><SelectValue placeholder="Month" /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
-                      {months.map(m => (
-                        <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                      ))}
+                      <SelectItem value="buyer">Buyer</SelectItem>
+                      <SelectItem value="seller">Seller</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Select 
-                    value={getMonthYearFromDate(newClient.expected_pending_date).year} 
-                    onValueChange={(y) => {
-                      const { month } = getMonthYearFromDate(newClient.expected_pending_date);
-                      setNewClient({ ...newClient, expected_pending_date: monthYearToDateString(month || '1', y) });
-                    }}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Phone</Label>
+                  <Input
+                    value={newClient.phone}
+                    onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
+                    placeholder="(555) 123-4567"
+                  />
+                </div>
+                <div>
+                  <Label>Email</Label>
+                  <Input
+                    value={newClient.email}
+                    onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
+                    placeholder="john@example.com"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Stage *</Label>
+                  <Select
+                    value={newClient.stage.toString()}
+                    onValueChange={(value) => setNewClient({ ...newClient, stage: parseInt(value) })}
                   >
-                    <SelectTrigger><SelectValue placeholder="Year" /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
-                      {years.map(y => (
-                        <SelectItem key={y} value={y}>{y}</SelectItem>
+                      {Object.entries(stageLabels).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-                {newClient.expected_pending_date && (
-                  <p className="text-xs text-muted-foreground">
-                    Auto-assigned to Stage {calculateStageFromDate(newClient.expected_pending_date)} ({stageDefinitions[calculateStageFromDate(newClient.expected_pending_date)]?.description})
-                  </p>
-                )}
+                <div>
+                  <Label>Source</Label>
+                  <Select
+                    value={newClient.source}
+                    onValueChange={(value) => setNewClient({ ...newClient, source: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select source" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SOURCE_OPTIONS.map((source) => (
+                        <SelectItem key={source} value={source}>
+                          {source}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="space-y-3">
-                <div className="space-y-2">
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
                   <Label>Projected Sale Amount</Label>
                   <Input
                     type="number"
-                    placeholder="e.g., 500000"
-                    value={newClient.projected_sale_amount}
-                    onChange={(e) => setNewClient({ ...newClient, projected_sale_amount: e.target.value })}
+                    value={newClient.projected_sale_amount || ''}
+                    onChange={(e) =>
+                      setNewClient({ ...newClient, projected_sale_amount: parseFloat(e.target.value) || 0 })
+                    }
+                    placeholder="500000"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label>Commission %</Label>
-                    <Input
-                      type="number"
-                      step="0.1"
-                      placeholder="3"
-                      value={newClient.commission_percent}
-                      onChange={(e) => setNewClient({ ...newClient, commission_percent: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Your Split %</Label>
-                    <Input
-                      type="number"
-                      step="1"
-                      placeholder="100"
-                      value={newClient.split_percent}
-                      onChange={(e) => setNewClient({ ...newClient, split_percent: e.target.value })}
-                    />
-                  </div>
+                <div>
+                  <Label>Commission %</Label>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    value={newClient.commission_percent || ''}
+                    onChange={(e) =>
+                      setNewClient({ ...newClient, commission_percent: parseFloat(e.target.value) || 0 })
+                    }
+                    placeholder="3"
+                  />
                 </div>
-                {newClient.projected_sale_amount && (
-                  <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
-                    <p className="text-sm text-muted-foreground">Projected GCI</p>
-                    <p className="text-xl font-bold text-green-400">
-                      ${calculateGCI(newClient.projected_sale_amount, newClient.commission_percent, newClient.split_percent).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                    </p>
-                  </div>
-                )}
+                <div>
+                  <Label>Split %</Label>
+                  <Input
+                    type="number"
+                    step="1"
+                    value={newClient.split_percent || ''}
+                    onChange={(e) =>
+                      setNewClient({ ...newClient, split_percent: parseFloat(e.target.value) || 0 })
+                    }
+                    placeholder="70"
+                  />
+                </div>
               </div>
-              <Input
-                placeholder="Property interest (e.g., 3BR in Downtown)"
-                value={newClient.property_interest}
-                onChange={(e) => setNewClient({ ...newClient, property_interest: e.target.value })}
-              />
-              <Select value={newClient.source} onValueChange={(v) => setNewClient({ ...newClient, source: v })}>
-                <SelectTrigger><SelectValue placeholder="Select source" /></SelectTrigger>
-                <SelectContent>
-                  {SOURCE_OPTIONS.map(opt => (
-                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Textarea
-                placeholder="Notes"
-                value={newClient.notes}
-                onChange={(e) => setNewClient({ ...newClient, notes: e.target.value })}
-                rows={3}
-              />
-              <Button 
-                type="submit" 
-                className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
-                disabled={submitting}
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Adding...
-                  </>
-                ) : (
-                  editClient ? 'Update Client' : 'Add Client'
-                )}
+
+              <div>
+                <Label>Expected Pending Date</Label>
+                <Input
+                  type="date"
+                  value={newClient.expected_pending_date}
+                  onChange={(e) => setNewClient({ ...newClient, expected_pending_date: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <Label>Notes</Label>
+                <Textarea
+                  value={newClient.notes}
+                  onChange={(e) => setNewClient({ ...newClient, notes: e.target.value })}
+                  placeholder="Additional notes..."
+                  rows={3}
+                />
+              </div>
+
+              <div className="p-4 bg-muted rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Projected GCI:</span>
+                  <span className="text-xl font-bold text-green-400">
+                    {formatCurrency(calculateGCI(newClient.projected_sale_amount, newClient.commission_percent, newClient.split_percent))}
+                  </span>
+                </div>
+              </div>
+
+              <Button onClick={handleAddClient} className="w-full bg-gold hover:bg-gold/90">
+                Add to Pipeline
               </Button>
-            </form>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Pipeline Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="border-gold/20 bg-gradient-to-br from-card to-gold/5">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="border-primary/10 bg-card/50">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-gold/10">
-                <Home className="h-5 w-5 text-gold" />
+              <div className="p-2 rounded-lg bg-primary/10">
+                <Users className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Total Clients</p>
+                <p className="text-xl font-bold text-foreground">{filteredClients.length}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="border-blue-500/20 bg-gradient-to-br from-card to-blue-500/5">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-blue-500/10">
+                <Home className="h-5 w-5 text-blue-400" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Total Volume</p>
-                <p className="text-xl font-bold text-gold">${totalProjectedVolume.toLocaleString()}</p>
+                <p className="text-xl font-bold text-gold">{formatCurrency(totalProjectedVolume)}</p>
               </div>
             </div>
           </CardContent>
@@ -670,7 +529,7 @@ const Pipeline = () => {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Total Projected GCI</p>
-                <p className="text-xl font-bold text-gold">${totalProjectedGCI.toLocaleString()}</p>
+                <p className="text-xl font-bold text-gold">{formatCurrency(totalProjectedGCI)}</p>
               </div>
             </div>
           </CardContent>
@@ -684,7 +543,7 @@ const Pipeline = () => {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Buyers ({buyers.length})</p>
-                <p className="text-lg font-bold text-blue-400">${buyerGCI.toLocaleString()} GCI</p>
+                <p className="text-lg font-bold text-blue-400">{formatCurrency(buyerGCI)} GCI</p>
               </div>
             </div>
           </CardContent>
@@ -698,255 +557,368 @@ const Pipeline = () => {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Sellers ({sellers.length})</p>
-                <p className="text-lg font-bold text-emerald-400">${sellerGCI.toLocaleString()} GCI</p>
+                <p className="text-lg font-bold text-emerald-400">{formatCurrency(sellerGCI)} GCI</p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Pipeline Requirements Card */}
-      {totalDealsGoal > 0 && (
-        <Card className="border-gold/20 bg-gradient-to-br from-card to-primary/5">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg font-display text-foreground flex items-center gap-2">
-              <Target className="h-5 w-5 text-gold" />
-              Pipeline Requirements
-              <span className="text-xs font-normal text-muted-foreground ml-2">
-                ({goalSettings.fallout_rate}% fallout = {100 - goalSettings.fallout_rate}% conversion)
-              </span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">
-                Names needed in pipeline to hit your deal goals:
-              </p>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Current:</span>
-                <span className={`text-lg font-bold ${clients.length >= getPipelineNeeded(totalDealsGoal) ? 'text-green-400' : 'text-amber-400'}`}>
-                  {clients.length}
-                </span>
-                <span className="text-sm text-muted-foreground">/ {getPipelineNeeded(totalDealsGoal)} needed</span>
+      {/* Quarterly Projections */}
+      <Card className="border-gold/20">
+        <CardHeader>
+          <CardTitle className="text-gold font-display flex items-center gap-2">
+            <Target className="h-5 w-5" />
+            Quarterly Projections
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {quarterlyProjections.map((quarter) => (
+              <div
+                key={quarter.name}
+                className={`p-4 rounded-lg border ${
+                  quarter.isCurrent
+                    ? 'bg-gold/10 border-gold/30'
+                    : quarter.isPast
+                    ? 'bg-muted/50 border-border'
+                    : 'bg-card border-border'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold text-foreground">{quarter.name}</h3>
+                  {quarter.isCurrent && <Badge className="bg-gold">Current</Badge>}
+                </div>
+                <p className="text-xs text-muted-foreground mb-3">{quarter.label}</p>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Deals</span>
+                    <span className="font-medium text-foreground">{quarter.dealCount}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Projected GCI</span>
+                    <span className="text-muted-foreground ml-auto">
+                      Projected GCI: <span className="text-green-500 font-medium">{formatCurrency(quarter.projectedGci)}</span>
+                    </span>
+                  </div>
+                </div>
               </div>
-            </div>
-            
-            {/* Annual Total */}
-            <div className="p-3 rounded-lg bg-gold/10 border border-gold/30 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gold">Annual Total</p>
-                <p className="text-xs text-muted-foreground">for {totalDealsGoal.toFixed(1)} deals</p>
-              </div>
-              <p className="text-3xl font-bold text-gold">{getPipelineNeeded(totalDealsGoal)}</p>
-            </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
-            {/* Quarterly Breakdown */}
-            <div>
-              <p className="text-sm font-medium text-foreground mb-2">Quarterly Breakdown</p>
-              <div className="grid grid-cols-4 gap-2">
-                {['Q1', 'Q2', 'Q3', 'Q4'].map((quarter, qIndex) => {
-                  const quarterDeals = getQuarterlyDeals(qIndex);
-                  const pipelineNeeded = getPipelineNeeded(quarterDeals);
-                  const currentInQuarter = getClientsInQuarter(qIndex);
-                  const isOnTrack = currentInQuarter >= pipelineNeeded;
-                  return (
-                    <div key={quarter} className={`p-3 rounded-lg border text-center ${isOnTrack ? 'bg-green-500/10 border-green-500/30' : 'bg-background/50 border-gold/20'}`}>
-                      <p className="text-xs text-muted-foreground mb-1">{quarter}</p>
-                      <div className="flex items-center justify-center gap-1">
-                        <span className={`text-lg font-bold ${isOnTrack ? 'text-green-400' : 'text-amber-400'}`}>
-                          {currentInQuarter}
-                        </span>
-                        <span className="text-muted-foreground">/</span>
-                        <span className="text-lg font-bold text-gold">{pipelineNeeded}</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">for {quarterDeals.toFixed(1)} deals</p>
-                    </div>
-                  );
-                })}
+      {/* Filters */}
+      <Card className="border-border/50">
+        <CardContent className="pt-6">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search clients..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
               </div>
             </div>
+            <Select value={filterType} onValueChange={(value: any) => setFilterType(value)}>
+              <SelectTrigger className="w-full md:w-[180px]">
+                <SelectValue placeholder="Filter by type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="buyer">Buyers</SelectItem>
+                <SelectItem value="seller">Sellers</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filterStage} onValueChange={setFilterStage}>
+              <SelectTrigger className="w-full md:w-[180px]">
+                <SelectValue placeholder="Filter by stage" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Stages</SelectItem>
+                {Object.entries(stageLabels).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
 
-            {/* Monthly Breakdown */}
-            <div>
-              <p className="text-sm font-medium text-foreground mb-2">Monthly Breakdown</p>
-              <div className="grid grid-cols-6 md:grid-cols-12 gap-1">
-                {monthNames.map((month, mIndex) => {
-                  const monthDeals = goalSettings.monthlyDeals[mIndex] || 0;
-                  const pipelineNeeded = getPipelineNeeded(monthDeals);
-                  const currentInMonth = getClientsInMonth(mIndex);
-                  const isOnTrack = currentInMonth >= pipelineNeeded;
-                  return (
-                    <div key={month} className={`p-2 rounded border text-center ${isOnTrack ? 'bg-green-500/10 border-green-500/30' : 'bg-background/50 border-primary/10'}`}>
-                      <p className="text-xs text-muted-foreground">{month}</p>
-                      <p className={`text-xs font-bold ${isOnTrack ? 'text-green-400' : 'text-amber-400'}`}>
-                        {currentInMonth}/{pipelineNeeded}
-                      </p>
-                    </div>
-                  );
-                })}
+      {/* Client List */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {filteredClients.map((client) => (
+          <Card key={client.id} className="border-border/50 hover:border-gold/30 transition-colors">
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-semibold text-foreground">{client.client_name}</h3>
+                    <Badge variant={client.client_type === 'buyer' ? 'default' : 'secondary'}>
+                      {client.client_type}
+                    </Badge>
+                    <Badge variant="outline">{stageLabels[client.stage]}</Badge>
+                  </div>
+                  {client.source && (
+                    <p className="text-xs text-muted-foreground">Source: {client.source}</p>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setEditingClient(client)}
+                  >
+                    <Edit2 className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleDeleteClient(client.id)}
+                  >
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </Button>
+                </div>
               </div>
-            </div>
+
+              <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+                {client.phone && (
+                  <div className="flex items-center gap-1 text-muted-foreground">
+                    <Phone className="h-3 w-3" />
+                    <span>{client.phone}</span>
+                  </div>
+                )}
+                {client.email && (
+                  <div className="flex items-center gap-1 text-muted-foreground">
+                    <Mail className="h-3 w-3" />
+                    <span className="truncate">{client.email}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground mb-3">
+                <span>Stage: {stageLabels[client.stage] || `Stage ${client.stage}`}</span>
+                <span>Source: {client.source || 'N/A'}</span>
+                <span>Value: {formatCurrency(client.projected_sale_amount)}</span>
+                <span>GCI: {formatCurrency(client.projected_gci)}</span>
+              </div>
+              {client.expected_pending_date && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Calendar className="h-3 w-3" />
+                  <span>Expected: {format(parseISO(client.expected_pending_date), 'MMM d, yyyy')}</span>
+                </div>
+              )}
+
+              {client.notes && (
+                <p className="text-xs text-muted-foreground mt-2 p-2 bg-muted/50 rounded">
+                  {client.notes}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {filteredClients.length === 0 && (
+        <Card className="border-border/50">
+          <CardContent className="py-12 text-center">
+            <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+            <h3 className="text-lg font-semibold text-foreground mb-2">No clients found</h3>
+            <p className="text-muted-foreground mb-4">
+              {searchTerm || filterType !== 'all' || filterStage !== 'all'
+                ? 'Try adjusting your filters'
+                : 'Add your first client to get started'}
+            </p>
+            {!searchTerm && filterType === 'all' && filterStage === 'all' && (
+              <Button onClick={() => setAddDialogOpen(true)} className="bg-gold hover:bg-gold/90">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Client
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}
 
-      {/* Buyer/Seller Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'buyer' | 'seller')}>
-        <TabsList className="bg-muted/50">
-          <TabsTrigger value="buyer" className="data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-400">
-            Buyers ({buyers.length})
-          </TabsTrigger>
-          <TabsTrigger value="seller" className="data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400">
-            Sellers ({sellers.length})
-          </TabsTrigger>
-        </TabsList>
+      {/* Edit Dialog */}
+      <Dialog open={!!editingClient} onOpenChange={() => setEditingClient(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Client</DialogTitle>
+          </DialogHeader>
+          {editingClient && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Client Name *</Label>
+                  <Input
+                    value={editingClient.client_name}
+                    onChange={(e) =>
+                      setEditingClient({ ...editingClient, client_name: e.target.value })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label>Client Type *</Label>
+                  <Select
+                    value={editingClient.client_type}
+                    onValueChange={(value: 'buyer' | 'seller') =>
+                      setEditingClient({ ...editingClient, client_type: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="buyer">Buyer</SelectItem>
+                      <SelectItem value="seller">Seller</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-        <TabsContent value={activeTab} className="mt-4 space-y-4">
-          {/* Stage Legend */}
-          <div className="flex flex-wrap gap-2">
-            {stageOrder.map(stage => (
-              <Badge key={stage} className={`${stageDefinitions[stage].color} text-xs`}>
-                {stage}: {stageDefinitions[stage].description}
-              </Badge>
-            ))}
-          </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Phone</Label>
+                  <Input
+                    value={editingClient.phone || ''}
+                    onChange={(e) => setEditingClient({ ...editingClient, phone: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Email</Label>
+                  <Input
+                    value={editingClient.email || ''}
+                    onChange={(e) => setEditingClient({ ...editingClient, email: e.target.value })}
+                  />
+                </div>
+              </div>
 
-          {/* Hot leads indicator */}
-          <p className="text-sm text-muted-foreground">
-            <span className="text-primary font-semibold">{hotLeads} hot leads</span> (Stage 8+)
-          </p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Stage *</Label>
+                  <Select
+                    value={editingClient.stage.toString()}
+                    onValueChange={(value) =>
+                      setEditingClient({ ...editingClient, stage: parseInt(value) })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(stageLabels).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Source</Label>
+                  <Select
+                    value={editingClient.source || ''}
+                    onValueChange={(value) => setEditingClient({ ...editingClient, source: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select source" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SOURCE_OPTIONS.map((source) => (
+                        <SelectItem key={source} value={source}>
+                          {source}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-          {/* Pipeline Grid */}
-          <ScrollArea className="w-full">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-5 gap-4 min-w-[800px] pb-4">
-              {stageOrder.map((stage) => (
-                <Card key={stage} className="border-primary/10 bg-card/50">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium flex items-center justify-between">
-                      <div>
-                        <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full mr-2 text-xs font-bold ${stageDefinitions[stage].color}`}>
-                          {stage}
-                        </span>
-                        <span className="text-muted-foreground text-xs">{stageDefinitions[stage].description}</span>
-                      </div>
-                      <Badge variant="outline" className="border-primary/30 text-primary">
-                        {clientsByStage[stage].length}
-                      </Badge>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {clientsByStage[stage].map((client) => (
-                      <div 
-                        key={client.id} 
-                        className="p-3 rounded-lg bg-background/50 border border-primary/10 hover:border-primary/30 transition-colors group"
-                      >
-                        <div className="flex items-start justify-between">
-                          <p className="font-medium text-foreground text-sm truncate flex-1">{client.client_name}</p>
-                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button 
-                              size="icon" 
-                              variant="ghost" 
-                              className="h-6 w-6"
-                              onClick={() => openEditDialog(client)}
-                            >
-                              <Edit2 className="h-3 w-3" />
-                            </Button>
-                            <Button 
-                              size="icon" 
-                              variant="ghost" 
-                              className="h-6 w-6 text-destructive hover:text-destructive"
-                              onClick={() => deleteClient(client.id)}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
-                        {(() => {
-                          const statusInfo = getStatusLabel(client.status, client.client_type);
-                          return statusInfo ? (
-                            <Badge className={`${statusInfo.color} text-xs mt-1`}>
-                              {statusInfo.label}
-                            </Badge>
-                          ) : null;
-                        })()}
-                        {client.projected_sale_amount && client.projected_sale_amount > 0 && (
-                          <p className="text-xs text-gold font-medium">
-                            ${client.projected_sale_amount.toLocaleString()}
-                          </p>
-                        )}
-                        {client.projected_gci && client.projected_gci > 0 && (
-                          <p className="text-xs text-green-400">
-                            GCI: ${client.projected_gci.toLocaleString()}
-                          </p>
-                        )}
-                        {client.email && (
-                          <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
-                            <Mail className="h-3 w-3" /> {client.email}
-                          </p>
-                        )}
-                        {client.phone && (
-                          <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
-                            <Phone className="h-3 w-3" /> {client.phone}
-                          </p>
-                        )}
-                        {client.property_interest && (
-                          <p className="text-xs text-primary mt-1 truncate">
-                            {client.property_interest}
-                          </p>
-                        )}
-                        {client.source && (
-                          <Badge variant="outline" className="text-xs mt-1">
-                            {client.source}
-                          </Badge>
-                        )}
-                        {client.expected_pending_date && (
-                          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            Pending: {format(parseISO(client.expected_pending_date), 'MMM yyyy')}
-                          </p>
-                        )}
-                        <div className="mt-2 grid grid-cols-2 gap-1">
-                          <Select 
-                            value={getMonthYearFromDate(client.expected_pending_date).month} 
-                            onValueChange={(m) => {
-                              const { year } = getMonthYearFromDate(client.expected_pending_date);
-                              updateExpectedPendingDate(client.id, monthYearToDateString(m, year || '2026'));
-                            }}
-                          >
-                            <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="Mo" /></SelectTrigger>
-                            <SelectContent>
-                              {months.map(mo => (
-                                <SelectItem key={mo.value} value={mo.value}>{mo.label.slice(0, 3)}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Select 
-                            value={getMonthYearFromDate(client.expected_pending_date).year} 
-                            onValueChange={(y) => {
-                              const { month } = getMonthYearFromDate(client.expected_pending_date);
-                              updateExpectedPendingDate(client.id, monthYearToDateString(month || '1', y));
-                            }}
-                          >
-                            <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="Yr" /></SelectTrigger>
-                            <SelectContent>
-                              {years.map(yr => (
-                                <SelectItem key={yr} value={yr}>{yr}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    ))}
-                    {clientsByStage[stage].length === 0 && (
-                      <p className="text-xs text-muted-foreground text-center py-4">No clients</p>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label>Projected Sale Amount</Label>
+                  <Input
+                    type="number"
+                    value={editingClient.projected_sale_amount || ''}
+                    onChange={(e) =>
+                      setEditingClient({
+                        ...editingClient,
+                        projected_sale_amount: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label>Commission %</Label>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    value={editingClient.commission_percent || ''}
+                    onChange={(e) =>
+                      setEditingClient({
+                        ...editingClient,
+                        commission_percent: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label>Split %</Label>
+                  <Input
+                    type="number"
+                    step="1"
+                    value={editingClient.split_percent || ''}
+                    onChange={(e) =>
+                      setEditingClient({
+                        ...editingClient,
+                        split_percent: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label>Expected Pending Date</Label>
+                <Input
+                  type="date"
+                  value={editingClient.expected_pending_date || ''}
+                  onChange={(e) =>
+                    setEditingClient({ ...editingClient, expected_pending_date: e.target.value })
+                  }
+                />
+              </div>
+
+              <div>
+                <Label>Notes</Label>
+                <Textarea
+                  value={editingClient.notes || ''}
+                  onChange={(e) => setEditingClient({ ...editingClient, notes: e.target.value })}
+                  rows={3}
+                />
+              </div>
+
+              <div className="p-4 bg-muted rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Projected GCI:</span>
+                  <span className="text-xl font-bold text-green-400">
+                    {formatCurrency(calculateGCI(editingClient.projected_sale_amount, editingClient.commission_percent, editingClient.split_percent))}
+                  </span>
+                </div>
+              </div>
+
+              <Button onClick={handleUpdateClient} className="w-full bg-gold hover:bg-gold/90">
+                Update Client
+              </Button>
             </div>
-          </ScrollArea>
-        </TabsContent>
-      </Tabs>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

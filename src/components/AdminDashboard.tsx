@@ -20,6 +20,7 @@ import AnnualBudgetChart from './AnnualBudgetChart';
 import AccountsPayable from './AccountsPayable';
 import Team411 from './Team411';
 import ConversionReport from './ConversionReport';
+import { formatCurrency, formatNumber } from '@/lib/utils';
 
 interface AgentData {
   id: string;
@@ -662,7 +663,7 @@ const AdminDashboard = () => {
               <span className="text-sm text-muted-foreground">Total GCI Earned</span>
             </div>
             <p className="text-3xl font-bold text-foreground">
-              ${(fubStats?.totalGci || 0).toLocaleString()}
+              {formatCurrency(fubStats?.totalGci)}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               {fubStats?.closedDeals || 0} closed deals from FUB
@@ -677,7 +678,7 @@ const AdminDashboard = () => {
               <span className="text-sm text-muted-foreground">Pending GCI</span>
             </div>
             <p className="text-3xl font-bold text-gold">
-              ${(fubStats?.pendingGci || 0).toLocaleString()}
+              {formatCurrency(fubStats?.pendingGci)}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               {fubStats?.pendingDeals || 0} pending deals
@@ -692,7 +693,7 @@ const AdminDashboard = () => {
               <span className="text-sm text-muted-foreground">Conditional GCI</span>
             </div>
             <p className="text-3xl font-bold text-orange-500">
-              ${(fubStats?.conditionalGci || 0).toLocaleString()}
+              {formatCurrency(fubStats?.conditionalGci)}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               {fubStats?.conditionalDeals || 0} conditional deals
@@ -707,10 +708,10 @@ const AdminDashboard = () => {
               <span className="text-sm text-muted-foreground">Company Revenue</span>
             </div>
             <p className="text-3xl font-bold text-blue-500">
-              ${((fubStats?.companyRevenueEarned || 0) + (fubStats?.companyRevenuePending || 0) + (fubStats?.companyRevenueConditional || 0)).toLocaleString()}
+              {formatCurrency((fubStats?.companyRevenueEarned || 0) + (fubStats?.companyRevenuePending || 0) + (fubStats?.companyRevenueConditional || 0))}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              ${(fubStats?.companyRevenueEarned || 0).toLocaleString()} earned / ${(fubStats?.companyRevenuePending || 0).toLocaleString()} pending / ${(fubStats?.companyRevenueConditional || 0).toLocaleString()} conditional
+              {formatCurrency(fubStats?.companyRevenueEarned)} earned / {formatCurrency(fubStats?.companyRevenuePending)} pending / {formatCurrency(fubStats?.companyRevenueConditional)} conditional
             </p>
           </CardContent>
         </Card>
@@ -768,7 +769,7 @@ const AdminDashboard = () => {
                   <p className="text-sm text-muted-foreground">Total Pipeline Clients</p>
                 </div>
                 <div className="text-center p-4 rounded-lg bg-gold/10">
-                  <p className="text-3xl font-bold text-gold">${Math.round(teamPipelineSummary.totalProjectedGci).toLocaleString()}</p>
+                  <p className="text-3xl font-bold text-gold">{formatCurrency(teamPipelineSummary.totalProjectedGci)}</p>
                   <p className="text-sm text-muted-foreground">Projected Pipeline GCI</p>
                 </div>
                 <div className="text-center p-4 rounded-lg bg-green-500/10">
@@ -776,7 +777,7 @@ const AdminDashboard = () => {
                   <p className="text-sm text-muted-foreground">Team Deals Goal</p>
                 </div>
                 <div className="text-center p-4 rounded-lg bg-blue-500/10">
-                  <p className="text-3xl font-bold text-blue-500">${teamPipelineSummary.totalGciGoal.toLocaleString()}</p>
+                  <p className="text-3xl font-bold text-blue-500">{formatCurrency(teamPipelineSummary.totalGciGoal)}</p>
                   <p className="text-sm text-muted-foreground">Team GCI Goal</p>
                 </div>
               </div>
@@ -896,7 +897,7 @@ const AdminDashboard = () => {
                             <span className="text-muted-foreground">•</span>
                             <span className="text-purple-500">{quarter.sellers} sellers</span>
                             <span className="text-muted-foreground ml-auto">
-                              Projected GCI: <span className="text-green-500 font-medium">${Math.round(quarter.projectedGci).toLocaleString()}</span>
+                              Projected GCI: <span className="text-green-500 font-medium">{formatCurrency(quarter.projectedGci)}</span>
                             </span>
                           </div>
                           <Progress 
@@ -950,10 +951,10 @@ const AdminDashboard = () => {
                               : '-'}
                           </TableCell>
                           <TableCell className="text-right font-semibold text-gold">
-                            ${transaction.gci.toLocaleString()}
+                            {formatCurrency(transaction.gci)}
                           </TableCell>
                           <TableCell className="text-right font-semibold text-blue-500">
-                            ${transaction.companyRevenue.toLocaleString()}
+                            {formatCurrency(transaction.companyRevenue)}
                           </TableCell>
                           <TableCell>
                             <Badge 
@@ -1030,10 +1031,10 @@ const AdminDashboard = () => {
                       </div>
                       <div className="text-right">
                         <p className="text-lg font-bold text-green-500">
-                          ${(agent.totalGci + agent.pendingGci + agent.conditionalGci).toLocaleString()}
+                          {formatCurrency(agent.totalGci + agent.pendingGci + agent.conditionalGci)}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          ${agent.totalGci.toLocaleString()} earned / ${agent.pendingGci.toLocaleString()} pending / ${agent.conditionalGci.toLocaleString()} conditional
+                          {formatCurrency(agent.totalGci)} earned / {formatCurrency(agent.pendingGci)} pending / {formatCurrency(agent.conditionalGci)} conditional
                         </p>
                       </div>
                     </div>

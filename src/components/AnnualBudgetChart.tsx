@@ -3,146 +3,87 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, TrendingUp } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ReferenceLine } from 'recharts';
+import { formatCurrency, formatCurrencyCompact } from '@/lib/utils';
 
-interface MonthlyData {
-  month: string;
-  monthLabel: string;
-  expenses: number;
+interface AnnualBudget {
+  month: number;
+  year: number;
   projectedRevenue: number;
-  netIncome: number;
+  expenses: number;
 }
 
-const MONTHS = [
-  { value: 1, label: 'Jan' },
-  { value: 2, label: 'Feb' },
-  { value: 3, label: 'Mar' },
-  { value: 4, label: 'Apr' },
-  { value: 5, label: 'May' },
-  { value: 6, label: 'Jun' },
-  { value: 7, label: 'Jul' },
-  { value: 8, label: 'Aug' },
-  { value: 9, label: 'Sep' },
-  { value: 10, label: 'Oct' },
-  { value: 11, label: 'Nov' },
-  { value: 12, label: 'Dec' },
-];
+interface MonthlyData {
+  monthLabel: string;
+  projectedRevenue: number;
+  expenses: number;
+}
 
 const AnnualBudgetChart = () => {
   const [data, setData] = useState<MonthlyData[]>([]);
   const [loading, setLoading] = useState(true);
-  const year = 2026;
 
   useEffect(() => {
-    fetchAnnualData();
+    const fetchAnnualBudget = async () => {
+      setLoading(true);
+      try {
+        const { data: annualBudget, error } = await supabase
+          .from('annual_budget')
+          .select('*')
+          .order('month', { ascending: true });
+
+        if (error) {
+          console.error('Error fetching annual budget:', error);
+          return;
+        }
+
+        if (annualBudget) {
+          const monthlyData: MonthlyData[] = annualBudget.map((item: AnnualBudget) => {
+            const monthName = new Date(item.year, item.month - 1, 1).toLocaleString('default', { month: 'long' });
+            return {
+              monthLabel: monthName,
+              projectedRevenue: item.projectedRevenue,
+              expenses: item.expenses,
+            };
+          });
+          setData(monthlyData);
+        }
+      } catch (error) {
+        console.error('Failed to fetch annual budget data', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAnnualBudget();
   }, []);
-
-  const fetchAnnualData = async () => {
-    setLoading(true);
-
-    // Fetch all expenses for 2026
-    const { data: expensesData, error: expensesError } = await supabase
-      .from('company_budget_expenses')
-      .select('*')
-      .eq('year', year);
-
-    if (expensesError) {
-      console.error('Error fetching expenses:', expensesError);
-    }
-
-    // Calculate base recurring expenses (from the earliest month that has recurring items)
-    const recurringExpenses = (expensesData || []).filter(e => e.is_recurring);
-    
-    // Group recurring expenses by category to get the "baseline" recurring amount
-    // Use the most recent month's recurring expenses as the baseline
-    const recurringByCategory = new Map<string, number>();
-    recurringExpenses.forEach(e => {
-      // Always take the latest value for each recurring category
-      const existing = recurringByCategory.get(e.category);
-      if (!existing || e.month > (expensesData || []).find(ex => ex.category === e.category && ex.amount === existing)?.month) {
-        recurringByCategory.set(e.category, Number(e.amount));
-      }
-    });
-    
-    // Calculate total baseline recurring expense
-    const baselineRecurring = Array.from(recurringByCategory.values()).reduce((sum, amt) => sum + amt, 0);
-
-    // Fetch all deals with expected close dates in 2026
-    const { data: dealsData, error: dealsError } = await supabase
-      .from('deals')
-      .select('id, stage, commission_rate, deal_value, company_split_percentage, expected_close_date')
-      .in('stage', ['under_contract', 'offer', 'closed'])
-      .gte('expected_close_date', `${year}-01-01`)
-      .lte('expected_close_date', `${year}-12-31`);
-
-    if (dealsError) {
-      console.error('Error fetching deals:', dealsError);
-    }
-
-    // Build monthly data
-    const monthlyData: MonthlyData[] = MONTHS.map(m => {
-      // Get actual expenses for this month
-      const monthExpensesData = (expensesData || []).filter(e => e.month === m.value);
-      
-      let monthExpenses: number;
-      
-      if (monthExpensesData.length > 0) {
-        // Month has explicit data, use it
-        monthExpenses = monthExpensesData.reduce((sum, e) => sum + Number(e.amount), 0);
-      } else {
-        // No explicit data for this month - project recurring expenses
-        monthExpenses = baselineRecurring;
-      }
-
-      // Sum projected revenue for deals closing this month
-      const monthDeals = (dealsData || []).filter(d => {
-        if (!d.expected_close_date) return false;
-        const dealMonth = new Date(d.expected_close_date).getMonth() + 1;
-        return dealMonth === m.value;
-      });
-
-      const monthRevenue = monthDeals.reduce((sum, deal) => {
-        const value = deal.deal_value || 0;
-        const rate = (deal.commission_rate || 2) / 100;
-        const companySplit = (deal.company_split_percentage || 30) / 100;
-        return sum + (value * rate * companySplit);
-      }, 0);
-
-      return {
-        month: `${year}-${String(m.value).padStart(2, '0')}`,
-        monthLabel: m.label,
-        expenses: monthExpenses,
-        projectedRevenue: monthRevenue,
-        netIncome: monthRevenue - monthExpenses,
-      };
-    });
-
-    setData(monthlyData);
-    setLoading(false);
-  };
-
-  const totalExpenses = data.reduce((sum, d) => sum + d.expenses, 0);
-  const totalRevenue = data.reduce((sum, d) => sum + d.projectedRevenue, 0);
-  const totalNet = totalRevenue - totalExpenses;
-
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
 
   if (loading) {
     return (
-      <Card className="border-blue-500/20 bg-gradient-to-br from-card to-blue-500/5">
-        <CardContent className="flex items-center justify-center h-64">
-          <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4" />
+            Annual Budget
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </CardContent>
       </Card>
     );
   }
 
+  const totalExpenses = data.reduce((sum, item) => sum + item.expenses, 0);
+  const totalRevenue = data.reduce((sum, item) => sum + item.projectedRevenue, 0);
+  const totalNet = totalRevenue - totalExpenses;
+
   return (
-    <Card className="border-blue-500/20 bg-gradient-to-br from-card to-blue-500/5">
+    <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-blue-500 font-display flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" /> 2026 Budget vs Projected Revenue
+        <div className="flex flex-col md:flex-row items-center justify-between space-y-2 md:space-y-0">
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4" />
+            Annual Budget
           </CardTitle>
           <div className="flex items-center gap-4 text-sm">
             <div className="flex items-center gap-2">
@@ -168,7 +109,7 @@ const AnnualBudgetChart = () => {
                 tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} 
               />
               <YAxis 
-                tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} 
+                tickFormatter={(v) => formatCurrencyCompact(v)} 
                 tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} 
               />
               <Tooltip
