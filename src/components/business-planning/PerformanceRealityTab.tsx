@@ -6,12 +6,12 @@ import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { BarChart3, Crosshair, Save, Pencil } from 'lucide-react';
+import { BarChart3, Crosshair, Save, Pencil, AlertTriangle, CheckCircle, TrendingUp } from 'lucide-react';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { DebugMetricsPanel } from '@/components/DebugMetricsPanel';
 import { DebugInfo } from '@/hooks/useFubDealMetrics';
 import { ActiveMetrics, ActiveListingDebug, GoalInputs, currentYear, safe } from './types';
-import { StatCard, GapBadge } from './shared';
+import { StatCard } from './shared';
 import { toast } from 'sonner';
 
 interface ManualPerformance {
@@ -41,6 +41,7 @@ interface Props {
   goals: GoalInputs;
   effectiveRates: { contactToAppt: number; apptToContract: number; cmaToListing: number; dialsToAppt: number };
   uid: string | null;
+  quarter: number;
   onManualMetrics?: (m: ManualPerformance) => void;
 }
 
@@ -144,15 +145,22 @@ function ManualPerformanceForm({ uid, onSaved }: { uid: string | null; onSaved: 
 
 export function PerformanceRealityTab({
   metrics, mode, dateRange, customStart, customEnd,
-  isAdmin, debugInfo, activeListingDebug, goals, effectiveRates, uid, onManualMetrics,
+  isAdmin, debugInfo, activeListingDebug, goals, effectiveRates, uid, quarter, onManualMetrics,
 }: Props) {
-  const netPerDeal = goals.avg_commission * (goals.split_percent / 100);
-  const requiredClosings = netPerDeal > 0 ? Math.ceil(goals.gci_target / netPerDeal) : 0;
+  // Q Target: use goals.gci_target if set, else derive from annual target / 4
+  const qTargetGCI = goals.gci_target > 0
+    ? goals.gci_target
+    : (metrics?.targetGCI && metrics.targetGCI > 0 ? Math.round(metrics.targetGCI / 4) : 0);
+  const avgGCIPerDeal = metrics?.avgCommission && metrics.avgCommission > 0
+    ? metrics.avgCommission
+    : (goals.avg_commission > 0 ? goals.avg_commission : 0);
+  const hasTarget = qTargetGCI > 0 && avgGCIPerDeal > 0;
+  const requiredClosings = hasTarget ? Math.ceil(qTargetGCI / avgGCIPerDeal) : 0;
   const pendingInQ = metrics ? metrics.pendingDeals : 0;
   const activeLikelyClosings = metrics ? Math.round(metrics.activeListings * 0.5) : 0;
-  const pipelineGap = requiredClosings - pendingInQ - activeLikelyClosings;
-  const gapCMAs = pipelineGap > 0 && effectiveRates.cmaToListing > 0 ? Math.ceil(pipelineGap / (effectiveRates.cmaToListing / 100)) : 0;
-  const gapAppts = pipelineGap > 0 && effectiveRates.apptToContract > 0 ? Math.ceil(pipelineGap / (effectiveRates.apptToContract / 100)) : 0;
+  const pipelineGap = hasTarget ? requiredClosings - pendingInQ - activeLikelyClosings : null;
+  const gapCMAs = pipelineGap && pipelineGap > 0 && effectiveRates.cmaToListing > 0 ? Math.ceil(pipelineGap / (effectiveRates.cmaToListing / 100)) : 0;
+  const gapAppts = pipelineGap && pipelineGap > 0 && effectiveRates.apptToContract > 0 ? Math.ceil(pipelineGap / (effectiveRates.apptToContract / 100)) : 0;
 
   const rangeLabel = dateRange === 'ytd' ? 'YTD' : dateRange === 'custom' ? `${customStart} → ${customEnd}` : dateRange.toUpperCase();
 
@@ -232,38 +240,64 @@ export function PerformanceRealityTab({
               <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
                 <Crosshair className="h-4 w-4" /> Pipeline Gap Analysis
               </h3>
-              {/* Subtraction formula */}
-              <div className="rounded-lg border border-border bg-card p-4 space-y-2 font-mono text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Required Q Closings</span>
-                  <span className="font-bold text-foreground">{formatNumber(requiredClosings)}</span>
+              {pipelineGap === null ? (
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+                  <p className="text-sm font-medium text-amber-600">No Q{quarter} target set</p>
+                  <p className="text-xs text-muted-foreground mt-1">Set a GCI target in the Strategy & Goals tab to enable pipeline gap analysis.</p>
                 </div>
-                <div className="flex items-center justify-between text-destructive">
-                  <span>− Pending Deals (closing in Q)</span>
-                  <span className="font-bold">{formatNumber(pendingInQ)}</span>
-                </div>
-                <div className="flex items-center justify-between text-destructive">
-                  <span>− Active Likely Closings (50% weight)</span>
-                  <span className="font-bold">{formatNumber(activeLikelyClosings)}</span>
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <span className={`font-bold ${pipelineGap > 0 ? 'text-destructive' : 'text-green-600'}`}>= Gap</span>
-                  <span className={`text-lg font-bold ${pipelineGap > 0 ? 'text-destructive' : 'text-green-600'}`}>
-                    {pipelineGap > 0 ? `${pipelineGap} deals` : pipelineGap === 0 ? 'On Track' : `Ahead by ${Math.abs(pipelineGap)}`}
-                  </span>
-                </div>
-              </div>
+              ) : (
+                <>
+                  {/* Subtraction formula */}
+                  <div className="rounded-lg border border-border bg-card p-4 space-y-2 font-mono text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Required Q{quarter} Closings</span>
+                      <span className="font-bold text-foreground">{formatNumber(requiredClosings)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-destructive">
+                      <span>− Pending Deals (closing in Q)</span>
+                      <span className="font-bold">{formatNumber(pendingInQ)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-destructive">
+                      <span>− Active Likely Closings (50% weight)</span>
+                      <span className="font-bold">{formatNumber(activeLikelyClosings)}</span>
+                    </div>
+                    <Separator />
+                    <div className="flex items-center justify-between">
+                      <span className={`font-bold ${pipelineGap > 0 ? 'text-amber-600' : 'text-green-600'}`}>= Gap</span>
+                      <span className={`text-lg font-bold ${pipelineGap > 0 ? 'text-amber-600' : 'text-green-600'}`}>
+                        {pipelineGap > 0 ? `${pipelineGap} deals` : pipelineGap === 0 ? 'On Track' : `Ahead by ${Math.abs(pipelineGap)}`}
+                      </span>
+                    </div>
+                  </div>
 
-              <div className="flex items-center gap-3 mt-3">
-                <GapBadge gap={pipelineGap} />
-              </div>
+                  <div className="flex items-center gap-3 mt-3">
+                    {pipelineGap > 0 ? (
+                      <Badge className="bg-amber-500 text-white gap-1"><AlertTriangle className="h-3 w-3" />At Risk: {pipelineGap} deals short</Badge>
+                    ) : pipelineGap === 0 ? (
+                      <Badge className="bg-green-600 text-white gap-1"><CheckCircle className="h-3 w-3" />On Track</Badge>
+                    ) : (
+                      <Badge className="bg-green-600 text-white gap-1"><TrendingUp className="h-3 w-3" />Ahead by {Math.abs(pipelineGap)} deals</Badge>
+                    )}
+                  </div>
 
-              {pipelineGap > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
-                  <StatCard label="Additional CMAs Needed" value={formatNumber(gapCMAs)} danger />
-                  <StatCard label="Additional Appts Needed" value={formatNumber(gapAppts)} danger />
-                </div>
+                  {pipelineGap > 0 && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                      <StatCard label="Additional CMAs Needed" value={formatNumber(gapCMAs)} danger />
+                      <StatCard label="Additional Appts Needed" value={formatNumber(gapAppts)} danger />
+                    </div>
+                  )}
+
+                  {isAdmin && (
+                    <div className="rounded border border-muted bg-muted/30 p-3 text-xs font-mono space-y-1 mt-3">
+                      <p className="font-semibold text-muted-foreground">Gap Debug</p>
+                      <p>Q{quarter} Target GCI: <span className="font-bold">{formatCurrency(qTargetGCI)}</span> {goals.gci_target > 0 ? '(from Q goals)' : '(annual ÷ 4)'}</p>
+                      <p>Avg GCI per deal: <span className="font-bold">{formatCurrency(avgGCIPerDeal)}</span></p>
+                      <p>Date range: <span className="font-bold">{rangeLabel}</span></p>
+                      <p>Pending deals counted: <span className="font-bold">{pendingInQ}</span></p>
+                      <p>Active listings counted: <span className="font-bold">{metrics?.activeListings ?? 0}</span> (weighted: {activeLikelyClosings})</p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </CardContent>

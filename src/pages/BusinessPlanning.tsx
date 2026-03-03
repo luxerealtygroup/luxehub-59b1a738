@@ -263,7 +263,7 @@ const BusinessPlanning = () => {
             isAdmin={isAdmin} debugInfo={debugInfo}
             activeListingDebug={activeListingDebug}
             goals={goals} effectiveRates={effectiveRates}
-            uid={uid}
+            uid={uid} quarter={quarter}
           />
         </TabsContent>
 
