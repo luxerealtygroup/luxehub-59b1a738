@@ -148,6 +148,59 @@ export type Database = {
         }
         Relationships: []
       }
+      appointment_records: {
+        Row: {
+          appointment_date: string
+          appointment_type: string
+          contact_name: string
+          created_at: string
+          fub_contact_id: number | null
+          id: string
+          notes: string | null
+          outcome: string | null
+          updated_at: string
+          user_id: string
+          week_start_date: string
+          weekly_411_id: string | null
+        }
+        Insert: {
+          appointment_date: string
+          appointment_type?: string
+          contact_name: string
+          created_at?: string
+          fub_contact_id?: number | null
+          id?: string
+          notes?: string | null
+          outcome?: string | null
+          updated_at?: string
+          user_id: string
+          week_start_date: string
+          weekly_411_id?: string | null
+        }
+        Update: {
+          appointment_date?: string
+          appointment_type?: string
+          contact_name?: string
+          created_at?: string
+          fub_contact_id?: number | null
+          id?: string
+          notes?: string | null
+          outcome?: string | null
+          updated_at?: string
+          user_id?: string
+          week_start_date?: string
+          weekly_411_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointment_records_weekly_411_id_fkey"
+            columns: ["weekly_411_id"]
+            isOneToOne: false
+            referencedRelation: "weekly_411"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       asana_settings: {
         Row: {
           created_at: string
@@ -1198,12 +1251,20 @@ export type Database = {
         Row: {
           appointments_actual: number | null
           appointments_goal: number | null
+          appointments_held: number | null
+          appointments_set: number | null
           calls_actual: number | null
           calls_goal: number | null
           challenges: string | null
+          contacts_made: number | null
           contracts_actual: number | null
           contracts_goal: number | null
+          contracts_signed: number | null
           created_at: string
+          database_size: number | null
+          dials: number | null
+          doors_knocked: number | null
+          firm_deals: number | null
           id: string
           listings_actual: number | null
           listings_goal: number | null
@@ -1215,6 +1276,7 @@ export type Database = {
           personal_priority_2_completed: boolean | null
           personal_priority_3: string | null
           personal_priority_3_completed: boolean | null
+          pipeline_additions: number | null
           priority_1: string | null
           priority_1_completed: boolean | null
           priority_2: string | null
@@ -1231,12 +1293,20 @@ export type Database = {
         Insert: {
           appointments_actual?: number | null
           appointments_goal?: number | null
+          appointments_held?: number | null
+          appointments_set?: number | null
           calls_actual?: number | null
           calls_goal?: number | null
           challenges?: string | null
+          contacts_made?: number | null
           contracts_actual?: number | null
           contracts_goal?: number | null
+          contracts_signed?: number | null
           created_at?: string
+          database_size?: number | null
+          dials?: number | null
+          doors_knocked?: number | null
+          firm_deals?: number | null
           id?: string
           listings_actual?: number | null
           listings_goal?: number | null
@@ -1248,6 +1318,7 @@ export type Database = {
           personal_priority_2_completed?: boolean | null
           personal_priority_3?: string | null
           personal_priority_3_completed?: boolean | null
+          pipeline_additions?: number | null
           priority_1?: string | null
           priority_1_completed?: boolean | null
           priority_2?: string | null
@@ -1264,12 +1335,20 @@ export type Database = {
         Update: {
           appointments_actual?: number | null
           appointments_goal?: number | null
+          appointments_held?: number | null
+          appointments_set?: number | null
           calls_actual?: number | null
           calls_goal?: number | null
           challenges?: string | null
+          contacts_made?: number | null
           contracts_actual?: number | null
           contracts_goal?: number | null
+          contracts_signed?: number | null
           created_at?: string
+          database_size?: number | null
+          dials?: number | null
+          doors_knocked?: number | null
+          firm_deals?: number | null
           id?: string
           listings_actual?: number | null
           listings_goal?: number | null
@@ -1281,6 +1360,7 @@ export type Database = {
           personal_priority_2_completed?: boolean | null
           personal_priority_3?: string | null
           personal_priority_3_completed?: boolean | null
+          pipeline_additions?: number | null
           priority_1?: string | null
           priority_1_completed?: boolean | null
           priority_2?: string | null

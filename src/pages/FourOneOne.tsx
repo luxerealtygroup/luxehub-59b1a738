@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,9 +9,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import { ChevronLeft, ChevronRight, Save, Target, Trophy, TrendingUp, FileText, ArrowRight } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { ChevronLeft, ChevronRight, Save, Target, Trophy, TrendingUp, FileText, ArrowRight, Plus, Trash2, CalendarDays } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format, startOfWeek, addWeeks, subWeeks } from 'date-fns';
+import { FUBClientInput, FUBClient } from '@/components/submissions/FUBClientInput';
 
 interface Weekly411 {
   id?: string;
@@ -24,6 +28,15 @@ interface Weekly411 {
   listings_actual: number;
   contracts_goal: number;
   contracts_actual: number;
+  contacts_made: number;
+  dials: number;
+  doors_knocked: number;
+  appointments_set: number;
+  appointments_held: number;
+  pipeline_additions: number;
+  contracts_signed: number;
+  firm_deals: number;
+  database_size: number;
   priority_1: string;
   priority_1_completed: boolean;
   priority_2: string;
@@ -41,6 +54,16 @@ interface Weekly411 {
   wins: string;
   challenges: string;
   next_steps: string;
+  notes: string;
+}
+
+interface AppointmentRecord {
+  id?: string;
+  fub_contact_id: number | null;
+  contact_name: string;
+  appointment_date: string;
+  appointment_type: string;
+  outcome: string;
   notes: string;
 }
 
@@ -79,6 +102,15 @@ const emptyWeekly: Weekly411 = {
   listings_actual: 0,
   contracts_goal: 2,
   contracts_actual: 0,
+  contacts_made: 0,
+  dials: 0,
+  doors_knocked: 0,
+  appointments_set: 0,
+  appointments_held: 0,
+  pipeline_additions: 0,
+  contracts_signed: 0,
+  firm_deals: 0,
+  database_size: 0,
   priority_1: '',
   priority_1_completed: false,
   priority_2: '',
@@ -106,6 +138,16 @@ const FourOneOne = () => {
   const [saving, setSaving] = useState(false);
   const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [weeklyData, setWeeklyData] = useState<Weekly411>({ ...emptyWeekly });
+  const [appointmentRecords, setAppointmentRecords] = useState<AppointmentRecord[]>([]);
+  const [showAppointmentDialog, setShowAppointmentDialog] = useState(false);
+  const [newAppointment, setNewAppointment] = useState<AppointmentRecord>({
+    fub_contact_id: null,
+    contact_name: '',
+    appointment_date: format(new Date(), 'yyyy-MM-dd'),
+    appointment_type: 'buyer',
+    outcome: '',
+    notes: '',
+  });
   const [annualGoals, setAnnualGoals] = useState<ProductionGoals>({
     year: 2026,
     annual_units_goal: 24,
@@ -126,9 +168,28 @@ const FourOneOne = () => {
   const currentYear = 2026;
   const currentMonth = new Date().getMonth();
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  
-  // Get the month index for the current week
   const weekMonth = currentWeek.getMonth();
+
+  const fetchAppointmentRecords = useCallback(async () => {
+    if (!user) return;
+    const weekStart = format(currentWeek, 'yyyy-MM-dd');
+    const { data } = await supabase
+      .from('appointment_records')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('week_start_date', weekStart)
+      .order('appointment_date', { ascending: true });
+    
+    setAppointmentRecords((data || []).map(d => ({
+      id: d.id,
+      fub_contact_id: d.fub_contact_id,
+      contact_name: d.contact_name,
+      appointment_date: d.appointment_date,
+      appointment_type: d.appointment_type,
+      outcome: d.outcome || '',
+      notes: d.notes || '',
+    })));
+  }, [user, currentWeek]);
 
   const fetchWeeklyData = async () => {
     if (!user) return;
@@ -142,7 +203,7 @@ const FourOneOne = () => {
       .maybeSingle();
 
     if (data) {
-      setWeeklyData(data as Weekly411);
+      setWeeklyData(data as unknown as Weekly411);
     } else {
       setWeeklyData({ ...emptyWeekly, week_start_date: weekStart });
     }
@@ -151,7 +212,6 @@ const FourOneOne = () => {
   const fetchSyncedGoals = async () => {
     if (!user) return;
     
-    // Fetch from agent_goals (same as Goals page)
     const { data } = await supabase
       .from('agent_goals')
       .select('*')
@@ -159,13 +219,11 @@ const FourOneOne = () => {
       .eq('period', 'yearly')
       .in('goal_type', ['deals_closed', 'revenue']);
     
-    // Fetch pipeline clients to count by month
     const { data: pipelineClients } = await supabase
       .from('pipeline_clients')
       .select('expected_pending_date')
       .eq('user_id', user.id);
     
-    // Count clients per month based on expected_pending_date
     const pipelineByMonth = Array(12).fill(0);
     pipelineClients?.forEach(c => {
       if (c.expected_pending_date) {
@@ -182,11 +240,9 @@ const FourOneOne = () => {
     const dealsValue = dealsGoal?.target_value || 0;
     const gciValue = gciGoal?.target_value || 0;
     
-    // Load fallout rate from localStorage
     const savedCalcValues = localStorage.getItem(`goalCalcValues_${user.id}_${currentYear}`);
     const falloutRate = savedCalcValues ? JSON.parse(savedCalcValues).fallout_rate ?? 50 : 50;
     
-    // Load monthly breakdown from localStorage (same as Goals page)
     const savedMonthlyGoals = localStorage.getItem(`monthlyGoals_${user.id}_${currentYear}`);
     let monthlyDeals = Array(12).fill(dealsValue / 12);
     let monthlyGci = Array(12).fill(gciValue / 12);
@@ -230,7 +286,13 @@ const FourOneOne = () => {
     fetchWeeklyData();
     fetchAnnualGoals();
     fetchSyncedGoals();
+    fetchAppointmentRecords();
   }, [user, currentWeek]);
+
+  // Auto-update appointments_held count from structured records
+  useEffect(() => {
+    setWeeklyData(prev => ({ ...prev, appointments_held: appointmentRecords.length }));
+  }, [appointmentRecords]);
 
   const saveWeeklyData = async () => {
     if (!user) return;
@@ -241,6 +303,7 @@ const FourOneOne = () => {
       ...weeklyData,
       user_id: user.id,
       week_start_date: weekStart,
+      appointments_held: appointmentRecords.length,
     };
 
     const { error } = weeklyData.id
@@ -254,6 +317,55 @@ const FourOneOne = () => {
       fetchWeeklyData();
     }
     setSaving(false);
+  };
+
+  const addAppointmentRecord = async () => {
+    if (!user || !newAppointment.contact_name) return;
+    const weekStart = format(currentWeek, 'yyyy-MM-dd');
+
+    const { error } = await supabase.from('appointment_records').insert({
+      user_id: user.id,
+      week_start_date: weekStart,
+      weekly_411_id: weeklyData.id || null,
+      fub_contact_id: newAppointment.fub_contact_id,
+      contact_name: newAppointment.contact_name,
+      appointment_date: newAppointment.appointment_date,
+      appointment_type: newAppointment.appointment_type,
+      outcome: newAppointment.outcome || null,
+      notes: newAppointment.notes || null,
+    });
+
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Appointment Logged', description: `${newAppointment.contact_name} added` });
+      setNewAppointment({
+        fub_contact_id: null,
+        contact_name: '',
+        appointment_date: format(new Date(), 'yyyy-MM-dd'),
+        appointment_type: 'buyer',
+        outcome: '',
+        notes: '',
+      });
+      setShowAppointmentDialog(false);
+      fetchAppointmentRecords();
+    }
+  };
+
+  const deleteAppointmentRecord = async (id: string) => {
+    const { error } = await supabase.from('appointment_records').delete().eq('id', id);
+    if (!error) {
+      fetchAppointmentRecords();
+      toast({ title: 'Removed', description: 'Appointment record deleted' });
+    }
+  };
+
+  const handleFUBClientSelect = (client: FUBClient) => {
+    setNewAppointment(prev => ({
+      ...prev,
+      contact_name: client.name,
+      fub_contact_id: client.id,
+    }));
   };
 
   const saveAnnualGoals = async () => {
@@ -310,7 +422,6 @@ const FourOneOne = () => {
     const cleanText = text.replace(/^\[Carried\] /, '');
     const carriedText = `[Carried] ${cleanText}`;
     
-    // Fetch or create next week's data
     const { data: nextWeekData } = await supabase
       .from('weekly_411')
       .select('*')
@@ -322,13 +433,11 @@ const FourOneOne = () => {
     const completedField = `${priorityField}_completed`;
 
     if (nextWeekData) {
-      // Update existing next week record
       await supabase
         .from('weekly_411')
         .update({ [priorityField]: carriedText, [completedField]: false })
         .eq('id', nextWeekData.id);
     } else {
-      // Create new next week record with carried priority
       await supabase
         .from('weekly_411')
         .insert({
@@ -348,6 +457,13 @@ const FourOneOne = () => {
   if (loading) {
     return <div className="flex items-center justify-center h-64 text-primary animate-pulse">Loading 4-1-1...</div>;
   }
+
+  const outcomeColors: Record<string, string> = {
+    'Signed': 'bg-green-500/10 text-green-600 border-green-500/30',
+    'Follow up': 'bg-blue-500/10 text-blue-600 border-blue-500/30',
+    'No show': 'bg-red-500/10 text-red-600 border-red-500/30',
+    'Not moving forward': 'bg-muted text-muted-foreground border-border',
+  };
 
   return (
     <div className="space-y-6">
@@ -440,10 +556,48 @@ const FourOneOne = () => {
             </Button>
           </div>
 
-          {/* Activity Metrics */}
+          {/* Activity Metrics - New fields */}
           <Card className="border-primary/10">
             <CardHeader>
-              <CardTitle className="text-lg font-display">Weekly Activities</CardTitle>
+              <CardTitle className="text-lg font-display">Weekly Activity Tracking</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                {[
+                  { label: 'Contacts Made', key: 'contacts_made' },
+                  { label: 'Dials', key: 'dials' },
+                  { label: 'Doors Knocked', key: 'doors_knocked' },
+                  { label: 'Appointments Set', key: 'appointments_set' },
+                  { label: 'Pipeline Additions', key: 'pipeline_additions' },
+                  { label: 'Contracts Signed', key: 'contracts_signed' },
+                  { label: 'Firm Deals', key: 'firm_deals' },
+                  { label: 'Database Size', key: 'database_size' },
+                ].map((field) => (
+                  <div key={field.key} className="space-y-1">
+                    <Label className="text-xs font-medium text-muted-foreground">{field.label}</Label>
+                    <Input
+                      type="number"
+                      value={(weeklyData as any)[field.key] || 0}
+                      onChange={(e) => setWeeklyData({ ...weeklyData, [field.key]: parseInt(e.target.value) || 0 })}
+                    />
+                  </div>
+                ))}
+                {/* Appointments Held - auto-calculated */}
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium text-muted-foreground">Appointments Held</Label>
+                  <div className="flex h-10 items-center rounded-md border border-input bg-muted/50 px-3 text-sm font-semibold">
+                    {appointmentRecords.length}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Auto-calculated</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Legacy Activity Metrics with Goals */}
+          <Card className="border-primary/10">
+            <CardHeader>
+              <CardTitle className="text-lg font-display">Goal Tracking (Actual vs Goal)</CardTitle>
             </CardHeader>
             <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
@@ -479,6 +633,139 @@ const FourOneOne = () => {
                   />
                 </div>
               ))}
+            </CardContent>
+          </Card>
+
+          {/* Structured Appointment Records */}
+          <Card className="border-primary/10">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-lg font-display flex items-center gap-2">
+                <CalendarDays className="h-5 w-5" /> Appointments Held ({appointmentRecords.length})
+              </CardTitle>
+              <Dialog open={showAppointmentDialog} onOpenChange={setShowAppointmentDialog}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="bg-primary text-primary-foreground">
+                    <Plus className="h-4 w-4 mr-1" /> Log Appointment
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[500px]">
+                  <DialogHeader>
+                    <DialogTitle>Log Appointment Held</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 pt-2">
+                    <div className="space-y-2">
+                      <Label>Contact (Search Follow Up Boss)</Label>
+                      <FUBClientInput
+                        value={newAppointment.contact_name}
+                        onChange={(val) => setNewAppointment(prev => ({ ...prev, contact_name: val, fub_contact_id: null }))}
+                        onClientSelect={handleFUBClientSelect}
+                        placeholder="Search or type contact name"
+                      />
+                      {newAppointment.fub_contact_id && (
+                        <p className="text-xs text-green-600">✓ Linked to FUB Contact #{newAppointment.fub_contact_id}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Appointment Date</Label>
+                      <Input
+                        type="date"
+                        value={newAppointment.appointment_date}
+                        onChange={(e) => setNewAppointment(prev => ({ ...prev, appointment_date: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Appointment Type</Label>
+                      <Select
+                        value={newAppointment.appointment_type}
+                        onValueChange={(val) => setNewAppointment(prev => ({ ...prev, appointment_type: val }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="buyer">Buyer</SelectItem>
+                          <SelectItem value="seller">Seller</SelectItem>
+                          <SelectItem value="tenant">Tenant</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Outcome</Label>
+                      <Select
+                        value={newAppointment.outcome}
+                        onValueChange={(val) => setNewAppointment(prev => ({ ...prev, outcome: val }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select outcome" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="No show">No show</SelectItem>
+                          <SelectItem value="Follow up">Follow up</SelectItem>
+                          <SelectItem value="Signed">Signed</SelectItem>
+                          <SelectItem value="Not moving forward">Not moving forward</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Notes (optional)</Label>
+                      <Textarea
+                        placeholder="Additional notes..."
+                        value={newAppointment.notes}
+                        onChange={(e) => setNewAppointment(prev => ({ ...prev, notes: e.target.value }))}
+                        rows={2}
+                      />
+                    </div>
+                    <Button
+                      onClick={addAppointmentRecord}
+                      disabled={!newAppointment.contact_name}
+                      className="w-full bg-primary text-primary-foreground"
+                    >
+                      <Plus className="h-4 w-4 mr-2" /> Add Appointment
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </CardHeader>
+            <CardContent>
+              {appointmentRecords.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No appointments logged yet. Click "Log Appointment" to add one.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {appointmentRecords.map((appt) => (
+                    <div key={appt.id} className="flex items-center justify-between p-3 rounded-lg border border-border">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm">{appt.contact_name}</span>
+                          {appt.fub_contact_id && (
+                            <Badge variant="outline" className="text-xs">FUB #{appt.fub_contact_id}</Badge>
+                          )}
+                          <Badge variant="outline" className="text-xs capitalize">{appt.appointment_type}</Badge>
+                          {appt.outcome && (
+                            <Badge variant="outline" className={`text-xs ${outcomeColors[appt.outcome] || ''}`}>
+                              {appt.outcome}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {appt.appointment_date}
+                          {appt.notes && ` • ${appt.notes}`}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => appt.id && deleteAppointmentRecord(appt.id)}
+                        className="text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
