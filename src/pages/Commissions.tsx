@@ -9,18 +9,15 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { DollarSign, TrendingUp, Clock, CheckCircle, Plus, Search, Loader2, Download, Users, X, RefreshCw } from 'lucide-react';
-import { format } from 'date-fns';
+import { DollarSign, TrendingUp, Clock, CheckCircle, Plus, Search, Loader2, Download, Users, X, RefreshCw, Trash2 } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
 import { FUBClientSearch } from '@/components/FUBClientSearch';
 import { useToast } from '@/hooks/use-toast';
 import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
 import { useGoogleCalendar } from '@/hooks/useGoogleCalendar';
 import { formatCurrency, formatNumber } from '@/lib/utils';
-
-import { parseISO } from 'date-fns';
 
 interface Commission {
   id: string;
@@ -63,21 +60,17 @@ const Commissions = () => {
   const [newDeal, setNewDeal] = useState({
     client_name: '',
     property_address: '',
-    stage: 'pending',
+    stage: 'under_contract' as string,
     deal_value: 0,
     commission_percent: 2.5,
     split_percent: 50,
     gross_commission: 0,
-    transaction_side: 'buy',
+    transaction_side: 'buy' as 'buy' | 'sell',
     source: 'manual',
     conditions: [] as { date: string; description: string }[],
   });
 
-  const { calendarConnected, checkCalendarConnection, addEventToCalendar } = useGoogleCalendar();
-
-  useEffect(() => {
-    checkCalendarConnection();
-  }, [checkCalendarConnection]);
+  const { isConnected: calendarConnected, createEvent } = useGoogleCalendar();
 
   useEffect(() => {
     const fetchCommissions = async () => {
@@ -91,7 +84,7 @@ const Commissions = () => {
         if (error) {
           console.error('Error fetching commissions:', error);
         } else {
-          setCommissions(data || []);
+          setCommissions((data || []) as Commission[]);
         }
       } catch (error) {
         console.error('Unexpected error fetching commissions:', error);
@@ -113,20 +106,9 @@ const Commissions = () => {
         const response = await followUpBossApi.getDeals(200, 0);
         if (response.success && response.data?.deals) {
           setFUBDeals(response.data.deals);
-        } else {
-          toast({
-            title: 'Error fetching deals from Follow Up Boss',
-            description: response.error || 'Unknown error',
-            variant: 'destructive',
-          });
         }
       } catch (error) {
         console.error('Error fetching FUB deals:', error);
-        toast({
-          title: 'Error fetching deals from Follow Up Boss',
-          description: 'Could not connect to Follow Up Boss',
-          variant: 'destructive',
-        });
       } finally {
         setFubLoading(false);
       }
@@ -161,7 +143,7 @@ const Commissions = () => {
       const response = await followUpBossApi.getDeals(200, 0);
       if (response.success && response.data?.deals) {
         const myDeals = response.data.deals.filter((deal) =>
-          deal.users?.some((u) => u.email === user?.email)
+          deal.users?.some((u) => u.name && user?.email && u.name.toLowerCase().includes(user.email.split('@')[0].toLowerCase()))
         );
 
         const displayDeals = myDeals
@@ -181,20 +163,9 @@ const Commissions = () => {
           }));
 
         setFUBDealsDisplay(displayDeals);
-      } else {
-        toast({
-          title: 'Error fetching deals from Follow Up Boss',
-          description: response.error || 'Unknown error',
-          variant: 'destructive',
-        });
       }
     } catch (error) {
       console.error('Error fetching FUB deals:', error);
-      toast({
-        title: 'Error fetching deals from Follow Up Boss',
-        description: 'Could not connect to Follow Up Boss',
-        variant: 'destructive',
-      });
     } finally {
       setFubLoading(false);
     }
@@ -223,13 +194,6 @@ const Commissions = () => {
     setNewDeal((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSelectChange = (
-    e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>
-  ) => {
-    const { name, value } = e.target as HTMLSelectElement;
-    setNewDeal((prev) => ({ ...prev, [name]: value }));
-  };
-
   const calculateGCI = (
     salePrice: number | string,
     commissionRate: number | string,
@@ -253,16 +217,23 @@ const Commissions = () => {
     setSubmitting(true);
 
     try {
+      // Map UI stage to valid deal_stage enum
+      const stageMap: Record<string, string> = {
+        'pending': 'under_contract',
+        'offer': 'offer',
+        'closed': 'closed',
+      };
+      const dbStage = stageMap[newDeal.stage] || 'under_contract';
+
       const { data: dealData, error: dealError } = await supabase
         .from('deals')
         .insert([
           {
             client_name: newDeal.client_name,
             property_address: newDeal.property_address,
-            stage: newDeal.stage,
+            stage: dbStage as any,
             deal_value: newDeal.deal_value,
-            commission_percent: newDeal.commission_percent,
-            split_percent: newDeal.split_percent,
+            commission_rate: newDeal.commission_percent,
             user_id: user?.id,
             source: newDeal.source,
           },
@@ -280,13 +251,15 @@ const Commissions = () => {
         return;
       }
 
+      const commissionStatus: 'paid' | 'pending' = newDeal.stage === 'closed' ? 'paid' : 'pending';
+
       const { data: commissionData, error: commissionError } = await supabase
         .from('commissions')
         .insert([
           {
             amount: newDeal.gross_commission,
-            status: newDeal.stage === 'closed' ? 'paid' : 'pending',
-            transaction_side: newDeal.transaction_side,
+            status: commissionStatus,
+            transaction_side: newDeal.transaction_side === 'buy' ? 'buyer' : 'seller',
             user_id: user?.id,
             deal_id: dealData?.id,
           },
@@ -304,15 +277,19 @@ const Commissions = () => {
         return;
       }
 
-      if (newDeal.stage === 'offer' && newDeal.conditions.length > 0 && addToCalendar) {
-        newDeal.conditions.forEach(async (condition) => {
-          await addEventToCalendar({
-            summary: `${newDeal.client_name} - ${condition.description}`,
-            description: `Condition deadline for ${newDeal.client_name} at ${newDeal.property_address}`,
-            start: condition.date,
-            end: condition.date,
-          });
-        });
+      if (newDeal.stage === 'offer' && newDeal.conditions.length > 0 && addToCalendar && calendarConnected) {
+        for (const condition of newDeal.conditions) {
+          try {
+            await createEvent({
+              summary: `${newDeal.client_name} - ${condition.description}`,
+              description: `Condition deadline for ${newDeal.client_name} at ${newDeal.property_address}`,
+              start: { dateTime: new Date(condition.date).toISOString() },
+              end: { dateTime: new Date(condition.date).toISOString() },
+            });
+          } catch (err) {
+            console.error('Failed to add calendar event:', err);
+          }
+        }
       }
 
       setCommissions((prev) => [
@@ -321,19 +298,19 @@ const Commissions = () => {
           id: commissionData?.id,
           created_at: commissionData?.created_at,
           amount: newDeal.gross_commission,
-          status: newDeal.stage === 'closed' ? 'paid' : 'pending',
+          status: commissionStatus,
           transaction_side: newDeal.transaction_side,
           deals: {
             client_name: newDeal.client_name,
             property_address: newDeal.property_address,
           },
-        },
+        } as Commission,
       ]);
 
       setNewDeal({
         client_name: '',
         property_address: '',
-        stage: 'pending',
+        stage: 'under_contract',
         deal_value: 0,
         commission_percent: 2.5,
         split_percent: 50,
@@ -346,7 +323,7 @@ const Commissions = () => {
       setAddDealOpen(false);
       toast({
         title: 'Deal and commission added successfully!',
-        description: `Added deal for ${newDeal.client_name} and commission of $${newDeal.gross_commission}`,
+        description: `Added deal for ${newDeal.client_name}`,
       });
     } catch (error: any) {
       console.error('Error adding deal and commission:', error);
@@ -365,6 +342,9 @@ const Commissions = () => {
   const importFUBDeal = async (deal: FUBDeal) => {
     setSubmitting(true);
     try {
+      const isClosedDeal = deal.stageName?.toLowerCase().includes('closed') || deal.stageName?.toLowerCase().includes('won');
+      const dbStage = isClosedDeal ? 'closed' : 'under_contract';
+
       const { data: dealData, error: dealError } = await supabase
         .from('deals')
         .insert([
@@ -373,10 +353,9 @@ const Commissions = () => {
             property_address: [deal.propertyStreet, deal.propertyCity, deal.propertyState]
               .filter(Boolean)
               .join(', ') || 'Address TBD',
-            stage: deal.stageName?.toLowerCase() === 'pending' ? 'pending' : 'closed',
+            stage: dbStage as any,
             deal_value: deal.price || 0,
-            commission_percent: 2.5,
-            split_percent: 50,
+            commission_rate: 2.5,
             user_id: user?.id,
             source: 'fub',
           },
@@ -385,67 +364,43 @@ const Commissions = () => {
         .single();
 
       if (dealError) {
-        console.error('Error adding deal:', dealError);
-        toast({
-          title: 'Error adding deal',
-          description: dealError.message,
-          variant: 'destructive',
-        });
+        toast({ title: 'Error adding deal', description: dealError.message, variant: 'destructive' });
         return;
       }
 
-      const { data: commissionData, error: commissionError } = await supabase
+      const commissionStatus: 'paid' | 'pending' = isClosedDeal ? 'paid' : 'pending';
+
+      const { error: commissionError } = await supabase
         .from('commissions')
         .insert([
           {
             amount: deal.agentCommission || 0,
-            status: deal.stageName?.toLowerCase() === 'pending' ? 'pending' : 'paid',
-            transaction_side: 'buy',
+            status: commissionStatus,
+            transaction_side: 'buyer',
             user_id: user?.id,
             deal_id: dealData?.id,
           },
-        ])
-        .select()
-        .single();
+        ]);
 
       if (commissionError) {
-        console.error('Error adding commission:', commissionError);
-        toast({
-          title: 'Error adding commission',
-          description: commissionError.message,
-          variant: 'destructive',
-        });
+        toast({ title: 'Error adding commission', description: commissionError.message, variant: 'destructive' });
         return;
       }
 
-      setCommissions((prev) => [
-        ...prev,
-        {
-          id: commissionData?.id,
-          created_at: commissionData?.created_at,
-          amount: deal.agentCommission || 0,
-          status: deal.stageName?.toLowerCase() === 'pending' ? 'pending' : 'paid',
-          transaction_side: 'buy',
-          deals: {
-            client_name: deal.people?.[0]?.name || deal.name || 'Unknown Client',
-            property_address: [deal.propertyStreet, deal.propertyCity, deal.propertyState]
-              .filter(Boolean)
-              .join(', ') || 'Address TBD',
-          },
-        },
-      ]);
+      toast({
+        title: 'Deal imported successfully!',
+        description: `Added deal for ${deal.people?.[0]?.name || deal.name || 'Unknown Client'}`,
+      });
 
-      toast({
-        title: 'Deal and commission added successfully!',
-        description: `Added deal for ${deal.people?.[0]?.name || deal.name || 'Unknown Client'} and commission of $${deal.agentCommission || 0}`,
-      });
+      // Refresh commissions
+      const { data: refreshed } = await supabase
+        .from('commissions')
+        .select('*, deals(client_name, property_address)')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false });
+      if (refreshed) setCommissions(refreshed as Commission[]);
     } catch (error: any) {
-      console.error('Error adding deal and commission:', error);
-      toast({
-        title: 'Error adding deal and commission',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } finally {
       setSubmitting(false);
     }
@@ -473,49 +428,21 @@ const Commissions = () => {
               </DialogHeader>
               <form onSubmit={handleSubmit} className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="client_name" className="text-right">
-                    Client Name
-                  </Label>
-                  <Input
-                    type="text"
-                    id="client_name"
-                    name="client_name"
-                    value={newDeal.client_name}
-                    onChange={handleInputChange}
-                    className="col-span-3"
-                    required
-                  />
+                  <Label htmlFor="client_name" className="text-right">Client Name</Label>
+                  <Input type="text" id="client_name" name="client_name" value={newDeal.client_name} onChange={handleInputChange} className="col-span-3" required />
                 </div>
 
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="property_address" className="text-right">
-                    Property Address
-                  </Label>
-                  <Input
-                    type="text"
-                    id="property_address"
-                    name="property_address"
-                    value={newDeal.property_address}
-                    onChange={handleInputChange}
-                    className="col-span-3"
-                  />
+                  <Label htmlFor="property_address" className="text-right">Property Address</Label>
+                  <Input type="text" id="property_address" name="property_address" value={newDeal.property_address} onChange={handleInputChange} className="col-span-3" />
                 </div>
 
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="stage" className="text-right">
-                    Stage
-                  </Label>
-                  <Select
-                    name="stage"
-                    onValueChange={(value) =>
-                      setNewDeal((prev) => ({ ...prev, stage: value }))
-                    }
-                  >
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Select stage" />
-                    </SelectTrigger>
+                  <Label htmlFor="stage" className="text-right">Stage</Label>
+                  <Select name="stage" value={newDeal.stage} onValueChange={(value) => setNewDeal((prev) => ({ ...prev, stage: value }))}>
+                    <SelectTrigger className="col-span-3"><SelectValue placeholder="Select stage" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="under_contract">Pending</SelectItem>
                       <SelectItem value="offer">Offer</SelectItem>
                       <SelectItem value="closed">Closed</SelectItem>
                     </SelectContent>
@@ -523,18 +450,9 @@ const Commissions = () => {
                 </div>
 
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="transaction_side" className="text-right">
-                    Transaction Side
-                  </Label>
-                  <Select
-                    name="transaction_side"
-                    onValueChange={(value) =>
-                      setNewDeal((prev) => ({ ...prev, transaction_side: value }))
-                    }
-                  >
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Select side" />
-                    </SelectTrigger>
+                  <Label htmlFor="transaction_side" className="text-right">Transaction Side</Label>
+                  <Select name="transaction_side" value={newDeal.transaction_side} onValueChange={(value: 'buy' | 'sell') => setNewDeal((prev) => ({ ...prev, transaction_side: value }))}>
+                    <SelectTrigger className="col-span-3"><SelectValue placeholder="Select side" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="buy">Buy</SelectItem>
                       <SelectItem value="sell">Sell</SelectItem>
@@ -543,67 +461,32 @@ const Commissions = () => {
                 </div>
 
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="deal_value" className="text-right">
-                    Deal Value
-                  </Label>
-                  <Input
-                    type="number"
-                    id="deal_value"
-                    name="deal_value"
-                    value={newDeal.deal_value}
-                    onChange={handleInputChange}
-                    className="col-span-3"
-                  />
+                  <Label htmlFor="deal_value" className="text-right">Deal Value</Label>
+                  <Input type="number" id="deal_value" name="deal_value" value={newDeal.deal_value} onChange={handleInputChange} className="col-span-3" />
                 </div>
 
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="commission_percent" className="text-right">
-                    Commission (%)
-                  </Label>
+                  <Label htmlFor="commission_percent" className="text-right">Commission (%)</Label>
                   <Input
-                    type="number"
-                    id="commission_percent"
-                    name="commission_percent"
+                    type="number" id="commission_percent" name="commission_percent"
                     value={newDeal.commission_percent}
-                    onChange={(e) => {
-                      handleInputChange(e);
-                      calculateGCI(
-                        newDeal.deal_value,
-                        e.target.value,
-                        newDeal.split_percent
-                      );
-                    }}
-                    className="col-span-3"
-                    required
+                    onChange={(e) => { handleInputChange(e); calculateGCI(newDeal.deal_value, e.target.value, newDeal.split_percent); }}
+                    className="col-span-3" required
                   />
                 </div>
 
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="split_percent" className="text-right">
-                    Split (%)
-                  </Label>
+                  <Label htmlFor="split_percent" className="text-right">Split (%)</Label>
                   <Input
-                    type="number"
-                    id="split_percent"
-                    name="split_percent"
+                    type="number" id="split_percent" name="split_percent"
                     value={newDeal.split_percent}
-                    onChange={(e) => {
-                      handleInputChange(e);
-                      calculateGCI(
-                        newDeal.deal_value,
-                        newDeal.commission_percent,
-                        e.target.value
-                      );
-                    }}
-                    className="col-span-3"
-                    required
+                    onChange={(e) => { handleInputChange(e); calculateGCI(newDeal.deal_value, newDeal.commission_percent, e.target.value); }}
+                    className="col-span-3" required
                   />
                 </div>
 
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="gross_commission" className="text-right">
-                    Gross Commission
-                  </Label>
+                  <Label htmlFor="gross_commission" className="text-right">Gross Commission</Label>
                   <div className="col-span-3 pt-2 border-t border-gold/20">
                     <div className="flex justify-between items-center">
                       <span className="font-medium">Net After Cap:</span>
@@ -614,60 +497,17 @@ const Commissions = () => {
 
                 {newDeal.stage === 'offer' && (
                   <div className="space-y-2">
-                    <h4 className="text-sm font-medium text-muted-foreground">
-                      Add Condition Deadlines
-                    </h4>
+                    <h4 className="text-sm font-medium text-muted-foreground">Add Condition Deadlines</h4>
                     {newDeal.conditions.map((condition, index) => (
                       <div key={index} className="flex items-center space-x-2">
-                        <Input
-                          type="date"
-                          value={condition.date}
-                          onChange={(e) => {
-                            const newConditions = [...newDeal.conditions];
-                            newConditions[index].date = e.target.value;
-                            setNewDeal({ ...newDeal, conditions: newConditions });
-                          }}
-                          className="w-1/3"
-                        />
-                        <Input
-                          type="text"
-                          placeholder="Description"
-                          value={condition.description}
-                          onChange={(e) => {
-                            const newConditions = [...newDeal.conditions];
-                            newConditions[index].description = e.target.value;
-                            setNewDeal({ ...newDeal, conditions: newConditions });
-                          }}
-                          className="w-2/3"
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            const newConditions = [...newDeal.conditions];
-                            newConditions.splice(index, 1);
-                            setNewDeal({ ...newDeal, conditions: newConditions });
-                          }}
-                        >
+                        <Input type="date" value={condition.date} onChange={(e) => { const c = [...newDeal.conditions]; c[index].date = e.target.value; setNewDeal({ ...newDeal, conditions: c }); }} className="w-1/3" />
+                        <Input type="text" placeholder="Description" value={condition.description} onChange={(e) => { const c = [...newDeal.conditions]; c[index].description = e.target.value; setNewDeal({ ...newDeal, conditions: c }); }} className="w-2/3" />
+                        <Button type="button" variant="ghost" size="icon" onClick={() => { const c = [...newDeal.conditions]; c.splice(index, 1); setNewDeal({ ...newDeal, conditions: c }); }}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     ))}
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => {
-                        setNewDeal({
-                          ...newDeal,
-                          conditions: [
-                            ...newDeal.conditions,
-                            { date: '', description: '' },
-                          ],
-                        });
-                      }}
-                    >
+                    <Button type="button" variant="secondary" size="sm" onClick={() => setNewDeal({ ...newDeal, conditions: [...newDeal.conditions, { date: '', description: '' }] })}>
                       Add Condition
                     </Button>
                   </div>
@@ -676,30 +516,13 @@ const Commissions = () => {
                 <div>
                   {newDeal.stage === 'offer' && newDeal.conditions.length > 0 && calendarConnected && (
                     <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="add-to-calendar"
-                        checked={addToCalendar}
-                        onCheckedChange={(checked) => setAddToCalendar(checked === true)}
-                      />
-                      <Label htmlFor="add-to-calendar" className="text-sm text-muted-foreground cursor-pointer">
-                        Add condition deadlines to Google Calendar
-                      </Label>
+                      <Checkbox id="add-to-calendar" checked={addToCalendar} onCheckedChange={(checked) => setAddToCalendar(checked === true)} />
+                      <Label htmlFor="add-to-calendar" className="text-sm text-muted-foreground cursor-pointer">Add condition deadlines to Google Calendar</Label>
                     </div>
                   )}
                 </div>
-                <Button
-                  type="submit"
-                  className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
-                  disabled={submitting || !newDeal.client_name || !newDeal.gross_commission}
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      {syncToFUB ? 'Adding & Syncing...' : 'Adding...'}
-                    </>
-                  ) : (
-                    'Add Deal & Commission'
-                  )}
+                <Button type="submit" className="w-full bg-primary text-primary-foreground hover:bg-primary/90" disabled={submitting || !newDeal.client_name || !newDeal.gross_commission}>
+                  {submitting ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />{syncToFUB ? 'Adding & Syncing...' : 'Adding...'}</>) : ('Add Deal & Commission')}
                 </Button>
               </form>
             </DialogContent>
@@ -713,54 +536,37 @@ const Commissions = () => {
             <CardTitle className="text-sm font-medium text-muted-foreground">Closed (GCI)</CardTitle>
             <CheckCircle className="h-5 w-5 text-green-400" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-400">{formatCurrency(totalEarned)}</div>
-          </CardContent>
+          <CardContent><div className="text-2xl font-bold text-green-400">{formatCurrency(totalEarned)}</div></CardContent>
         </Card>
-
         <Card className="border-gold/10 bg-card/50">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Pending (GCI)</CardTitle>
             <Clock className="h-5 w-5 text-amber-400" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-amber-400">{formatCurrency(totalPending)}</div>
-          </CardContent>
+          <CardContent><div className="text-2xl font-bold text-amber-400">{formatCurrency(totalPending)}</div></CardContent>
         </Card>
-
         <Card className="border-gold/10 bg-card/50">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Conditional (GCI)</CardTitle>
             <Clock className="h-5 w-5 text-orange-400" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-400">{formatCurrency(totalConditional)}</div>
-          </CardContent>
+          <CardContent><div className="text-2xl font-bold text-orange-400">{formatCurrency(totalConditional)}</div></CardContent>
         </Card>
-
         <Card className="border-gold/10 bg-card/50">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">This Month</CardTitle>
             <TrendingUp className="h-5 w-5 text-gold" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gold">{formatCurrency(thisMonth)}</div>
-          </CardContent>
+          <CardContent><div className="text-2xl font-bold text-gold">{formatCurrency(thisMonth)}</div></CardContent>
         </Card>
       </div>
 
-      {/* FUB Transactions - Primary source */}
-      <Card className="border-gold/10 bg-card/50">
+      {/* FUB Transactions */}
+      <Card className="border-gold/10 bg-card/50 mt-6">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-gold font-display">My Transactions</CardTitle>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={fetchMyFUBDeals}
-            className="border-gold/30 text-gold hover:bg-gold/10"
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
+          <Button variant="outline" size="sm" onClick={fetchMyFUBDeals} className="border-gold/30 text-gold hover:bg-gold/10">
+            <RefreshCw className="h-4 w-4 mr-2" />Refresh
           </Button>
         </CardHeader>
         <CardContent>
@@ -789,27 +595,20 @@ const Commissions = () => {
                       <TableCell className="font-medium">{deal.clientName}</TableCell>
                       <TableCell className="max-w-[200px] truncate">{deal.propertyAddress}</TableCell>
                       <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={
-                            deal.status === 'closed'
-                              ? 'border-green-500/30 text-green-400'
-                              : deal.status === 'pending'
-                              ? 'border-amber-500/30 text-amber-400'
-                              : 'border-orange-500/30 text-orange-400'
-                          }
-                        >
+                        <Badge variant="outline" className={
+                          deal.status.toLowerCase().includes('closed') || deal.status.toLowerCase().includes('won')
+                            ? 'border-green-500/30 text-green-400'
+                            : deal.status.toLowerCase() === 'pending'
+                            ? 'border-amber-500/30 text-amber-400'
+                            : 'border-orange-500/30 text-orange-400'
+                        }>
                           {deal.stageName}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">{formatCurrency(deal.dealValue)}</TableCell>
                       <TableCell className="text-right font-bold text-gold">{formatCurrency(deal.grossCommission)}</TableCell>
                       <TableCell>
-                        {deal.source === 'fub' && deal.status !== 'closed' ? (
-                          format(parseISO(deal.createdAt), 'MMM d, yyyy')
-                        ) : (
-                          'Closed'
-                        )}
+                        {deal.createdAt ? format(parseISO(deal.createdAt), 'MMM d, yyyy') : '-'}
                       </TableCell>
                     </TableRow>
                   ))
@@ -822,7 +621,7 @@ const Commissions = () => {
 
       {/* Manual Transactions (Legacy) */}
       {commissions.length > 0 && (
-        <Card className="border-gold/10 bg-card/50">
+        <Card className="border-gold/10 bg-card/50 mt-6">
           <CardHeader>
             <CardTitle className="text-muted-foreground text-sm font-normal">Manual Entries (Legacy)</CardTitle>
           </CardHeader>
@@ -847,9 +646,7 @@ const Commissions = () => {
                       <TableCell className="capitalize">{comm.transaction_side}</TableCell>
                       <TableCell className="text-right font-bold text-green-400">{formatCurrency(comm.amount)}</TableCell>
                       <TableCell>
-                        <Badge variant={comm.status === 'paid' ? 'default' : 'secondary'} className="capitalize">
-                          {comm.status}
-                        </Badge>
+                        <Badge variant={comm.status === 'paid' ? 'default' : 'secondary'} className="capitalize">{comm.status}</Badge>
                       </TableCell>
                       <TableCell>{format(new Date(comm.created_at), 'MMM d, yyyy')}</TableCell>
                     </TableRow>
