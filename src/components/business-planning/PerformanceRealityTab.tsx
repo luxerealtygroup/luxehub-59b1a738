@@ -164,7 +164,7 @@ export function PerformanceRealityTab({
 }: Props) {
   const rangeLabel = dateRange === 'ytd' ? 'YTD' : dateRange === 'custom' ? `${customStart} → ${customEnd}` : dateRange.toUpperCase();
 
-  // ── Pipeline Gap Analysis with carryover + fallout ──
+  // ── Pipeline Deficit Analysis ──
   const qTargetGCI = goals.gci_target > 0
     ? goals.gci_target
     : (metrics?.targetGCI && metrics.targetGCI > 0 ? Math.round(metrics.targetGCI / 4) : 0);
@@ -173,21 +173,16 @@ export function PerformanceRealityTab({
     : (goals.avg_commission > 0 ? goals.avg_commission : 0);
 
   const hasTarget = qTargetGCI > 0 && avgGCIPerDeal > 0;
+  const q2ClosingsGoal = hasTarget ? Math.ceil(qTargetGCI / avgGCIPerDeal) : 0;
 
-  // Q base goal (closings)
-  const qBaseGoal = hasTarget ? Math.ceil(qTargetGCI / avgGCIPerDeal) : 0;
-
-  // Prev Q carryover
-  const prevQGap = Math.max(0, pipelineGapData.prevQRequiredClosings - pipelineGapData.prevQActualClosings);
-
-  // Adjusted required
-  const adjustedRequired = qBaseGoal + prevQGap;
-
-  // Pipeline with fallout
   const falloutRate = DEFAULT_FALLOUT_RATE;
-  const pipelineTotal = pipelineGapData.pipelineTotal;
-  const effectivePipeline = Math.round(pipelineTotal * (1 - falloutRate));
-  const finalGap = hasTarget ? Math.max(0, adjustedRequired - effectivePipeline) : null;
+  const conversionFactor = 1 - falloutRate; // 0.30
+  const requiredPipelineDeals = hasTarget ? Math.ceil(q2ClosingsGoal / conversionFactor) : 0;
+  const currentPipelineDeals = pipelineGapData.pipelineTotal;
+  const pipelineDeficit = hasTarget ? Math.max(0, requiredPipelineDeals - currentPipelineDeals) : null;
+  const pipelineSurplus = hasTarget ? Math.max(0, currentPipelineDeals - requiredPipelineDeals) : 0;
+
+  const prevQ = quarter > 1 ? quarter - 1 : 4;
 
   // Manual metrics state for planning mode display
   const [manualData, setManualData] = useState<ManualPerformance | null>(null);
@@ -196,8 +191,6 @@ export function PerformanceRealityTab({
     setManualData(m);
     onManualMetrics?.(m);
   }, [onManualMetrics]);
-
-  const prevQ = quarter > 1 ? quarter - 1 : 4;
 
   return (
     <div className="space-y-6">
@@ -265,86 +258,79 @@ export function PerformanceRealityTab({
             <Separator />
             <div>
               <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
-                <Crosshair className="h-4 w-4" /> Pipeline Gap Analysis
+                <Crosshair className="h-4 w-4" /> Pipeline Deficit Analysis
               </h3>
 
-              {finalGap === null ? (
+              {pipelineDeficit === null ? (
                 <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
                   <p className="text-sm font-medium text-amber-600">
                     <Info className="h-4 w-4 inline mr-1" />
                     Set Q{quarter} Goal
                   </p>
-                  <p className="text-xs text-muted-foreground mt-1">Set a GCI target in the Strategy & Goals tab to enable pipeline gap analysis.</p>
+                  <p className="text-xs text-muted-foreground mt-1">Set a GCI target in the Strategy & Goals tab to enable pipeline deficit analysis.</p>
                 </div>
               ) : (
                 <>
                   <div className="rounded-lg border border-border bg-card p-4 space-y-2 font-mono text-sm">
-                    {/* Carryover */}
-                    {prevQGap > 0 && (
-                      <div className="flex items-center justify-between text-amber-600">
-                        <span>Q{prevQ} Deal Gap (carryover)</span>
-                        <span className="font-bold">+{formatNumber(prevQGap)}</span>
-                      </div>
-                    )}
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Q{quarter} Base Goal (closings)</span>
-                      <span className="font-bold text-foreground">{formatNumber(qBaseGoal)}</span>
-                    </div>
-                    {prevQGap > 0 && <Separator />}
-                    <div className="flex items-center justify-between font-bold">
-                      <span className="text-foreground">Adjusted Q{quarter} Required</span>
-                      <span className="text-foreground">{formatNumber(adjustedRequired)}</span>
-                    </div>
-                    <Separator />
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Pipeline Total (Q{prevQ}+Q{quarter})</span>
-                      <span className="font-bold text-foreground">{formatNumber(pipelineTotal)}</span>
+                      <span className="text-muted-foreground">Q{quarter} Closings Goal</span>
+                      <span className="font-bold text-foreground">{formatNumber(q2ClosingsGoal)} deals</span>
                     </div>
                     <div className="flex items-center justify-between text-muted-foreground">
-                      <span>× Fallout Rate ({Math.round(falloutRate * 100)}%)</span>
-                      <span className="font-bold">−{formatNumber(pipelineTotal - effectivePipeline)}</span>
+                      <span>÷ Conversion Factor ({Math.round(conversionFactor * 100)}%)</span>
+                      <span className="text-xs">(100% − {Math.round(falloutRate * 100)}% fallout)</span>
+                    </div>
+                    <Separator />
+                    <div className="flex items-center justify-between font-bold">
+                      <span className="text-foreground">Required Pipeline Deals</span>
+                      <span className="text-foreground">{formatNumber(requiredPipelineDeals)}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Effective Pipeline (after fallout)</span>
-                      <span className="font-bold text-foreground">{formatNumber(effectivePipeline)}</span>
+                      <span className="text-muted-foreground">Current Pipeline (Q{prevQ}+Q{quarter})</span>
+                      <span className="font-bold text-foreground">{formatNumber(currentPipelineDeals)}</span>
                     </div>
                     <Separator />
                     <div className="flex items-center justify-between">
-                      <span className={`font-bold ${finalGap > 0 ? 'text-destructive' : 'text-green-600'}`}>
-                        = Final Gap
-                      </span>
-                      <span className={`text-lg font-bold ${finalGap > 0 ? 'text-destructive' : 'text-green-600'}`}>
-                        {finalGap > 0
-                          ? `${finalGap} deals`
-                          : effectivePipeline > adjustedRequired
-                            ? `Ahead by ${effectivePipeline - adjustedRequired}`
-                            : 'Covered'}
-                      </span>
+                      {pipelineDeficit > 0 ? (
+                        <>
+                          <span className="font-bold text-destructive">= Pipeline Deficit</span>
+                          <span className="text-lg font-bold text-destructive">{pipelineDeficit} more deals needed</span>
+                        </>
+                      ) : pipelineSurplus > 0 ? (
+                        <>
+                          <span className="font-bold text-green-600">= Pipeline Surplus</span>
+                          <span className="text-lg font-bold text-green-600">+{pipelineSurplus} deals ahead</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="font-bold text-green-600">= Pipeline Covered</span>
+                          <span className="text-lg font-bold text-green-600">Exactly on target</span>
+                        </>
+                      )}
                     </div>
                   </div>
 
                   <div className="flex items-center gap-3 mt-3">
-                    {finalGap > 0 ? (
-                      <Badge className="bg-destructive text-destructive-foreground gap-1"><AlertTriangle className="h-3 w-3" />Deficit: {finalGap} deals</Badge>
-                    ) : effectivePipeline > adjustedRequired ? (
-                      <Badge className="bg-green-600 text-white gap-1"><TrendingUp className="h-3 w-3" />Ahead by {effectivePipeline - adjustedRequired} deals</Badge>
+                    {pipelineDeficit > 0 ? (
+                      <Badge className="bg-destructive text-destructive-foreground gap-1"><AlertTriangle className="h-3 w-3" />Pipeline Deficit: {pipelineDeficit} deals</Badge>
+                    ) : pipelineSurplus > 0 ? (
+                      <Badge className="bg-green-600 text-white gap-1"><TrendingUp className="h-3 w-3" />Ahead by {pipelineSurplus} pipeline deals</Badge>
                     ) : (
-                      <Badge className="bg-green-600 text-white gap-1"><CheckCircle className="h-3 w-3" />Covered</Badge>
+                      <Badge className="bg-green-600 text-white gap-1"><CheckCircle className="h-3 w-3" />Pipeline Covered</Badge>
                     )}
                   </div>
 
                   {isAdmin && (
                     <div className="rounded border border-muted bg-muted/30 p-3 text-xs font-mono space-y-1 mt-3">
-                      <p className="font-semibold text-muted-foreground">Pipeline Gap Debug</p>
+                      <p className="font-semibold text-muted-foreground">Pipeline Deficit Debug</p>
                       <p>effectiveFubUserId: <span className="font-bold">{pipelineGapData.effectiveFubUserId ?? 'null'}</span></p>
-                      <p>Q{quarter} Target GCI: <span className="font-bold">{formatCurrency(qTargetGCI)}</span> {goals.gci_target > 0 ? '(from Q goals)' : '(annual ÷ 4)'}</p>
-                      <p>Avg GCI per deal: <span className="font-bold">{formatCurrency(avgGCIPerDeal)}</span></p>
-                      <p>Q{prevQ} date range: <span className="font-bold">{pipelineGapData.pipelineDateRange.start} → {pipelineGapData.pipelineDateRange.end}</span></p>
-                      <p>Q{prevQ} required: {pipelineGapData.prevQRequiredClosings} | actual: {pipelineGapData.prevQActualClosings} | gap: {prevQGap}</p>
-                      <p>Pipeline stages: {pipelineGapData.pipelineStagesIncluded.join(', ')}</p>
+                      <p>Q{prevQ}+Q{quarter} date range: <span className="font-bold">{pipelineGapData.pipelineDateRange.start} → {pipelineGapData.pipelineDateRange.end}</span></p>
+                      <p>Pipeline stages: {pipelineGapData.pipelineStagesIncluded.join(', ') || 'none'}</p>
+                      <p>Current Pipeline (from Pipeline tab source): <span className="font-bold">{currentPipelineDeals}</span></p>
                       <p>Pipeline before date filter: <span className="font-bold">{pipelineGapData.pipelineBeforeDateFilter}</span></p>
-                      <p>Pipeline after date filter: <span className="font-bold">{pipelineTotal}</span></p>
-                      <p>Fallout rate: {Math.round(falloutRate * 100)}% → effective: {effectivePipeline}</p>
+                      <p>Q{quarter} Target GCI: <span className="font-bold">{formatCurrency(qTargetGCI)}</span> {goals.gci_target > 0 ? '(from Q goals)' : '(annual ÷ 4)'}</p>
+                      <p>Avg GCI/deal: <span className="font-bold">{formatCurrency(avgGCIPerDeal)}</span></p>
+                      <p>Q{quarter} Closings Goal: {q2ClosingsGoal} | Fallout: {Math.round(falloutRate * 100)}% | Required Pipeline: {requiredPipelineDeals}</p>
                     </div>
                   )}
                 </>
