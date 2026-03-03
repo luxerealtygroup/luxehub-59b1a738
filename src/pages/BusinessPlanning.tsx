@@ -4,6 +4,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useHasFUB } from '@/hooks/useHasFUB';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useViewAsAgent } from '@/hooks/useViewAsAgent';
+import { useFubDealMetrics } from '@/hooks/useFubDealMetrics';
+import { DebugMetricsPanel } from '@/components/DebugMetricsPanel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -132,15 +134,35 @@ const BusinessPlanning = () => {
   const { user } = useAuth();
   const { hasFUB } = useHasFUB();
   const { isAdmin } = useUserRole();
-  const { effectiveUserId, isViewingAsAgent, viewingAgentName, canViewAsAgent, agentOptions, setViewingAgentId, setIsViewingAsAgent } = useViewAsAgent();
+  const { effectiveUserId, effectiveFubUserId, isViewingAsAgent, viewingAgentName, canViewAsAgent, agentOptions, setViewingAgentId, setIsViewingAsAgent } = useViewAsAgent();
   const { toast } = useToast();
 
   const [mode, setMode] = useState<'active' | 'planning'>(hasFUB ? 'active' : 'planning');
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [quarter, setQuarter] = useState(2);
 
-  // Active metrics
+  const uid = effectiveUserId || user?.id;
+
+  // ─── Single source of truth: useFubDealMetrics (matches Goals & Reports) ───
+  const { metrics: dealMetrics, debugInfo, loading: metricsLoading } = useFubDealMetrics({
+    userId: uid,
+    fubUserId: effectiveFubUserId,
+    year: currentYear,
+    hasFUB,
+    agentName: viewingAgentName,
+  });
+
+  // ─── Supplemental metrics (411 activity, CMA, pipeline, goals) ───
+  const [suppMetrics, setSuppMetrics] = useState<{
+    cmaToListingPct: number; totalCMAs: number; totalListings: number;
+    contactToApptPct: number; apptToContractPct: number; dialsToApptPct: number;
+    weeklyAvgDials: number; weeklyAvgContacts: number; weeklyAvgAppts: number; weeklyAvgCMAs: number;
+    totalAppts: number; totalContracts: number; totalContacts: number; totalDials: number; weeksOfData: number;
+    activeListings: number; targetGCI: number;
+  } | null>(null);
+  const [suppLoading, setSuppLoading] = useState(true);
+
+  // Active metrics built from hook + supplemental
   const [metrics, setMetrics] = useState<ActiveMetrics | null>(null);
 
   // Reflection
@@ -157,71 +179,88 @@ const BusinessPlanning = () => {
   const [aiLoading, setAiLoading] = useState(false);
   const [selectedSuggestion, setSelectedSuggestion] = useState<number | null>(null);
 
-  const uid = effectiveUserId || user?.id;
-
-  // ─── Data fetching ───
-  const fetchActiveMetrics = useCallback(async () => {
+  // ─── Fetch supplemental data (411, CMA, pipeline, production goals) ───
+  const fetchSupplemental = useCallback(async () => {
     if (!uid) return;
     const yearStart = `${currentYear}-01-01`;
-    const now = new Date();
-    const monthsPassed = now.getMonth() + (now.getDate() / 30);
+    setSuppLoading(true);
 
-    const [dealsRes, commissionsRes, cmaRes, w411Res, pipelineRes, goalsRes] = await Promise.all([
-      supabase.from('deals').select('stage, deal_value, commission_rate').eq('user_id', uid),
-      supabase.from('commissions').select('gross_commission, amount, status').eq('user_id', uid),
-      supabase.from('cma_reports').select('listing_status, created_at, listing_signed_at').eq('user_id', uid),
+    const [cmaRes, w411Res, pipelineRes, goalsRes] = await Promise.all([
+      supabase.from('cma_reports').select('listing_status').eq('user_id', uid),
       supabase.from('weekly_411').select('dials, contacts_made, appointments_held, contracts_signed, week_start_date').eq('user_id', uid).gte('week_start_date', yearStart),
-      supabase.from('pipeline_clients').select('stage, projected_gci').eq('user_id', uid),
+      supabase.from('pipeline_clients').select('stage').eq('user_id', uid),
       supabase.from('production_goals').select('annual_gci_goal').eq('user_id', uid).eq('year', currentYear).maybeSingle(),
     ]);
 
-    const deals = dealsRes.data || [];
-    const comms = commissionsRes.data || [];
     const cmas = cmaRes.data || [];
     const w411 = w411Res.data || [];
     const pipeline = pipelineRes.data || [];
 
-    const closedDeals = deals.filter(d => d.stage === 'closed');
-    const pendingDeals = deals.filter(d => d.stage === 'under_contract');
-    const activeListings = deals.filter(d => ['showing', 'offer'].includes(d.stage));
-
-    const ytdGCI = comms.filter(c => c.status === 'paid').reduce((s, c) => s + safe(c.gross_commission || c.amount), 0);
-    const pendingGCI = comms.filter(c => c.status === 'pending').reduce((s, c) => s + safe(c.gross_commission || c.amount), 0);
-    const avgComm = closedDeals.length > 0 ? Math.round(ytdGCI / closedDeals.length) : 15000;
-
     const totalCMAs = cmas.length;
     const convertedCMAs = cmas.filter(c => ['Listing Signed', 'Active', 'Sold'].includes(c.listing_status)).length;
+    const activeListings = pipeline.filter(p => p.stage >= 8).length; // stages 8-10 = likely closings
 
     const totalDials = w411.reduce((s, w) => s + safe(w.dials), 0);
     const totalContacts = w411.reduce((s, w) => s + safe(w.contacts_made), 0);
     const totalAppts = w411.reduce((s, w) => s + safe(w.appointments_held), 0);
     const totalContracts = w411.reduce((s, w) => s + safe(w.contracts_signed), 0);
     const weeksOfData = Math.max(w411.length, 1);
-
     const targetGCI = safe(goalsRes.data?.annual_gci_goal);
-    const projected = monthsPassed > 0 ? Math.round((ytdGCI / monthsPassed) * 12) : 0;
 
-    setMetrics({
-      ytdClosedDeals: closedDeals.length,
-      ytdGCI: Math.round(ytdGCI),
-      pendingGCI: Math.round(pendingGCI),
-      activeListings: activeListings.length,
+    setSuppMetrics({
       cmaToListingPct: pct(convertedCMAs, totalCMAs),
-      apptToContractPct: pct(totalContracts, totalAppts),
+      totalCMAs, totalListings: convertedCMAs,
       contactToApptPct: pct(totalAppts, totalContacts),
+      apptToContractPct: pct(totalContracts, totalAppts),
       dialsToApptPct: pct(totalAppts, totalDials),
-      projectedYearEndGCI: projected,
-      gapToTarget: targetGCI > 0 ? Math.round(targetGCI - projected) : 0,
-      targetGCI: Math.round(targetGCI),
-      pendingDeals: pendingDeals.length,
-      avgCommission: avgComm,
       weeklyAvgDials: Math.round(totalDials / weeksOfData),
       weeklyAvgContacts: Math.round(totalContacts / weeksOfData),
       weeklyAvgAppts: Math.round(totalAppts / weeksOfData),
       weeklyAvgCMAs: Math.round(totalCMAs / weeksOfData),
-      totalCMAs, totalListings: convertedCMAs, totalAppts, totalContracts, totalContacts, totalDials, weeksOfData,
+      totalAppts, totalContracts, totalContacts, totalDials, weeksOfData,
+      activeListings, targetGCI,
     });
+    setSuppLoading(false);
   }, [uid]);
+
+  // ─── Compose final metrics from hook + supplemental ───
+  useEffect(() => {
+    if (!dealMetrics || !suppMetrics) return;
+    const now = new Date();
+    const monthsPassed = now.getMonth() + (now.getDate() / 30);
+    const ytdGCI = Math.round(dealMetrics.gci_earned);
+    const projected = monthsPassed > 0 ? Math.round((ytdGCI / monthsPassed) * 12) : 0;
+    const avgComm = dealMetrics.deals_closed > 0 ? Math.round(ytdGCI / dealMetrics.deals_closed) : 15000;
+
+    setMetrics({
+      ytdClosedDeals: dealMetrics.deals_closed,
+      ytdGCI,
+      pendingGCI: Math.round(dealMetrics.gci_pending),
+      activeListings: suppMetrics.activeListings,
+      cmaToListingPct: suppMetrics.cmaToListingPct,
+      apptToContractPct: suppMetrics.apptToContractPct,
+      contactToApptPct: suppMetrics.contactToApptPct,
+      dialsToApptPct: suppMetrics.dialsToApptPct,
+      projectedYearEndGCI: projected,
+      gapToTarget: suppMetrics.targetGCI > 0 ? Math.round(suppMetrics.targetGCI - projected) : 0,
+      targetGCI: Math.round(suppMetrics.targetGCI),
+      pendingDeals: dealMetrics.deals_pending,
+      avgCommission: avgComm,
+      weeklyAvgDials: suppMetrics.weeklyAvgDials,
+      weeklyAvgContacts: suppMetrics.weeklyAvgContacts,
+      weeklyAvgAppts: suppMetrics.weeklyAvgAppts,
+      weeklyAvgCMAs: suppMetrics.weeklyAvgCMAs,
+      totalCMAs: suppMetrics.totalCMAs,
+      totalListings: suppMetrics.totalListings,
+      totalAppts: suppMetrics.totalAppts,
+      totalContracts: suppMetrics.totalContracts,
+      totalContacts: suppMetrics.totalContacts,
+      totalDials: suppMetrics.totalDials,
+      weeksOfData: suppMetrics.weeksOfData,
+    });
+  }, [dealMetrics, suppMetrics]);
+
+  const loading = metricsLoading || suppLoading;
 
   const fetchReflection = useCallback(async () => {
     if (!uid) return;
@@ -289,17 +328,12 @@ const BusinessPlanning = () => {
     }
   }, [mode, metrics, goalsId]);
 
+  // Fetch supplemental + reflection + goals on mount / change
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    const load = async () => {
-      if (mode === 'active') await fetchActiveMetrics();
-      await Promise.all([fetchReflection(), fetchGoals()]);
-      if (!cancelled) setLoading(false);
-    };
-    load();
-    return () => { cancelled = true; };
-  }, [mode, uid, quarter, fetchActiveMetrics, fetchReflection, fetchGoals]);
+    fetchSupplemental();
+    fetchReflection();
+    fetchGoals();
+  }, [fetchSupplemental, fetchReflection, fetchGoals]);
 
   // Update mode when hasFUB changes
   useEffect(() => {
@@ -503,6 +537,9 @@ const BusinessPlanning = () => {
 
   return (
     <div className="space-y-6 max-w-6xl">
+      {/* Debug Panel (admin only) */}
+      <DebugMetricsPanel debugInfo={debugInfo} isAdmin={isAdmin} />
+
       {/* Header + Mode Toggle */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
