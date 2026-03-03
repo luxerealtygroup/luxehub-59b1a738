@@ -768,6 +768,57 @@ export type Database = {
         }
         Relationships: []
       }
+      manual_production: {
+        Row: {
+          closed_deals: number
+          created_at: string
+          database_size: number
+          gci_closed: number
+          gci_pending: number
+          id: string
+          month: number
+          notes: string | null
+          pending_deals: number
+          pipeline_count: number
+          total_volume: number
+          updated_at: string
+          user_id: string
+          year: number
+        }
+        Insert: {
+          closed_deals?: number
+          created_at?: string
+          database_size?: number
+          gci_closed?: number
+          gci_pending?: number
+          id?: string
+          month?: number
+          notes?: string | null
+          pending_deals?: number
+          pipeline_count?: number
+          total_volume?: number
+          updated_at?: string
+          user_id: string
+          year?: number
+        }
+        Update: {
+          closed_deals?: number
+          created_at?: string
+          database_size?: number
+          gci_closed?: number
+          gci_pending?: number
+          id?: string
+          month?: number
+          notes?: string | null
+          pending_deals?: number
+          pipeline_count?: number
+          total_volume?: number
+          updated_at?: string
+          user_id?: string
+          year?: number
+        }
+        Relationships: []
+      }
       pipeline_clients: {
         Row: {
           client_name: string

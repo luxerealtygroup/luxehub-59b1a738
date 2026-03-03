@@ -7,6 +7,7 @@ import { Building2, Phone, DollarSign, Target, Users, Search, Loader2, TrendingU
 import { FUBClientSearch } from '@/components/FUBClientSearch';
 import { followUpBossApi, FUBPerson } from '@/lib/api/followUpBoss';
 import { ManualModeBadge } from '@/components/ManualModeBadge';
+import { ManualProductionEntry, ManualProductionData } from '@/components/ManualProductionEntry';
 import GoogleCalendarWidget from '@/components/GoogleCalendarWidget';
 import FUBSmartLists from '@/components/FUBSmartLists';
 import { Button } from '@/components/ui/button';
@@ -119,6 +120,7 @@ const Dashboard = () => {
   const [fubClients, setFubClients] = useState<FUBPerson[]>([]);
   const [fubLoading, setFubLoading] = useState(false);
   const [fubError, setFubError] = useState<string | null>(null);
+  const [manualProduction, setManualProduction] = useState<ManualProductionData | null>(null);
   
   // Add client dialog state
   const [addClientOpen, setAddClientOpen] = useState(false);
@@ -153,7 +155,6 @@ const Dashboard = () => {
       const activeDeals = deals.filter(d => activeStages.includes(d.stage));
       const closedDeals = deals.filter(d => d.stage === 'closed').length;
       
-      // Use gross_commission for totals (fallback to amount if not available)
       const totalCommissions = commissions
         .filter(c => c.status === 'paid')
         .reduce((sum, c) => sum + Number(c.gross_commission || c.amount || 0), 0);
@@ -162,7 +163,6 @@ const Dashboard = () => {
         .filter(c => c.status === 'pending')
         .reduce((sum, c) => sum + Number(c.gross_commission || c.amount || 0), 0);
 
-      // Get goals
       const dealsGoal = goals.find(g => g.goal_type === 'deals_closed')?.target_value || 0;
       const gciGoal = goals.find(g => g.goal_type === 'revenue')?.target_value || 0;
 
@@ -170,30 +170,60 @@ const Dashboard = () => {
         ? goals.reduce((sum, g) => sum + (Number(g.current_value) / Number(g.target_value) * 100), 0) / goals.length
         : 0;
 
-      // Calculate monthly GCI data for chart
+      // For non-FUB agents, fetch manual production for YTD overlay
+      let mpRows: any[] = [];
+      let manualData: ManualProductionData | null = null;
+      if (!hasFUB) {
+        const { data: rows } = await supabase
+          .from('manual_production')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('year', currentYear);
+        mpRows = rows || [];
+
+        if (mpRows.length > 0) {
+          manualData = mpRows.reduce(
+            (acc, row) => ({
+              closed_deals: acc.closed_deals + (row.closed_deals ?? 0),
+              pending_deals: acc.pending_deals + (row.pending_deals ?? 0),
+              gci_closed: acc.gci_closed + Number(row.gci_closed || 0),
+              gci_pending: acc.gci_pending + Number(row.gci_pending || 0),
+              total_volume: acc.total_volume + Number(row.total_volume || 0),
+              database_size: row.database_size ?? 0,
+              pipeline_count: row.pipeline_count ?? 0,
+            }),
+            { closed_deals: 0, pending_deals: 0, gci_closed: 0, gci_pending: 0, total_volume: 0, database_size: 0, pipeline_count: 0 }
+          );
+          setManualProduction(manualData);
+        }
+      }
+
+      // Build monthly GCI chart data
       const monthlyGci = monthNames.map((month, idx) => {
+        if (!hasFUB && mpRows.length > 0) {
+          const monthRow = mpRows.find((r: any) => r.month === idx + 1);
+          return { month, gci: monthRow ? Number(monthRow.gci_closed || 0) : 0 };
+        }
         const monthCommissions = commissions.filter(c => {
           if (!c.paid_at) return false;
           const date = new Date(c.paid_at);
           return date.getFullYear() === currentYear && date.getMonth() === idx;
         });
-        return {
-          month,
-          gci: monthCommissions.reduce((sum, c) => sum + Number(c.gross_commission || c.amount || 0), 0)
-        };
+        return { month, gci: monthCommissions.reduce((sum, c) => sum + Number(c.gross_commission || c.amount || 0), 0) };
       });
       setMonthlyData(monthlyGci);
 
+      const useManual = !hasFUB && manualData;
       setStats({
-        totalDeals: deals.length,
-        activeDeals: activeDeals.length,
-        totalCommissions,
-        pendingCommissions,
+        totalDeals: useManual ? manualData!.closed_deals + manualData!.pending_deals : deals.length,
+        activeDeals: useManual ? manualData!.pending_deals : activeDeals.length,
+        totalCommissions: useManual ? manualData!.gci_closed : totalCommissions,
+        pendingCommissions: useManual ? manualData!.gci_pending : pendingCommissions,
         activitiesThisWeek: (activitiesRes.data || []).length,
         goalsProgress: Math.round(avgGoalProgress),
         dealsGoal: Number(dealsGoal),
         gciGoal: Number(gciGoal),
-        closedDeals
+        closedDeals: useManual ? manualData!.closed_deals : closedDeals,
       });
       setLoading(false);
     };
@@ -687,6 +717,11 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Manual Production Entry for non-FUB agents */}
+      {!hasFUB && (
+        <ManualProductionEntry onSaved={() => window.location.reload()} />
+      )}
 
       {/* Google Calendar, Smart Lists & Follow Up Boss Section */}
       <div className={`grid grid-cols-1 ${hasFUB ? 'lg:grid-cols-3' : 'lg:grid-cols-1'} gap-6`}>
