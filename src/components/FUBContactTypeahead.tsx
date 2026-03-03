@@ -22,6 +22,7 @@ export function FUBContactTypeahead({ selectedContact, onSelect, onClear }: FUBC
   const [results, setResults] = useState<FUBPerson[]>([]);
   const [loading, setLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -29,6 +30,7 @@ export function FUBContactTypeahead({ selectedContact, onSelect, onClear }: FUBC
     if (q.length < 2) {
       setResults([]);
       setShowDropdown(false);
+      setHasSearched(false);
       return;
     }
     setLoading(true);
@@ -37,6 +39,7 @@ export function FUBContactTypeahead({ selectedContact, onSelect, onClear }: FUBC
       if (response.success && response.data?.people) {
         setResults(response.data.people);
         setShowDropdown(true);
+        setHasSearched(true);
       }
     } catch {
       // silent
@@ -143,9 +146,12 @@ export function FUBContactTypeahead({ selectedContact, onSelect, onClear }: FUBC
         </div>
       )}
 
-      {showDropdown && results.length === 0 && !loading && query.length >= 2 && (
-        <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-md p-3 text-center text-sm text-muted-foreground">
-          No contacts found
+      {showDropdown && results.length === 0 && !loading && query.length >= 2 && hasSearched && (
+        <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-md p-4 text-center">
+          <p className="text-sm font-medium text-foreground">No matching contact found</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Please add or update the contact in Follow Up Boss, then return here to select them.
+          </p>
         </div>
       )}
     </div>
