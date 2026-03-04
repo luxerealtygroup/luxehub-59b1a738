@@ -4,7 +4,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
 import { classifyStage, isActiveListingDeal } from '@/hooks/useFubDealMetrics';
 import { normalize411Row } from '@/lib/utils/weekly411Fallback';
-import { format, startOfYear } from 'date-fns';
+import { format, startOfYear, startOfWeek, addWeeks, isBefore, parseISO, getWeek } from 'date-fns';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend, ReferenceLine } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -81,6 +82,7 @@ const CompanyBusinessPlanning = () => {
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<CompanyMetrics | null>(null);
   const [agentGoals, setAgentGoals] = useState<AgentGoalRow[]>([]);
+  const [closedDealsList, setClosedDealsList] = useState<{ gci: number; date: string }[]>([]);
   const [companyDealGoal, setCompanyDealGoal] = useState(0);
   const [companyGciGoal, setCompanyGciGoal] = useState(0);
   const [pipelineSummary, setPipelineSummary] = useState<PipelineSummary>({ totalClients: 0, buyers: 0, sellers: 0, projectedGci: 0 });
@@ -126,6 +128,14 @@ const CompanyBusinessPlanning = () => {
         const cls = classifyStage(d.stageName || '');
         return cls !== 'closed';
       });
+
+      // Store closed deals with dates for the GCI chart
+      setClosedDealsList(
+        closedDeals.map(d => ({
+          gci: d.commissionValue || d.agentCommission || 0,
+          date: d.projectedCloseDate || d.createdAt || '',
+        })).filter(d => d.date)
+      );
 
       setMetrics({
         closedDeals: closedDeals.length,
@@ -392,6 +402,18 @@ const CompanyBusinessPlanning = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* GCI Pace Chart */}
+            <Card className="border-border">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-gold" /> GCI Pace vs Target
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <GciPaceChart closedDeals={closedDealsList} gciGoal={companyGciGoal} />
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* ── TAB 2: Agent Goal Coverage ── */}
@@ -605,6 +627,119 @@ const CompanyBusinessPlanning = () => {
         </Tabs>
       </CardContent>
     </Card>
+  );
+};
+
+// ── GCI Pace Chart ──
+const GciPaceChart = ({ closedDeals, gciGoal }: { closedDeals: { gci: number; date: string }[]; gciGoal: number }) => {
+  const chartData = useMemo(() => {
+    const yearStart = startOfYear(new Date());
+    const now = new Date();
+    const currentWeekNum = getWeek(now, { weekStartsOn: 1 });
+    const totalWeeks = 52;
+    const weeklyTarget = gciGoal / totalWeeks;
+
+    // Build week buckets for the full year
+    const weeks: { week: number; weekLabel: string; actual: number | null; target: number }[] = [];
+    for (let w = 1; w <= totalWeeks; w++) {
+      weeks.push({
+        week: w,
+        weekLabel: `W${w}`,
+        actual: w <= currentWeekNum ? 0 : null,
+        target: Math.round(weeklyTarget * w),
+      });
+    }
+
+    // Accumulate closed deal GCI into weekly buckets
+    closedDeals.forEach(d => {
+      try {
+        const dealDate = parseISO(d.date);
+        const dealWeek = getWeek(dealDate, { weekStartsOn: 1 });
+        if (dealWeek >= 1 && dealWeek <= totalWeeks) {
+          // Add to this week and all subsequent weeks up to current
+          for (let w = dealWeek - 1; w < Math.min(currentWeekNum, totalWeeks); w++) {
+            if (weeks[w].actual !== null) {
+              weeks[w].actual! += d.gci;
+            }
+          }
+        }
+      } catch {}
+    });
+
+    // Make cumulative
+    let cumulative = 0;
+    for (let w = 0; w < Math.min(currentWeekNum, totalWeeks); w++) {
+      // Already accumulated above, but let's recalculate properly
+    }
+
+    // Recalculate properly: sum GCI per week, then cumulate
+    const weekGci = new Array(totalWeeks).fill(0);
+    closedDeals.forEach(d => {
+      try {
+        const dealDate = parseISO(d.date);
+        const dealWeek = getWeek(dealDate, { weekStartsOn: 1 });
+        if (dealWeek >= 1 && dealWeek <= totalWeeks) {
+          weekGci[dealWeek - 1] += d.gci;
+        }
+      } catch {}
+    });
+
+    let runningTotal = 0;
+    for (let w = 0; w < totalWeeks; w++) {
+      runningTotal += weekGci[w];
+      weeks[w].actual = w < currentWeekNum ? Math.round(runningTotal) : null;
+    }
+
+    return weeks;
+  }, [closedDeals, gciGoal]);
+
+  if (gciGoal === 0) {
+    return <p className="text-sm text-muted-foreground text-center py-4">Set a company GCI goal to see the pace chart.</p>;
+  }
+
+  return (
+    <div className="h-[300px]">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+          <XAxis
+            dataKey="weekLabel"
+            tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+            interval={3}
+          />
+          <YAxis
+            tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+            tickFormatter={(v: number) => `$${Math.round(v / 1000)}k`}
+          />
+          <Tooltip
+            contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
+            labelStyle={{ color: 'hsl(var(--foreground))' }}
+            formatter={(value: number, name: string) => [
+              `$${value.toLocaleString()}`,
+              name === 'target' ? 'Target Pace' : 'Actual GCI',
+            ]}
+          />
+          <Legend />
+          <Line
+            type="monotone"
+            dataKey="target"
+            stroke="hsl(var(--muted-foreground))"
+            strokeDasharray="5 5"
+            strokeWidth={2}
+            dot={false}
+            name="Target Pace"
+          />
+          <Line
+            type="monotone"
+            dataKey="actual"
+            stroke="hsl(43, 74%, 49%)"
+            strokeWidth={2.5}
+            dot={false}
+            name="Actual GCI"
+            connectNulls={false}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
   );
 };
 
