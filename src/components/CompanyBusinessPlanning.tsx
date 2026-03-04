@@ -329,24 +329,33 @@ const CompanyBusinessPlanning = () => {
   const projectedClosings = monthsElapsed > 0 ? Math.round(((metrics?.closedDeals || 0) / monthsElapsed) * 12) : 0;
   const projectedGci = monthsElapsed > 0 ? Math.round(((metrics?.grossGciClosed || 0) / monthsElapsed) * 12) : 0;
 
-  // Pipeline deficit (quarterly with carryover)
+  // Pipeline deficit analysis (mirrors agent pipeline planning model)
   const FALLOUT_RATE = 0.70;
-  const conversionFactor = 1 - FALLOUT_RATE; // 0.30
+  const conversionRate = 1 - FALLOUT_RATE; // 0.30
   const quarter = CURRENT_QUARTER;
-  const prevQ = quarter > 1 ? quarter - 1 : 0; // 0 means no previous quarter (start of year)
-  const currentQGoal = quarter === 1 ? quarterlyDealGoals.q1 : quarter === 2 ? quarterlyDealGoals.q2 : quarter === 3 ? quarterlyDealGoals.q3 : quarterlyDealGoals.q4;
-  const prevQGoal = prevQ === 1 ? quarterlyDealGoals.q1 : prevQ === 2 ? quarterlyDealGoals.q2 : prevQ === 3 ? quarterlyDealGoals.q3 : 0;
-  const prevQActual = prevQ === 1 ? q1ClosedDeals : 0; // For Q2, this is Q1 closed deals
-  const prevQGap = prevQ > 0 ? Math.max(0, prevQGoal - prevQActual) : 0; // No carryover in Q1
-  const adjustedQRequired = currentQGoal + prevQGap;
-  const requiredPipelineDeals = adjustedQRequired > 0 ? Math.ceil(adjustedQRequired / conversionFactor) : 0;
+
+  // Step 1: Q1 goal
+  const q1Goal = quarterlyDealGoals.q1;
+  // Step 2: Company production (closed + pending)
+  const companyProduction = (metrics?.closedDeals || 0) + (metrics?.pendingDeals || 0);
+  // Step 3: Carryover from Q1
+  const q1Carryover = quarter >= 2 ? Math.max(0, q1Goal - companyProduction) : 0;
+  // Step 4: Q2 goal
+  const q2Goal = quarterlyDealGoals.q2;
+  // Step 5: Total closings required
+  const currentQGoal = quarter === 1 ? q1Goal : q2Goal;
+  const totalClosingsNeeded = quarter === 1 ? q1Goal : q1Carryover + q2Goal;
+  // Step 6-7: Required pipeline
+  const requiredPipelineDeals = totalClosingsNeeded > 0 ? Math.ceil(totalClosingsNeeded / conversionRate) : 0;
+  // Step 8-9: Deficit or surplus
   const pipelineDeficit = Math.max(0, requiredPipelineDeals - pipelineSummary.totalClients);
   const pipelineSurplus = Math.max(0, pipelineSummary.totalClients - requiredPipelineDeals);
-  // Keep old calc for other sections that reference it
-  const closedAndPending = (metrics?.closedDeals || 0) + (metrics?.pendingDeals || 0);
+
+  // Keep old calc for other sections
+  const closedAndPending = companyProduction;
   const remainingDealsNeeded = Math.max(0, companyDealGoal - closedAndPending);
-  const pipelineNeeded = remainingDealsNeeded > 0 ? Math.ceil(remainingDealsNeeded / conversionFactor) : 0;
-  const pipelineGap = pipelineDeficit; // alias
+  const pipelineNeeded = remainingDealsNeeded > 0 ? Math.ceil(remainingDealsNeeded / conversionRate) : 0;
+  const pipelineGap = pipelineDeficit;
 
   if (loading) {
     return (
@@ -422,48 +431,61 @@ const CompanyBusinessPlanning = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {currentQGoal === 0 && companyDealGoal === 0 ? (
+                 {currentQGoal === 0 && companyDealGoal === 0 ? (
                   <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
                     <p className="text-sm font-medium text-amber-600">Set company quarterly deal goals to enable pipeline deficit analysis.</p>
                   </div>
                 ) : (
                   <>
                     <div className="rounded-lg border border-border bg-card p-4 space-y-2 font-mono text-sm">
-                      {prevQGap > 0 && (
-                        <div className="flex items-center justify-between text-amber-600">
-                          <span>Q{prevQ} Deal Gap (carryover)</span>
-                          <span className="font-bold">+{prevQGap} deals</span>
-                        </div>
-                      )}
-                      {prevQGap > 0 && (
-                        <div className="flex items-center justify-between text-muted-foreground text-xs">
-                          <span>Q{prevQ} Goal: {prevQGoal} — Q{prevQ} Actual: {prevQActual}</span>
-                        </div>
-                      )}
+                      {/* Q1 Goal */}
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Q{quarter} Base Closings Goal</span>
-                        <span className="font-bold text-foreground">{currentQGoal} deals</span>
+                        <span className="text-muted-foreground">Q1 Goal</span>
+                        <span className="font-bold text-foreground">{q1Goal} deals</span>
                       </div>
-                      {prevQGap > 0 && (
-                        <div className="flex items-center justify-between font-bold">
-                          <span className="text-foreground">Adjusted Q{quarter} Required</span>
-                          <span className="text-foreground">{adjustedQRequired} deals</span>
+                      {/* Actual Closed + Pending */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Actual Closed + Pending</span>
+                        <span className="font-bold text-foreground">{companyProduction} deals</span>
+                      </div>
+                      {/* Carryover (only show for Q2+) */}
+                      {quarter >= 2 && (
+                        <div className="flex items-center justify-between text-amber-600">
+                          <span>Carryover (Q1 Gap)</span>
+                          <span className="font-bold">{q1Carryover > 0 ? `+${q1Carryover}` : '0'} deals</span>
                         </div>
                       )}
+                      {/* Q2 Goal */}
+                      {quarter >= 2 && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground">Q2 Goal</span>
+                          <span className="font-bold text-foreground">{q2Goal} deals</span>
+                        </div>
+                      )}
+                      <Separator />
+                      {/* Total Closings Needed */}
+                      <div className="flex items-center justify-between font-bold">
+                        <span className="text-foreground">Total Closings Needed</span>
+                        <span className="text-foreground">{totalClosingsNeeded} deals</span>
+                      </div>
+                      {/* Conversion Rate */}
                       <div className="flex items-center justify-between text-muted-foreground">
-                        <span>÷ Conversion Factor ({Math.round(conversionFactor * 100)}%)</span>
+                        <span>÷ Conversion Rate ({Math.round(conversionRate * 100)}%)</span>
                         <span className="text-xs">(100% − {Math.round(FALLOUT_RATE * 100)}% fallout)</span>
                       </div>
                       <Separator />
+                      {/* Required Pipeline */}
                       <div className="flex items-center justify-between font-bold">
-                        <span className="text-foreground">Required Pipeline Deals</span>
+                        <span className="text-foreground">Required Pipeline</span>
                         <span className="text-foreground">{requiredPipelineDeals}</span>
                       </div>
+                      {/* Current Pipeline */}
                       <div className="flex items-center justify-between">
                         <span className="text-muted-foreground">Current Pipeline</span>
                         <span className="font-bold text-foreground">{pipelineSummary.totalClients}</span>
                       </div>
                       <Separator />
+                      {/* Deficit or Surplus */}
                       <div className="flex items-center justify-between">
                         {pipelineDeficit > 0 ? (
                           <>
