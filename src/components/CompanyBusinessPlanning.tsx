@@ -272,6 +272,13 @@ const CompanyBusinessPlanning = () => {
   const projectedClosings = monthsElapsed > 0 ? Math.round(((metrics?.closedDeals || 0) / monthsElapsed) * 12) : 0;
   const projectedGci = monthsElapsed > 0 ? Math.round(((metrics?.grossGciClosed || 0) / monthsElapsed) * 12) : 0;
 
+  // Pipeline gap (70% fallout rate)
+  const FALLOUT_RATE = 0.70;
+  const closedAndPending = (metrics?.closedDeals || 0) + (metrics?.pendingDeals || 0);
+  const remainingDealsNeeded = Math.max(0, companyDealGoal - closedAndPending);
+  const pipelineNeeded = remainingDealsNeeded > 0 ? Math.ceil(remainingDealsNeeded / (1 - FALLOUT_RATE)) : 0;
+  const pipelineGap = Math.max(0, pipelineNeeded - pipelineSummary.totalClients);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-48">
@@ -325,12 +332,36 @@ const CompanyBusinessPlanning = () => {
                   <Briefcase className="h-4 w-4 text-gold" /> Team Pipeline
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-3">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <MetricCard label="Total Pipeline Clients" value={pipelineSummary.totalClients} icon={<Users className="h-4 w-4 text-blue-500" />} />
                   <MetricCard label="Buyers" value={pipelineSummary.buyers} icon={<Users className="h-4 w-4 text-emerald-500" />} />
                   <MetricCard label="Sellers" value={pipelineSummary.sellers} icon={<Building2 className="h-4 w-4 text-amber-500" />} />
                   <MetricCard label="Projected Pipeline GCI" value={formatCurrency(pipelineSummary.projectedGci)} icon={<DollarSign className="h-4 w-4 text-gold" />} />
+                </div>
+                {/* Pipeline Gap Analysis */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="p-3 rounded-lg border border-border bg-muted/20 text-center">
+                    <p className="text-xs text-muted-foreground">Remaining Deals Needed</p>
+                    <p className="text-xl font-bold text-foreground">{remainingDealsNeeded}</p>
+                    <p className="text-[10px] text-muted-foreground">Goal {companyDealGoal} − {closedAndPending} closed/pending</p>
+                  </div>
+                  <div className="p-3 rounded-lg border border-border bg-muted/20 text-center">
+                    <p className="text-xs text-muted-foreground">Pipeline Needed</p>
+                    <p className="text-xl font-bold text-foreground">{pipelineNeeded}</p>
+                    <p className="text-[10px] text-muted-foreground">at 70% fallout rate</p>
+                  </div>
+                  <div className="p-3 rounded-lg border border-border bg-muted/20 text-center">
+                    <p className="text-xs text-muted-foreground">Current Pipeline</p>
+                    <p className="text-xl font-bold text-foreground">{pipelineSummary.totalClients}</p>
+                  </div>
+                  <div className={`p-3 rounded-lg border text-center ${pipelineGap > 0 ? 'border-destructive/30 bg-destructive/5' : 'border-green-500/30 bg-green-500/5'}`}>
+                    <p className="text-xs text-muted-foreground">Pipeline Gap</p>
+                    <p className={`text-xl font-bold ${pipelineGap > 0 ? 'text-destructive' : 'text-green-500'}`}>
+                      {pipelineGap > 0 ? pipelineGap : '0 ✓'}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">{pipelineGap > 0 ? 'more clients needed' : 'on track'}</p>
+                  </div>
                 </div>
               </CardContent>
             </Card>
