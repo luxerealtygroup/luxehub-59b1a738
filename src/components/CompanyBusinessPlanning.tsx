@@ -16,8 +16,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   Target, TrendingUp, DollarSign, Users, Building2,
-  UserPlus, ClipboardList, Loader2, Save, BarChart3, ArrowRightLeft, Briefcase,
+  UserPlus, ClipboardList, Loader2, Save, BarChart3, ArrowRightLeft, Briefcase, PieChart,
 } from 'lucide-react';
+import DealSourcesTab from '@/components/deal-sources/DealSourcesTab';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -318,6 +319,9 @@ const CompanyBusinessPlanning = () => {
             </TabsTrigger>
             <TabsTrigger value="execution" className="flex items-center gap-1 text-xs sm:text-sm">
               <ClipboardList className="h-3.5 w-3.5" /> Execution Plan
+            </TabsTrigger>
+            <TabsTrigger value="deal-sources" className="flex items-center gap-1 text-xs sm:text-sm">
+              <PieChart className="h-3.5 w-3.5" /> Deal Sources
             </TabsTrigger>
           </TabsList>
 
@@ -623,6 +627,10 @@ const CompanyBusinessPlanning = () => {
                 </Button>
               </CardContent>
             </Card>
+          </TabsContent>
+          {/* ── TAB 5: Deal Sources ── */}
+          <TabsContent value="deal-sources">
+            <DealSourcesTab companyDealGoal={companyDealGoal} isAdmin={true} />
           </TabsContent>
         </Tabs>
       </CardContent>
