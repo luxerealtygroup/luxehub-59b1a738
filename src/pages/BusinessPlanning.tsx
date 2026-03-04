@@ -342,6 +342,8 @@ const BusinessPlanning = () => {
             metrics={metrics} mode={mode} goals={goals} setGoals={setGoals}
             goalsId={goalsId} setGoalsId={setGoalsId} quarter={quarter}
             uid={uid} isViewingAsAgent={isViewingAsAgent} effectiveRates={effectiveRates}
+            prevQActualClosings={pipelineGapData.prevQActualClosings}
+            prevQGoalClosings={pipelineGapData.prevQRequiredClosings}
           />
         </TabsContent>
 

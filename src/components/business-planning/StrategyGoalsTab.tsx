@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,9 +8,17 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency, formatNumber } from '@/lib/utils';
-import { Target, Brain, Zap, Save, Loader2, AlertTriangle, ChevronRight } from 'lucide-react';
+import { Target, Brain, Zap, Save, Loader2, AlertTriangle, ChevronRight, Lock } from 'lucide-react';
 import { ActiveMetrics, GoalInputs, AISuggestion, AIInsight, currentYear } from './types';
-import { StatCard, BreakdownRow } from './shared';
+import { BreakdownRow } from './shared';
+import {
+  computeStrategy,
+  validateCommissionRate,
+  validateAvgSalePrice,
+  validateClosingsGoal,
+  AGENT_SPLIT,
+  type StrategyInputs,
+} from './strategyCalculations';
 
 interface Props {
   metrics: ActiveMetrics | null;
@@ -23,11 +31,26 @@ interface Props {
   uid: string | null;
   isViewingAsAgent: boolean;
   effectiveRates: { contactToAppt: number; apptToContract: number; cmaToListing: number; dialsToAppt: number };
+  prevQActualClosings: number;
+  prevQGoalClosings: number;
 }
+
+/* ── Locked display field ── */
+const LockedField = ({ label, value, sub, highlight }: { label: string; value: string; sub?: string; highlight?: boolean }) => (
+  <div className={`rounded-lg border p-3 ${highlight ? 'border-gold/30 bg-gold/5' : 'border-border bg-muted/30'}`}>
+    <div className="flex items-center gap-1.5 mb-1">
+      <Lock className="h-3 w-3 text-muted-foreground" />
+      <span className="text-xs text-muted-foreground uppercase tracking-wider">{label}</span>
+    </div>
+    <p className={`text-lg font-bold ${highlight ? 'text-gold' : 'text-foreground'}`}>{value}</p>
+    {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
+  </div>
+);
 
 export function StrategyGoalsTab({
   metrics, mode, goals, setGoals, goalsId, setGoalsId,
   quarter, uid, isViewingAsAgent, effectiveRates,
+  prevQActualClosings, prevQGoalClosings,
 }: Props) {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
@@ -36,8 +59,38 @@ export function StrategyGoalsTab({
   const [aiLoading, setAiLoading] = useState(false);
   const [selectedSuggestion, setSelectedSuggestion] = useState<number | null>(null);
 
-  const netPerDeal = goals.avg_commission * (goals.split_percent / 100);
-  const requiredClosings = netPerDeal > 0 ? Math.ceil(goals.gci_target / netPerDeal) : 0;
+  // ── Derive commission rate as decimal ──
+  // If agent entered avg_commission (gross $), derive rate from avg_sale_price
+  // If goals have a rate-like value in avg_commission (legacy), treat it as gross $
+  const commissionRateDecimal = useMemo(() => {
+    if (goals.avg_sale_price > 0 && goals.avg_commission > 0 && goals.avg_commission < goals.avg_sale_price) {
+      return goals.avg_commission / goals.avg_sale_price;
+    }
+    return null;
+  }, [goals.avg_commission, goals.avg_sale_price]);
+
+  // ── Strategy calculations (shared helper) ──
+  const qClosingsGoal = goals.gci_target > 0 && goals.avg_commission > 0
+    ? Math.ceil(goals.gci_target / goals.avg_commission)
+    : 0;
+
+  const strategyInputs: StrategyInputs = {
+    qClosingsGoal,
+    avgSalePrice: goals.avg_sale_price,
+    commissionRate: commissionRateDecimal,
+    avgCommissionGross: goals.avg_commission > 0 ? goals.avg_commission : null,
+    prevQActualClosings,
+    prevQGoalClosings,
+  };
+
+  const strategy = computeStrategy(strategyInputs);
+
+  // ── Validation ──
+  const commRateError = commissionRateDecimal !== null ? validateCommissionRate(commissionRateDecimal) : null;
+  const salePriceError = goals.avg_sale_price > 0 ? null : validateAvgSalePrice(goals.avg_sale_price);
+
+  // ── Activity breakdown from adjusted closings ──
+  const requiredClosings = strategy.adjustedClosings;
   const requiredListings = effectiveRates.apptToContract > 0 ? Math.ceil(requiredClosings / (effectiveRates.apptToContract / 100)) : 0;
   const requiredCMAs = effectiveRates.cmaToListing > 0 ? Math.ceil(requiredListings / (effectiveRates.cmaToListing / 100)) : 0;
   const requiredAppts = effectiveRates.apptToContract > 0 ? Math.ceil(requiredClosings / (effectiveRates.apptToContract / 100)) : 0;
@@ -50,8 +103,6 @@ export function StrategyGoalsTab({
   const monthly = (v: number) => Math.ceil(v / monthsInQ);
   const weekly = (v: number) => Math.ceil(v / weeksInQ);
   const daily = (v: number) => Math.ceil(v / daysInQ);
-
-  const pipelineGap = metrics ? requiredClosings - (metrics.pendingDeals + Math.round(metrics.activeListings * 0.5)) : 0;
 
   const saveGoals = async () => {
     if (!uid || isViewingAsAgent) return;
@@ -67,6 +118,7 @@ export function StrategyGoalsTab({
     setSaving(false);
   };
 
+  // ── AI Suggestions ──
   const generateAISuggestions = async () => {
     if (!metrics) return;
     setAiLoading(true);
@@ -125,13 +177,6 @@ export function StrategyGoalsTab({
     if (m.gapToTarget > 0) {
       insights.push({ text: `At current pace, you will miss your annual target by ${formatCurrency(m.gapToTarget)}.`, type: 'warning' });
     }
-    if (pipelineGap > 0) {
-      const gapCMAs = effectiveRates.cmaToListing > 0 ? Math.ceil(pipelineGap / (effectiveRates.cmaToListing / 100)) : 0;
-      insights.push({ text: `Pipeline deficit of ${pipelineGap} deals. Increasing weekly CMAs by ${Math.ceil(gapCMAs / 13)} eliminates it.`, type: 'action' });
-    }
-    if (m.weeklyAvgDials < 50) {
-      insights.push({ text: `Weekly dial volume (${m.weeklyAvgDials}) is below minimum threshold. Increase to 50+.`, type: 'warning' });
-    }
     setAiInsights(insights);
   };
 
@@ -159,51 +204,124 @@ export function StrategyGoalsTab({
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Inputs */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {([
-            { key: 'gci_target', label: `Q${quarter} GCI Target` },
-            { key: 'avg_commission', label: 'Avg Commission / Deal' },
-            { key: 'split_percent', label: 'Split %' },
-            { key: 'avg_sale_price', label: 'Avg Sale Price' },
-          ] as const).map(f => (
-            <div key={f.key}>
-              <Label className="text-xs">{f.label}</Label>
+
+        {/* ── Editable Goal Inputs ── */}
+        <div>
+          <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3">Goal Inputs</h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div>
+              <Label className="text-xs">Q{quarter} Closings Goal (Deals)</Label>
               <Input
                 type="number"
-                value={goals[f.key] || ''}
-                onChange={e => { setGoals(g => ({ ...g, [f.key]: Number(e.target.value) })); if (f.key === 'gci_target') setSelectedSuggestion(null); }}
+                min={0}
+                value={qClosingsGoal || ''}
+                onChange={e => {
+                  const deals = Number(e.target.value) || 0;
+                  setGoals(g => ({ ...g, gci_target: deals * g.avg_commission }));
+                  setSelectedSuggestion(null);
+                }}
                 className="mt-1"
                 readOnly={isViewingAsAgent}
               />
+              {validateClosingsGoal(qClosingsGoal) && (
+                <p className="text-xs text-destructive mt-1">{validateClosingsGoal(qClosingsGoal)}</p>
+              )}
             </div>
-          ))}
+            <div>
+              <Label className="text-xs">Avg Sale Price</Label>
+              <Input
+                type="number"
+                min={0}
+                value={goals.avg_sale_price || ''}
+                onChange={e => setGoals(g => ({ ...g, avg_sale_price: Number(e.target.value) }))}
+                className="mt-1"
+                readOnly={isViewingAsAgent}
+              />
+              {salePriceError && <p className="text-xs text-destructive mt-1">{salePriceError}</p>}
+            </div>
+            <div>
+              <Label className="text-xs">Avg Commission / Deal (Gross $)</Label>
+              <Input
+                type="number"
+                min={0}
+                value={goals.avg_commission || ''}
+                onChange={e => {
+                  const comm = Number(e.target.value);
+                  setGoals(g => ({ ...g, avg_commission: comm, gci_target: qClosingsGoal * comm }));
+                }}
+                className="mt-1"
+                readOnly={isViewingAsAgent}
+              />
+              {commRateError && <p className="text-xs text-destructive mt-1">{commRateError}</p>}
+              {commissionRateDecimal !== null && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Implied rate: {(commissionRateDecimal * 100).toFixed(2)}% · Agent split: {(AGENT_SPLIT * 100).toFixed(0)}%
+                </p>
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* Planning mode: editable conversion rates */}
-        {mode === 'planning' && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {([
-              { key: 'contact_to_appt_rate', label: 'Contact → Appt %' },
-              { key: 'appt_to_contract_rate', label: 'Appt → Contract %' },
-              { key: 'cma_to_listing_rate', label: 'CMA → Listing %' },
-              { key: 'dials_to_appt_rate', label: 'Dials → Appt %' },
-            ] as const).map(f => (
-              <div key={f.key}>
-                <Label className="text-xs">{f.label}</Label>
-                <Input
-                  type="number"
-                  value={goals[f.key] || ''}
-                  onChange={e => setGoals(g => ({ ...g, [f.key]: Number(e.target.value) }))}
-                  className="mt-1"
-                />
-              </div>
-            ))}
+        {/* ── Q-Strategy Calculated Fields (locked) ── */}
+        <Separator />
+        <div>
+          <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3">
+            Q{quarter} Strategy — Auto-Calculated
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <LockedField
+              label={`Q${quarter > 1 ? quarter - 1 : 4} Gap (Deals)`}
+              value={String(strategy.prevQGap)}
+              sub={`${prevQActualClosings} closed of ${prevQGoalClosings} goal`}
+              highlight={strategy.prevQGap > 0}
+            />
+            <LockedField
+              label={`Q${quarter} Base Goal`}
+              value={String(strategy.qBaseGoal)}
+              sub="Before carryover"
+            />
+            <LockedField
+              label="Adjusted Closings Needed"
+              value={String(strategy.adjustedClosings)}
+              sub={strategy.prevQGap > 0 ? `+${strategy.prevQGap} from Q${quarter > 1 ? quarter - 1 : 4} gap` : 'No carryover'}
+              highlight
+            />
+            <LockedField
+              label="Avg GCI/Deal (Gross)"
+              value={formatCurrency(Math.round(strategy.avgGciPerDeal))}
+            />
+            <LockedField
+              label={`Avg Net/Deal (${(AGENT_SPLIT * 100).toFixed(0)}% split)`}
+              value={formatCurrency(Math.round(strategy.agentNetPerDeal))}
+            />
+            <LockedField
+              label={`Q${quarter} Gross GCI Target`}
+              value={formatCurrency(Math.round(strategy.qGciGross))}
+              highlight
+            />
+            <LockedField
+              label={`Q${quarter} Net Income Target`}
+              value={formatCurrency(Math.round(strategy.qIncomeNet))}
+              highlight
+            />
           </div>
-        )}
+        </div>
 
-        {/* Breakdown */}
-        {goals.gci_target > 0 && (
+        {/* ── Conversion Rates (read-only from Performance) ── */}
+        <div className="rounded-lg border border-border bg-muted/30 p-3">
+          <p className="text-xs text-muted-foreground mb-2 font-medium flex items-center gap-1.5">
+            <Lock className="h-3 w-3" /> Conversion Rates (from Performance)
+          </p>
+          <div className="flex flex-wrap gap-4 text-xs">
+            <span>Contact → Appt: <strong>{effectiveRates.contactToAppt}%</strong></span>
+            <span>Appt → Contract: <strong>{effectiveRates.apptToContract}%</strong></span>
+            <span>CMA → Listing: <strong>{effectiveRates.cmaToListing}%</strong></span>
+            <span>Dials → Appt: <strong>{effectiveRates.dialsToAppt}%</strong></span>
+          </div>
+        </div>
+
+        {/* ── Activity Breakdown ── */}
+        {strategy.adjustedClosings > 0 && (
           <>
             <Separator />
             <div>
@@ -223,7 +341,35 @@ export function StrategyGoalsTab({
           </>
         )}
 
-        {/* AI Suggestions (Active Only) */}
+        {/* ── Planning mode: editable conversion rates ── */}
+        {mode === 'planning' && (
+          <>
+            <Separator />
+            <div>
+              <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3">Manual Conversion Rate Overrides</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {([
+                  { key: 'contact_to_appt_rate', label: 'Contact → Appt %' },
+                  { key: 'appt_to_contract_rate', label: 'Appt → Contract %' },
+                  { key: 'cma_to_listing_rate', label: 'CMA → Listing %' },
+                  { key: 'dials_to_appt_rate', label: 'Dials → Appt %' },
+                ] as const).map(f => (
+                  <div key={f.key}>
+                    <Label className="text-xs">{f.label}</Label>
+                    <Input
+                      type="number"
+                      value={goals[f.key] || ''}
+                      onChange={e => setGoals(g => ({ ...g, [f.key]: Number(e.target.value) }))}
+                      className="mt-1"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* ── AI Suggestions (Active Only) ── */}
         {mode === 'active' && metrics && (
           <>
             <Separator />
