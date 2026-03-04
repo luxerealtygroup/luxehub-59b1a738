@@ -229,19 +229,26 @@ const BusinessPlanning = () => {
     }
   }, [uid, quarter]);
 
-  // Pre-fill from active metrics
+  // Pre-fill from active metrics — for active agents, always sync key fields
   useEffect(() => {
-    if (mode === 'active' && metrics && !goalsId) {
-      setGoals(g => ({
-        ...g,
-        contact_to_appt_rate: metrics.contactToApptPct || g.contact_to_appt_rate,
-        appt_to_contract_rate: metrics.apptToContractPct || g.appt_to_contract_rate,
-        cma_to_listing_rate: metrics.cmaToListingPct || g.cma_to_listing_rate,
-        dials_to_appt_rate: metrics.dialsToApptPct || g.dials_to_appt_rate,
-        avg_commission: metrics.avgCommission || g.avg_commission,
-      }));
+    if (mode === 'active' && metrics) {
+      setGoals(g => {
+        const avgComm = metrics.avgCommission || g.avg_commission;
+        // Auto-derive quarterly GCI target from annual target
+        const annualTarget = metrics.targetGCI || 0;
+        const autoQGci = annualTarget > 0 ? Math.round(annualTarget / 4) : g.gci_target;
+        return {
+          ...g,
+          contact_to_appt_rate: metrics.contactToApptPct || g.contact_to_appt_rate,
+          appt_to_contract_rate: metrics.apptToContractPct || g.appt_to_contract_rate,
+          cma_to_listing_rate: metrics.cmaToListingPct || g.cma_to_listing_rate,
+          dials_to_appt_rate: metrics.dialsToApptPct || g.dials_to_appt_rate,
+          avg_commission: avgComm,
+          gci_target: autoQGci,
+        };
+      });
     }
-  }, [mode, metrics, goalsId]);
+  }, [mode, metrics]);
 
   // ─── Bootstrap ───
   useEffect(() => { fetchSupplemental(); fetchGoals(); }, [fetchSupplemental, fetchGoals]);
