@@ -68,21 +68,23 @@ serve(async (req) => {
       }
     }
 
-    // Aggregate activity metrics
+    // Aggregate activity metrics with goal-tracking fallback
     const totalWeeks = weeks.length;
+    const val = (v: number | null | undefined): number => v || 0;
     const totals = {
       dials: 0, contacts: 0, appointmentsSet: 0, appointmentsHeld: 0,
       pipelineAdditions: 0, contractsSigned: 0, firmDeals: 0, doorsKnocked: 0,
     };
     for (const w of weeks) {
-      totals.dials += w.dials || 0;
-      totals.contacts += w.contacts_made || 0;
-      totals.appointmentsSet += w.appointments_set || 0;
-      totals.appointmentsHeld += w.appointments_held || 0;
-      totals.pipelineAdditions += w.pipeline_additions || 0;
-      totals.contractsSigned += w.contracts_signed || 0;
-      totals.firmDeals += w.firm_deals || 0;
-      totals.doorsKnocked += w.doors_knocked || 0;
+      // Use activity fields first; fall back to goal tracking fields if activity is 0/null
+      totals.dials += val(w.dials) || val(w.calls_actual);
+      totals.contacts += val(w.contacts_made);
+      totals.appointmentsSet += val(w.appointments_set) || val(w.appointments_actual);
+      totals.appointmentsHeld += val(w.appointments_held) || val(w.appointments_actual);
+      totals.pipelineAdditions += val(w.pipeline_additions);
+      totals.contractsSigned += val(w.contracts_signed) || val(w.contracts_actual);
+      totals.firmDeals += val(w.firm_deals);
+      totals.doorsKnocked += val(w.doors_knocked);
     }
 
     // Count task completion patterns
