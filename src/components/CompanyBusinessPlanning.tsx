@@ -3,6 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
 import { classifyStage, isActiveListingDeal } from '@/hooks/useFubDealMetrics';
+import { normalize411Row } from '@/lib/utils/weekly411Fallback';
+import { format, startOfYear } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -13,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   Target, TrendingUp, DollarSign, Users, Building2,
-  UserPlus, ClipboardList, Loader2, Save, BarChart3,
+  UserPlus, ClipboardList, Loader2, Save, BarChart3, ArrowRightLeft, Briefcase,
 } from 'lucide-react';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -48,6 +50,28 @@ interface RecruitingData {
   notes: string;
 }
 
+interface PipelineSummary {
+  totalClients: number;
+  buyers: number;
+  sellers: number;
+  projectedGci: number;
+}
+
+interface ConversionTotals {
+  contacts_made: number;
+  dials: number;
+  appointments_set: number;
+  appointments_held: number;
+  pipeline_additions: number;
+  contracts_signed: number;
+  firm_deals: number;
+}
+
+const pctFmt = (num: number, den: number): string => {
+  if (den === 0) return '—';
+  return ((num / den) * 100).toFixed(1) + '%';
+};
+
 const CURRENT_YEAR = 2026;
 const CURRENT_QUARTER = Math.ceil((new Date().getMonth() + 1) / 3);
 
@@ -59,6 +83,8 @@ const CompanyBusinessPlanning = () => {
   const [agentGoals, setAgentGoals] = useState<AgentGoalRow[]>([]);
   const [companyDealGoal, setCompanyDealGoal] = useState(0);
   const [companyGciGoal, setCompanyGciGoal] = useState(0);
+  const [pipelineSummary, setPipelineSummary] = useState<PipelineSummary>({ totalClients: 0, buyers: 0, sellers: 0, projectedGci: 0 });
+  const [conversionTotals, setConversionTotals] = useState<ConversionTotals>({ contacts_made: 0, dials: 0, appointments_set: 0, appointments_held: 0, pipeline_additions: 0, contracts_signed: 0, firm_deals: 0 });
   const [recruiting, setRecruiting] = useState<RecruitingData>({
     year: CURRENT_YEAR,
     quarter: CURRENT_QUARTER,
@@ -77,7 +103,7 @@ const CompanyBusinessPlanning = () => {
 
   const fetchAll = async () => {
     setLoading(true);
-    await Promise.all([fetchFubMetrics(), fetchAgentGoals(), fetchCompanyGoals(), fetchRecruiting()]);
+    await Promise.all([fetchFubMetrics(), fetchAgentGoals(), fetchCompanyGoals(), fetchRecruiting(), fetchPipeline(), fetchConversions()]);
     setLoading(false);
   };
 
@@ -162,6 +188,42 @@ const CompanyBusinessPlanning = () => {
         notes: data.notes || '',
       });
     }
+  };
+
+  // ── 5. Team pipeline ──
+  const fetchPipeline = async () => {
+    const { data } = await supabase.from('pipeline_clients').select('client_type, projected_gci');
+    const clients = data || [];
+    setPipelineSummary({
+      totalClients: clients.length,
+      buyers: clients.filter(c => c.client_type === 'buyer').length,
+      sellers: clients.filter(c => c.client_type === 'seller').length,
+      projectedGci: clients.reduce((s, c) => s + Number(c.projected_gci || 0), 0),
+    });
+  };
+
+  // ── 6. Team conversion rates ──
+  const fetchConversions = async () => {
+    const fromStr = format(startOfYear(new Date()), 'yyyy-MM-dd');
+    const toStr = format(new Date(), 'yyyy-MM-dd');
+    const { data } = await supabase
+      .from('weekly_411')
+      .select('contacts_made, dials, appointments_set, appointments_held, pipeline_additions, contracts_signed, firm_deals, calls_actual, appointments_actual, contracts_actual')
+      .gte('week_start_date', fromStr)
+      .lte('week_start_date', toStr);
+
+    const totals: ConversionTotals = { contacts_made: 0, dials: 0, appointments_set: 0, appointments_held: 0, pipeline_additions: 0, contracts_signed: 0, firm_deals: 0 };
+    (data || []).forEach(row => {
+      const n = normalize411Row(row);
+      totals.contacts_made += n.contacts_made;
+      totals.dials += n.dials;
+      totals.appointments_set += n.appointments_set;
+      totals.appointments_held += n.appointments_held;
+      totals.pipeline_additions += n.pipeline_additions;
+      totals.contracts_signed += n.contracts_signed;
+      totals.firm_deals += n.firm_deals;
+    });
+    setConversionTotals(totals);
   };
 
   const saveRecruiting = async () => {
@@ -255,6 +317,50 @@ const CompanyBusinessPlanning = () => {
               <MetricCard label="Projected Year-End Closings" value={projectedClosings} icon={<TrendingUp className="h-4 w-4 text-amber-500" />} sub={`Based on ${monthsElapsed} months pace`} />
               <MetricCard label="Projected Year-End GCI" value={formatCurrency(projectedGci)} icon={<DollarSign className="h-4 w-4 text-amber-500" />} sub={`Based on ${monthsElapsed} months pace`} />
             </div>
+
+            {/* Team Pipeline */}
+            <Card className="border-border">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Briefcase className="h-4 w-4 text-gold" /> Team Pipeline
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <MetricCard label="Total Pipeline Clients" value={pipelineSummary.totalClients} icon={<Users className="h-4 w-4 text-blue-500" />} />
+                  <MetricCard label="Buyers" value={pipelineSummary.buyers} icon={<Users className="h-4 w-4 text-emerald-500" />} />
+                  <MetricCard label="Sellers" value={pipelineSummary.sellers} icon={<Building2 className="h-4 w-4 text-amber-500" />} />
+                  <MetricCard label="Projected Pipeline GCI" value={formatCurrency(pipelineSummary.projectedGci)} icon={<DollarSign className="h-4 w-4 text-gold" />} />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Team Conversion Rates */}
+            <Card className="border-border">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <ArrowRightLeft className="h-4 w-4 text-gold" /> Team Conversion Rates (YTD)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                  {[
+                    { label: 'Contact → Appt Set', val: pctFmt(conversionTotals.appointments_set, conversionTotals.contacts_made), sub: `${conversionTotals.appointments_set}/${conversionTotals.contacts_made}` },
+                    { label: 'Dials → Appt Set', val: pctFmt(conversionTotals.appointments_set, conversionTotals.dials), sub: `${conversionTotals.appointments_set}/${conversionTotals.dials}` },
+                    { label: 'Contact → Pipeline', val: pctFmt(conversionTotals.pipeline_additions, conversionTotals.contacts_made), sub: `${conversionTotals.pipeline_additions}/${conversionTotals.contacts_made}` },
+                    { label: 'Appt Held → Contract', val: pctFmt(conversionTotals.contracts_signed, conversionTotals.appointments_held), sub: `${conversionTotals.contracts_signed}/${conversionTotals.appointments_held}` },
+                    { label: 'Appt Held → Firm Deal', val: pctFmt(conversionTotals.firm_deals, conversionTotals.appointments_held), sub: `${conversionTotals.firm_deals}/${conversionTotals.appointments_held}` },
+                    { label: 'Dials → Pipeline', val: pctFmt(conversionTotals.pipeline_additions, conversionTotals.dials), sub: `${conversionTotals.pipeline_additions}/${conversionTotals.dials}` },
+                  ].map(m => (
+                    <div key={m.label} className="text-center p-3 rounded-lg border border-border bg-muted/20">
+                      <p className="text-xl font-bold text-foreground">{m.val}</p>
+                      <p className="text-xs text-muted-foreground leading-tight mt-1">{m.label}</p>
+                      <p className="text-xs text-muted-foreground">{m.sub}</p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* ── TAB 2: Agent Goal Coverage ── */}
