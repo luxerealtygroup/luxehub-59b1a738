@@ -1,5 +1,6 @@
 import { FUBDeal } from '@/lib/api/followUpBoss';
 import { DebugInfo, DealMetrics } from '@/hooks/useFubDealMetrics';
+import { WeightedDebugInfo } from '@/lib/utils/dealWeight';
 
 export const currentYear = 2026;
 
@@ -32,6 +33,11 @@ export interface ActiveMetrics {
   totalContacts: number;
   totalDials: number;
   weeksOfData: number;
+  // Weighted deal metrics
+  weightedClosed: number;
+  weightedPending: number;
+  weightedDebugClosed: WeightedDebugInfo | null;
+  weightedDebugPending: WeightedDebugInfo | null;
 }
 
 export interface GoalInputs {

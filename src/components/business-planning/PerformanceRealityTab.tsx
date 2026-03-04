@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { PipelineDebug } from '@/hooks/usePipelineMetrics';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
@@ -14,6 +15,7 @@ import { DebugInfo } from '@/hooks/useFubDealMetrics';
 import { ActiveMetrics, ActiveListingDebug, GoalInputs, currentYear, safe } from './types';
 import { StatCard } from './shared';
 import { toast } from 'sonner';
+import { formatWeightedDeals } from '@/lib/utils/dealWeight';
 
 // ── Pipeline data from shared usePipelineMetrics hook (same source as Pipeline tab) ──
 export interface PipelineGapData {
@@ -211,9 +213,9 @@ export function PerformanceRealityTab({
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <StatCard label={`${rangeLabel} Closed Deals`} value={formatNumber(metrics.ytdClosedDeals)} />
+              <StatCard label={`${rangeLabel} Closed (weighted)`} value={formatWeightedDeals(metrics.weightedClosed)} sub={metrics.weightedDebugClosed?.leaseCount ? `${metrics.ytdClosedDeals} raw · ${metrics.weightedDebugClosed.leaseCount} leases` : `${metrics.ytdClosedDeals} raw`} />
               <StatCard label={`${rangeLabel} GCI`} value={formatCurrency(metrics.ytdGCI)} />
-              <StatCard label="Pending GCI" value={formatCurrency(metrics.pendingGCI)} />
+              <StatCard label="Pending (weighted)" value={formatWeightedDeals(metrics.weightedPending)} sub={metrics.weightedDebugPending?.leaseCount ? `${metrics.pendingDeals} raw · ${metrics.weightedDebugPending.leaseCount} leases` : `${metrics.pendingDeals} raw`} />
               <StatCard label="Active Listings" value={formatNumber(metrics.activeListings)} />
             </div>
 
