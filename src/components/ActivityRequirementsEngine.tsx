@@ -6,7 +6,7 @@ import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { Target, Send, Phone, Users, CalendarCheck, TrendingUp } from 'lucide-react';
+import { Target, Send, Phone, Users, CalendarCheck, TrendingUp, FileText, Lock } from 'lucide-react';
 import { formatNumber } from '@/lib/utils';
 
 interface ConversionRates {
@@ -14,6 +14,7 @@ interface ConversionRates {
   dialToAppt: number;      // percentage e.g. 10
   apptToPipeline: number;  // percentage e.g. 30
   apptToContract: number;  // percentage e.g. 25
+  cmaToListing: number;    // percentage e.g. 30
 }
 
 interface Props {
@@ -22,6 +23,7 @@ interface Props {
   conversionRates: ConversionRates;
   userId: string | null;
   isReadOnly?: boolean;
+  adjustedClosingsNeeded?: number;
 }
 
 function getWeeksRemaining(quarter: number): number {
@@ -40,7 +42,7 @@ function toRate(pct: number, fallback: number): number {
   return pct > 0 ? pct / 100 : fallback / 100;
 }
 
-export function ActivityRequirementsEngine({ pipelineDeficit, quarter, conversionRates, userId, isReadOnly }: Props) {
+export function ActivityRequirementsEngine({ pipelineDeficit, quarter, conversionRates, userId, isReadOnly, adjustedClosingsNeeded }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [sending, setSending] = useState(false);
@@ -49,20 +51,23 @@ export function ActivityRequirementsEngine({ pipelineDeficit, quarter, conversio
   const deficit = Math.max(0, pipelineDeficit);
 
   // Rates (convert from % to decimal, with fallbacks)
-  const apptToPipelineRate = toRate(conversionRates.apptToPipeline, 30);
+  const apptToContractRate = toRate(conversionRates.apptToContract, 25);
   const contactToApptRate = toRate(conversionRates.contactToAppt, 20);
   const dialToApptRate = toRate(conversionRates.dialToAppt, 10);
+  const cmaToListingRate = toRate(conversionRates.cmaToListing, 30);
 
   // Total requirements
-  const apptsRequired = Math.ceil(deficit / apptToPipelineRate);
+  const apptsRequired = Math.ceil(deficit / apptToContractRate);
   const contactsRequired = Math.ceil(apptsRequired / contactToApptRate);
-  const dialsRequired = Math.ceil(contactsRequired / dialToApptRate);
+  const dialsRequired = Math.ceil(apptsRequired / dialToApptRate);
+  const cmasRequired = Math.ceil(deficit / cmaToListingRate);
 
   // Weekly targets
   const weeklyPipeline = Math.ceil(deficit / weeksRemaining);
   const weeklyAppts = Math.ceil(apptsRequired / weeksRemaining);
   const weeklyContacts = Math.ceil(contactsRequired / weeksRemaining);
   const weeklyDials = Math.ceil(dialsRequired / weeksRemaining);
+  const weeklyCMAs = Math.ceil(cmasRequired / weeksRemaining);
 
   const handleSendTo411 = async () => {
     const writeId = user?.id;
@@ -88,6 +93,7 @@ export function ActivityRequirementsEngine({ pipelineDeficit, quarter, conversio
       calls_goal: weeklyDials,
       appointments_goal: weeklyAppts,
       contracts_goal: weeklyPipeline,
+      listings_goal: weeklyCMAs,
     };
 
     const { error } = existing
@@ -106,9 +112,10 @@ export function ActivityRequirementsEngine({ pipelineDeficit, quarter, conversio
 
   const metrics = [
     { icon: TrendingUp, label: 'Pipeline Deals Needed', total: deficit, weekly: weeklyPipeline, color: 'text-destructive' },
-    { icon: CalendarCheck, label: 'Appointments Needed', total: apptsRequired, weekly: weeklyAppts, color: 'text-primary' },
-    { icon: Users, label: 'Contacts Needed', total: contactsRequired, weekly: weeklyContacts, color: 'text-blue-500' },
-    { icon: Phone, label: 'Dials Needed', total: dialsRequired, weekly: weeklyDials, color: 'text-gold' },
+    { icon: CalendarCheck, label: 'Appointments Required', total: apptsRequired, weekly: weeklyAppts, color: 'text-primary' },
+    { icon: Users, label: 'Contacts Required', total: contactsRequired, weekly: weeklyContacts, color: 'text-blue-500' },
+    { icon: Phone, label: 'Dials Required', total: dialsRequired, weekly: weeklyDials, color: 'text-gold' },
+    { icon: FileText, label: 'CMAs Required', total: cmasRequired, weekly: weeklyCMAs, color: 'text-emerald-500' },
   ];
 
   return (
@@ -116,15 +123,20 @@ export function ActivityRequirementsEngine({ pipelineDeficit, quarter, conversio
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-lg font-display">
           <Target className="h-5 w-5 text-gold" />
-          Activities Required to Close Pipeline Gap
+          Execution Plan to Close Pipeline Gap
           <Badge variant="outline" className="ml-auto text-xs font-normal">
             {weeksRemaining} weeks left in Q{quarter}
           </Badge>
         </CardTitle>
+        {adjustedClosingsNeeded !== undefined && adjustedClosingsNeeded > 0 && (
+          <p className="text-xs text-muted-foreground mt-1">
+            Based on Q{quarter} adjusted closings needed: <strong>{adjustedClosingsNeeded}</strong> (includes prior-quarter carryover)
+          </p>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Total requirements + weekly targets */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {/* Total + weekly targets */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {metrics.map(m => (
             <div key={m.label} className="rounded-lg border border-border bg-card/50 p-3 space-y-2">
               <div className="flex items-center gap-2">
@@ -143,11 +155,14 @@ export function ActivityRequirementsEngine({ pipelineDeficit, quarter, conversio
 
         {/* Conversion rates used */}
         <div className="rounded-lg border border-border bg-muted/30 p-3">
-          <p className="text-xs text-muted-foreground mb-2 font-medium">Conversion Rates Used</p>
+          <p className="text-xs text-muted-foreground mb-2 font-medium flex items-center gap-1.5">
+            <Lock className="h-3 w-3" /> Conversion Rates Used
+          </p>
           <div className="flex flex-wrap gap-3 text-xs">
-            <span>Appt → Pipeline: <strong>{Math.round(apptToPipelineRate * 100)}%</strong></span>
+            <span>Appt → Contract: <strong>{Math.round(apptToContractRate * 100)}%</strong></span>
             <span>Contact → Appt: <strong>{Math.round(contactToApptRate * 100)}%</strong></span>
             <span>Dial → Appt: <strong>{Math.round(dialToApptRate * 100)}%</strong></span>
+            <span>CMA → Listing: <strong>{Math.round(cmaToListingRate * 100)}%</strong></span>
             {conversionRates.contactToAppt === 0 && conversionRates.dialToAppt === 0 && (
               <Badge variant="outline" className="text-amber-600 border-amber-500/40">Using defaults</Badge>
             )}
