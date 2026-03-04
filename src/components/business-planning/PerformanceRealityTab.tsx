@@ -217,26 +217,7 @@ export function PerformanceRealityTab({
               <StatCard label="Active Listings" value={formatNumber(metrics.activeListings)} />
             </div>
 
-            {isAdmin && (
-              <div className="rounded border border-destructive/20 bg-destructive/5 p-3 text-xs font-mono space-y-1">
-                <p className="font-semibold text-destructive">Active Listings Debug</p>
-                <p>Stages included: {activeListingDebug.stagesIncluded.join(', ')}</p>
-                <p>Total active listings: <span className="font-bold">{activeListingDebug.totalActiveListings}</span></p>
-                <p>Offer deals included (listing-side): <span className="font-bold">{activeListingDebug.offerDealsIncluded}</span></p>
-                <p>Offer deals excluded (buyer-side): <span className="font-bold">{activeListingDebug.offerDealsExcludedBuyerSide}</span></p>
-                {activeListingDebug.offerDealsUnclassified > 0 && (
-                  <p className="text-amber-500">⚠ Offer deals unclassified (excluded): <span className="font-bold">{activeListingDebug.offerDealsUnclassified}</span></p>
-                )}
-                {activeListingDebug.top10.length > 0 && (
-                  <div className="mt-1">
-                    <p className="font-semibold">Top 10 active listing deals:</p>
-                    {activeListingDebug.top10.map((d, i) => (
-                      <p key={i} className="pl-2">#{d.id} — stage: "{d.stage}" pipeline: "{d.pipeline}" side: {d.inferredSide}</p>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+            {/* Active Listings Debug — hidden, re-enable for debugging */}
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <StatCard label="CMA → Listing" value={`${metrics.cmaToListingPct}%`} />
@@ -343,28 +324,7 @@ export function PerformanceRealityTab({
                     )}
                   </div>
 
-                  {isAdmin && (
-                     <div className="rounded border border-muted bg-muted/30 p-3 text-xs font-mono space-y-1 mt-3">
-                       <p className="font-semibold text-muted-foreground">Pipeline Deficit Debug (pipeline_clients table)</p>
-                       <p>effectiveUserId: <span className="font-bold">{pipelineGapData.pipelineDebug.effectiveUserId ?? 'null'}</span></p>
-                       <p>Date range: <span className="font-bold">{pipelineGapData.pipelineDebug.dateRangeStart} → {pipelineGapData.pipelineDebug.dateRangeEnd}</span></p>
-                       <p>Total pipeline clients (all): <span className="font-bold">{pipelineGapData.pipelineTotalAll}</span></p>
-                       <p>After date filter (Q{prevQ}+Q{quarter}): <span className="font-bold">{pipelineGapData.pipelineDebug.afterDateFilter}</span></p>
-                       <p>Missing expected_pending_date: <span className="font-bold">{pipelineGapData.pipelineDebug.missingDateCount}</span></p>
-                       <p>Q{quarter} Target GCI: <span className="font-bold">{formatCurrency(qTargetGCI)}</span> {goals.gci_target > 0 ? '(from Q goals)' : '(annual ÷ 4)'}</p>
-                       <p>Avg GCI/deal: <span className="font-bold">{formatCurrency(avgGCIPerDeal)}</span></p>
-                       <p>Q{quarter} Base Goal: {q2BaseGoal} | Q{prevQ} Gap: {prevQGap} | Adjusted: {adjustedClosingsGoal} | Fallout: {Math.round(falloutRate * 100)}% | Required Pipeline: {requiredPipelineDeals}</p>
-                       <p>Q{prevQ} Required: {pipelineGapData.prevQRequiredClosings} | Q{prevQ} Actual: {pipelineGapData.prevQActualClosings}</p>
-                       {pipelineGapData.pipelineDebug.top5.length > 0 && (
-                         <div className="mt-1">
-                           <p className="font-semibold">First 5 pipeline clients:</p>
-                           {pipelineGapData.pipelineDebug.top5.map((c, i) => (
-                             <p key={i} className="pl-2">#{c.id.slice(0,8)} — {c.client_name} stage:{c.stage} pendingDate:{c.expected_pending_date ?? 'null'}</p>
-                           ))}
-                         </div>
-                       )}
-                    </div>
-                  )}
+                  {/* Pipeline Deficit Debug — hidden, re-enable for debugging */}
                 </>
               )}
             </div>

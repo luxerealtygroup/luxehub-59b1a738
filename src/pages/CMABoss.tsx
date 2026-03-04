@@ -100,7 +100,7 @@ const CMABoss = () => {
 
   // Debug panel (admin-only, temporary)
   const DebugCMAScoping = () => {
-    if (!isAdmin) return null;
+    return null; // Hidden — re-enable for debugging
     return (
       <Card className="border-destructive/30 bg-destructive/5 mb-4">
         <CardContent className="py-3 text-xs font-mono space-y-1">

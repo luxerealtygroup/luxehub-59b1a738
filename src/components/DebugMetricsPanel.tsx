@@ -9,7 +9,7 @@ interface Props {
 }
 
 export function DebugMetricsPanel({ debugInfo, isAdmin }: Props) {
-  if (!isAdmin || !debugInfo) return null;
+  return null; // Hidden — re-enable for debugging
 
   return (
     <Card className="border-destructive/30 bg-destructive/5 mb-6">
