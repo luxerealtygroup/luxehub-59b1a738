@@ -945,6 +945,108 @@ export type Database = {
           },
         ]
       }
+      deal_source_categories: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      deal_source_targets: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          source_category: string
+          target_percentage: number
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          source_category: string
+          target_percentage?: number
+          updated_at?: string
+          year?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          source_category?: string
+          target_percentage?: number
+          updated_at?: string
+          year?: number
+        }
+        Relationships: []
+      }
+      deal_sources: {
+        Row: {
+          agent_id: string
+          close_date: string | null
+          created_at: string
+          deal_address: string | null
+          deal_type: string
+          fub_deal_id: number | null
+          gci: number | null
+          id: string
+          source_category: string
+          source_notes: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          close_date?: string | null
+          created_at?: string
+          deal_address?: string | null
+          deal_type?: string
+          fub_deal_id?: number | null
+          gci?: number | null
+          id?: string
+          source_category: string
+          source_notes?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          close_date?: string | null
+          created_at?: string
+          deal_address?: string | null
+          deal_type?: string
+          fub_deal_id?: number | null
+          gci?: number | null
+          id?: string
+          source_category?: string
+          source_notes?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       deals: {
         Row: {
           client_name: string
