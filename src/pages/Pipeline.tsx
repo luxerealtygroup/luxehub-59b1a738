@@ -109,7 +109,8 @@ const Pipeline = () => {
   const pipelineMetrics = usePipelineMetrics({ userId: queryUserId, dateStart: currQRange.start, dateEnd: currQRange.end });
 
   // Conversion rates + deficit data
-  const [conversionRates, setConversionRates] = useState({ contactToAppt: 0, dialToAppt: 0, apptToPipeline: 0, apptToContract: 0 });
+  const [conversionRates, setConversionRates] = useState({ contactToAppt: 0, dialToAppt: 0, apptToPipeline: 0, apptToContract: 0, cmaToListing: 0 });
+  const [adjustedClosingsNeeded, setAdjustedClosingsNeeded] = useState(0);
   const [pipelineDeficit, setPipelineDeficit] = useState(0);
 
   useEffect(() => {
@@ -118,13 +119,15 @@ const Pipeline = () => {
     Promise.all([
       supabase.from('weekly_411').select('dials, contacts_made, appointments_held, contracts_signed, calls_actual, appointments_actual, contracts_actual, pipeline_additions')
         .eq('user_id', queryUserId).gte('week_start_date', `${currentYear}-01-01`),
-      supabase.from('planning_assumptions').select('gci_target, avg_commission, contact_to_appt_rate, appt_to_contract_rate, dials_to_appt_rate')
+      supabase.from('planning_assumptions').select('gci_target, avg_commission, contact_to_appt_rate, appt_to_contract_rate, dials_to_appt_rate, cma_to_listing_rate')
         .eq('user_id', queryUserId).eq('year', currentYear).eq('quarter', currentQuarter).maybeSingle(),
       supabase.from('agent_goals').select('target_value')
         .eq('user_id', queryUserId).eq('period', 'yearly').eq('goal_type', 'deals_closed').maybeSingle(),
       supabase.from('production_goals').select('annual_gci_goal')
         .eq('user_id', queryUserId).eq('year', currentYear).maybeSingle(),
-    ]).then(([w411Res, paRes, agRes, pgRes]) => {
+      supabase.from('cma_reports').select('listing_status')
+        .eq('user_id', queryUserId),
+    ]).then(([w411Res, paRes, agRes, pgRes, cmaRes]) => {
       const rows = w411Res.data || [];
       const agg = aggregate411Rows(rows);
       const totalDials = agg.dials;
@@ -132,6 +135,12 @@ const Pipeline = () => {
       const totalAppts = agg.appointments_held;
       const totalContracts = agg.contracts_signed;
       const totalPipelineAdds = rows.reduce((s, r) => s + (r.pipeline_additions || 0), 0);
+
+      // CMA conversion rate
+      const cmas = cmaRes.data || [];
+      const totalCMAs = cmas.length;
+      const convertedCMAs = cmas.filter(c => ['Listing Signed', 'Active', 'Sold'].includes(c.listing_status)).length;
+      const realCmaToListing = pct(convertedCMAs, totalCMAs);
 
       // Compute real rates
       const realContactToAppt = pct(totalAppts, totalContacts);
@@ -146,13 +155,22 @@ const Pipeline = () => {
         dialToAppt: realDialToAppt || safe(pa?.dials_to_appt_rate) || 10,
         apptToPipeline: realApptToPipeline || 30,
         apptToContract: realApptToContract || safe(pa?.appt_to_contract_rate) || 25,
+        cmaToListing: realCmaToListing || safe(pa?.cma_to_listing_rate) || 30,
       });
 
-      // Pipeline deficit
+      // Pipeline deficit + adjusted closings
       const qTargetGCI = safe(pa?.gci_target) || (safe(pgRes.data?.annual_gci_goal) / 4);
       const avgComm = safe(pa?.avg_commission) || 15000;
       const hasTarget = qTargetGCI > 0 && avgComm > 0;
       const closingsGoal = hasTarget ? Math.ceil(qTargetGCI / avgComm) : 0;
+
+      // Carryover: derive prev-Q gap from annual goal / 4
+      const annualDealsGoal = safe(agRes.data?.target_value);
+      const prevQGoal = annualDealsGoal > 0 ? Math.ceil(annualDealsGoal / 4) : closingsGoal;
+      const adjusted = closingsGoal + Math.max(0, prevQGoal - closingsGoal); // simplified carryover
+
+      setAdjustedClosingsNeeded(adjusted);
+
       const requiredPipeline = hasTarget ? Math.ceil(closingsGoal / 0.30) : 0;
       const currentPipeline = pipelineMetrics.clientsInDateRange;
       setPipelineDeficit(Math.max(0, requiredPipeline - currentPipeline));
@@ -480,6 +498,7 @@ const Pipeline = () => {
         conversionRates={conversionRates}
         userId={queryUserId}
         isReadOnly={isReadOnly}
+        adjustedClosingsNeeded={adjustedClosingsNeeded}
       />
 
       {/* Filters */}
