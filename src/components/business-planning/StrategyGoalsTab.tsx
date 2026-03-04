@@ -205,12 +205,13 @@ export function StrategyGoalsTab({
       </CardHeader>
       <CardContent className="space-y-6">
 
-        {/* ── Editable Goal Inputs ── */}
+        {/* ── Editable Goal Inputs (planning mode only) ── */}
+        {mode === 'planning' && (
         <div>
           <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3">Goal Inputs</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <div>
-              <Label className="text-xs">Q{quarter} Closings Goal (Deals)</Label>
+              <Label className="text-xs">Q{quarter} Pending Goal (Deals)</Label>
               <Input
                 type="number"
                 min={0}
@@ -261,6 +262,7 @@ export function StrategyGoalsTab({
             </div>
           </div>
         </div>
+        )}
 
         {/* ── Q-Strategy Calculated Fields (locked) ── */}
         <Separator />
@@ -272,7 +274,7 @@ export function StrategyGoalsTab({
             <LockedField
               label={`Q${quarter > 1 ? quarter - 1 : 4} Gap (Deals)`}
               value={String(strategy.prevQGap)}
-              sub={`${prevQActualClosings} closed of ${prevQGoalClosings} goal`}
+              sub={`${prevQActualClosings} pending of ${prevQGoalClosings} goal`}
               highlight={strategy.prevQGap > 0}
             />
             <LockedField
@@ -281,7 +283,7 @@ export function StrategyGoalsTab({
               sub="Before carryover"
             />
             <LockedField
-              label="Adjusted Closings Needed"
+              label="Adjusted Pending Needed"
               value={String(strategy.adjustedClosings)}
               sub={strategy.prevQGap > 0 ? `+${strategy.prevQGap} from Q${quarter > 1 ? quarter - 1 : 4} gap` : 'No carryover'}
               highlight
@@ -330,7 +332,7 @@ export function StrategyGoalsTab({
                 <div className="grid grid-cols-4 gap-4 py-2 px-3 bg-muted/50 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   <span>Metric</span><span className="text-center">Monthly</span><span className="text-center">Weekly</span><span className="text-center">Daily</span>
                 </div>
-                <BreakdownRow label="Closings" monthly={monthly(requiredClosings)} weekly={weekly(requiredClosings)} daily={daily(requiredClosings)} />
+                <BreakdownRow label="Pending" monthly={monthly(requiredClosings)} weekly={weekly(requiredClosings)} daily={daily(requiredClosings)} />
                 <BreakdownRow label="Listings" monthly={monthly(requiredListings)} weekly={weekly(requiredListings)} daily={daily(requiredListings)} />
                 <BreakdownRow label="CMAs" monthly={monthly(requiredCMAs)} weekly={weekly(requiredCMAs)} daily={daily(requiredCMAs)} />
                 <BreakdownRow label="Appointments" monthly={monthly(requiredAppts)} weekly={weekly(requiredAppts)} daily={daily(requiredAppts)} />
@@ -397,7 +399,7 @@ export function StrategyGoalsTab({
                         <span className="text-lg font-bold text-gold">{formatCurrency(s.gci)}</span>
                       </div>
                       <div className="space-y-1 text-xs text-muted-foreground">
-                        <p>{s.closings} closings required</p>
+                        <p>{s.closings} pending required</p>
                         <p>{s.weeklyDials} dials/wk · {s.weeklyContacts} contacts/wk</p>
                         <p>{s.weeklyAppts} appts/wk · {s.weeklyCMAs} CMAs/wk</p>
                       </div>
