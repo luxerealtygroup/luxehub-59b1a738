@@ -218,7 +218,18 @@ const FourOneOne = () => {
     if (data) {
       setWeeklyData(data as unknown as Weekly411);
     } else {
-      setWeeklyData({ ...emptyWeekly, week_start_date: weekStart });
+      // Auto-populate weekly goals from Goals page monthly breakdown
+      const weeksInMonth = 4;
+      const monthlyDeals = syncedGoals.monthly_deals[currentWeek.getMonth()] || 0;
+      const weeklyDealsTarget = Math.ceil(monthlyDeals / weeksInMonth);
+      setWeeklyData({ 
+        ...emptyWeekly, 
+        week_start_date: weekStart,
+        calls_goal: syncedGoals.deals_goal > 0 ? Math.ceil((monthlyDeals * 10) / weeksInMonth) : 50,
+        appointments_goal: syncedGoals.deals_goal > 0 ? Math.ceil((monthlyDeals * 4) / weeksInMonth) : 10,
+        listings_goal: syncedGoals.deals_goal > 0 ? weeklyDealsTarget : 2,
+        contracts_goal: syncedGoals.deals_goal > 0 ? weeklyDealsTarget : 2,
+      });
     }
   };
 
@@ -296,11 +307,15 @@ const FourOneOne = () => {
   };
 
   useEffect(() => {
-    fetchWeeklyData();
     fetchAnnualGoals();
     fetchSyncedGoals();
     fetchAppointmentRecords();
   }, [user, currentWeek]);
+
+  // Fetch weekly data after synced goals are loaded so defaults can be populated
+  useEffect(() => {
+    if (user) fetchWeeklyData();
+  }, [user, currentWeek, syncedGoals.deals_goal]);
 
   // Auto-update appointments_held count from structured records
   useEffect(() => {
@@ -1062,39 +1077,49 @@ const FourOneOne = () => {
           <Card className="border-primary/10">
             <CardHeader>
               <CardTitle className="text-lg font-display flex items-center gap-2">
-                <Trophy className="h-5 w-5 text-primary" /> Annual Goals ({annualGoals.year})
+                <Trophy className="h-5 w-5 text-primary" /> Annual Goals ({currentYear})
               </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                These values are synced from your Goals page breakdown. Edit them there to update.
+              </p>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label>Units Goal</Label>
-                  <Input
-                    type="number"
-                    placeholder="24"
-                    value={annualGoals.annual_units_goal}
-                    onChange={(e) => setAnnualGoals({ ...annualGoals, annual_units_goal: parseInt(e.target.value) || 0 })}
-                  />
+                  <Label className="text-muted-foreground">Annual Deals Goal</Label>
+                  <div className="flex h-10 items-center rounded-md border border-input bg-muted/50 px-3 text-lg font-bold">
+                    {syncedGoals.deals_goal || '—'}
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>GCI Goal ($)</Label>
-                  <Input
-                    type="number"
-                    placeholder="150000"
-                    value={annualGoals.annual_gci_goal}
-                    onChange={(e) => setAnnualGoals({ ...annualGoals, annual_gci_goal: parseFloat(e.target.value) || 0 })}
-                  />
+                  <Label className="text-muted-foreground">Annual GCI Goal</Label>
+                  <div className="flex h-10 items-center rounded-md border border-input bg-muted/50 px-3 text-lg font-bold">
+                    {syncedGoals.gci_goal > 0 ? formatCurrency(syncedGoals.gci_goal) : '—'}
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Volume Goal ($)</Label>
-                  <Input
-                    type="number"
-                    placeholder="5000000"
-                    value={annualGoals.annual_volume_goal}
-                    onChange={(e) => setAnnualGoals({ ...annualGoals, annual_volume_goal: parseFloat(e.target.value) || 0 })}
-                  />
+                  <Label className="text-muted-foreground">Pipeline Fallout Rate</Label>
+                  <div className="flex h-10 items-center rounded-md border border-input bg-muted/50 px-3 text-lg font-bold">
+                    {syncedGoals.fallout_rate}%
+                  </div>
                 </div>
               </div>
+
+              {/* Monthly breakdown from Goals page */}
+              {syncedGoals.deals_goal > 0 && (
+                <div>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3">Monthly Goal Breakdown</h3>
+                  <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                    {monthNames.map((name, idx) => (
+                      <div key={name} className={`p-2 rounded-lg border text-center ${idx === currentMonth ? 'border-primary bg-primary/5' : 'border-border'}`}>
+                        <p className="text-xs font-medium text-muted-foreground">{name}</p>
+                        <p className="text-sm font-bold text-foreground">{Math.round(syncedGoals.monthly_deals[idx] * 10) / 10} deals</p>
+                        <p className="text-xs text-muted-foreground">{formatCurrency(Math.round(syncedGoals.monthly_gci[idx]))}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label>Annual Focus / Big Why</Label>
