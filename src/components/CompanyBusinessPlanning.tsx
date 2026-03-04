@@ -775,18 +775,15 @@ const GciPaceChart = ({ closedDeals, pendingDeals, gciGoal }: { closedDeals: { g
       } catch {}
     });
 
-    const weeks: { week: number; weekLabel: string; closed: number | null; closedPlusPending: number | null; target: number }[] = [];
-    let runningClosed = 0;
+    const weeks: { week: number; weekLabel: string; gci: number | null; target: number }[] = [];
     let runningTotal = 0;
 
     for (let w = 0; w < totalWeeks; w++) {
-      runningClosed += weekGciClosed[w];
       runningTotal += weekGciClosed[w] + weekGciPending[w];
       weeks.push({
         week: w + 1,
         weekLabel: `W${w + 1}`,
-        closed: w < currentWeekNum ? Math.round(runningClosed) : null,
-        closedPlusPending: w < currentWeekNum ? Math.round(runningTotal) : null,
+        gci: w < currentWeekNum ? Math.round(runningTotal) : null,
         target: Math.round(weeklyTarget * (w + 1)),
       });
     }
@@ -809,13 +806,12 @@ const GciPaceChart = ({ closedDeals, pendingDeals, gciGoal }: { closedDeals: { g
             labelStyle={{ color: 'hsl(var(--foreground))' }}
             formatter={(value: number, name: string) => [
               `$${value.toLocaleString()}`,
-              name === 'target' ? 'Target Pace' : name === 'closedPlusPending' ? 'Closed + Pending' : 'Closed GCI',
+              name === 'target' ? 'Target Pace' : 'Closed + Pending GCI',
             ]}
           />
           <Legend />
           <Line type="monotone" dataKey="target" stroke="hsl(var(--muted-foreground))" strokeDasharray="5 5" strokeWidth={2} dot={false} name="Target Pace" />
-          <Line type="monotone" dataKey="closedPlusPending" stroke="hsl(142, 71%, 45%)" strokeWidth={2} strokeDasharray="4 2" dot={false} name="Closed + Pending" connectNulls={false} />
-          <Line type="monotone" dataKey="closed" stroke="hsl(43, 74%, 49%)" strokeWidth={2.5} dot={false} name="Closed GCI" connectNulls={false} />
+          <Line type="monotone" dataKey="gci" stroke="hsl(43, 74%, 49%)" strokeWidth={2.5} dot={false} name="Closed + Pending GCI" connectNulls={false} />
         </LineChart>
       </ResponsiveContainer>
     </div>
