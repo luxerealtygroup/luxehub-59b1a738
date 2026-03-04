@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
+import { normalize411Row } from '@/lib/utils/weekly411Fallback';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -109,7 +110,7 @@ const ConversionReport = () => {
 
       let query = supabase
         .from('weekly_411')
-        .select('user_id, contacts_made, dials, doors_knocked, appointments_set, appointments_held, pipeline_additions, contracts_signed, firm_deals, database_size, week_start_date')
+        .select('user_id, contacts_made, dials, doors_knocked, appointments_set, appointments_held, pipeline_additions, contracts_signed, firm_deals, database_size, week_start_date, calls_actual, appointments_actual, contracts_actual')
         .gte('week_start_date', fromStr)
         .lte('week_start_date', toStr);
 
@@ -137,15 +138,16 @@ const ConversionReport = () => {
         firm_deals: 0, database_size: 0,
       };
 
-      existing.contacts_made += row.contacts_made || 0;
-      existing.dials += row.dials || 0;
-      existing.doors_knocked += row.doors_knocked || 0;
-      existing.appointments_set += row.appointments_set || 0;
-      existing.appointments_held += row.appointments_held || 0;
-      existing.pipeline_additions += row.pipeline_additions || 0;
-      existing.contracts_signed += row.contracts_signed || 0;
-      existing.firm_deals += row.firm_deals || 0;
-      existing.database_size = Math.max(existing.database_size, row.database_size || 0);
+      const n = normalize411Row(row);
+      existing.contacts_made += n.contacts_made;
+      existing.dials += n.dials;
+      existing.doors_knocked += n.doors_knocked;
+      existing.appointments_set += n.appointments_set;
+      existing.appointments_held += n.appointments_held;
+      existing.pipeline_additions += n.pipeline_additions;
+      existing.contracts_signed += n.contracts_signed;
+      existing.firm_deals += n.firm_deals;
+      existing.database_size = Math.max(existing.database_size, n.database_size);
 
       map.set(row.user_id, existing);
     });

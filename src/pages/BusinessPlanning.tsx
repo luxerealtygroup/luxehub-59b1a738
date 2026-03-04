@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { aggregate411Rows } from '@/lib/utils/weekly411Fallback';
 import { useAuth } from '@/hooks/useAuth';
 import { useHasFUB } from '@/hooks/useHasFUB';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -154,17 +155,18 @@ const BusinessPlanning = () => {
     const yearStart = `${currentYear}-01-01`;
     const [cmaRes, w411Res, goalsRes] = await Promise.all([
       supabase.from('cma_reports').select('listing_status').eq('user_id', uid),
-      supabase.from('weekly_411').select('dials, contacts_made, appointments_held, contracts_signed, week_start_date').eq('user_id', uid).gte('week_start_date', yearStart),
+      supabase.from('weekly_411').select('dials, contacts_made, appointments_set, appointments_held, contracts_signed, doors_knocked, pipeline_additions, firm_deals, database_size, week_start_date, calls_actual, appointments_actual, contracts_actual').eq('user_id', uid).gte('week_start_date', yearStart),
       supabase.from('production_goals').select('annual_gci_goal').eq('user_id', uid).eq('year', currentYear).maybeSingle(),
     ]);
     const cmas = cmaRes.data || [];
     const w411 = w411Res.data || [];
     const totalCMAs = cmas.length;
     const convertedCMAs = cmas.filter(c => ['Listing Signed', 'Active', 'Sold'].includes(c.listing_status)).length;
-    const totalDials = w411.reduce((s, w) => s + safe(w.dials), 0);
-    const totalContacts = w411.reduce((s, w) => s + safe(w.contacts_made), 0);
-    const totalAppts = w411.reduce((s, w) => s + safe(w.appointments_held), 0);
-    const totalContracts = w411.reduce((s, w) => s + safe(w.contracts_signed), 0);
+    const agg = aggregate411Rows(w411);
+    const totalDials = agg.dials;
+    const totalContacts = agg.contacts_made;
+    const totalAppts = agg.appointments_held;
+    const totalContracts = agg.contracts_signed;
     const weeksOfData = Math.max(w411.length, 1);
     const targetGCI = safe(goalsRes.data?.annual_gci_goal);
     setSuppMetrics({
