@@ -22,6 +22,7 @@ import { SOURCE_OPTIONS } from '@/lib/constants/sourceOptions';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { usePipelineMetrics } from '@/hooks/usePipelineMetrics';
 import { ActivityRequirementsEngine } from '@/components/ActivityRequirementsEngine';
+import { PaceTracker } from '@/components/PaceTracker';
 import { aggregate411Rows } from '@/lib/utils/weekly411Fallback';
 import { currentYear, safe, pct } from '@/components/business-planning/types';
 
@@ -490,6 +491,15 @@ const Pipeline = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Pace Tracker + Coach Mode */}
+      <PaceTracker
+        userId={queryUserId}
+        pipelineDeficit={pipelineDeficit}
+        currentPipelineCount={pipelineMetrics.totalClients}
+        conversionRates={conversionRates}
+        isReadOnly={isReadOnly}
+      />
 
       {/* Activity Requirements Engine */}
       <ActivityRequirementsEngine
