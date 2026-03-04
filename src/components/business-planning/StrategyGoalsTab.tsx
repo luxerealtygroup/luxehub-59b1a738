@@ -70,9 +70,21 @@ export function StrategyGoalsTab({
   }, [goals.avg_commission, goals.avg_sale_price]);
 
   // ── Strategy calculations (shared helper) ──
-  const qClosingsGoal = goals.gci_target > 0 && goals.avg_commission > 0
-    ? Math.ceil(goals.gci_target / goals.avg_commission)
-    : 0;
+  // For active agents: auto-derive Q closings from annual target / 4
+  const qClosingsGoal = useMemo(() => {
+    if (goals.gci_target > 0 && goals.avg_commission > 0) {
+      return Math.ceil(goals.gci_target / goals.avg_commission);
+    }
+    // Active mode fallback: derive from annual production goal
+    if (mode === 'active' && metrics) {
+      const annualTarget = metrics.targetGCI;
+      const avgComm = metrics.avgCommission || 15000;
+      if (annualTarget > 0) {
+        return Math.ceil((annualTarget / avgComm) / 4); // quarterly
+      }
+    }
+    return 0;
+  }, [goals.gci_target, goals.avg_commission, mode, metrics]);
 
   const strategyInputs: StrategyInputs = {
     qClosingsGoal,
