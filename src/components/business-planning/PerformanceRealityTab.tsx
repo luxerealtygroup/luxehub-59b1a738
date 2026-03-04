@@ -220,16 +220,18 @@ export function PerformanceRealityTab({
             {isAdmin && (
               <div className="rounded border border-destructive/20 bg-destructive/5 p-3 text-xs font-mono space-y-1">
                 <p className="font-semibold text-destructive">Active Listings Debug</p>
-                <p>effectiveFubUserId: <span className="font-bold">{activeListingDebug.effectiveFubUserId ?? 'null'}</span></p>
                 <p>Stages included: {activeListingDebug.stagesIncluded.join(', ')}</p>
-                <p>Raw deals for agent: <span className="font-bold">{activeListingDebug.rawDealCount}</span></p>
-                <p>Active stage match (before owner filter): <span className="font-bold">{activeListingDebug.activeBeforeOwnerFilter}</span></p>
-                <p>Active listings (after owner filter): <span className="font-bold">{activeListingDebug.activeListingCount}</span></p>
-                {activeListingDebug.top5.length > 0 && (
+                <p>Total active listings: <span className="font-bold">{activeListingDebug.totalActiveListings}</span></p>
+                <p>Offer deals included (listing-side): <span className="font-bold">{activeListingDebug.offerDealsIncluded}</span></p>
+                <p>Offer deals excluded (buyer-side): <span className="font-bold">{activeListingDebug.offerDealsExcludedBuyerSide}</span></p>
+                {activeListingDebug.offerDealsUnclassified > 0 && (
+                  <p className="text-amber-500">⚠ Offer deals unclassified (excluded): <span className="font-bold">{activeListingDebug.offerDealsUnclassified}</span></p>
+                )}
+                {activeListingDebug.top10.length > 0 && (
                   <div className="mt-1">
-                    <p className="font-semibold">Top 5 active listing deals:</p>
-                    {activeListingDebug.top5.map((d, i) => (
-                      <p key={i} className="pl-2">#{d.id} — stage: "{d.stage}" pipeline: "{d.pipeline}" assignedUserId: {d.assignedUserId} userId: {d.userId} users: {d.users}</p>
+                    <p className="font-semibold">Top 10 active listing deals:</p>
+                    {activeListingDebug.top10.map((d, i) => (
+                      <p key={i} className="pl-2">#{d.id} — stage: "{d.stage}" pipeline: "{d.pipeline}" side: {d.inferredSide}</p>
                     ))}
                   </div>
                 )}
