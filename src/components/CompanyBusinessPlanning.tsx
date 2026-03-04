@@ -153,19 +153,29 @@ const CompanyBusinessPlanning = () => {
 
   // ── 2. Agent goals ──
   const fetchAgentGoals = async () => {
-    const [goalsRes, profilesRes] = await Promise.all([
+    const [goalsRes, profilesRes, assumptionsRes] = await Promise.all([
       supabase.from('production_goals').select('user_id, annual_units_goal, annual_gci_goal, annual_volume_goal').eq('year', CURRENT_YEAR),
       supabase.from('profiles').select('id, full_name'),
+      supabase.from('planning_assumptions').select('user_id, split_percent').eq('year', CURRENT_YEAR),
     ]);
     const profileMap = new Map((profilesRes.data || []).map(p => [p.id, p.full_name || 'Unknown']));
+    // Build a map of agent split percentages so we can reverse net GCI → gross GCI
+    const splitMap = new Map((assumptionsRes.data || []).map((a: any) => [a.user_id, Number(a.split_percent) || 100]));
     setAgentGoals(
-      (goalsRes.data || []).map(g => ({
-        agentName: profileMap.get(g.user_id) || 'Unknown',
-        userId: g.user_id,
-        dealGoal: g.annual_units_goal || 0,
-        gciGoal: g.annual_gci_goal || 0,
-        volumeGoal: g.annual_volume_goal || 0,
-      })),
+      (goalsRes.data || []).map(g => {
+        const splitPct = splitMap.get(g.user_id) ?? 100;
+        // annual_gci_goal is the agent's net GCI (after split).
+        // Gross GCI = net / (split% / 100)  so the company sees true production.
+        const netGci = g.annual_gci_goal || 0;
+        const grossGci = splitPct > 0 && splitPct < 100 ? Math.round(netGci / (splitPct / 100)) : netGci;
+        return {
+          agentName: profileMap.get(g.user_id) || 'Unknown',
+          userId: g.user_id,
+          dealGoal: g.annual_units_goal || 0,
+          gciGoal: grossGci,
+          volumeGoal: g.annual_volume_goal || 0,
+        };
+      }),
     );
   };
 
