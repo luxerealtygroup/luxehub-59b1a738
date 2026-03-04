@@ -20,7 +20,7 @@ import AnnualBudgetChart from './AnnualBudgetChart';
 import AccountsPayable from './AccountsPayable';
 import Team411 from './Team411';
 import ConversionReport from './ConversionReport';
-import CompanyBusinessPlanning from './CompanyBusinessPlanning';
+
 import { CreateAgentDialog } from './CreateAgentDialog';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 
@@ -754,9 +754,6 @@ const AdminDashboard = () => {
           <TabsTrigger value="conversions" className="flex items-center gap-2">
             <ArrowRightLeft className="h-4 w-4" /> Conversions
           </TabsTrigger>
-          <TabsTrigger value="companybp" className="flex items-center gap-2">
-            <Building2 className="h-4 w-4" /> Business Planning
-          </TabsTrigger>
         </TabsList>
 
         {/* PIPELINE & SALES TAB */}
@@ -1251,10 +1248,6 @@ const AdminDashboard = () => {
         {/* CONVERSION REPORT TAB */}
         <TabsContent value="conversions" className="space-y-6">
           <ConversionReport />
-        </TabsContent>
-        {/* COMPANY BUSINESS PLANNING TAB */}
-        <TabsContent value="companybp" className="space-y-6">
-          <CompanyBusinessPlanning />
         </TabsContent>
       </Tabs>
     </div>
