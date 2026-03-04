@@ -1308,6 +1308,51 @@ export type Database = {
         }
         Relationships: []
       }
+      recruiting_pipeline: {
+        Row: {
+          accepted: number
+          avg_agent_production: number
+          created_at: string
+          created_by: string
+          id: string
+          interviews: number
+          notes: string | null
+          offers: number
+          quarter: number
+          recruiting_leads: number
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          accepted?: number
+          avg_agent_production?: number
+          created_at?: string
+          created_by: string
+          id?: string
+          interviews?: number
+          notes?: string | null
+          offers?: number
+          quarter?: number
+          recruiting_leads?: number
+          updated_at?: string
+          year?: number
+        }
+        Update: {
+          accepted?: number
+          avg_agent_production?: number
+          created_at?: string
+          created_by?: string
+          id?: string
+          interviews?: number
+          notes?: string | null
+          offers?: number
+          quarter?: number
+          recruiting_leads?: number
+          updated_at?: string
+          year?: number
+        }
+        Relationships: []
+      }
       sales_activities: {
         Row: {
           activity_type: string
