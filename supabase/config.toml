@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.business-planning-ai]
 verify_jwt = false
+
+[functions.coach-me]
+verify_jwt = false
