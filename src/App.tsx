@@ -24,6 +24,7 @@ import Library from "./pages/Library";
 import Submissions from "./pages/Submissions";
 import CMABoss from "./pages/CMABoss";
 import BusinessPlanning from "./pages/BusinessPlanning";
+import CompanyBusinessPlanningPage from "./pages/CompanyBusinessPlanningPage";
 import NotFound from "./pages/NotFound";
 import ClientLogin from "./pages/client-portal/ClientLogin";
 import ClientSignup from "./pages/client-portal/ClientSignup";
@@ -66,6 +67,7 @@ const App = () => (
               <Route path="cma-boss" element={<RoleGuard><CMABoss /></RoleGuard>} />
               <Route path="business-planning" element={<BusinessPlanning />} />
               <Route path="admin" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><AdminReports /></RoleGuard>} />
+              <Route path="admin/business-planning" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><CompanyBusinessPlanningPage /></RoleGuard>} />
               <Route path="admin/agent/:agentId" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><AgentProfile /></RoleGuard>} />
             </Route>
             <Route path="*" element={<NotFound />} />
