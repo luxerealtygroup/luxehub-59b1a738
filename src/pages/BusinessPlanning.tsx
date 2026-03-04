@@ -204,6 +204,10 @@ const BusinessPlanning = () => {
       totalAppts: suppMetrics.totalAppts, totalContracts: suppMetrics.totalContracts,
       totalContacts: suppMetrics.totalContacts, totalDials: suppMetrics.totalDials,
       weeksOfData: suppMetrics.weeksOfData,
+      weightedClosed: dealMetrics.weighted_closed,
+      weightedPending: dealMetrics.weighted_pending,
+      weightedDebugClosed: dealMetrics.weighted_debug_closed,
+      weightedDebugPending: dealMetrics.weighted_debug_pending,
     });
   }, [dealMetrics, suppMetrics, fubActiveListings.length]);
 

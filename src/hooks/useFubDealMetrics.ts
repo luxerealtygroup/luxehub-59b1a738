@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
+import { sumWeightedDeals, buildWeightedDebug, WeightedDebugInfo } from '@/lib/utils/dealWeight';
 
 // ── Single source of truth for stage classification ──────────────────────
 export const CLOSED_STAGES = ['closed', 'won', 'sold', 'settled', 'completed'];
@@ -81,6 +82,11 @@ export interface DealMetrics {
   deals_pending: number;
   gci_earned: number;
   gci_pending: number;
+  /** Weighted deal counts (leases = 0.33) */
+  weighted_closed: number;
+  weighted_pending: number;
+  weighted_debug_closed: WeightedDebugInfo | null;
+  weighted_debug_pending: WeightedDebugInfo | null;
 }
 
 export interface DebugInfo {
@@ -122,6 +128,7 @@ export function useFubDealMetrics({
 }: UseFubDealMetricsOptions) {
   const [metrics, setMetrics] = useState<DealMetrics>({
     deals_closed: 0, deals_pending: 0, gci_earned: 0, gci_pending: 0,
+    weighted_closed: 0, weighted_pending: 0, weighted_debug_closed: null, weighted_debug_pending: null,
   });
   const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -164,6 +171,8 @@ export function useFubDealMetrics({
     let dealsPending = 0;
     let gciEarned = 0;
     let gciPending = 0;
+    let closedDealsArr: any[] = [];
+    let pendingDealsArr: any[] = [];
 
     if (targetFubUserId) {
       debug.source = 'fub';
@@ -215,6 +224,7 @@ export function useFubDealMetrics({
 
         dealsClosed = closedInYear.length;
         gciEarned = closedInYear.reduce((sum, d) => sum + Number(d.agentCommission || 0), 0);
+        closedDealsArr = closedInYear;
 
         // (d) PENDING = pending stage, NOT in closed stages, any date
         const pendingDeals = agentDeals.filter(d => {
@@ -223,6 +233,7 @@ export function useFubDealMetrics({
         });
         dealsPending = pendingDeals.length;
         gciPending = pendingDeals.reduce((sum, d) => sum + Number(d.agentCommission || 0), 0);
+        pendingDealsArr = pendingDeals;
 
         setAllDeals(agentDeals);
       } catch (err) {
@@ -266,7 +277,16 @@ export function useFubDealMetrics({
       debug.dealsInClosedStagesAndDateRange = dealsClosed;
     }
 
-    setMetrics({ deals_closed: dealsClosed, deals_pending: dealsPending, gci_earned: gciEarned, gci_pending: gciPending });
+    const weightedClosed = sumWeightedDeals(closedDealsArr);
+    const weightedPending = sumWeightedDeals(pendingDealsArr);
+    setMetrics({
+      deals_closed: dealsClosed, deals_pending: dealsPending,
+      gci_earned: gciEarned, gci_pending: gciPending,
+      weighted_closed: Math.round(weightedClosed * 100) / 100,
+      weighted_pending: Math.round(weightedPending * 100) / 100,
+      weighted_debug_closed: buildWeightedDebug(closedDealsArr),
+      weighted_debug_pending: buildWeightedDebug(pendingDealsArr),
+    });
     setDebugInfo(debug);
     setLoading(false);
   }, [userId, fubUserId, year, agentName, dateRangeStart, dateRangeEnd, dateStart, dateEnd]);

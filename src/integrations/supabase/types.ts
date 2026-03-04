@@ -1193,6 +1193,7 @@ export type Database = {
           client_name: string
           client_type: string
           created_at: string
+          deal_category: string
           email: string | null
           expected_pending_date: string | null
           id: string
@@ -1211,6 +1212,7 @@ export type Database = {
           client_name: string
           client_type?: string
           created_at?: string
+          deal_category?: string
           email?: string | null
           expected_pending_date?: string | null
           id?: string
@@ -1229,6 +1231,7 @@ export type Database = {
           client_name?: string
           client_type?: string
           created_at?: string
+          deal_category?: string
           email?: string | null
           expected_pending_date?: string | null
           id?: string

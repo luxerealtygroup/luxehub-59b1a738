@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
 import { classifyStage, isActiveListingDeal } from '@/hooks/useFubDealMetrics';
+import { sumWeightedDeals, buildWeightedDebug, formatWeightedDeals, WeightedDebugInfo, inferDealCategory } from '@/lib/utils/dealWeight';
 import { normalize411Row } from '@/lib/utils/weekly411Fallback';
 import { format, startOfYear, startOfWeek, addWeeks, isBefore, parseISO, getWeek } from 'date-fns';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend, ReferenceLine } from 'recharts';
@@ -15,9 +16,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Target, TrendingUp, DollarSign, Users, Building2,
-  UserPlus, ClipboardList, Loader2, Save, BarChart3, ArrowRightLeft, Briefcase, PieChart, Crosshair,
+  UserPlus, ClipboardList, Loader2, Save, BarChart3, ArrowRightLeft, Briefcase, PieChart, Crosshair, Info,
 } from 'lucide-react';
 import DealSourcesTab from '@/components/deal-sources/DealSourcesTab';
 import { formatCurrency, formatNumber } from '@/lib/utils';
@@ -31,6 +33,14 @@ interface CompanyMetrics {
   totalPipeline: number;
   grossGciClosed: number;
   grossGciPending: number;
+  // Weighted deal units
+  weightedClosed: number;
+  weightedPending: number;
+  weightedPipeline: number;
+  leasesClosed: number;
+  leasesPending: number;
+  leasesInPipeline: number;
+  weightedDebug: WeightedDebugInfo | null;
 }
 
 interface AgentGoalRow {
@@ -58,6 +68,8 @@ interface PipelineSummary {
   buyers: number;
   sellers: number;
   projectedGci: number;
+  weightedTotal: number;
+  leaseCount: number;
 }
 
 interface ConversionTotals {
@@ -90,7 +102,7 @@ const CompanyBusinessPlanning = () => {
   const [companyGciGoal, setCompanyGciGoal] = useState(0);
   const [quarterlyDealGoals, setQuarterlyDealGoals] = useState<{ q1: number; q2: number; q3: number; q4: number }>({ q1: 0, q2: 0, q3: 0, q4: 0 });
   const [q1ClosedDeals, setQ1ClosedDeals] = useState(0);
-  const [pipelineSummary, setPipelineSummary] = useState<PipelineSummary>({ totalClients: 0, buyers: 0, sellers: 0, projectedGci: 0 });
+  const [pipelineSummary, setPipelineSummary] = useState<PipelineSummary>({ totalClients: 0, buyers: 0, sellers: 0, projectedGci: 0, weightedTotal: 0, leaseCount: 0 });
   const [conversionTotals, setConversionTotals] = useState<ConversionTotals>({ contacts_made: 0, dials: 0, appointments_set: 0, appointments_held: 0, pipeline_additions: 0, contracts_signed: 0, firm_deals: 0 });
   const [recruiting, setRecruiting] = useState<RecruitingData>({
     year: CURRENT_YEAR,
@@ -134,6 +146,14 @@ const CompanyBusinessPlanning = () => {
         return cls !== 'closed';
       });
 
+      // Weighted deal metrics
+      const wClosed = sumWeightedDeals(closedDeals);
+      const wPending = sumWeightedDeals(pendingDeals);
+      const wPipeline = sumWeightedDeals(pipelineDeals);
+      const closedDebug = buildWeightedDebug(closedDeals);
+      const pendingDebugInfo = buildWeightedDebug(pendingDeals);
+      const pipelineDebugInfo = buildWeightedDebug(pipelineDeals);
+
       // Store closed deals with dates for the GCI chart
       setClosedDealsList(
         closedDeals.map(d => ({
@@ -149,13 +169,13 @@ const CompanyBusinessPlanning = () => {
         })).filter(d => d.date)
       );
 
-      // Count Q1 closed deals for carryover calculation
+      // Count Q1 closed deals for carryover calculation (weighted)
       const q1End = `${CURRENT_YEAR}-03-31`;
       const q1Closed = closedDeals.filter(d => {
         const cd = (d as any).closedDate || (d as any).closeDate || d.projectedCloseDate || '';
         return cd && cd <= q1End;
       });
-      setQ1ClosedDeals(q1Closed.length);
+      setQ1ClosedDeals(Math.round(sumWeightedDeals(q1Closed) * 100) / 100);
 
       setMetrics({
         closedDeals: closedDeals.length,
@@ -164,6 +184,13 @@ const CompanyBusinessPlanning = () => {
         totalPipeline: pipelineDeals.length,
         grossGciClosed: closedDeals.reduce((s, d) => s + (d.commissionValue || d.agentCommission || 0), 0),
         grossGciPending: pendingDeals.reduce((s, d) => s + (d.commissionValue || d.agentCommission || 0), 0),
+        weightedClosed: Math.round(wClosed * 100) / 100,
+        weightedPending: Math.round(wPending * 100) / 100,
+        weightedPipeline: Math.round(wPipeline * 100) / 100,
+        leasesClosed: closedDebug.leaseCount,
+        leasesPending: pendingDebugInfo.leaseCount,
+        leasesInPipeline: pipelineDebugInfo.leaseCount,
+        weightedDebug: closedDebug,
       });
     } catch (err) {
       console.error('CompanyBP: FUB fetch error', err);
@@ -249,13 +276,17 @@ const CompanyBusinessPlanning = () => {
 
   // ── 5. Team pipeline ──
   const fetchPipeline = async () => {
-    const { data } = await supabase.from('pipeline_clients').select('client_type, projected_gci');
+    const { data } = await supabase.from('pipeline_clients').select('client_type, projected_gci, deal_category');
     const clients = data || [];
+    const leases = clients.filter(c => c.deal_category === 'lease');
+    const weightedTotal = clients.reduce((sum, c) => sum + (c.deal_category === 'lease' ? 1/3 : 1), 0);
     setPipelineSummary({
       totalClients: clients.length,
       buyers: clients.filter(c => c.client_type === 'buyer').length,
       sellers: clients.filter(c => c.client_type === 'seller').length,
       projectedGci: clients.reduce((s, c) => s + Number(c.projected_gci || 0), 0),
+      weightedTotal: Math.round(weightedTotal * 100) / 100,
+      leaseCount: leases.length,
     });
   };
 
@@ -324,35 +355,39 @@ const CompanyBusinessPlanning = () => {
   const recruitsPerMonth = agentsNeeded > 0 ? (agentsNeeded / monthsRemaining).toFixed(1) : '0';
   const recruitsPerQuarter = agentsNeeded > 0 ? (agentsNeeded / Math.ceil(monthsRemaining / 3)).toFixed(1) : '0';
 
-  // Projections
+  // Projections (use weighted)
   const monthsElapsed = new Date().getMonth() + 1;
-  const projectedClosings = monthsElapsed > 0 ? Math.round(((metrics?.closedDeals || 0) / monthsElapsed) * 12) : 0;
+  const weightedClosedTotal = metrics?.weightedClosed || 0;
+  const weightedPendingTotal = metrics?.weightedPending || 0;
+  const projectedClosings = monthsElapsed > 0 ? Math.round(((weightedClosedTotal) / monthsElapsed) * 12 * 100) / 100 : 0;
   const projectedGci = monthsElapsed > 0 ? Math.round(((metrics?.grossGciClosed || 0) / monthsElapsed) * 12) : 0;
 
-  // Pipeline deficit analysis (mirrors agent pipeline planning model)
+  // Pipeline deficit analysis (mirrors agent pipeline planning model) — ALL WEIGHTED
   const FALLOUT_RATE = 0.70;
   const conversionRate = 1 - FALLOUT_RATE; // 0.30
   const quarter = CURRENT_QUARTER;
 
-  // Step 1: Q1 goal
+  // Step 1: Q1 goal (in deal units)
   const q1Goal = quarterlyDealGoals.q1;
-  // Step 2: Company production (closed + pending)
-  const companyProduction = (metrics?.closedDeals || 0) + (metrics?.pendingDeals || 0);
-  // Step 3: Carryover from Q1
-  const q1Carryover = quarter >= 2 ? Math.max(0, q1Goal - companyProduction) : 0;
+  // Step 2: Company production WEIGHTED (closed + pending)
+  const companyProductionWeighted = weightedClosedTotal + weightedPendingTotal;
+  const companyProductionRaw = (metrics?.closedDeals || 0) + (metrics?.pendingDeals || 0);
+  // Step 3: Carryover from Q1 (weighted)
+  const q1Carryover = quarter >= 2 ? Math.max(0, Math.round((q1Goal - companyProductionWeighted) * 100) / 100) : 0;
   // Step 4: Q2 goal
   const q2Goal = quarterlyDealGoals.q2;
   // Step 5: Total closings required
   const currentQGoal = quarter === 1 ? q1Goal : q2Goal;
-  const totalClosingsNeeded = quarter === 1 ? q1Goal : q1Carryover + q2Goal;
-  // Step 6-7: Required pipeline
+  const totalClosingsNeeded = quarter === 1 ? q1Goal : Math.round((q1Carryover + q2Goal) * 100) / 100;
+  // Step 6-7: Required pipeline (in weighted units)
   const requiredPipelineDeals = totalClosingsNeeded > 0 ? Math.ceil(totalClosingsNeeded / conversionRate) : 0;
-  // Step 8-9: Deficit or surplus
-  const pipelineDeficit = Math.max(0, requiredPipelineDeals - pipelineSummary.totalClients);
-  const pipelineSurplus = Math.max(0, pipelineSummary.totalClients - requiredPipelineDeals);
+  // Step 8-9: Deficit or surplus (compare weighted pipeline)
+  const currentPipelineWeighted = pipelineSummary.weightedTotal;
+  const pipelineDeficit = Math.max(0, Math.round((requiredPipelineDeals - currentPipelineWeighted) * 100) / 100);
+  const pipelineSurplus = Math.max(0, Math.round((currentPipelineWeighted - requiredPipelineDeals) * 100) / 100);
 
   // Keep old calc for other sections
-  const closedAndPending = companyProduction;
+  const closedAndPending = companyProductionRaw;
   const remainingDealsNeeded = Math.max(0, companyDealGoal - closedAndPending);
   const pipelineNeeded = remainingDealsNeeded > 0 ? Math.ceil(remainingDealsNeeded / conversionRate) : 0;
   const pipelineGap = pipelineDeficit;
@@ -395,14 +430,14 @@ const CompanyBusinessPlanning = () => {
           {/* ── TAB 1: Company Performance Reality ── */}
           <TabsContent value="performance" className="space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <MetricCard label="YTD Closed Deals" value={metrics?.closedDeals || 0} icon={<Target className="h-4 w-4 text-green-500" />} />
+              <MetricCard label="YTD Closed (weighted)" value={formatWeightedDeals(metrics?.weightedClosed || 0)} icon={<Target className="h-4 w-4 text-green-500" />} sub={metrics?.leasesClosed ? `${metrics.closedDeals} raw · ${metrics.leasesClosed} leases` : `${metrics?.closedDeals || 0} raw`} />
               <MetricCard label="YTD Gross GCI" value={formatCurrency(metrics?.grossGciClosed)} icon={<DollarSign className="h-4 w-4 text-green-500" />} />
-              <MetricCard label="Pending GCI" value={formatCurrency(metrics?.grossGciPending)} icon={<TrendingUp className="h-4 w-4 text-gold" />} />
+              <MetricCard label="Pending (weighted)" value={formatWeightedDeals(metrics?.weightedPending || 0)} icon={<TrendingUp className="h-4 w-4 text-gold" />} sub={metrics?.leasesPending ? `${metrics.pendingDeals} raw · ${metrics.leasesPending} leases` : `${metrics?.pendingDeals || 0} raw`} />
               <MetricCard label="Active Listings" value={metrics?.activeListings || 0} icon={<Building2 className="h-4 w-4 text-blue-500" />} />
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              <MetricCard label="Total Pipeline Deals" value={metrics?.totalPipeline || 0} icon={<Users className="h-4 w-4 text-purple-500" />} />
-              <MetricCard label="Projected Year-End Closings" value={projectedClosings} icon={<TrendingUp className="h-4 w-4 text-amber-500" />} sub={`Based on ${monthsElapsed} months pace`} />
+              <MetricCard label="Pipeline (weighted)" value={formatWeightedDeals(metrics?.weightedPipeline || 0)} icon={<Users className="h-4 w-4 text-purple-500" />} sub={`${metrics?.totalPipeline || 0} raw deals`} />
+              <MetricCard label="Projected Year-End (weighted)" value={formatWeightedDeals(projectedClosings)} icon={<TrendingUp className="h-4 w-4 text-amber-500" />} sub={`Based on ${monthsElapsed} months pace`} />
               <MetricCard label="Projected Year-End GCI" value={formatCurrency(projectedGci)} icon={<DollarSign className="h-4 w-4 text-amber-500" />} sub={`Based on ${monthsElapsed} months pace`} />
             </div>
 
@@ -415,7 +450,7 @@ const CompanyBusinessPlanning = () => {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <MetricCard label="Total Pipeline Clients" value={pipelineSummary.totalClients} icon={<Users className="h-4 w-4 text-blue-500" />} />
+                  <MetricCard label="Pipeline (weighted)" value={formatWeightedDeals(pipelineSummary.weightedTotal)} icon={<Users className="h-4 w-4 text-blue-500" />} sub={pipelineSummary.leaseCount > 0 ? `${pipelineSummary.totalClients} raw · ${pipelineSummary.leaseCount} leases` : `${pipelineSummary.totalClients} raw`} />
                   <MetricCard label="Buyers" value={pipelineSummary.buyers} icon={<Users className="h-4 w-4 text-emerald-500" />} />
                   <MetricCard label="Sellers" value={pipelineSummary.sellers} icon={<Building2 className="h-4 w-4 text-amber-500" />} />
                   <MetricCard label="Projected Pipeline GCI" value={formatCurrency(pipelineSummary.projectedGci)} icon={<DollarSign className="h-4 w-4 text-gold" />} />
@@ -428,6 +463,12 @@ const CompanyBusinessPlanning = () => {
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <Crosshair className="h-4 w-4 text-gold" /> Pipeline Deficit Analysis
+                  <TooltipProvider>
+                    <UITooltip>
+                      <TooltipTrigger><Info className="h-3.5 w-3.5 text-muted-foreground" /></TooltipTrigger>
+                      <TooltipContent><p className="text-xs max-w-[200px]">All deal counts are weighted: leases count as 0.33 deal units.</p></TooltipContent>
+                    </UITooltip>
+                  </TooltipProvider>
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -441,32 +482,37 @@ const CompanyBusinessPlanning = () => {
                       {/* Q1 Goal */}
                       <div className="flex items-center justify-between">
                         <span className="text-muted-foreground">Q1 Goal</span>
-                        <span className="font-bold text-foreground">{q1Goal} deals</span>
+                        <span className="font-bold text-foreground">{q1Goal} deal units</span>
                       </div>
-                      {/* Actual Closed + Pending */}
+                      {/* Actual Closed + Pending (weighted) */}
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Actual Closed + Pending</span>
-                        <span className="font-bold text-foreground">{companyProduction} deals</span>
+                        <span className="text-muted-foreground">Actual Closed + Pending (weighted)</span>
+                        <span className="font-bold text-foreground">{formatWeightedDeals(companyProductionWeighted)} deal units</span>
                       </div>
+                      {companyProductionRaw !== Math.round(companyProductionWeighted) && (
+                        <div className="flex items-center justify-between text-muted-foreground text-xs">
+                          <span>Raw: {companyProductionRaw} deals ({metrics?.leasesClosed || 0} leases closed, {metrics?.leasesPending || 0} leases pending)</span>
+                        </div>
+                      )}
                       {/* Carryover (only show for Q2+) */}
                       {quarter >= 2 && (
                         <div className="flex items-center justify-between text-amber-600">
                           <span>Carryover (Q1 Gap)</span>
-                          <span className="font-bold">{q1Carryover > 0 ? `+${q1Carryover}` : '0'} deals</span>
+                          <span className="font-bold">{q1Carryover > 0 ? `+${formatWeightedDeals(q1Carryover)}` : '0'} deal units</span>
                         </div>
                       )}
                       {/* Q2 Goal */}
                       {quarter >= 2 && (
                         <div className="flex items-center justify-between">
                           <span className="text-muted-foreground">Q2 Goal</span>
-                          <span className="font-bold text-foreground">{q2Goal} deals</span>
+                          <span className="font-bold text-foreground">{q2Goal} deal units</span>
                         </div>
                       )}
                       <Separator />
                       {/* Total Closings Needed */}
                       <div className="flex items-center justify-between font-bold">
                         <span className="text-foreground">Total Closings Needed</span>
-                        <span className="text-foreground">{totalClosingsNeeded} deals</span>
+                        <span className="text-foreground">{formatWeightedDeals(totalClosingsNeeded)} deal units</span>
                       </div>
                       {/* Conversion Rate */}
                       <div className="flex items-center justify-between text-muted-foreground">
@@ -477,25 +523,30 @@ const CompanyBusinessPlanning = () => {
                       {/* Required Pipeline */}
                       <div className="flex items-center justify-between font-bold">
                         <span className="text-foreground">Required Pipeline</span>
-                        <span className="text-foreground">{requiredPipelineDeals}</span>
+                        <span className="text-foreground">{requiredPipelineDeals} deal units</span>
                       </div>
-                      {/* Current Pipeline */}
+                      {/* Current Pipeline (weighted) */}
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Current Pipeline</span>
-                        <span className="font-bold text-foreground">{pipelineSummary.totalClients}</span>
+                        <span className="text-muted-foreground">Current Pipeline (weighted)</span>
+                        <span className="font-bold text-foreground">{formatWeightedDeals(currentPipelineWeighted)} deal units</span>
                       </div>
+                      {pipelineSummary.leaseCount > 0 && (
+                        <div className="flex items-center justify-between text-muted-foreground text-xs">
+                          <span>Raw: {pipelineSummary.totalClients} clients ({pipelineSummary.leaseCount} leases)</span>
+                        </div>
+                      )}
                       <Separator />
                       {/* Deficit or Surplus */}
                       <div className="flex items-center justify-between">
                         {pipelineDeficit > 0 ? (
                           <>
                             <span className="font-bold text-destructive">= Pipeline Deficit</span>
-                            <span className="text-lg font-bold text-destructive">{pipelineDeficit} more pipeline additions needed</span>
+                            <span className="text-lg font-bold text-destructive">{formatWeightedDeals(pipelineDeficit)} more deal units needed</span>
                           </>
                         ) : pipelineSurplus > 0 ? (
                           <>
                             <span className="font-bold text-green-600">= Pipeline Surplus</span>
-                            <span className="text-lg font-bold text-green-600">+{pipelineSurplus} deals ahead</span>
+                            <span className="text-lg font-bold text-green-600">+{formatWeightedDeals(pipelineSurplus)} deal units ahead</span>
                           </>
                         ) : (
                           <>
@@ -507,7 +558,7 @@ const CompanyBusinessPlanning = () => {
                     </div>
                     {pipelineDeficit > 0 && (
                       <Badge className="mt-3 bg-destructive/10 text-destructive border-destructive/30 hover:bg-destructive/20">
-                        Pipeline Deficit: {pipelineDeficit} additions needed
+                        Pipeline Deficit: {formatWeightedDeals(pipelineDeficit)} deal units needed
                       </Badge>
                     )}
                   </>
