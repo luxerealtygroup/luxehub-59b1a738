@@ -8,6 +8,7 @@ import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/hooks/use-toast';
 import { MessageSquare, Save, Loader2 } from 'lucide-react';
 import { currentYear } from './types';
+import { AIReflectionSummary } from './AIReflectionSummary';
 
 interface Props {
   uid: string | null;
@@ -85,6 +86,7 @@ export function ReflectionTab({ uid, quarter, isViewingAsAgent }: Props) {
   ];
 
   return (
+    <>
     <Card className="border-border">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
@@ -148,5 +150,8 @@ export function ReflectionTab({ uid, quarter, isViewingAsAgent }: Props) {
         </div>
       </CardContent>
     </Card>
+
+    <AIReflectionSummary uid={uid} />
+    </>
   );
 }
