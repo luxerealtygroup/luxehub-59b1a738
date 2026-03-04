@@ -14,3 +14,9 @@ verify_jwt = false
 
 [functions.cma-analyze]
 verify_jwt = false
+
+[functions.reflection-ai]
+verify_jwt = false
+
+[functions.business-planning-ai]
+verify_jwt = false
