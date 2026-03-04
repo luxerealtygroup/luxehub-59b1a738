@@ -277,9 +277,13 @@ const FourOneOne = () => {
       monthlyGci = parsed.map((m: { gci: number }) => m.gci || 0);
     }
     
+    // Use the sum of monthly breakdown as the deals goal (matches Goals tab's totalDealsGoal)
+    const totalDealsFromBreakdown = monthlyDeals.reduce((s: number, v: number) => s + v, 0);
+    const totalGciFromBreakdown = monthlyGci.reduce((s: number, v: number) => s + v, 0);
+
     setSyncedGoals({
-      deals_goal: dealsValue,
-      gci_goal: gciValue,
+      deals_goal: totalDealsFromBreakdown || dealsValue,
+      gci_goal: totalGciFromBreakdown || gciValue,
       monthly_deals: monthlyDeals,
       monthly_gci: monthlyGci,
       fallout_rate: falloutRate,
