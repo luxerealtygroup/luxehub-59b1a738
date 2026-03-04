@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { FUBDealSections } from '@/components/FUBDealSections';
 import { useAuth } from '@/hooks/useAuth';
@@ -20,6 +20,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { differenceInDays, format, parseISO } from 'date-fns';
 import { SOURCE_OPTIONS } from '@/lib/constants/sourceOptions';
 import { formatCurrency, formatNumber } from '@/lib/utils';
+import { usePipelineMetrics } from '@/hooks/usePipelineMetrics';
+import { ActivityRequirementsEngine } from '@/components/ActivityRequirementsEngine';
+import { aggregate411Rows } from '@/lib/utils/weekly411Fallback';
+import { currentYear, safe, pct } from '@/components/business-planning/types';
 
 interface PipelineClient {
   id: string;
@@ -90,6 +94,70 @@ const Pipeline = () => {
     split_percent: 70,
     expected_pending_date: '',
   });
+
+  // ── Activity Requirements Engine data ──
+  const currentMonth = new Date().getMonth();
+  const currentQuarter = Math.floor(currentMonth / 3) + 1;
+
+  // Pipeline metrics for deficit calc
+  const getQDateRange = (q: number) => {
+    const starts: Record<number, string> = { 1: `${currentYear}-01-01`, 2: `${currentYear}-04-01`, 3: `${currentYear}-07-01`, 4: `${currentYear}-10-01` };
+    const ends: Record<number, string> = { 1: `${currentYear}-03-31`, 2: `${currentYear}-06-30`, 3: `${currentYear}-09-30`, 4: `${currentYear}-12-31` };
+    return { start: starts[q] || starts[1], end: ends[q] || ends[1] };
+  };
+  const currQRange = getQDateRange(currentQuarter);
+  const pipelineMetrics = usePipelineMetrics({ userId: queryUserId, dateStart: currQRange.start, dateEnd: currQRange.end });
+
+  // Conversion rates + deficit data
+  const [conversionRates, setConversionRates] = useState({ contactToAppt: 0, dialToAppt: 0, apptToPipeline: 0, apptToContract: 0 });
+  const [pipelineDeficit, setPipelineDeficit] = useState(0);
+
+  useEffect(() => {
+    if (!queryUserId) return;
+    // Fetch conversion rates from 411 data + goals for deficit
+    Promise.all([
+      supabase.from('weekly_411').select('dials, contacts_made, appointments_held, contracts_signed, calls_actual, appointments_actual, contracts_actual, pipeline_additions')
+        .eq('user_id', queryUserId).gte('week_start_date', `${currentYear}-01-01`),
+      supabase.from('planning_assumptions').select('gci_target, avg_commission, contact_to_appt_rate, appt_to_contract_rate, dials_to_appt_rate')
+        .eq('user_id', queryUserId).eq('year', currentYear).eq('quarter', currentQuarter).maybeSingle(),
+      supabase.from('agent_goals').select('target_value')
+        .eq('user_id', queryUserId).eq('period', 'yearly').eq('goal_type', 'deals_closed').maybeSingle(),
+      supabase.from('production_goals').select('annual_gci_goal')
+        .eq('user_id', queryUserId).eq('year', currentYear).maybeSingle(),
+    ]).then(([w411Res, paRes, agRes, pgRes]) => {
+      const rows = w411Res.data || [];
+      const agg = aggregate411Rows(rows);
+      const totalDials = agg.dials;
+      const totalContacts = agg.contacts_made;
+      const totalAppts = agg.appointments_held;
+      const totalContracts = agg.contracts_signed;
+      const totalPipelineAdds = rows.reduce((s, r) => s + (r.pipeline_additions || 0), 0);
+
+      // Compute real rates
+      const realContactToAppt = pct(totalAppts, totalContacts);
+      const realDialToAppt = pct(totalAppts, totalDials);
+      const realApptToPipeline = pct(totalPipelineAdds, totalAppts);
+      const realApptToContract = pct(totalContracts, totalAppts);
+
+      // Use real rates if available, else planning assumptions, else defaults
+      const pa = paRes.data;
+      setConversionRates({
+        contactToAppt: realContactToAppt || safe(pa?.contact_to_appt_rate) || 20,
+        dialToAppt: realDialToAppt || safe(pa?.dials_to_appt_rate) || 10,
+        apptToPipeline: realApptToPipeline || 30,
+        apptToContract: realApptToContract || safe(pa?.appt_to_contract_rate) || 25,
+      });
+
+      // Pipeline deficit
+      const qTargetGCI = safe(pa?.gci_target) || (safe(pgRes.data?.annual_gci_goal) / 4);
+      const avgComm = safe(pa?.avg_commission) || 15000;
+      const hasTarget = qTargetGCI > 0 && avgComm > 0;
+      const closingsGoal = hasTarget ? Math.ceil(qTargetGCI / avgComm) : 0;
+      const requiredPipeline = hasTarget ? Math.ceil(closingsGoal / 0.30) : 0;
+      const currentPipeline = pipelineMetrics.clientsInDateRange;
+      setPipelineDeficit(Math.max(0, requiredPipeline - currentPipeline));
+    });
+  }, [queryUserId, pipelineMetrics.clientsInDateRange]);
 
   useEffect(() => {
     if (queryUserId) fetchClients();
@@ -228,8 +296,8 @@ const Pipeline = () => {
   const buyerGCI = buyers.reduce((sum, c) => sum + c.projected_gci, 0);
   const sellerGCI = sellers.reduce((sum, c) => sum + c.projected_gci, 0);
 
-  const currentMonth = new Date().getMonth();
-  const currentQuarter = Math.floor(currentMonth / 3);
+  const qMonth = new Date().getMonth();
+  const qIndex = Math.floor(qMonth / 3);
   const quarters = [
     { name: 'Q1', months: [0, 1, 2], label: 'Jan-Mar' },
     { name: 'Q2', months: [3, 4, 5], label: 'Apr-Jun' },
@@ -243,7 +311,7 @@ const Pipeline = () => {
       const pendingMonth = new Date(client.expected_pending_date).getMonth();
       return quarter.months.includes(pendingMonth);
     });
-    return { ...quarter, projectedGci: quarterClients.reduce((sum, c) => sum + c.projected_gci, 0), dealCount: quarterClients.length, isPast: index < currentQuarter, isCurrent: index === currentQuarter };
+    return { ...quarter, projectedGci: quarterClients.reduce((sum, c) => sum + c.projected_gci, 0), dealCount: quarterClients.length, isPast: index < qIndex, isCurrent: index === qIndex };
   });
 
   if (loading) {
@@ -404,6 +472,15 @@ const Pipeline = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Activity Requirements Engine */}
+      <ActivityRequirementsEngine
+        pipelineDeficit={pipelineDeficit}
+        quarter={currentQuarter}
+        conversionRates={conversionRates}
+        userId={queryUserId}
+        isReadOnly={isReadOnly}
+      />
 
       {/* Filters */}
       <Card className="border-border/50">
