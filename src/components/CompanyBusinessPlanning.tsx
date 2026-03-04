@@ -333,11 +333,11 @@ const CompanyBusinessPlanning = () => {
   const FALLOUT_RATE = 0.70;
   const conversionFactor = 1 - FALLOUT_RATE; // 0.30
   const quarter = CURRENT_QUARTER;
-  const prevQ = quarter > 1 ? quarter - 1 : 4;
+  const prevQ = quarter > 1 ? quarter - 1 : 0; // 0 means no previous quarter (start of year)
   const currentQGoal = quarter === 1 ? quarterlyDealGoals.q1 : quarter === 2 ? quarterlyDealGoals.q2 : quarter === 3 ? quarterlyDealGoals.q3 : quarterlyDealGoals.q4;
-  const prevQGoal = prevQ === 1 ? quarterlyDealGoals.q1 : prevQ === 2 ? quarterlyDealGoals.q2 : prevQ === 3 ? quarterlyDealGoals.q3 : quarterlyDealGoals.q4;
-  const prevQActual = q1ClosedDeals; // For Q2, this is Q1 closed deals
-  const prevQGap = Math.max(0, prevQGoal - prevQActual);
+  const prevQGoal = prevQ === 1 ? quarterlyDealGoals.q1 : prevQ === 2 ? quarterlyDealGoals.q2 : prevQ === 3 ? quarterlyDealGoals.q3 : 0;
+  const prevQActual = prevQ === 1 ? q1ClosedDeals : 0; // For Q2, this is Q1 closed deals
+  const prevQGap = prevQ > 0 ? Math.max(0, prevQGoal - prevQActual) : 0; // No carryover in Q1
   const adjustedQRequired = currentQGoal + prevQGap;
   const requiredPipelineDeals = adjustedQRequired > 0 ? Math.ceil(adjustedQRequired / conversionFactor) : 0;
   const pipelineDeficit = Math.max(0, requiredPipelineDeals - pipelineSummary.totalClients);
