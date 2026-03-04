@@ -33,6 +33,7 @@ interface Props {
   effectiveRates: { contactToAppt: number; apptToContract: number; cmaToListing: number; dialsToAppt: number };
   prevQActualClosings: number;
   prevQGoalClosings: number;
+  currentPipeline: number;
 }
 
 /* ── Locked display field ── */
@@ -50,7 +51,7 @@ const LockedField = ({ label, value, sub, highlight }: { label: string; value: s
 export function StrategyGoalsTab({
   metrics, mode, goals, setGoals, goalsId, setGoalsId,
   quarter, uid, isViewingAsAgent, effectiveRates,
-  prevQActualClosings, prevQGoalClosings,
+  prevQActualClosings, prevQGoalClosings, currentPipeline,
 }: Props) {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
@@ -101,8 +102,15 @@ export function StrategyGoalsTab({
   const commRateError = commissionRateDecimal !== null ? validateCommissionRate(commissionRateDecimal) : null;
   const salePriceError = goals.avg_sale_price > 0 ? null : validateAvgSalePrice(goals.avg_sale_price);
 
-  // ── Activity breakdown from adjusted closings ──
   const requiredClosings = strategy.adjustedClosings;
+
+  // ── Pipeline needed (assuming 70% fallout) ──
+  const FALLOUT_RATE = 0.70;
+  const pipelineNeeded = requiredClosings > 0 ? Math.ceil(requiredClosings / (1 - FALLOUT_RATE)) : 0;
+  const pipelineGap = Math.max(0, pipelineNeeded - currentPipeline);
+  const requiredPipelineAdditions = pipelineGap;
+
+  // ── Activity breakdown from adjusted closings ──
   const requiredListings = effectiveRates.apptToContract > 0 ? Math.ceil(requiredClosings / (effectiveRates.apptToContract / 100)) : 0;
   const requiredCMAs = effectiveRates.cmaToListing > 0 ? Math.ceil(requiredListings / (effectiveRates.cmaToListing / 100)) : 0;
   const requiredAppts = effectiveRates.apptToContract > 0 ? Math.ceil(requiredClosings / (effectiveRates.apptToContract / 100)) : 0;
@@ -318,6 +326,17 @@ export function StrategyGoalsTab({
               value={formatCurrency(Math.round(strategy.qIncomeNet))}
               highlight
             />
+            <LockedField
+              label="Pipeline Needed"
+              value={String(pipelineNeeded)}
+              sub={`${currentPipeline} current · 70% fallout rate`}
+            />
+            <LockedField
+              label="Pipeline Gap"
+              value={String(pipelineGap)}
+              sub={pipelineGap > 0 ? `Need ${pipelineGap} more additions` : 'On track'}
+              highlight={pipelineGap > 0}
+            />
           </div>
         </div>
 
@@ -345,6 +364,7 @@ export function StrategyGoalsTab({
                   <span>Metric</span><span className="text-center">Monthly</span><span className="text-center">Weekly</span><span className="text-center">Daily</span>
                 </div>
                 <BreakdownRow label="Pending" monthly={monthly(requiredClosings)} weekly={weekly(requiredClosings)} daily={daily(requiredClosings)} />
+                <BreakdownRow label="Pipeline Additions" monthly={monthly(requiredPipelineAdditions)} weekly={weekly(requiredPipelineAdditions)} daily={daily(requiredPipelineAdditions)} />
                 <BreakdownRow label="Listings" monthly={monthly(requiredListings)} weekly={weekly(requiredListings)} daily={daily(requiredListings)} />
                 <BreakdownRow label="CMAs" monthly={monthly(requiredCMAs)} weekly={weekly(requiredCMAs)} daily={daily(requiredCMAs)} />
                 <BreakdownRow label="Appointments" monthly={monthly(requiredAppts)} weekly={weekly(requiredAppts)} daily={daily(requiredAppts)} />

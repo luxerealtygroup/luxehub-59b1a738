@@ -353,6 +353,7 @@ const BusinessPlanning = () => {
             uid={uid} isViewingAsAgent={isViewingAsAgent} effectiveRates={effectiveRates}
             prevQActualClosings={pipelineGapData.prevQActualClosings}
             prevQGoalClosings={pipelineGapData.prevQRequiredClosings}
+            currentPipeline={pipelineGapData.pipelineTotal}
           />
         </TabsContent>
 
