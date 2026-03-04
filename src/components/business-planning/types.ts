@@ -1,6 +1,6 @@
 import { FUBDeal } from '@/lib/api/followUpBoss';
 import { DebugInfo, DealMetrics } from '@/hooks/useFubDealMetrics';
-import { WeightedDebugInfo } from '@/lib/utils/dealWeight';
+import { WeightedDebugInfo, DealMetadataMap } from '@/lib/utils/dealWeight';
 
 export const currentYear = 2026;
 

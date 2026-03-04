@@ -2,13 +2,17 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useAuth } from '@/hooks/useAuth';
 import { followUpBossApi, FUBDeal, FUBDealUser } from '@/lib/api/followUpBoss';
+import { useDealMetadata } from '@/hooks/useDealMetadata';
+import { DealTypeDropdown } from '@/components/DealTypeDropdown';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Building2, DollarSign, Users, TrendingUp, Target, Loader2, BarChart3, Calendar, FileText, ArrowRightLeft } from 'lucide-react';
+import { Building2, DollarSign, Users, TrendingUp, Target, Loader2, BarChart3, Calendar, FileText, ArrowRightLeft, Filter, CheckSquare } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, AreaChart, Area, Legend } from 'recharts';
@@ -23,6 +27,7 @@ import ConversionReport from './ConversionReport';
 
 import { CreateAgentDialog } from './CreateAgentDialog';
 import { formatCurrency, formatNumber } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface AgentData {
   id: string;
@@ -127,6 +132,7 @@ const ADMIN_ONLY_FUB_IDS = [8]; // Marie Zinger
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const { isAdmin, isLoading: roleLoading } = useUserRole();
+  const { user } = useAuth();
   const [stats, setStats] = useState<CompanyStats | null>(null);
   const [fubStats, setFubStats] = useState<FUBStats | null>(null);
   const [fubAgents, setFubAgents] = useState<FUBAgentStats[]>([]);
@@ -137,6 +143,10 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   const [showPipelineReport, setShowPipelineReport] = useState(false);
+  const [txFilter, setTxFilter] = useState<'all' | 'needs_review'>('all');
+  const [selectedTxIds, setSelectedTxIds] = useState<Set<number>>(new Set());
+
+  const { metadata: dealMetadata, upsertDealCategory, bulkUpsert, refetch: refetchMetadata } = useDealMetadata();
 
   useEffect(() => {
     if (roleLoading || !isAdmin) return;
@@ -630,6 +640,11 @@ const AdminDashboard = () => {
 
   const selectedAgentData = selectedAgent ? stats.agents.find(a => a.id === selectedAgent) : null;
 
+  // Filter transactions for "Needs Review" (no deal_metadata row yet)
+  const filteredTransactions = txFilter === 'needs_review'
+    ? companyTransactions.filter(t => !dealMetadata.has(t.id))
+    : companyTransactions;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -919,9 +934,41 @@ const AdminDashboard = () => {
           {/* Company Transactions List */}
           <Card className="border-gold/20">
             <CardHeader>
-              <CardTitle className="text-gold font-display flex items-center gap-2">
-                <FileText className="h-5 w-5" /> All Company Transactions
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-gold font-display flex items-center gap-2">
+                  <FileText className="h-5 w-5" /> All Company Transactions
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  {selectedTxIds.size > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs gap-1"
+                      onClick={async () => {
+                        if (!user) return;
+                        try {
+                          await bulkUpsert(Array.from(selectedTxIds), 'lease', user.id);
+                          toast.success(`Marked ${selectedTxIds.size} deals as Lease`);
+                          setSelectedTxIds(new Set());
+                          refetchMetadata();
+                        } catch { toast.error('Failed to update'); }
+                      }}
+                    >
+                      <CheckSquare className="h-3.5 w-3.5" />
+                      Mark {selectedTxIds.size} as Lease
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant={txFilter === 'needs_review' ? 'default' : 'outline'}
+                    className="text-xs gap-1"
+                    onClick={() => setTxFilter(f => f === 'needs_review' ? 'all' : 'needs_review')}
+                  >
+                    <Filter className="h-3.5 w-3.5" />
+                    {txFilter === 'needs_review' ? 'Showing: Needs Review' : 'Filter: Needs Review'}
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               {companyTransactions.length === 0 ? (
@@ -931,50 +978,93 @@ const AdminDashboard = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-8">
+                          <Checkbox
+                            checked={selectedTxIds.size > 0 && selectedTxIds.size === filteredTransactions.length}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedTxIds(new Set(filteredTransactions.map(t => t.id)));
+                              } else {
+                                setSelectedTxIds(new Set());
+                              }
+                            }}
+                          />
+                        </TableHead>
                         <TableHead>Client</TableHead>
                         <TableHead>Property</TableHead>
                         <TableHead>Agent</TableHead>
                         <TableHead>Closing Date</TableHead>
+                        <TableHead>Deal Type</TableHead>
                         <TableHead className="text-right">GCI</TableHead>
                         <TableHead className="text-right">Company Revenue</TableHead>
                         <TableHead>Status</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {companyTransactions.map((transaction) => (
-                        <TableRow key={transaction.id} className="border-border/50">
-                          <TableCell className="font-medium">{transaction.clientName}</TableCell>
-                          <TableCell className="text-muted-foreground max-w-[200px] truncate">
-                            {transaction.propertyAddress || '-'}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">{transaction.agentName}</TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {transaction.closingDate 
-                              ? format(parseISO(transaction.closingDate), 'MMM d, yyyy')
-                              : '-'}
-                          </TableCell>
-                          <TableCell className="text-right font-semibold text-gold">
-                            {formatCurrency(transaction.gci)}
-                          </TableCell>
-                          <TableCell className="text-right font-semibold text-blue-500">
-                            {formatCurrency(transaction.companyRevenue)}
-                          </TableCell>
-                          <TableCell>
-                            <Badge 
-                              variant="outline"
-                              className={
-                                transaction.status === 'closed' 
-                                  ? 'border-green-500/30 text-green-400' 
-                                  : transaction.status === 'pending'
-                                  ? 'border-amber-500/30 text-amber-400'
-                                  : 'border-orange-500/30 text-orange-400'
-                              }
-                            >
-                              {transaction.stageName}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {filteredTransactions.map((transaction) => {
+                        const meta = dealMetadata.get(transaction.id);
+                        return (
+                          <TableRow key={transaction.id} className="border-border/50">
+                            <TableCell>
+                              <Checkbox
+                                checked={selectedTxIds.has(transaction.id)}
+                                onCheckedChange={(checked) => {
+                                  setSelectedTxIds(prev => {
+                                    const next = new Set(prev);
+                                    if (checked) next.add(transaction.id);
+                                    else next.delete(transaction.id);
+                                    return next;
+                                  });
+                                }}
+                              />
+                            </TableCell>
+                            <TableCell className="font-medium">{transaction.clientName}</TableCell>
+                            <TableCell className="text-muted-foreground max-w-[200px] truncate">
+                              {transaction.propertyAddress || '-'}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">{transaction.agentName}</TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {transaction.closingDate 
+                                ? format(parseISO(transaction.closingDate), 'MMM d, yyyy')
+                                : '-'}
+                            </TableCell>
+                            <TableCell>
+                              <DealTypeDropdown
+                                fubDealId={transaction.id}
+                                currentCategory={meta?.deal_category || null}
+                                onchange={async (fubId, cat) => {
+                                  if (!user) return;
+                                  try {
+                                    await upsertDealCategory(fubId, cat, user.id);
+                                    toast.success(`Deal marked as ${cat}`);
+                                  } catch { toast.error('Failed to update'); }
+                                }}
+                                compact
+                              />
+                            </TableCell>
+                            <TableCell className="text-right font-semibold text-gold">
+                              {formatCurrency(transaction.gci)}
+                            </TableCell>
+                            <TableCell className="text-right font-semibold text-blue-500">
+                              {formatCurrency(transaction.companyRevenue)}
+                            </TableCell>
+                            <TableCell>
+                              <Badge 
+                                variant="outline"
+                                className={
+                                  transaction.status === 'closed' 
+                                    ? 'border-green-500/30 text-green-400' 
+                                    : transaction.status === 'pending'
+                                    ? 'border-amber-500/30 text-amber-400'
+                                    : 'border-orange-500/30 text-orange-400'
+                                }
+                              >
+                                {transaction.stageName}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>
