@@ -67,10 +67,10 @@ export const defaultGoals: GoalInputs = {
 };
 
 export interface ActiveListingDebug {
-  effectiveFubUserId: number | null;
   stagesIncluded: string[];
-  rawDealCount: number;
-  activeBeforeOwnerFilter: number;
-  activeListingCount: number;
-  top5: { id: number; stage: string; pipeline: string; assignedUserId: any; userId: any; users: string }[];
+  offerDealsIncluded: number;
+  offerDealsExcludedBuyerSide: number;
+  offerDealsUnclassified: number;
+  totalActiveListings: number;
+  top10: { id: number; stage: string; pipeline: string; inferredSide: string }[];
 }

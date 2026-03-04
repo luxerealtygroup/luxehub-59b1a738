@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useViewAsAgent } from '@/hooks/useViewAsAgent';
 import { useUserRole } from '@/hooks/useUserRole';
 import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
+import { inferDealSide, isActiveListingDeal } from '@/hooks/useFubDealMetrics';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -23,12 +24,17 @@ const classifyDealSection = (deal: FUBDeal): 'active_listing' | 'coming_soon' | 
   const pipeline = (deal.pipelineName || '').toLowerCase();
   const stage = (deal.stageName || '').toLowerCase();
 
-  const isSeller = pipeline.includes('seller');
+  const isSeller = pipeline.includes('seller') || pipeline.includes('listing');
   const isBuyer = pipeline.includes('buyer');
 
-  if (isSeller && (stage === 'listed' || stage === 'active')) return 'active_listing';
+  // Use shared active listing logic (handles offer stage with side check)
+  if (isActiveListingDeal(deal)) return 'active_listing';
+
   if (isSeller && (stage.includes('coming soon') || stage.includes('pre-market') || stage.includes('pre-mls'))) return 'coming_soon';
   if (isBuyer && (stage.includes('pending') || stage.includes('under contract') || stage.includes('conditional'))) return 'buyer_under_contract';
+
+  // Buyer-side offers go to buyer_under_contract
+  if (stage.includes('offer') && (isBuyer || inferDealSide(deal) === 'buyer')) return 'buyer_under_contract';
 
   return 'other';
 };

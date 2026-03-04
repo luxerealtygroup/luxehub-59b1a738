@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useHasFUB } from '@/hooks/useHasFUB';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useViewAsAgent } from '@/hooks/useViewAsAgent';
-import { useFubDealMetrics, ACTIVE_LISTING_STAGES, classifyStage, CLOSED_STAGES, PENDING_STAGES } from '@/hooks/useFubDealMetrics';
+import { useFubDealMetrics, ACTIVE_LISTING_STAGES, classifyStage, CLOSED_STAGES, PENDING_STAGES, isActiveListingDeal, inferDealSide, ActiveListingDebugInfo } from '@/hooks/useFubDealMetrics';
 import { usePipelineMetrics } from '@/hooks/usePipelineMetrics';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -53,27 +53,29 @@ const BusinessPlanning = () => {
     agentName: viewingAgentName, dateStart, dateEnd,
   });
 
-  // ─── Active listings from FUB deals ───
-  const isActiveListing = (stageName: string) => {
-    const s = (stageName || '').toLowerCase();
-    return ACTIVE_LISTING_STAGES.some(als => s.includes(als));
-  };
+  // ─── Active listings from FUB deals (shared logic) ───
   const isDealOwnedByAgent = (deal: any, fubId: number | null) => {
     if (!fubId) return true;
     return deal.assignedUserId === fubId || deal.userId === fubId || deal.users?.some((u: any) => u.id === fubId);
   };
-  const fubActiveListings = allDeals.filter(d => isActiveListing(d.stageName) && isDealOwnedByAgent(d, effectiveFubUserId));
-  const activeListingsBeforeOwnerFilter = allDeals.filter(d => isActiveListing(d.stageName));
-  const activeListingDebug = {
-    effectiveFubUserId,
+  const fubActiveListings = allDeals.filter(d => isActiveListingDeal(d) && isDealOwnedByAgent(d, effectiveFubUserId));
+  const activeListingsBeforeOwnerFilter = allDeals.filter(d => isActiveListingDeal(d));
+
+  // Debug: offer-stage breakdown
+  const offerDeals = allDeals.filter(d => (d.stageName || '').toLowerCase().includes('offer') && isDealOwnedByAgent(d, effectiveFubUserId));
+  const offerIncluded = offerDeals.filter(d => isActiveListingDeal(d));
+  const offerExcludedBuyer = offerDeals.filter(d => !isActiveListingDeal(d) && inferDealSide(d) === 'buyer');
+  const offerUnclassified = offerDeals.filter(d => !isActiveListingDeal(d) && inferDealSide(d) === 'unknown');
+
+  const activeListingDebug: ActiveListingDebugInfo = {
     stagesIncluded: ACTIVE_LISTING_STAGES,
-    rawDealCount: allDeals.length,
-    activeBeforeOwnerFilter: activeListingsBeforeOwnerFilter.length,
-    activeListingCount: fubActiveListings.length,
-    top5: fubActiveListings.slice(0, 5).map(d => ({
+    offerDealsIncluded: offerIncluded.length,
+    offerDealsExcludedBuyerSide: offerExcludedBuyer.length,
+    offerDealsUnclassified: offerUnclassified.length,
+    totalActiveListings: fubActiveListings.length,
+    top10: fubActiveListings.slice(0, 10).map(d => ({
       id: d.id, stage: d.stageName, pipeline: d.pipelineName,
-      assignedUserId: (d as any).assignedUserId, userId: (d as any).userId,
-      users: d.users?.map(u => `${u.name} (${u.id})`).join(', ') || 'none',
+      inferredSide: inferDealSide(d),
     })),
   };
 

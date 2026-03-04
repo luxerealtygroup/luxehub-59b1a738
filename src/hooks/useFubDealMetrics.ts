@@ -5,7 +5,7 @@ import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
 // ── Single source of truth for stage classification ──────────────────────
 export const CLOSED_STAGES = ['closed', 'won', 'sold', 'settled', 'completed'];
 export const PENDING_STAGES = ['pending', 'under contract', 'conditional', 'offer'];
-export const ACTIVE_LISTING_STAGES = ['active', 'listed', 'live', 'on market', 'coming soon', 'pre-market'];
+export const ACTIVE_LISTING_STAGES = ['active', 'listed', 'live', 'on market', 'coming soon', 'pre-market', 'offer'];
 
 export const classifyStage = (stageName: string): 'closed' | 'pending' | 'other' => {
   const s = (stageName || '').toLowerCase();
@@ -13,6 +13,59 @@ export const classifyStage = (stageName: string): 'closed' | 'pending' | 'other'
   if (PENDING_STAGES.some(ps => s.includes(ps))) return 'pending';
   return 'other';
 };
+
+// ── Deal-side inference ──────────────────────────────────────────────────
+/** Infer whether a deal is listing/seller-side or buyer-side.
+ *  Returns 'listing', 'buyer', or 'unknown'. */
+export function inferDealSide(deal: any): 'listing' | 'buyer' | 'unknown' {
+  const pipeline = (deal.pipelineName || '').toLowerCase();
+  const name = (deal.name || '').toLowerCase();
+
+  // Explicit pipeline indicators
+  if (pipeline.includes('seller') || pipeline.includes('listing')) return 'listing';
+  if (pipeline.includes('buyer')) return 'buyer';
+
+  // Deal name fallback
+  if (name.includes('listing') || name.includes('seller')) return 'listing';
+  if (name.includes('buyer') || name.includes('purchase')) return 'buyer';
+
+  // Property fields present suggest listing side
+  if (deal.propertyStreet || deal.propertyCity) return 'listing';
+
+  return 'unknown';
+}
+
+/** Check if a deal qualifies as an Active Listing.
+ *  "offer" stage deals are ONLY active listings if they are listing/seller-side. */
+export function isActiveListingDeal(deal: any): boolean {
+  const s = (deal.stageName || '').toLowerCase();
+  const isOfferStage = s.includes('offer');
+
+  // Non-offer active listing stages: always count
+  const isNonOfferActive = ACTIVE_LISTING_STAGES
+    .filter(als => als !== 'offer')
+    .some(als => s.includes(als));
+
+  if (isNonOfferActive) return true;
+
+  // Offer stage: only count if listing/seller side
+  if (isOfferStage) {
+    const side = inferDealSide(deal);
+    return side === 'listing'; // exclude 'buyer' and 'unknown'
+  }
+
+  return false;
+}
+
+/** Debug info for active listing classification */
+export interface ActiveListingDebugInfo {
+  stagesIncluded: string[];
+  offerDealsIncluded: number;
+  offerDealsExcludedBuyerSide: number;
+  offerDealsUnclassified: number;
+  totalActiveListings: number;
+  top10: { id: number; stage: string; pipeline: string; inferredSide: string }[];
+}
 
 // ── Extract the best "close date" from a FUB deal ────────────────────────
 /** FUB deals may include closedDate, projectedCloseDate, or createdAt.
