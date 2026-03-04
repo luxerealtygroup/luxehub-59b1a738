@@ -71,16 +71,18 @@ export function ViewAsAgentProvider({ children }: { children: ReactNode }) {
         .select('id, full_name, fub_user_id')
         .not('full_name', 'is', null);
 
-      const { data: usersWith411 } = await supabase
-        .from('weekly_411')
-        .select('user_id');
+      const [{ data: usersWith411 }, { data: usersWithRoles }] = await Promise.all([
+        supabase.from('weekly_411').select('user_id'),
+        supabase.from('user_roles').select('user_id'),
+      ]);
 
       const activeIds = new Set((usersWith411 || []).map(w => w.user_id));
+      const roleIds = new Set((usersWithRoles || []).map(r => r.user_id));
 
       const filtered = (profiles || [])
         .filter(p => {
           const hasFub = p.fub_user_id != null && p.fub_user_id !== 8;
-          return (hasFub || activeIds.has(p.id)) && p.full_name;
+          return (hasFub || activeIds.has(p.id) || roleIds.has(p.id)) && p.full_name;
         })
         .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
 
