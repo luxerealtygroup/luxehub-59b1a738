@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
-import { sumWeightedDeals, buildWeightedDebug, WeightedDebugInfo } from '@/lib/utils/dealWeight';
+import { sumWeightedDeals, buildWeightedDebug, WeightedDebugInfo, DealMetadataMap } from '@/lib/utils/dealWeight';
 
 // ── Single source of truth for stage classification ──────────────────────
 export const CLOSED_STAGES = ['closed', 'won', 'sold', 'settled', 'completed'];
@@ -115,6 +115,8 @@ interface UseFubDealMetricsOptions {
   dateStart?: string | null;
   /** Optional override for date range end (YYYY-MM-DD). Defaults to Dec 31 of `year`. */
   dateEnd?: string | null;
+  /** Deal metadata map for weight lookups */
+  dealMetadataMap?: DealMetadataMap;
 }
 
 export function useFubDealMetrics({
@@ -125,6 +127,7 @@ export function useFubDealMetrics({
   agentName = null,
   dateStart = null,
   dateEnd = null,
+  dealMetadataMap,
 }: UseFubDealMetricsOptions) {
   const [metrics, setMetrics] = useState<DealMetrics>({
     deals_closed: 0, deals_pending: 0, gci_earned: 0, gci_pending: 0,
@@ -277,19 +280,19 @@ export function useFubDealMetrics({
       debug.dealsInClosedStagesAndDateRange = dealsClosed;
     }
 
-    const weightedClosed = sumWeightedDeals(closedDealsArr);
-    const weightedPending = sumWeightedDeals(pendingDealsArr);
+    const weightedClosed = sumWeightedDeals(closedDealsArr, dealMetadataMap);
+    const weightedPending = sumWeightedDeals(pendingDealsArr, dealMetadataMap);
     setMetrics({
       deals_closed: dealsClosed, deals_pending: dealsPending,
       gci_earned: gciEarned, gci_pending: gciPending,
       weighted_closed: Math.round(weightedClosed * 100) / 100,
       weighted_pending: Math.round(weightedPending * 100) / 100,
-      weighted_debug_closed: buildWeightedDebug(closedDealsArr),
-      weighted_debug_pending: buildWeightedDebug(pendingDealsArr),
+      weighted_debug_closed: buildWeightedDebug(closedDealsArr, dealMetadataMap),
+      weighted_debug_pending: buildWeightedDebug(pendingDealsArr, dealMetadataMap),
     });
     setDebugInfo(debug);
     setLoading(false);
-  }, [userId, fubUserId, year, agentName, dateRangeStart, dateRangeEnd, dateStart, dateEnd]);
+  }, [userId, fubUserId, year, agentName, dateRangeStart, dateRangeEnd, dateStart, dateEnd, dealMetadataMap]);
 
   useEffect(() => {
     setLoading(true);

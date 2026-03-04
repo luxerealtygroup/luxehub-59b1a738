@@ -3,7 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
 import { classifyStage, isActiveListingDeal } from '@/hooks/useFubDealMetrics';
-import { sumWeightedDeals, buildWeightedDebug, formatWeightedDeals, WeightedDebugInfo, inferDealCategory } from '@/lib/utils/dealWeight';
+import { sumWeightedDeals, buildWeightedDebug, formatWeightedDeals, WeightedDebugInfo, inferDealCategory, DealMetadataMap } from '@/lib/utils/dealWeight';
+import { useDealMetadata } from '@/hooks/useDealMetadata';
 import { normalize411Row } from '@/lib/utils/weekly411Fallback';
 import { format, startOfYear, startOfWeek, addWeeks, isBefore, parseISO, getWeek } from 'date-fns';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend, ReferenceLine } from 'recharts';
@@ -93,6 +94,7 @@ const CURRENT_QUARTER = Math.ceil((new Date().getMonth() + 1) / 3);
 // ── Component ────────────────────────────────────────────────────────────
 const CompanyBusinessPlanning = () => {
   const { user } = useAuth();
+  const { metadata: dealMetadataMap, loading: metaLoading } = useDealMetadata();
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<CompanyMetrics | null>(null);
   const [agentGoals, setAgentGoals] = useState<AgentGoalRow[]>([]);
@@ -117,8 +119,8 @@ const CompanyBusinessPlanning = () => {
   const [savingRecruiting, setSavingRecruiting] = useState(false);
 
   useEffect(() => {
-    fetchAll();
-  }, []);
+    if (!metaLoading) fetchAll();
+  }, [metaLoading]);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -147,12 +149,12 @@ const CompanyBusinessPlanning = () => {
       });
 
       // Weighted deal metrics
-      const wClosed = sumWeightedDeals(closedDeals);
-      const wPending = sumWeightedDeals(pendingDeals);
-      const wPipeline = sumWeightedDeals(pipelineDeals);
-      const closedDebug = buildWeightedDebug(closedDeals);
-      const pendingDebugInfo = buildWeightedDebug(pendingDeals);
-      const pipelineDebugInfo = buildWeightedDebug(pipelineDeals);
+      const wClosed = sumWeightedDeals(closedDeals, dealMetadataMap);
+      const wPending = sumWeightedDeals(pendingDeals, dealMetadataMap);
+      const wPipeline = sumWeightedDeals(pipelineDeals, dealMetadataMap);
+      const closedDebug = buildWeightedDebug(closedDeals, dealMetadataMap);
+      const pendingDebugInfo = buildWeightedDebug(pendingDeals, dealMetadataMap);
+      const pipelineDebugInfo = buildWeightedDebug(pipelineDeals, dealMetadataMap);
 
       // Store closed deals with dates for the GCI chart
       setClosedDealsList(
@@ -175,7 +177,7 @@ const CompanyBusinessPlanning = () => {
         const cd = (d as any).closedDate || (d as any).closeDate || d.projectedCloseDate || '';
         return cd && cd <= q1End;
       });
-      setQ1ClosedDeals(Math.round(sumWeightedDeals(q1Closed) * 100) / 100);
+      setQ1ClosedDeals(Math.round(sumWeightedDeals(q1Closed, dealMetadataMap) * 100) / 100);
 
       setMetrics({
         closedDeals: closedDeals.length,

@@ -904,6 +904,36 @@ export type Database = {
         }
         Relationships: []
       }
+      deal_metadata: {
+        Row: {
+          created_at: string
+          deal_category: string
+          fub_deal_id: number
+          id: string
+          updated_at: string
+          updated_by: string | null
+          weight_override: number | null
+        }
+        Insert: {
+          created_at?: string
+          deal_category?: string
+          fub_deal_id: number
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+          weight_override?: number | null
+        }
+        Update: {
+          created_at?: string
+          deal_category?: string
+          fub_deal_id?: number
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+          weight_override?: number | null
+        }
+        Relationships: []
+      }
       deal_participants: {
         Row: {
           created_at: string

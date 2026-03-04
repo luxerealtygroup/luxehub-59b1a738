@@ -7,6 +7,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { useViewAsAgent } from '@/hooks/useViewAsAgent';
 import { useFubDealMetrics, ACTIVE_LISTING_STAGES, classifyStage, CLOSED_STAGES, PENDING_STAGES, isActiveListingDeal, inferDealSide, ActiveListingDebugInfo } from '@/hooks/useFubDealMetrics';
 import { usePipelineMetrics } from '@/hooks/usePipelineMetrics';
+import { useDealMetadata } from '@/hooks/useDealMetadata';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -24,6 +25,7 @@ const BusinessPlanning = () => {
   const { hasFUB } = useHasFUB();
   const { isAdmin } = useUserRole();
   const { effectiveUserId, effectiveFubUserId, isViewingAsAgent, viewingAgentName } = useViewAsAgent();
+  const { metadata: dealMetadataMap } = useDealMetadata();
 
   const [mode, setMode] = useState<'active' | 'planning'>(hasFUB ? 'active' : 'planning');
   const [quarter, setQuarter] = useState(2);
@@ -50,7 +52,7 @@ const BusinessPlanning = () => {
   // ─── FUB metrics (single source of truth) ───
   const { metrics: dealMetrics, debugInfo, loading: metricsLoading, allDeals } = useFubDealMetrics({
     userId: uid, fubUserId: effectiveFubUserId, year: currentYear, hasFUB,
-    agentName: viewingAgentName, dateStart, dateEnd,
+    agentName: viewingAgentName, dateStart, dateEnd, dealMetadataMap,
   });
 
   // ─── Active listings from FUB deals (shared logic) ───
