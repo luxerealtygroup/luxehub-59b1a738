@@ -85,6 +85,7 @@ const CompanyBusinessPlanning = () => {
   const [metrics, setMetrics] = useState<CompanyMetrics | null>(null);
   const [agentGoals, setAgentGoals] = useState<AgentGoalRow[]>([]);
   const [closedDealsList, setClosedDealsList] = useState<{ gci: number; date: string }[]>([]);
+  const [pendingDealsList, setPendingDealsList] = useState<{ gci: number; date: string }[]>([]);
   const [companyDealGoal, setCompanyDealGoal] = useState(0);
   const [companyGciGoal, setCompanyGciGoal] = useState(0);
   const [pipelineSummary, setPipelineSummary] = useState<PipelineSummary>({ totalClients: 0, buyers: 0, sellers: 0, projectedGci: 0 });
@@ -134,6 +135,13 @@ const CompanyBusinessPlanning = () => {
       // Store closed deals with dates for the GCI chart
       setClosedDealsList(
         closedDeals.map(d => ({
+          gci: d.commissionValue || d.agentCommission || 0,
+          date: d.projectedCloseDate || d.createdAt || '',
+        })).filter(d => d.date)
+      );
+      // Store pending deals for the GCI chart
+      setPendingDealsList(
+        pendingDeals.map(d => ({
           gci: d.commissionValue || d.agentCommission || 0,
           date: d.projectedCloseDate || d.createdAt || '',
         })).filter(d => d.date)
@@ -474,7 +482,7 @@ const CompanyBusinessPlanning = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <GciPaceChart closedDeals={closedDealsList} gciGoal={companyGciGoal} />
+                <GciPaceChart closedDeals={closedDealsList} pendingDeals={pendingDealsList} gciGoal={companyGciGoal} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -698,67 +706,47 @@ const CompanyBusinessPlanning = () => {
 };
 
 // ── GCI Pace Chart ──
-const GciPaceChart = ({ closedDeals, gciGoal }: { closedDeals: { gci: number; date: string }[]; gciGoal: number }) => {
+const GciPaceChart = ({ closedDeals, pendingDeals, gciGoal }: { closedDeals: { gci: number; date: string }[]; pendingDeals: { gci: number; date: string }[]; gciGoal: number }) => {
   const chartData = useMemo(() => {
-    const yearStart = startOfYear(new Date());
     const now = new Date();
     const currentWeekNum = getWeek(now, { weekStartsOn: 1 });
     const totalWeeks = 52;
     const weeklyTarget = gciGoal / totalWeeks;
 
-    // Build week buckets for the full year
-    const weeks: { week: number; weekLabel: string; actual: number | null; target: number }[] = [];
-    for (let w = 1; w <= totalWeeks; w++) {
+    const weekGciClosed = new Array(totalWeeks).fill(0);
+    closedDeals.forEach(d => {
+      try {
+        const dealWeek = getWeek(parseISO(d.date), { weekStartsOn: 1 });
+        if (dealWeek >= 1 && dealWeek <= totalWeeks) weekGciClosed[dealWeek - 1] += d.gci;
+      } catch {}
+    });
+
+    const weekGciPending = new Array(totalWeeks).fill(0);
+    pendingDeals.forEach(d => {
+      try {
+        const dealWeek = getWeek(parseISO(d.date), { weekStartsOn: 1 });
+        if (dealWeek >= 1 && dealWeek <= totalWeeks) weekGciPending[dealWeek - 1] += d.gci;
+      } catch {}
+    });
+
+    const weeks: { week: number; weekLabel: string; closed: number | null; closedPlusPending: number | null; target: number }[] = [];
+    let runningClosed = 0;
+    let runningTotal = 0;
+
+    for (let w = 0; w < totalWeeks; w++) {
+      runningClosed += weekGciClosed[w];
+      runningTotal += weekGciClosed[w] + weekGciPending[w];
       weeks.push({
-        week: w,
-        weekLabel: `W${w}`,
-        actual: w <= currentWeekNum ? 0 : null,
-        target: Math.round(weeklyTarget * w),
+        week: w + 1,
+        weekLabel: `W${w + 1}`,
+        closed: w < currentWeekNum ? Math.round(runningClosed) : null,
+        closedPlusPending: w < currentWeekNum ? Math.round(runningTotal) : null,
+        target: Math.round(weeklyTarget * (w + 1)),
       });
     }
 
-    // Accumulate closed deal GCI into weekly buckets
-    closedDeals.forEach(d => {
-      try {
-        const dealDate = parseISO(d.date);
-        const dealWeek = getWeek(dealDate, { weekStartsOn: 1 });
-        if (dealWeek >= 1 && dealWeek <= totalWeeks) {
-          // Add to this week and all subsequent weeks up to current
-          for (let w = dealWeek - 1; w < Math.min(currentWeekNum, totalWeeks); w++) {
-            if (weeks[w].actual !== null) {
-              weeks[w].actual! += d.gci;
-            }
-          }
-        }
-      } catch {}
-    });
-
-    // Make cumulative
-    let cumulative = 0;
-    for (let w = 0; w < Math.min(currentWeekNum, totalWeeks); w++) {
-      // Already accumulated above, but let's recalculate properly
-    }
-
-    // Recalculate properly: sum GCI per week, then cumulate
-    const weekGci = new Array(totalWeeks).fill(0);
-    closedDeals.forEach(d => {
-      try {
-        const dealDate = parseISO(d.date);
-        const dealWeek = getWeek(dealDate, { weekStartsOn: 1 });
-        if (dealWeek >= 1 && dealWeek <= totalWeeks) {
-          weekGci[dealWeek - 1] += d.gci;
-        }
-      } catch {}
-    });
-
-    let runningTotal = 0;
-    for (let w = 0; w < totalWeeks; w++) {
-      runningTotal += weekGci[w];
-      weeks[w].actual = w < currentWeekNum ? Math.round(runningTotal) : null;
-    }
-
     return weeks;
-  }, [closedDeals, gciGoal]);
+  }, [closedDeals, pendingDeals, gciGoal]);
 
   if (gciGoal === 0) {
     return <p className="text-sm text-muted-foreground text-center py-4">Set a company GCI goal to see the pace chart.</p>;
@@ -768,48 +756,25 @@ const GciPaceChart = ({ closedDeals, gciGoal }: { closedDeals: { gci: number; da
     <div className="h-[300px]">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-          <XAxis
-            dataKey="weekLabel"
-            tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
-            interval={3}
-          />
-          <YAxis
-            tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
-            tickFormatter={(v: number) => `$${Math.round(v / 1000)}k`}
-          />
+          <XAxis dataKey="weekLabel" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} interval={3} />
+          <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={(v: number) => `$${Math.round(v / 1000)}k`} />
           <Tooltip
             contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
             labelStyle={{ color: 'hsl(var(--foreground))' }}
             formatter={(value: number, name: string) => [
               `$${value.toLocaleString()}`,
-              name === 'target' ? 'Target Pace' : 'Actual GCI',
+              name === 'target' ? 'Target Pace' : name === 'closedPlusPending' ? 'Closed + Pending' : 'Closed GCI',
             ]}
           />
           <Legend />
-          <Line
-            type="monotone"
-            dataKey="target"
-            stroke="hsl(var(--muted-foreground))"
-            strokeDasharray="5 5"
-            strokeWidth={2}
-            dot={false}
-            name="Target Pace"
-          />
-          <Line
-            type="monotone"
-            dataKey="actual"
-            stroke="hsl(43, 74%, 49%)"
-            strokeWidth={2.5}
-            dot={false}
-            name="Actual GCI"
-            connectNulls={false}
-          />
+          <Line type="monotone" dataKey="target" stroke="hsl(var(--muted-foreground))" strokeDasharray="5 5" strokeWidth={2} dot={false} name="Target Pace" />
+          <Line type="monotone" dataKey="closedPlusPending" stroke="hsl(142, 71%, 45%)" strokeWidth={2} strokeDasharray="4 2" dot={false} name="Closed + Pending" connectNulls={false} />
+          <Line type="monotone" dataKey="closed" stroke="hsl(43, 74%, 49%)" strokeWidth={2.5} dot={false} name="Closed GCI" connectNulls={false} />
         </LineChart>
       </ResponsiveContainer>
     </div>
   );
 };
-
 // ── Small reusable metric card ──
 const MetricCard = ({ label, value, icon, sub }: { label: string; value: string | number; icon: React.ReactNode; sub?: string }) => (
   <div className="p-4 rounded-lg border border-border bg-muted/20">
