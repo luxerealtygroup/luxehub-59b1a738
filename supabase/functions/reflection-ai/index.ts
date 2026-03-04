@@ -22,6 +22,16 @@ serve(async (req) => {
 
     const currentYear = new Date().getFullYear();
     const today = new Date().toISOString().split("T")[0];
+    const currentQuarter = Math.ceil((new Date().getMonth() + 1) / 3);
+
+    // Fetch mindset reflection data
+    const { data: mindset } = await supabase
+      .from("business_planning_reflections")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("year", currentYear)
+      .eq("quarter", currentQuarter)
+      .maybeSingle();
 
     // Fetch all weekly_411 rows for this agent YTD
     const { data: weeks, error } = await supabase
@@ -93,7 +103,20 @@ serve(async (req) => {
       .sort((a, b) => b.total - a.total)
       .slice(0, 15);
 
-    const prompt = `You are a direct, no-nonsense real estate performance coach. Analyze this agent's YTD Weekly 4-1-1 data and generate a performance reflection.
+    // Build mindset context
+    let mindsetBlock = "";
+    if (mindset) {
+      mindsetBlock = `
+AGENT MINDSET (Q${currentQuarter} Self-Assessment):
+- Confidence Level: ${mindset.confidence ?? "N/A"}/10
+- Stress Level: ${mindset.stress ?? "N/A"}/10
+- Wins YTD: ${mindset.wins_ytd || "Not provided"}
+- Biggest Bottleneck: ${mindset.biggest_bottleneck || "Not provided"}
+- What They're Avoiding: ${mindset.what_avoiding || "Not provided"}
+`;
+    }
+
+    const prompt = `You are a supportive yet direct real estate performance coach. Analyze this agent's YTD Weekly 4-1-1 data AND their mindset self-assessment to generate a performance reflection that is encouraging and constructive.
 
 DATA SUMMARY (${totalWeeks} weeks tracked in ${currentYear}):
 
@@ -114,12 +137,15 @@ PRIORITY TASK COMPLETION:
 
 TOP RECURRING PRIORITIES:
 ${sortedTasks.map(t => `- "${t.title}": ${t.completed} completed, ${t.incomplete} incomplete`).join("\n")}
-
+${mindsetBlock}
 Rules:
-- Be direct and assertive
-- No soft language
+- Lead with positive reinforcement — acknowledge wins, effort, and consistency before addressing gaps
 - Use actual numbers from the data
-- Keep each section concise`;
+- If stress is high (7+), recommend specific wellness strategies: meditation, breathwork exercises, journaling prompts, morning routines, or mindfulness practices
+- If confidence is low (<5), focus on celebrating small wins and building momentum
+- If they identified a bottleneck or avoidance pattern, address it with empathy and a concrete micro-step
+- In strategic suggestions, include at least one mindset/wellness recommendation alongside business tactics
+- Keep each section concise but warm`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
