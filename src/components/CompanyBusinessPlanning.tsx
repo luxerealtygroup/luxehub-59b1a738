@@ -88,6 +88,8 @@ const CompanyBusinessPlanning = () => {
   const [pendingDealsList, setPendingDealsList] = useState<{ gci: number; date: string }[]>([]);
   const [companyDealGoal, setCompanyDealGoal] = useState(0);
   const [companyGciGoal, setCompanyGciGoal] = useState(0);
+  const [quarterlyDealGoals, setQuarterlyDealGoals] = useState<{ q1: number; q2: number; q3: number; q4: number }>({ q1: 0, q2: 0, q3: 0, q4: 0 });
+  const [q1ClosedDeals, setQ1ClosedDeals] = useState(0);
   const [pipelineSummary, setPipelineSummary] = useState<PipelineSummary>({ totalClients: 0, buyers: 0, sellers: 0, projectedGci: 0 });
   const [conversionTotals, setConversionTotals] = useState<ConversionTotals>({ contacts_made: 0, dials: 0, appointments_set: 0, appointments_held: 0, pipeline_additions: 0, contracts_signed: 0, firm_deals: 0 });
   const [recruiting, setRecruiting] = useState<RecruitingData>({
@@ -147,6 +149,14 @@ const CompanyBusinessPlanning = () => {
         })).filter(d => d.date)
       );
 
+      // Count Q1 closed deals for carryover calculation
+      const q1End = `${CURRENT_YEAR}-03-31`;
+      const q1Closed = closedDeals.filter(d => {
+        const cd = (d as any).closedDate || (d as any).closeDate || d.projectedCloseDate || '';
+        return cd && cd <= q1End;
+      });
+      setQ1ClosedDeals(q1Closed.length);
+
       setMetrics({
         closedDeals: closedDeals.length,
         pendingDeals: pendingDeals.length,
@@ -190,10 +200,27 @@ const CompanyBusinessPlanning = () => {
 
   // ── 3. Company goals ──
   const fetchCompanyGoals = async () => {
-    const { data } = await supabase.from('company_goals').select('annual_deals_goal, annual_gci_goal').eq('year', CURRENT_YEAR).maybeSingle();
+    const { data } = await supabase.from('company_goals').select('annual_deals_goal, annual_gci_goal, monthly_goals').eq('year', CURRENT_YEAR).maybeSingle();
     if (data) {
       setCompanyDealGoal(data.annual_deals_goal || 0);
       setCompanyGciGoal(data.annual_gci_goal || 0);
+      // Parse quarterly deal goals
+      const raw = data.monthly_goals as any;
+      if (raw && typeof raw === 'object' && !Array.isArray(raw) && raw.quarterly) {
+        const qArr = raw.quarterly as { quarter: number; deals: number }[];
+        const qMap = { q1: 0, q2: 0, q3: 0, q4: 0 };
+        qArr.forEach(q => {
+          if (q.quarter === 1) qMap.q1 = q.deals || 0;
+          if (q.quarter === 2) qMap.q2 = q.deals || 0;
+          if (q.quarter === 3) qMap.q3 = q.deals || 0;
+          if (q.quarter === 4) qMap.q4 = q.deals || 0;
+        });
+        setQuarterlyDealGoals(qMap);
+      } else {
+        // Fallback: divide annual evenly
+        const perQ = Math.ceil((data.annual_deals_goal || 0) / 4);
+        setQuarterlyDealGoals({ q1: perQ, q2: perQ, q3: perQ, q4: perQ });
+      }
     }
   };
 
@@ -302,12 +329,24 @@ const CompanyBusinessPlanning = () => {
   const projectedClosings = monthsElapsed > 0 ? Math.round(((metrics?.closedDeals || 0) / monthsElapsed) * 12) : 0;
   const projectedGci = monthsElapsed > 0 ? Math.round(((metrics?.grossGciClosed || 0) / monthsElapsed) * 12) : 0;
 
-  // Pipeline gap (70% fallout rate)
+  // Pipeline deficit (quarterly with carryover)
   const FALLOUT_RATE = 0.70;
+  const conversionFactor = 1 - FALLOUT_RATE; // 0.30
+  const quarter = CURRENT_QUARTER;
+  const prevQ = quarter > 1 ? quarter - 1 : 4;
+  const currentQGoal = quarter === 1 ? quarterlyDealGoals.q1 : quarter === 2 ? quarterlyDealGoals.q2 : quarter === 3 ? quarterlyDealGoals.q3 : quarterlyDealGoals.q4;
+  const prevQGoal = prevQ === 1 ? quarterlyDealGoals.q1 : prevQ === 2 ? quarterlyDealGoals.q2 : prevQ === 3 ? quarterlyDealGoals.q3 : quarterlyDealGoals.q4;
+  const prevQActual = q1ClosedDeals; // For Q2, this is Q1 closed deals
+  const prevQGap = Math.max(0, prevQGoal - prevQActual);
+  const adjustedQRequired = currentQGoal + prevQGap;
+  const requiredPipelineDeals = adjustedQRequired > 0 ? Math.ceil(adjustedQRequired / conversionFactor) : 0;
+  const pipelineDeficit = Math.max(0, requiredPipelineDeals - pipelineSummary.totalClients);
+  const pipelineSurplus = Math.max(0, pipelineSummary.totalClients - requiredPipelineDeals);
+  // Keep old calc for other sections that reference it
   const closedAndPending = (metrics?.closedDeals || 0) + (metrics?.pendingDeals || 0);
   const remainingDealsNeeded = Math.max(0, companyDealGoal - closedAndPending);
-  const pipelineNeeded = remainingDealsNeeded > 0 ? Math.ceil(remainingDealsNeeded / (1 - FALLOUT_RATE)) : 0;
-  const pipelineGap = Math.max(0, pipelineNeeded - pipelineSummary.totalClients);
+  const pipelineNeeded = remainingDealsNeeded > 0 ? Math.ceil(remainingDealsNeeded / conversionFactor) : 0;
+  const pipelineGap = pipelineDeficit; // alias
 
   if (loading) {
     return (
@@ -372,13 +411,6 @@ const CompanyBusinessPlanning = () => {
                   <MetricCard label="Sellers" value={pipelineSummary.sellers} icon={<Building2 className="h-4 w-4 text-amber-500" />} />
                   <MetricCard label="Projected Pipeline GCI" value={formatCurrency(pipelineSummary.projectedGci)} icon={<DollarSign className="h-4 w-4 text-gold" />} />
                 </div>
-                {/* Pipeline Gap Analysis - grid summary */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <MetricCard label="Total Pipeline Clients" value={pipelineSummary.totalClients} icon={<Users className="h-4 w-4 text-blue-500" />} />
-                  <MetricCard label="Buyers" value={pipelineSummary.buyers} icon={<Users className="h-4 w-4 text-emerald-500" />} />
-                  <MetricCard label="Sellers" value={pipelineSummary.sellers} icon={<Building2 className="h-4 w-4 text-amber-500" />} />
-                  <MetricCard label="Projected Pipeline GCI" value={formatCurrency(pipelineSummary.projectedGci)} icon={<DollarSign className="h-4 w-4 text-gold" />} />
-                </div>
               </CardContent>
             </Card>
 
@@ -390,33 +422,42 @@ const CompanyBusinessPlanning = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {companyDealGoal === 0 ? (
+                {currentQGoal === 0 && companyDealGoal === 0 ? (
                   <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
-                    <p className="text-sm font-medium text-amber-600">Set a company deal goal to enable pipeline deficit analysis.</p>
+                    <p className="text-sm font-medium text-amber-600">Set company quarterly deal goals to enable pipeline deficit analysis.</p>
                   </div>
                 ) : (
                   <>
                     <div className="rounded-lg border border-border bg-card p-4 space-y-2 font-mono text-sm">
+                      {prevQGap > 0 && (
+                        <div className="flex items-center justify-between text-amber-600">
+                          <span>Q{prevQ} Deal Gap (carryover)</span>
+                          <span className="font-bold">+{prevQGap} deals</span>
+                        </div>
+                      )}
+                      {prevQGap > 0 && (
+                        <div className="flex items-center justify-between text-muted-foreground text-xs">
+                          <span>Q{prevQ} Goal: {prevQGoal} — Q{prevQ} Actual: {prevQActual}</span>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Company Deal Goal</span>
-                        <span className="font-bold text-foreground">{companyDealGoal} deals</span>
+                        <span className="text-muted-foreground">Q{quarter} Base Closings Goal</span>
+                        <span className="font-bold text-foreground">{currentQGoal} deals</span>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">YTD Closed + Pending</span>
-                        <span className="font-bold text-foreground">{closedAndPending} deals</span>
-                      </div>
-                      <div className="flex items-center justify-between font-bold">
-                        <span className="text-foreground">Remaining Deals Needed</span>
-                        <span className="text-foreground">{remainingDealsNeeded} deals</span>
-                      </div>
+                      {prevQGap > 0 && (
+                        <div className="flex items-center justify-between font-bold">
+                          <span className="text-foreground">Adjusted Q{quarter} Required</span>
+                          <span className="text-foreground">{adjustedQRequired} deals</span>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between text-muted-foreground">
-                        <span>÷ Conversion Factor ({Math.round((1 - FALLOUT_RATE) * 100)}%)</span>
+                        <span>÷ Conversion Factor ({Math.round(conversionFactor * 100)}%)</span>
                         <span className="text-xs">(100% − {Math.round(FALLOUT_RATE * 100)}% fallout)</span>
                       </div>
                       <Separator />
                       <div className="flex items-center justify-between font-bold">
                         <span className="text-foreground">Required Pipeline Deals</span>
-                        <span className="text-foreground">{pipelineNeeded}</span>
+                        <span className="text-foreground">{requiredPipelineDeals}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-muted-foreground">Current Pipeline</span>
@@ -424,10 +465,15 @@ const CompanyBusinessPlanning = () => {
                       </div>
                       <Separator />
                       <div className="flex items-center justify-between">
-                        {pipelineGap > 0 ? (
+                        {pipelineDeficit > 0 ? (
                           <>
                             <span className="font-bold text-destructive">= Pipeline Deficit</span>
-                            <span className="text-lg font-bold text-destructive">{pipelineGap} more pipeline additions needed</span>
+                            <span className="text-lg font-bold text-destructive">{pipelineDeficit} more pipeline additions needed</span>
+                          </>
+                        ) : pipelineSurplus > 0 ? (
+                          <>
+                            <span className="font-bold text-green-600">= Pipeline Surplus</span>
+                            <span className="text-lg font-bold text-green-600">+{pipelineSurplus} deals ahead</span>
                           </>
                         ) : (
                           <>
@@ -437,9 +483,9 @@ const CompanyBusinessPlanning = () => {
                         )}
                       </div>
                     </div>
-                    {pipelineGap > 0 && (
+                    {pipelineDeficit > 0 && (
                       <Badge className="mt-3 bg-destructive/10 text-destructive border-destructive/30 hover:bg-destructive/20">
-                        Pipeline Deficit: {pipelineGap} additions needed
+                        Pipeline Deficit: {pipelineDeficit} additions needed
                       </Badge>
                     )}
                   </>
