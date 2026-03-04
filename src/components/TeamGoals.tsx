@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -48,6 +49,14 @@ interface TeamActuals {
   pendingRevenue: number;
 }
 
+interface AgentGoalSummary {
+  agentName: string;
+  userId: string;
+  units: number;
+  gci: number;
+  volume: number;
+}
+
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 const TeamGoals = () => {
@@ -59,6 +68,7 @@ const TeamGoals = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [agentGoals, setAgentGoals] = useState<AgentGoalSummary[]>([]);
   
   const [formData, setFormData] = useState({
     annual_deals_goal: 0,
@@ -213,6 +223,28 @@ const TeamGoals = () => {
       companyRevenue,
       pendingRevenue,
     });
+
+    // Fetch all agent production goals for gap analysis
+    const { data: allAgentGoals } = await supabase
+      .from('production_goals')
+      .select('user_id, annual_units_goal, annual_gci_goal, annual_volume_goal')
+      .eq('year', currentYear);
+
+    const { data: allProfiles } = await supabase
+      .from('profiles')
+      .select('id, full_name');
+
+    if (allAgentGoals && allProfiles) {
+      const profileMap = new Map(allProfiles.map(p => [p.id, p.full_name || 'Unknown']));
+      const summaries: AgentGoalSummary[] = allAgentGoals.map(ag => ({
+        agentName: profileMap.get(ag.user_id) || 'Unknown',
+        userId: ag.user_id,
+        units: ag.annual_units_goal || 0,
+        gci: ag.annual_gci_goal || 0,
+        volume: ag.annual_volume_goal || 0,
+      }));
+      setAgentGoals(summaries);
+    }
 
     setLoading(false);
   };
@@ -573,7 +605,92 @@ const TeamGoals = () => {
           </div>
         </div>
 
-        {/* Monthly Breakdown Chart */}
+        {/* Company vs Agent Goals Gap Analysis */}
+        {goals && agentGoals.length > 0 && (
+          <div className="pt-4 space-y-3">
+            <h4 className="text-sm font-medium text-muted-foreground">Company Goal vs Agent Goals Gap</h4>
+            {(() => {
+              const totalAgentUnits = agentGoals.reduce((s, a) => s + a.units, 0);
+              const totalAgentGci = agentGoals.reduce((s, a) => s + a.gci, 0);
+              const totalAgentVolume = agentGoals.reduce((s, a) => s + a.volume, 0);
+              const unitsGap = (goals.annual_deals_goal || 0) - totalAgentUnits;
+              const gciGap = (goals.annual_gci_goal || 0) - totalAgentGci;
+              const volumeGap = (goals.annual_volume_goal || 0) - totalAgentVolume;
+
+              return (
+                <>
+                  {/* Summary gap cards */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="p-3 rounded-lg border border-border bg-muted/20">
+                      <p className="text-xs text-muted-foreground">Units Gap</p>
+                      <p className={`text-xl font-bold ${unitsGap > 0 ? 'text-destructive' : 'text-green-500'}`}>
+                        {unitsGap > 0 ? `-${unitsGap}` : `+${Math.abs(unitsGap)}`}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {totalAgentUnits} of {goals.annual_deals_goal || 0} assigned
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-lg border border-border bg-muted/20">
+                      <p className="text-xs text-muted-foreground">GCI Gap</p>
+                      <p className={`text-xl font-bold ${gciGap > 0 ? 'text-destructive' : 'text-green-500'}`}>
+                        {gciGap > 0 ? `-${formatCurrency(gciGap)}` : `+${formatCurrency(Math.abs(gciGap))}`}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatCurrency(totalAgentGci)} of {formatCurrency(goals.annual_gci_goal)} assigned
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-lg border border-border bg-muted/20">
+                      <p className="text-xs text-muted-foreground">Volume Gap</p>
+                      <p className={`text-xl font-bold ${volumeGap > 0 ? 'text-destructive' : 'text-green-500'}`}>
+                        {volumeGap > 0 ? `-${formatCurrency(volumeGap)}` : `+${formatCurrency(Math.abs(volumeGap))}`}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatCurrency(totalAgentVolume)} of {formatCurrency(goals.annual_volume_goal)} assigned
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Per-agent breakdown */}
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Agent</TableHead>
+                          <TableHead className="text-right">Units Goal</TableHead>
+                          <TableHead className="text-right">GCI Goal</TableHead>
+                          <TableHead className="text-right">Volume Goal</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {agentGoals.map(ag => (
+                          <TableRow key={ag.userId}>
+                            <TableCell className="font-medium">{ag.agentName}</TableCell>
+                            <TableCell className="text-right">{ag.units}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(ag.gci)}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(ag.volume)}</TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow className="border-t-2 border-border font-bold">
+                          <TableCell>Total Assigned</TableCell>
+                          <TableCell className="text-right">{totalAgentUnits}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(totalAgentGci)}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(totalAgentVolume)}</TableCell>
+                        </TableRow>
+                        <TableRow className="font-bold text-gold">
+                          <TableCell>Company Goal</TableCell>
+                          <TableCell className="text-right">{goals.annual_deals_goal || 0}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(goals.annual_gci_goal)}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(goals.annual_volume_goal)}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        )}
+
         {goals && (
           <div className="pt-4">
             <h4 className="text-sm font-medium text-muted-foreground mb-4">Monthly Goal Breakdown</h4>
