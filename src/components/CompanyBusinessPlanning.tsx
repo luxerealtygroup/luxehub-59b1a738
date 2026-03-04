@@ -7,6 +7,7 @@ import { normalize411Row } from '@/lib/utils/weekly411Fallback';
 import { format, startOfYear, startOfWeek, addWeeks, isBefore, parseISO, getWeek } from 'date-fns';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend, ReferenceLine } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
@@ -16,7 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   Target, TrendingUp, DollarSign, Users, Building2,
-  UserPlus, ClipboardList, Loader2, Save, BarChart3, ArrowRightLeft, Briefcase, PieChart,
+  UserPlus, ClipboardList, Loader2, Save, BarChart3, ArrowRightLeft, Briefcase, PieChart, Crosshair,
 } from 'lucide-react';
 import DealSourcesTab from '@/components/deal-sources/DealSourcesTab';
 import { formatCurrency, formatNumber } from '@/lib/utils';
@@ -363,30 +364,78 @@ const CompanyBusinessPlanning = () => {
                   <MetricCard label="Sellers" value={pipelineSummary.sellers} icon={<Building2 className="h-4 w-4 text-amber-500" />} />
                   <MetricCard label="Projected Pipeline GCI" value={formatCurrency(pipelineSummary.projectedGci)} icon={<DollarSign className="h-4 w-4 text-gold" />} />
                 </div>
-                {/* Pipeline Gap Analysis */}
+                {/* Pipeline Gap Analysis - grid summary */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <div className="p-3 rounded-lg border border-border bg-muted/20 text-center">
-                    <p className="text-xs text-muted-foreground">Remaining Deals Needed</p>
-                    <p className="text-xl font-bold text-foreground">{remainingDealsNeeded}</p>
-                    <p className="text-[10px] text-muted-foreground">Goal {companyDealGoal} − {closedAndPending} closed/pending</p>
-                  </div>
-                  <div className="p-3 rounded-lg border border-border bg-muted/20 text-center">
-                    <p className="text-xs text-muted-foreground">Pipeline Needed</p>
-                    <p className="text-xl font-bold text-foreground">{pipelineNeeded}</p>
-                    <p className="text-[10px] text-muted-foreground">at 70% fallout rate</p>
-                  </div>
-                  <div className="p-3 rounded-lg border border-border bg-muted/20 text-center">
-                    <p className="text-xs text-muted-foreground">Current Pipeline</p>
-                    <p className="text-xl font-bold text-foreground">{pipelineSummary.totalClients}</p>
-                  </div>
-                  <div className={`p-3 rounded-lg border text-center ${pipelineGap > 0 ? 'border-destructive/30 bg-destructive/5' : 'border-green-500/30 bg-green-500/5'}`}>
-                    <p className="text-xs text-muted-foreground">Pipeline Gap</p>
-                    <p className={`text-xl font-bold ${pipelineGap > 0 ? 'text-destructive' : 'text-green-500'}`}>
-                      {pipelineGap > 0 ? pipelineGap : '0 ✓'}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground">{pipelineGap > 0 ? 'more clients needed' : 'on track'}</p>
-                  </div>
+                  <MetricCard label="Total Pipeline Clients" value={pipelineSummary.totalClients} icon={<Users className="h-4 w-4 text-blue-500" />} />
+                  <MetricCard label="Buyers" value={pipelineSummary.buyers} icon={<Users className="h-4 w-4 text-emerald-500" />} />
+                  <MetricCard label="Sellers" value={pipelineSummary.sellers} icon={<Building2 className="h-4 w-4 text-amber-500" />} />
+                  <MetricCard label="Projected Pipeline GCI" value={formatCurrency(pipelineSummary.projectedGci)} icon={<DollarSign className="h-4 w-4 text-gold" />} />
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Pipeline Deficit Analysis */}
+            <Card className="border-border">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Crosshair className="h-4 w-4 text-gold" /> Pipeline Deficit Analysis
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {companyDealGoal === 0 ? (
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+                    <p className="text-sm font-medium text-amber-600">Set a company deal goal to enable pipeline deficit analysis.</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="rounded-lg border border-border bg-card p-4 space-y-2 font-mono text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Company Deal Goal</span>
+                        <span className="font-bold text-foreground">{companyDealGoal} deals</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">YTD Closed + Pending</span>
+                        <span className="font-bold text-foreground">{closedAndPending} deals</span>
+                      </div>
+                      <div className="flex items-center justify-between font-bold">
+                        <span className="text-foreground">Remaining Deals Needed</span>
+                        <span className="text-foreground">{remainingDealsNeeded} deals</span>
+                      </div>
+                      <div className="flex items-center justify-between text-muted-foreground">
+                        <span>÷ Conversion Factor ({Math.round((1 - FALLOUT_RATE) * 100)}%)</span>
+                        <span className="text-xs">(100% − {Math.round(FALLOUT_RATE * 100)}% fallout)</span>
+                      </div>
+                      <Separator />
+                      <div className="flex items-center justify-between font-bold">
+                        <span className="text-foreground">Required Pipeline Deals</span>
+                        <span className="text-foreground">{pipelineNeeded}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Current Pipeline</span>
+                        <span className="font-bold text-foreground">{pipelineSummary.totalClients}</span>
+                      </div>
+                      <Separator />
+                      <div className="flex items-center justify-between">
+                        {pipelineGap > 0 ? (
+                          <>
+                            <span className="font-bold text-destructive">= Pipeline Deficit</span>
+                            <span className="text-lg font-bold text-destructive">{pipelineGap} more pipeline additions needed</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="font-bold text-green-600">= Pipeline Covered</span>
+                            <span className="text-lg font-bold text-green-600">On track ✓</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    {pipelineGap > 0 && (
+                      <Badge className="mt-3 bg-destructive/10 text-destructive border-destructive/30 hover:bg-destructive/20">
+                        Pipeline Deficit: {pipelineGap} additions needed
+                      </Badge>
+                    )}
+                  </>
+                )}
               </CardContent>
             </Card>
 
