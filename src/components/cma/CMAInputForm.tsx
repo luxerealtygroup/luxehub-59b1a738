@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -19,6 +19,7 @@ import CMAImprovements, { type ImprovementItem } from './CMAImprovements';
 interface CMAInputFormProps {
   onCreated: (reportId: string) => void;
   onCancel: () => void;
+  editReportId?: string | null;
 }
 
 interface SelectedContact {
@@ -30,13 +31,15 @@ interface SelectedContact {
 
 type FormStep = 'input' | 'review';
 
-const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
+const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) => {
   const { user } = useAuth();
   const { hasFUB } = useHasFUB();
   const [saving, setSaving] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [step, setStep] = useState<FormStep>('input');
   const [extracting, setExtracting] = useState(false);
+  const [loadingEdit, setLoadingEdit] = useState(!!editReportId);
+  const isEditMode = !!editReportId;
 
   // FUB Contact
   const [selectedContact, setSelectedContact] = useState<SelectedContact | null>(null);
@@ -80,6 +83,78 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
   // Subject photos
   const [subjectPhotos, setSubjectPhotos] = useState<File[]>([]);
   const [coverPhotoIndex, setCoverPhotoIndex] = useState(0);
+
+  // Load existing CMA data for editing
+  const loadExistingReport = async () => {
+    if (!editReportId) return;
+    setLoadingEdit(true);
+    try {
+      const { data, error } = await supabase
+        .from('cma_reports')
+        .select('*')
+        .eq('id', editReportId)
+        .single();
+      if (error) throw error;
+      const r = data as any;
+      setPropertyAddress(r.property_address || '');
+      setCityArea(r.city_area || '');
+      setPropertyType(r.property_type || 'detached');
+      setBedrooms(r.bedrooms?.toString() || '');
+      setBathrooms(r.bathrooms?.toString() || '');
+      setSqft(r.approx_sqft?.toString() || '');
+      setTargetListPrice(r.target_list_price?.toString() || '');
+      setIntendedListDate(r.intended_list_date || '');
+      setPurchasePrice(r.purchase_price?.toString() || '');
+      setPurchaseDate(r.purchase_date || '');
+      setImprovements(r.improvements_invested?.toString() || '');
+      setImprovementsList(Array.isArray(r.improvements_list) ? r.improvements_list : []);
+      setStatsMethod(r.stats_method || 'manual');
+      setStatsDateRange(r.stats_date_range?.replace(/[^0-9]/g, '') || '30');
+      setActiveListings(r.active_listings?.toString() || '');
+      setSoldListings(r.sold_listings?.toString() || '');
+      setMedianSalePrice(r.median_sale_price?.toString() || '');
+      setAvgDOM(r.avg_days_on_market?.toString() || '');
+      setSaleToListRatio(r.sale_to_list_ratio?.toString() || '');
+      setMonthsOfInventory(r.months_of_inventory?.toString() || '');
+      setMarketNotes(r.market_notes || '');
+      setPastedStats(r.stats_pasted_text || '');
+      if (r.fub_person_id) {
+        setSelectedContact({ id: r.fub_person_id, name: r.fub_person_name || '' });
+      }
+      // Load existing comps for review
+      if (Array.isArray(r.extracted_comps) && r.extracted_comps.length > 0) {
+        setReviewComps(r.extracted_comps.map((c: any) => ({
+          id: c.id || crypto.randomUUID(),
+          address: c.address || '',
+          comp_category: c.comp_category || 'sold',
+          list_price: c.list_price ?? null,
+          sold_price: c.sold_price ?? null,
+          sale_date: c.sale_date ?? null,
+          days_on_market: c.days_on_market ?? null,
+          beds: c.beds ?? null,
+          baths: c.baths ?? null,
+          sqft: c.sqft ?? null,
+          notes: c.notes || null,
+          excluded: c.excluded || false,
+          _manual_edit: c._manual_edit || false,
+          confidence: c.confidence ?? 1,
+          source_page: c.source_page ?? null,
+          area: c.area || '',
+          is_weak: c.is_weak || false,
+          weak_reason: c.weak_reason || null,
+        })));
+      }
+    } catch (err) {
+      console.error('Failed to load CMA for editing:', err);
+      toast.error('Failed to load CMA data');
+    } finally {
+      setLoadingEdit(false);
+    }
+  };
+
+  useEffect(() => {
+    if (editReportId) loadExistingReport();
+  }, [editReportId]);
 
   const hasMarketStats = () => {
     if (statsMethod === 'manual') return activeListings || soldListings || medianSalePrice || avgDOM || saleToListRatio;
@@ -292,9 +367,8 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
       const photoPaths = await uploadPhotos();
       setUploading(false);
 
-      // Insert record
-      const insertData: Record<string, unknown> = {
-        user_id: user.id,
+      // Build common fields
+      const reportData: Record<string, unknown> = {
         property_address: propertyAddress,
         city_area: cityArea,
         property_type: propertyType,
@@ -307,7 +381,7 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
         purchase_date: purchaseDate,
         improvements_invested: getImprovementsTotal(),
         improvements_list: improvementsList,
-        cma_pdf_name: cmaPdfName,
+        ...(cmaPdfName ? { cma_pdf_name: cmaPdfName } : {}),
         fub_person_id: selectedContact?.id || null,
         fub_person_name: selectedContact?.name || null,
         stats_method: statsMethod,
@@ -319,21 +393,42 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
         sale_to_list_ratio: saleToListRatio ? parseFloat(saleToListRatio) : null,
         months_of_inventory: monthsOfInventory ? parseFloat(monthsOfInventory) : null,
         market_notes: marketNotes || null,
-        stats_pdf_path: statsPdfPath,
+        ...(statsPdfPath ? { stats_pdf_path: statsPdfPath } : {}),
         stats_pasted_text: statsMethod === 'paste' ? pastedStats : null,
         analysis_status: 'processing',
         extracted_comps: finalComps,
-        subject_photos: photoPaths,
-        cover_photo_index: coverPhotoIndex < photoPaths.length ? coverPhotoIndex : 0,
+        last_edited_by: user.id,
       };
 
-      const { data, error } = await supabase
-        .from('cma_reports')
-        .insert(insertData as any)
-        .select('id')
-        .single();
+      // Handle photos: only update if new photos were uploaded
+      if (photoPaths.length > 0) {
+        reportData.subject_photos = photoPaths;
+        reportData.cover_photo_index = coverPhotoIndex < photoPaths.length ? coverPhotoIndex : 0;
+      }
 
-      if (error) throw error;
+      let reportId: string;
+
+      if (isEditMode && editReportId) {
+        // Update existing record, increment version
+        const { error } = await supabase
+          .from('cma_reports')
+          .update(reportData as any)
+          .eq('id', editReportId);
+        if (error) throw error;
+        // Increment version number
+        await supabase.rpc('increment_cma_version', { report_id: editReportId });
+        reportId = editReportId;
+      } else {
+        // Insert new record
+        reportData.user_id = user.id;
+        const { data, error } = await supabase
+          .from('cma_reports')
+          .insert(reportData as any)
+          .select('id')
+          .single();
+        if (error) throw error;
+        reportId = data!.id;
+      }
 
       // Run analysis with reviewed comps included in the request
       const pdfText = cmaPdf ? await extractPdfText(cmaPdf) : '';
@@ -371,15 +466,15 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
           equity_gain_low: eqLow,
           equity_gain_high: eqHigh,
           ai_raw_response: fnData.analysis,
-        }).eq('id', data.id);
+        }).eq('id', reportId);
 
         toast.success('CMA analysis complete!');
       } else {
-        await supabase.from('cma_reports').update({ analysis_status: 'error' }).eq('id', data.id);
+        await supabase.from('cma_reports').update({ analysis_status: 'error' }).eq('id', reportId);
         toast.error(fnData?.error || 'Analysis failed');
       }
 
-      onCreated(data!.id);
+      onCreated(reportId);
     } catch (err) {
       console.error('CMA submit error:', err);
       toast.error('Failed to save CMA report');
@@ -420,8 +515,7 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
       const photoPaths = await uploadPhotos();
       setUploading(false);
 
-      const insertData: Record<string, unknown> = {
-        user_id: user.id,
+      const draftData: Record<string, unknown> = {
         property_address: propertyAddress,
         city_area: cityArea,
         property_type: propertyType,
@@ -434,8 +528,8 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
         purchase_date: purchaseDate,
         improvements_invested: getImprovementsTotal(),
         improvements_list: improvementsList,
-        cma_pdf_path: cmaPdfPath,
-        cma_pdf_name: cmaPdfName,
+        ...(cmaPdfPath ? { cma_pdf_path: cmaPdfPath } : {}),
+        ...(cmaPdfName ? { cma_pdf_name: cmaPdfName } : {}),
         fub_person_id: selectedContact?.id || null,
         fub_person_name: selectedContact?.name || null,
         stats_method: statsMethod,
@@ -447,22 +541,39 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
         sale_to_list_ratio: saleToListRatio ? parseFloat(saleToListRatio) : null,
         months_of_inventory: monthsOfInventory ? parseFloat(monthsOfInventory) : null,
         market_notes: marketNotes || null,
-        stats_pdf_path: statsPdfPath,
+        ...(statsPdfPath ? { stats_pdf_path: statsPdfPath } : {}),
         stats_pasted_text: statsMethod === 'paste' ? pastedStats : null,
         analysis_status: 'draft',
-        subject_photos: photoPaths,
-        cover_photo_index: coverPhotoIndex < photoPaths.length ? coverPhotoIndex : 0,
+        last_edited_by: user.id,
       };
 
-      const { data, error } = await supabase
-        .from('cma_reports')
-        .insert(insertData as any)
-        .select('id')
-        .single();
+      if (photoPaths.length > 0) {
+        draftData.subject_photos = photoPaths;
+        draftData.cover_photo_index = coverPhotoIndex < photoPaths.length ? coverPhotoIndex : 0;
+      }
 
-      if (error) throw error;
-      toast.success('CMA report saved as draft');
-      onCreated(data!.id);
+      let reportId: string;
+
+      if (isEditMode && editReportId) {
+        const { error } = await supabase
+          .from('cma_reports')
+          .update(draftData as any)
+          .eq('id', editReportId);
+        if (error) throw error;
+        reportId = editReportId;
+      } else {
+        draftData.user_id = user.id;
+        const { data, error } = await supabase
+          .from('cma_reports')
+          .insert(draftData as any)
+          .select('id')
+          .single();
+        if (error) throw error;
+        reportId = data!.id;
+      }
+
+      toast.success(isEditMode ? 'CMA report updated' : 'CMA report saved as draft');
+      onCreated(reportId);
     } catch (err) {
       console.error('CMA draft error:', err);
       toast.error('Failed to save CMA report');
@@ -471,7 +582,16 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
     }
   };
 
-  const isProcessing = saving || uploading || analyzing || extracting;
+  const isProcessing = saving || uploading || analyzing || extracting || loadingEdit;
+
+  if (loadingEdit) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-gold" />
+        <span className="ml-2 text-muted-foreground">Loading CMA data...</span>
+      </div>
+    );
+  }
 
   // ============= STEP 2: REVIEW COMPS =============
   if (step === 'review') {
@@ -732,7 +852,7 @@ const CMAInputForm = ({ onCreated, onCancel }: CMAInputFormProps) => {
           disabled={isProcessing}
         >
           {saving && !analyzing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-          Save Draft
+          {isEditMode ? 'Save Draft' : 'Save Draft'}
         </Button>
         <Button
           onClick={handleProceedToReview}

@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Plus, FileText, Loader2, ArrowLeft, Eye, ClipboardCheck, BarChart3, Bug } from 'lucide-react';
+import { Plus, FileText, Loader2, ArrowLeft, Eye, ClipboardCheck, BarChart3, Bug, Pencil } from 'lucide-react';
 import CMAInputForm from '@/components/cma/CMAInputForm';
 import CMAAuditView from '@/components/cma/CMAAuditView';
 import CMAClientReport from '@/components/cma/CMAClientReport';
@@ -24,11 +24,14 @@ interface CMAReport {
   cma_grade: string | null;
   pricing_band_recommended: number | null;
   created_at: string;
+  updated_at: string;
   strategy_recommendation: string | null;
   listing_status: string;
+  user_id: string;
+  version_number: number;
 }
 
-type ViewMode = 'list' | 'create' | 'audit' | 'report';
+type ViewMode = 'list' | 'create' | 'edit' | 'audit' | 'report';
 
 const CMABoss = () => {
   const { user } = useAuth();
@@ -62,7 +65,7 @@ const CMABoss = () => {
 
     let query = supabase
       .from('cma_reports')
-      .select('id, property_address, city_area, property_type, analysis_status, cma_grade, pricing_band_recommended, created_at, strategy_recommendation, listing_status')
+      .select('id, property_address, city_area, property_type, analysis_status, cma_grade, pricing_band_recommended, created_at, updated_at, strategy_recommendation, listing_status, user_id, version_number')
       .order('created_at', { ascending: false });
 
     // Apply agent-level filter at the DB query level
@@ -91,6 +94,11 @@ const CMABoss = () => {
   const openAudit = (id: string) => {
     setSelectedReportId(id);
     setViewMode('audit');
+  };
+
+  const openEdit = (id: string) => {
+    setSelectedReportId(id);
+    setViewMode('edit');
   };
 
   const goBack = () => {
@@ -155,6 +163,21 @@ const CMABoss = () => {
     );
   }
 
+  if (viewMode === 'edit' && selectedReportId) {
+    return (
+      <div className="space-y-6">
+        <DebugCMAScoping />
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={goBack}>
+            <ArrowLeft className="h-4 w-4 mr-1" /> Back
+          </Button>
+          <h1 className="text-2xl font-display font-bold text-foreground">Edit CMA</h1>
+        </div>
+        <CMAInputForm onCreated={handleCreated} onCancel={goBack} editReportId={selectedReportId} />
+      </div>
+    );
+  }
+
   if (viewMode === 'audit' && selectedReportId) {
     return (
       <div className="space-y-6">
@@ -166,14 +189,26 @@ const CMABoss = () => {
             </Button>
             <h1 className="text-2xl font-display font-bold text-foreground">Internal CMA Audit</h1>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setViewMode('report')}
-            className="border-gold/30 text-gold hover:bg-gold/10"
-          >
-            <Eye className="h-4 w-4 mr-1" /> Client Report
-          </Button>
+          <div className="flex gap-2">
+            {!isViewingAsAgent && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => openEdit(selectedReportId)}
+                className="border-gold/30 text-gold hover:bg-gold/10"
+              >
+                <Pencil className="h-4 w-4 mr-1" /> Edit CMA
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setViewMode('report')}
+              className="border-gold/30 text-gold hover:bg-gold/10"
+            >
+              <Eye className="h-4 w-4 mr-1" /> Client Report
+            </Button>
+          </div>
         </div>
         <CMAAuditView reportId={selectedReportId} />
       </div>
@@ -233,7 +268,7 @@ const CMABoss = () => {
           </TabsList>
 
           <TabsContent value="reports">
-            <CMAReportsList reports={reports} loading={loading} onOpen={openAudit} onCreate={() => setViewMode('create')} />
+            <CMAReportsList reports={reports} loading={loading} onOpen={openAudit} onEdit={openEdit} onCreate={() => setViewMode('create')} canEdit={!isViewingAsAgent} currentUserId={user?.id} isAdmin={isAdmin} />
           </TabsContent>
 
           <TabsContent value="performance">
@@ -241,7 +276,7 @@ const CMABoss = () => {
           </TabsContent>
         </Tabs>
       ) : (
-        <CMAReportsList reports={reports} loading={loading} onOpen={openAudit} onCreate={() => setViewMode('create')} />
+        <CMAReportsList reports={reports} loading={loading} onOpen={openAudit} onEdit={openEdit} onCreate={() => setViewMode('create')} canEdit={true} currentUserId={user?.id} isAdmin={false} />
       )}
     </div>
   );
@@ -252,12 +287,20 @@ const CMAReportsList = ({
   reports,
   loading,
   onOpen,
+  onEdit,
   onCreate,
+  canEdit,
+  currentUserId,
+  isAdmin,
 }: {
   reports: CMAReport[];
   loading: boolean;
   onOpen: (id: string) => void;
+  onEdit: (id: string) => void;
   onCreate: () => void;
+  canEdit: boolean;
+  currentUserId?: string;
+  isAdmin: boolean;
 }) => {
   if (loading) {
     return (
@@ -322,9 +365,32 @@ const CMAReportsList = ({
                 <span className="text-xs font-medium text-gold">{report.strategy_recommendation}</span>
               </div>
             )}
-            <p className="text-[10px] text-muted-foreground/60 pt-1">
-              {new Date(report.created_at).toLocaleDateString()}
-            </p>
+            <div className="flex items-center justify-between pt-1">
+              <div className="space-y-0.5">
+                <p className="text-[10px] text-muted-foreground/60">
+                  Created {new Date(report.created_at).toLocaleDateString()}
+                </p>
+                {report.updated_at !== report.created_at && (
+                  <p className="text-[10px] text-muted-foreground/60">
+                    Edited {new Date(report.updated_at).toLocaleDateString()}
+                    {report.version_number > 1 && ` · v${report.version_number}`}
+                  </p>
+                )}
+              </div>
+              {canEdit && (isAdmin || report.user_id === currentUserId) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-muted-foreground hover:text-gold"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit(report.id);
+                  }}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
       ))}
