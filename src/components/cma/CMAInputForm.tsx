@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Upload, Loader2, Home, DollarSign, BarChart3, FileUp, Users } from 'lucide-react';
 import { FUBContactTypeahead } from '@/components/FUBContactTypeahead';
 import { useHasFUB } from '@/hooks/useHasFUB';
-import CMACompReview, { type ReviewComp } from './CMACompReview';
+import CMACompReview, { type ReviewComp, type ExtractionSummary } from './CMACompReview';
 import CMAPhotoUpload from './CMAPhotoUpload';
 import CMAImprovements, { type ImprovementItem } from './CMAImprovements';
 
@@ -79,6 +79,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
 
   // Review comps
   const [reviewComps, setReviewComps] = useState<ReviewComp[]>([]);
+  const [extractionSummary, setExtractionSummary] = useState<ExtractionSummary | null>(null);
 
   // Subject photos
   const [subjectPhotos, setSubjectPhotos] = useState<File[]>([]);
@@ -191,8 +192,12 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     const bytes = new Uint8Array(buffer);
     const decoder = new TextDecoder('utf-8', { fatal: false });
     const text = decoder.decode(bytes);
-    const readable = text.match(/[A-Za-z0-9\s,.$/\-#@%&()]{10,}/g);
-    return readable ? readable.join(' ').substring(0, 50000) : 'PDF text could not be extracted client-side';
+    // Extract ALL readable text sequences (lowered threshold to 4 chars to catch table cells)
+    // Also include common real estate characters: /, #, $, %, commas, periods
+    const readable = text.match(/[A-Za-z0-9\s,.$/\-#@%&()+:;'"|*=~^`{}\[\]\\!?<>]{4,}/g);
+    if (!readable) return 'PDF text could not be extracted client-side';
+    // Join with newlines to preserve structure, increase limit to 80000 for multi-page PDFs
+    return readable.join('\n').substring(0, 80000);
   };
 
   const getImprovementsTotal = () => {
@@ -231,8 +236,9 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     existingManualComps: manualComps.filter(c => c._manual_edit),
   });
 
-  const runExtraction = async (): Promise<ReviewComp[]> => {
-    if (!cmaPdf) return [];
+  const runExtraction = async (): Promise<{ comps: ReviewComp[]; summary: ExtractionSummary | null }> => {
+    if (!cmaPdf) return { comps: [], summary: null };
+    const startTime = Date.now();
     const pdfText = await extractPdfText(cmaPdf);
     const { data: fnData, error: fnError } = await supabase.functions.invoke('cma-analyze', {
       body: buildRequestBody(pdfText, reviewComps),
@@ -240,10 +246,38 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     if (fnError) throw fnError;
     if (!fnData?.success || !fnData.analysis?.extracted_comps) {
       toast.error(fnData?.error || 'Extraction failed');
-      return [];
+      return { comps: [], summary: null };
     }
     const aiComps: any[] = fnData.analysis.extracted_comps || [];
-    return aiComps.map((c: any) => ({
+    const summary: ExtractionSummary = fnData.analysis.extraction_summary || {
+      total_comps_found: aiComps.length,
+      sold_count: aiComps.filter((c: any) => c.comp_category === 'sold').length,
+      active_count: aiComps.filter((c: any) => c.comp_category === 'active').length,
+      expired_count: aiComps.filter((c: any) => c.comp_category === 'expired').length,
+      low_confidence_count: aiComps.filter((c: any) => (c.confidence ?? 1) < 0.5).length,
+      needs_review_count: aiComps.filter((c: any) => c.needs_review).length,
+      extraction_passes: 1,
+    };
+
+    // Log import to cma_import_logs
+    if (user) {
+      const durationMs = Date.now() - startTime;
+      supabase.from('cma_import_logs').insert({
+        user_id: user.id,
+        file_name: cmaPdf.name,
+        file_size_bytes: cmaPdf.size,
+        total_blocks_detected: summary.total_comps_found,
+        comps_imported: aiComps.filter((c: any) => !c.needs_review).length,
+        comps_partial: aiComps.filter((c: any) => c.needs_review).length,
+        comps_skipped: 0,
+        skip_reasons: [],
+        extraction_passes: summary.extraction_passes,
+        extraction_duration_ms: durationMs,
+        raw_text_length: pdfText.length,
+      } as any).then(() => {});
+    }
+
+    const mappedComps = aiComps.map((c: any) => ({
       id: crypto.randomUUID(),
       address: c.address || '',
       comp_category: c.comp_category || 'sold',
@@ -262,7 +296,11 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
       area: c.area || '',
       is_weak: c.is_weak || false,
       weak_reason: c.weak_reason || null,
+      needs_review: c.needs_review || false,
+      needs_review_reason: c.needs_review_reason || null,
     }));
+
+    return { comps: mappedComps, summary };
   };
 
   // Step 1: Move to review (extract if PDF present, else empty review)
@@ -279,9 +317,11 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     if (cmaPdf) {
       setExtracting(true);
       try {
-        const extracted = await runExtraction();
+        const { comps: extracted, summary } = await runExtraction();
         setReviewComps(extracted);
-        toast.success(`Extracted ${extracted.length} comps from PDF`);
+        setExtractionSummary(summary);
+        const reviewCount = extracted.filter(c => c.needs_review).length;
+        toast.success(`Extracted ${extracted.length} comps from PDF${reviewCount > 0 ? ` (${reviewCount} need review)` : ''}`);
       } catch (err) {
         console.error('Extraction error:', err);
         toast.error('Failed to extract comps from PDF');
@@ -302,11 +342,12 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     setExtracting(true);
     try {
       const manualComps = reviewComps.filter(c => c._manual_edit);
-      const extracted = await runExtraction();
+      const { comps: extracted, summary } = await runExtraction();
       // Merge: keep all manual comps, add new AI comps not duplicating manual addresses
       const manualAddresses = new Set(manualComps.map(c => c.address.toLowerCase().trim()));
       const newAiComps = extracted.filter(c => !c._manual_edit && !manualAddresses.has(c.address.toLowerCase().trim()));
       setReviewComps([...manualComps, ...newAiComps]);
+      setExtractionSummary(summary);
       toast.success(`Re-extracted. ${newAiComps.length} new comps added, ${manualComps.length} manual comps preserved.`);
     } catch (err) {
       console.error('Re-extraction error:', err);
@@ -604,6 +645,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
         onConfirm={handleConfirmAndAnalyze}
         onBack={() => setStep('input')}
         isSubmitting={analyzing}
+        extractionSummary={extractionSummary}
       />
     );
   }
