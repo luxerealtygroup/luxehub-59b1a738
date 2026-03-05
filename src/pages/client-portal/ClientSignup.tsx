@@ -41,8 +41,8 @@ const ClientSignup = () => {
 
       if (authError) throw authError;
 
-      if (!authData.user) {
-        throw new Error('Failed to create account');
+      if (!authData.user || authData.user.identities?.length === 0) {
+        throw new Error('An account with this email already exists. Please sign in instead.');
       }
 
       // Create client account record
