@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { getRoleBasedRedirect } from '@/lib/utils/roleRedirect';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -26,6 +27,15 @@ const Login = () => {
         description: error.message,
         variant: "destructive"
       });
+      setLoading(false);
+      return;
+    }
+
+    // Get current user and redirect based on role
+    const { data: { user } } = await (await import('@/integrations/supabase/client')).supabase.auth.getUser();
+    if (user) {
+      const redirect = await getRoleBasedRedirect(user.id);
+      navigate(redirect);
     } else {
       navigate('/dashboard');
     }
