@@ -35,7 +35,7 @@ const ClientSignup = () => {
         password,
         options: {
           data: { full_name: fullName },
-          emailRedirectTo: `${window.location.origin}/client-portal`
+          emailRedirectTo: `${window.location.origin}/auth/confirm`
         }
       });
 
@@ -58,15 +58,14 @@ const ClientSignup = () => {
 
       if (clientError) {
         console.error('Error creating client account:', clientError);
-        // Don't throw - the user is created, just log the error
       }
 
       toast({
-        title: "Account created!",
-        description: "Welcome to your client portal.",
+        title: "Check your email",
+        description: "We've sent a confirmation link. Please verify your email to continue.",
       });
 
-      navigate('/client-portal');
+      navigate('/client-portal/login');
     } catch (error: any) {
       toast({
         title: "Signup failed",

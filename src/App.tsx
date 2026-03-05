@@ -26,6 +26,7 @@ import CMABoss from "./pages/CMABoss";
 import BusinessPlanning from "./pages/BusinessPlanning";
 import CompanyBusinessPlanningPage from "./pages/CompanyBusinessPlanningPage";
 import NotFound from "./pages/NotFound";
+import AuthConfirm from "./pages/AuthConfirm";
 import ClientLogin from "./pages/client-portal/ClientLogin";
 import ClientSignup from "./pages/client-portal/ClientSignup";
 import ClientDashboard from "./pages/client-portal/ClientDashboard";
@@ -45,6 +46,7 @@ const App = () => (
             <Route path="/signup" element={<Signup />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/terms" element={<Terms />} />
+            <Route path="/auth/confirm" element={<AuthConfirm />} />
             
             {/* Client Portal Routes */}
             <Route path="/client-portal" element={<ClientDashboard />} />
