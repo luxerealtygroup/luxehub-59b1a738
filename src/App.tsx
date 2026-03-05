@@ -29,6 +29,7 @@ import NotFound from "./pages/NotFound";
 import AuthConfirm from "./pages/AuthConfirm";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import AccountSettings from "./pages/AccountSettings";
 import ClientLogin from "./pages/client-portal/ClientLogin";
 import ClientSignup from "./pages/client-portal/ClientSignup";
 import ClientDashboard from "./pages/client-portal/ClientDashboard";
@@ -72,6 +73,7 @@ const App = () => (
               <Route path="library" element={<RoleGuard><Library /></RoleGuard>} />
               <Route path="cma-boss" element={<RoleGuard><CMABoss /></RoleGuard>} />
               <Route path="business-planning" element={<BusinessPlanning />} />
+              <Route path="settings" element={<AccountSettings />} />
               <Route path="admin" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><AdminReports /></RoleGuard>} />
               <Route path="admin/business-planning" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><CompanyBusinessPlanningPage /></RoleGuard>} />
               <Route path="admin/agent/:agentId" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><AgentProfile /></RoleGuard>} />
