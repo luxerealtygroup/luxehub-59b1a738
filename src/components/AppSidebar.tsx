@@ -12,7 +12,8 @@ import {
   Key,
   Phone,
   ExternalLink,
-  Compass
+  Compass,
+  Settings
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/hooks/useAuth';
@@ -293,14 +294,24 @@ export function AppSidebar() {
               <p className="text-xs text-muted-foreground truncate">{user.email}</p>
             </div>
           )}
-          <Button
-            variant="ghost"
-            onClick={signOut}
-            className="w-full justify-start text-muted-foreground hover:text-gold hover:bg-gold/10"
-          >
-            <LogOut className="h-5 w-5" />
-            {!collapsed && <span className="ml-3">Sign Out</span>}
-          </Button>
+          <div className="flex flex-col gap-1">
+            <NavLink
+              to="/dashboard/settings"
+              className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:bg-gold/10 hover:text-gold transition-colors text-sm"
+              activeClassName="bg-gold/15 text-gold font-medium"
+            >
+              <Settings className="h-5 w-5 shrink-0" />
+              {!collapsed && <span>Settings</span>}
+            </NavLink>
+            <Button
+              variant="ghost"
+              onClick={signOut}
+              className="w-full justify-start text-muted-foreground hover:text-gold hover:bg-gold/10"
+            >
+              <LogOut className="h-5 w-5" />
+              {!collapsed && <span className="ml-3">Sign Out</span>}
+            </Button>
+          </div>
         </SidebarFooter>
       </Sidebar>
     </TooltipProvider>
