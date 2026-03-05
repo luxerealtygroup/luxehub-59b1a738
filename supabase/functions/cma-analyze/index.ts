@@ -5,42 +5,48 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+const EXTRACTION_SYSTEM_PROMPT = `You are a real estate CMA PDF data extraction specialist. Your ONLY job is to find and extract ALL comparable property data from the provided text.
 
-  try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+CRITICAL RULES:
+1. Search the ENTIRE text from start to finish. Do NOT stop after finding a few properties.
+2. CloudCMA PDFs contain MULTIPLE sections: "Sold Comparables", "Active Listings", "Expired/Withdrawn Listings", summary pages, detail pages.
+3. Each comparable may appear as: a table row, a property card/block, a detail page, or a summary entry.
+4. Extract EVERY property you can identify - even if some fields are missing.
+5. For each property, extract whatever fields are available. Missing fields should be null.
+6. Assign comp_category based on the section header or context (sold/active/expired/other).
+7. Assign confidence: 1.0 = all key fields found, 0.7 = most fields, 0.5 = address + some data, 0.3 = minimal data.
+8. Assign needs_review: true if important fields (price, beds/baths) are missing.
+9. If a property appears in multiple sections (e.g., summary table AND detail page), merge into one entry with highest confidence data.
 
-    const { pdfText, subjectProperty, purchaseHistory, marketStats, existingManualComps, reviewedComps } = await req.json();
+Look for these patterns:
+- Addresses (street number + street name + optional unit)
+- Price patterns ($XXX,XXX or $X,XXX,XXX)
+- Property stats (beds/baths/sqft in various formats: "3 BR / 2 BA", "3bd 2ba", "Beds: 3")
+- DOM/Days on Market
+- MLS numbers
+- Date patterns (sold date, list date)
+- Table headers like "Address", "Price", "Beds", "Baths", "DOM", "Status"
 
-    const systemPrompt = `You are a real estate CMA (Comparative Market Analysis) expert analyst. You will analyze CMA data and provide a comprehensive audit.
-
-CRITICAL EXTRACTION RULES:
-- Search the ENTIRE PDF text across ALL pages, not just the first table you find.
-- CloudCMA PDFs often contain MULTIPLE comp tables: Sold Comps, Active Comps, Expired/Withdrawn Comps.
-- Extract comps from EVERY section/table found in the PDF.
-- Assign each comp a "comp_category": "sold", "active", "expired", or "other".
-- Assign each comp a "source_page" number (estimate based on position in the text, starting from 1).
-- Assign each comp a "confidence" score from 0.0 to 1.0 based on how clearly the data was extracted (1.0 = all fields clearly present, 0.5 = some fields inferred, <0.3 = uncertain).
-
-You MUST respond with a JSON object using this exact structure (no markdown, no code blocks, just pure JSON):
+RESPOND WITH ONLY this JSON (no markdown, no code blocks):
 {
   "extracted_comps": [
     {
       "address": "string",
-      "area": "string",
+      "area": "string or empty",
       "beds": number or null,
       "baths": number or null,
+      "sqft": number or null,
       "list_price": number or null,
       "sold_price": number or null,
       "days_on_market": number or null,
       "sale_date": "string or null",
-      "is_weak": boolean,
-      "weak_reason": "string or null",
+      "is_weak": false,
+      "weak_reason": null,
       "comp_category": "sold|active|expired|other",
       "source_page": number,
-      "confidence": number
+      "confidence": number,
+      "needs_review": boolean,
+      "needs_review_reason": "string or null"
     }
   ],
   "extraction_summary": {
@@ -49,8 +55,16 @@ You MUST respond with a JSON object using this exact structure (no markdown, no 
     "active_count": number,
     "expired_count": number,
     "low_confidence_count": number,
-    "extraction_passes": 1
-  },
+    "needs_review_count": number,
+    "sections_found": ["string"],
+    "extraction_notes": "string describing what was found"
+  }
+}`;
+
+const ANALYSIS_SYSTEM_PROMPT = `You are a real estate CMA (Comparative Market Analysis) expert analyst. Analyze the provided comparable data and market stats to produce a comprehensive CMA audit.
+
+You MUST respond with a JSON object using this exact structure (no markdown, no code blocks, just pure JSON):
+{
   "cma_grade": "A|B|C|D|F",
   "pricing_band_low": number,
   "pricing_band_recommended": number,
@@ -68,23 +82,85 @@ You MUST respond with a JSON object using this exact structure (no markdown, no 
 }
 
 When analyzing:
-1. Extract ALL comparable properties from the CMA PDF text across every page and section
-2. Categorize each comp (sold/active/expired/other) based on section headers or context
+1. Grade the CMA quality (A=excellent comps, tight range; F=poor comps, wide gaps)
+2. Generate a pricing band based on comp analysis
 3. Flag weak comps (distance issues, outdated sales >6 months, size/type mismatch, price outliers >15% from median)
-4. Grade the CMA quality (A=excellent comps, tight range; F=poor comps, wide gaps)
-5. Generate a pricing band based on comp analysis
-6. Analyze market stats to determine market conditions (buyer's/seller's/balanced)
-7. Generate a market narrative incorporating the stats
-8. Calculate strategy recommendation based on market conditions and comp quality
-9. Generate talking points and anticipate seller objections with responses
-10. If fewer than 3 comps are found with confidence >= 0.5, re-scan the entire text specifically looking for any property data patterns (addresses with prices, MLS data, tabular data)`;
+4. Analyze market stats to determine market conditions
+5. Generate talking points and anticipate seller objections`;
 
-    // If agent already reviewed comps, include them in the prompt so AI bases analysis on them
-    const reviewedCompsSection = reviewedComps && Array.isArray(reviewedComps) && reviewedComps.length > 0
-      ? `\n\nAGENT-REVIEWED COMPS (use these as the definitive comparable data, do NOT re-extract from PDF):\n${JSON.stringify(reviewedComps, null, 2)}`
-      : '';
+async function callAI(apiKey: string, systemPrompt: string, userPrompt: string, model = "google/gemini-2.5-flash") {
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+    }),
+  });
 
-    const userPrompt = `Analyze this CMA data:
+  if (!response.ok) {
+    const status = response.status;
+    if (status === 429) throw new Error("RATE_LIMIT");
+    if (status === 402) throw new Error("CREDITS_EXHAUSTED");
+    const t = await response.text();
+    console.error("AI gateway error:", status, t);
+    throw new Error(`AI_ERROR_${status}`);
+  }
+
+  const result = await response.json();
+  const content = result.choices?.[0]?.message?.content || "";
+  const jsonStr = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+  return JSON.parse(jsonStr);
+}
+
+function chunkText(text: string, maxChunkSize: number): string[] {
+  if (text.length <= maxChunkSize) return [text];
+  const chunks: string[] = [];
+  let start = 0;
+  while (start < text.length) {
+    let end = Math.min(start + maxChunkSize, text.length);
+    // Try to break at a newline or space to avoid splitting words
+    if (end < text.length) {
+      const lastNewline = text.lastIndexOf('\n', end);
+      if (lastNewline > start + maxChunkSize * 0.7) end = lastNewline + 1;
+    }
+    chunks.push(text.substring(start, end));
+    start = end;
+  }
+  return chunks;
+}
+
+function deduplicateComps(comps: any[]): any[] {
+  const seen = new Map<string, any>();
+  for (const comp of comps) {
+    const key = (comp.address || '').toLowerCase().trim();
+    if (!key) continue;
+    const existing = seen.get(key);
+    if (!existing || (comp.confidence || 0) > (existing.confidence || 0)) {
+      seen.set(key, comp);
+    }
+  }
+  return Array.from(seen.values());
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  try {
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+
+    const { pdfText, subjectProperty, purchaseHistory, marketStats, existingManualComps, reviewedComps } = await req.json();
+
+    // If agent already reviewed comps, skip extraction and go straight to analysis
+    if (reviewedComps && Array.isArray(reviewedComps) && reviewedComps.length > 0) {
+      const analysisPrompt = `Analyze this CMA data using the agent-reviewed comparable properties:
 
 SUBJECT PROPERTY:
 ${JSON.stringify(subjectProperty, null, 2)}
@@ -95,154 +171,269 @@ ${JSON.stringify(purchaseHistory, null, 2)}
 MARKET STATS:
 ${JSON.stringify(marketStats, null, 2)}
 
-CMA PDF CONTENT:
-${pdfText || "No PDF text extracted - analyze based on available data only."}${reviewedCompsSection}
+COMPARABLE PROPERTIES (agent-reviewed):
+${JSON.stringify(reviewedComps, null, 2)}
 
-${reviewedComps?.length > 0 
-  ? 'Use the AGENT-REVIEWED COMPS as extracted_comps in your response. Focus on grading, pricing, risk analysis, and generating insights from these comps.'
-  : 'Provide your complete analysis as a JSON object. Remember to extract comps from ALL pages and sections, categorize them, and include confidence scores.'}`;
+Provide your complete analysis as a JSON object.`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-      }),
-    });
-
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted. Please add credits." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
-      return new Response(JSON.stringify({ error: "AI analysis failed" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const aiResult = await response.json();
-    const content = aiResult.choices?.[0]?.message?.content || "";
-
-    // Parse JSON from response (strip markdown code blocks if present)
-    let parsed;
-    try {
-      const jsonStr = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      parsed = JSON.parse(jsonStr);
-    } catch {
-      console.error("Failed to parse AI response:", content);
-      return new Response(JSON.stringify({ error: "Failed to parse AI analysis", raw: content }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Second extraction pass if low confidence / few comps
-    const comps = parsed.extracted_comps || [];
-    const highConfComps = comps.filter((c: any) => (c.confidence ?? 1) >= 0.5);
-    
-    if (pdfText && highConfComps.length < 3) {
-      console.log(`Low comp count (${highConfComps.length}), running second extraction pass...`);
+      const analysis = await callAI(LOVABLE_API_KEY, ANALYSIS_SYSTEM_PROMPT, analysisPrompt);
       
-      const retryPrompt = `The previous extraction found only ${highConfComps.length} comps with confidence >= 0.5. 
-Re-scan this PDF text very carefully, focusing ONLY on detecting property comp tables. Look for:
-- Any addresses with associated prices
-- MLS-style data rows
-- Tabular data with columns like Address, Price, Beds, Baths, DOM
-- Multiple sections (Sold, Active, Expired)
+      return new Response(JSON.stringify({
+        success: true,
+        analysis: {
+          ...analysis,
+          extracted_comps: reviewedComps,
+          extraction_summary: {
+            total_comps_found: reviewedComps.length,
+            sold_count: reviewedComps.filter((c: any) => c.comp_category === 'sold').length,
+            active_count: reviewedComps.filter((c: any) => c.comp_category === 'active').length,
+            expired_count: reviewedComps.filter((c: any) => c.comp_category === 'expired').length,
+            low_confidence_count: 0,
+            needs_review_count: 0,
+            extraction_passes: 0,
+          },
+        },
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-Return ONLY the extracted_comps array in JSON format (no other fields). Include comp_category, source_page, and confidence for each.
+    // === EXTRACTION MODE ===
+    if (!pdfText) {
+      // No PDF text - analyze based on available data only
+      const analysisPrompt = `Analyze this CMA data (no PDF comps available):
 
-PDF TEXT:
-${pdfText}`;
+SUBJECT PROPERTY:
+${JSON.stringify(subjectProperty, null, 2)}
+
+CLIENT PURCHASE HISTORY:
+${JSON.stringify(purchaseHistory, null, 2)}
+
+MARKET STATS:
+${JSON.stringify(marketStats, null, 2)}
+
+There are no comparable properties extracted from a PDF. Provide analysis based on market stats only.`;
+
+      const analysis = await callAI(LOVABLE_API_KEY, ANALYSIS_SYSTEM_PROMPT, analysisPrompt);
+      
+      return new Response(JSON.stringify({
+        success: true,
+        analysis: {
+          ...analysis,
+          extracted_comps: [],
+          extraction_summary: {
+            total_comps_found: 0,
+            sold_count: 0,
+            active_count: 0,
+            expired_count: 0,
+            low_confidence_count: 0,
+            needs_review_count: 0,
+            extraction_passes: 0,
+          },
+        },
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // === MULTI-CHUNK EXTRACTION ===
+    const MAX_CHUNK_SIZE = 45000; // Leave room for prompt overhead
+    const chunks = chunkText(pdfText, MAX_CHUNK_SIZE);
+    let allComps: any[] = [];
+    let extractionPasses = 0;
+    let allSections: string[] = [];
+    let extractionNotes: string[] = [];
+
+    console.log(`PDF text length: ${pdfText.length}, chunks: ${chunks.length}`);
+
+    // Pass 1: Extract from each chunk
+    for (let i = 0; i < chunks.length; i++) {
+      extractionPasses++;
+      const chunkLabel = chunks.length > 1 ? ` (chunk ${i + 1} of ${chunks.length})` : '';
+      
+      const extractionPrompt = `Extract ALL comparable properties from this CMA PDF text${chunkLabel}.
+
+SUBJECT PROPERTY (for context, do NOT include as a comparable):
+Address: ${subjectProperty?.address || 'Unknown'}
+
+PDF TEXT${chunkLabel}:
+${chunks[i]}
+
+Remember: Extract EVERY property found. Even partial data is valuable. Do not skip any properties.`;
 
       try {
-        const retryResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
-            messages: [
-              { role: "system", content: "You extract property comparable data from CMA PDFs. Return only a JSON object with an 'extracted_comps' array. No markdown." },
-              { role: "user", content: retryPrompt },
-            ],
-          }),
-        });
-
-        if (retryResponse.ok) {
-          const retryResult = await retryResponse.json();
-          const retryContent = retryResult.choices?.[0]?.message?.content || "";
-          try {
-            const retryJson = JSON.parse(retryContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim());
-            const retryComps = retryJson.extracted_comps || retryJson || [];
-            if (Array.isArray(retryComps) && retryComps.length > comps.length) {
-              parsed.extracted_comps = retryComps;
-              parsed.extraction_summary = {
-                ...parsed.extraction_summary,
-                total_comps_found: retryComps.length,
-                extraction_passes: 2,
-              };
-            }
-          } catch {
-            console.error("Failed to parse retry extraction");
-          }
+        const result = await callAI(LOVABLE_API_KEY, EXTRACTION_SYSTEM_PROMPT, extractionPrompt);
+        const comps = result.extracted_comps || [];
+        console.log(`Chunk ${i + 1}: extracted ${comps.length} comps`);
+        allComps.push(...comps);
+        
+        if (result.extraction_summary?.sections_found) {
+          allSections.push(...result.extraction_summary.sections_found);
         }
-      } catch (retryErr) {
-        console.error("Retry extraction failed:", retryErr);
+        if (result.extraction_summary?.extraction_notes) {
+          extractionNotes.push(result.extraction_summary.extraction_notes);
+        }
+      } catch (err) {
+        console.error(`Chunk ${i + 1} extraction failed:`, err);
+        extractionNotes.push(`Chunk ${i + 1} extraction failed: ${err}`);
       }
     }
 
-    // Ensure extraction_summary exists
-    if (!parsed.extraction_summary) {
-      const finalComps = parsed.extracted_comps || [];
-      parsed.extraction_summary = {
-        total_comps_found: finalComps.length,
-        sold_count: finalComps.filter((c: any) => c.comp_category === 'sold').length,
-        active_count: finalComps.filter((c: any) => c.comp_category === 'active').length,
-        expired_count: finalComps.filter((c: any) => c.comp_category === 'expired').length,
-        low_confidence_count: finalComps.filter((c: any) => (c.confidence ?? 1) < 0.5).length,
-        extraction_passes: 1,
+    // Deduplicate across chunks
+    allComps = deduplicateComps(allComps);
+    console.log(`After dedup: ${allComps.length} unique comps`);
+
+    // Pass 2: Retry if too few high-confidence comps found
+    const highConfComps = allComps.filter((c: any) => (c.confidence ?? 1) >= 0.5);
+    if (highConfComps.length < 3 && pdfText.length > 100) {
+      extractionPasses++;
+      console.log(`Low comp count (${highConfComps.length}), running focused retry pass...`);
+
+      const retryPrompt = `IMPORTANT: A previous extraction pass found only ${highConfComps.length} comparables with good confidence.
+
+Re-scan this text VERY carefully. Look for ANY property data patterns:
+- Street addresses with numbers (e.g., "123 Oak St", "45 Main Street")
+- Price values near addresses ($XXX,XXX)
+- Property details in any format
+- Table rows with property data
+- MLS listing data
+- "Comparable", "Comp", "Subject" labels followed by property details
+
+Previous extraction found these addresses (do NOT duplicate):
+${allComps.map((c: any) => c.address).join(', ')}
+
+PDF TEXT:
+${pdfText.substring(0, MAX_CHUNK_SIZE)}
+
+Extract any ADDITIONAL properties not in the list above.`;
+
+      try {
+        const retryResult = await callAI(LOVABLE_API_KEY, EXTRACTION_SYSTEM_PROMPT, retryPrompt);
+        const retryComps = retryResult.extracted_comps || [];
+        console.log(`Retry pass found ${retryComps.length} comps`);
+        
+        if (retryComps.length > 0) {
+          allComps.push(...retryComps);
+          allComps = deduplicateComps(allComps);
+          extractionNotes.push(`Retry pass found ${retryComps.length} additional comps`);
+        }
+      } catch (err) {
+        console.error("Retry extraction failed:", err);
+        extractionNotes.push(`Retry extraction failed: ${err}`);
+      }
+    }
+
+    // Mark partial extractions as needs_review
+    for (const comp of allComps) {
+      if (!comp.needs_review) {
+        const missingFields: string[] = [];
+        if (!comp.address) missingFields.push('address');
+        if (comp.sold_price == null && comp.list_price == null) missingFields.push('price');
+        if (comp.beds == null && comp.baths == null) missingFields.push('beds/baths');
+        
+        if (missingFields.length > 0) {
+          comp.needs_review = true;
+          comp.needs_review_reason = `Missing: ${missingFields.join(', ')}`;
+          if (comp.confidence == null || comp.confidence > 0.5) {
+            comp.confidence = 0.5;
+          }
+        }
+      }
+    }
+
+    // Build extraction summary
+    const needsReviewCount = allComps.filter((c: any) => c.needs_review).length;
+    const extractionSummary = {
+      total_comps_found: allComps.length,
+      sold_count: allComps.filter((c: any) => c.comp_category === 'sold').length,
+      active_count: allComps.filter((c: any) => c.comp_category === 'active').length,
+      expired_count: allComps.filter((c: any) => c.comp_category === 'expired').length,
+      low_confidence_count: allComps.filter((c: any) => (c.confidence ?? 1) < 0.5).length,
+      needs_review_count: needsReviewCount,
+      extraction_passes: extractionPasses,
+      sections_found: [...new Set(allSections)],
+      extraction_notes: extractionNotes.join(' | '),
+      text_length: pdfText.length,
+      chunks_processed: chunks.length,
+    };
+
+    // Merge with existing manual comps
+    if (existingManualComps && Array.isArray(existingManualComps) && existingManualComps.length > 0) {
+      const manualComps = existingManualComps.filter((c: any) => c._manual_edit);
+      const manualAddresses = new Set(manualComps.map((c: any) => (c.address || '').toLowerCase().trim()));
+      const newAiComps = allComps.filter((c: any) => !manualAddresses.has((c.address || '').toLowerCase().trim()));
+      allComps = [...manualComps, ...newAiComps];
+    }
+
+    // Now run the analysis pass with the extracted comps
+    const analysisPrompt = `Analyze this CMA data with ${allComps.length} comparable properties:
+
+SUBJECT PROPERTY:
+${JSON.stringify(subjectProperty, null, 2)}
+
+CLIENT PURCHASE HISTORY:
+${JSON.stringify(purchaseHistory, null, 2)}
+
+MARKET STATS:
+${JSON.stringify(marketStats, null, 2)}
+
+COMPARABLE PROPERTIES:
+${JSON.stringify(allComps, null, 2)}
+
+Provide your complete analysis. Grade quality, generate pricing bands, flag risks, create talking points.`;
+
+    let analysis: any;
+    try {
+      analysis = await callAI(LOVABLE_API_KEY, ANALYSIS_SYSTEM_PROMPT, analysisPrompt);
+    } catch (err) {
+      console.error("Analysis pass failed:", err);
+      // Return extraction results even if analysis fails
+      analysis = {
+        cma_grade: null,
+        pricing_band_low: null,
+        pricing_band_recommended: null,
+        pricing_band_high: null,
+        pricing_confidence: null,
+        risk_flags: ["Analysis pass failed - please re-run"],
+        weak_comp_alerts: [],
+        adjustment_observations: [],
+        talking_points: [],
+        seller_objections: [],
+        strategy_recommendation: null,
+        market_narrative: null,
       };
     }
 
-    // Merge with existing manual comps (preserve manual edits)
-    if (existingManualComps && Array.isArray(existingManualComps) && existingManualComps.length > 0) {
-      const aiComps = parsed.extracted_comps || [];
-      // Manual comps are identified by having _manual_edit flag
-      const manualComps = existingManualComps.filter((c: any) => c._manual_edit);
-      // Merge: keep manual comps, add AI comps that don't duplicate manual addresses
-      const manualAddresses = new Set(manualComps.map((c: any) => (c.address || '').toLowerCase().trim()));
-      const newAiComps = aiComps.filter((c: any) => !manualAddresses.has((c.address || '').toLowerCase().trim()));
-      parsed.extracted_comps = [...manualComps, ...newAiComps];
-    }
-
-    return new Response(JSON.stringify({ success: true, analysis: parsed }), {
+    return new Response(JSON.stringify({
+      success: true,
+      analysis: {
+        ...analysis,
+        extracted_comps: allComps,
+        extraction_summary: extractionSummary,
+      },
+    }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+
   } catch (e) {
+    const msg = e instanceof Error ? e.message : "Unknown error";
+    if (msg === "RATE_LIMIT") {
+      return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }), {
+        status: 429,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (msg === "CREDITS_EXHAUSTED") {
+      return new Response(JSON.stringify({ error: "AI credits exhausted. Please add credits." }), {
+        status: 402,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     console.error("CMA analyze error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
+    return new Response(JSON.stringify({ error: msg }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

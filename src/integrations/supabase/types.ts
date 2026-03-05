@@ -530,6 +530,68 @@ export type Database = {
           },
         ]
       }
+      cma_import_logs: {
+        Row: {
+          cma_report_id: string | null
+          comps_imported: number
+          comps_partial: number
+          comps_skipped: number
+          created_at: string
+          estimated_page_count: number | null
+          extraction_duration_ms: number | null
+          extraction_passes: number
+          file_name: string | null
+          file_size_bytes: number | null
+          id: string
+          raw_text_length: number | null
+          skip_reasons: Json
+          total_blocks_detected: number
+          user_id: string
+        }
+        Insert: {
+          cma_report_id?: string | null
+          comps_imported?: number
+          comps_partial?: number
+          comps_skipped?: number
+          created_at?: string
+          estimated_page_count?: number | null
+          extraction_duration_ms?: number | null
+          extraction_passes?: number
+          file_name?: string | null
+          file_size_bytes?: number | null
+          id?: string
+          raw_text_length?: number | null
+          skip_reasons?: Json
+          total_blocks_detected?: number
+          user_id: string
+        }
+        Update: {
+          cma_report_id?: string | null
+          comps_imported?: number
+          comps_partial?: number
+          comps_skipped?: number
+          created_at?: string
+          estimated_page_count?: number | null
+          extraction_duration_ms?: number | null
+          extraction_passes?: number
+          file_name?: string | null
+          file_size_bytes?: number | null
+          id?: string
+          raw_text_length?: number | null
+          skip_reasons?: Json
+          total_blocks_detected?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cma_import_logs_cma_report_id_fkey"
+            columns: ["cma_report_id"]
+            isOneToOne: false
+            referencedRelation: "cma_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cma_reports: {
         Row: {
           active_listings: number | null
