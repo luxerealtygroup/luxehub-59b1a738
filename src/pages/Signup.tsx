@@ -29,10 +29,10 @@ const Signup = () => {
       });
     } else {
       toast({
-        title: "Account created!",
-        description: "Welcome to your real estate hub.",
+        title: "Check your email",
+        description: "We've sent a confirmation link. Please verify your email to continue.",
       });
-      navigate('/dashboard');
+      navigate('/login');
     }
     
     setLoading(false);
