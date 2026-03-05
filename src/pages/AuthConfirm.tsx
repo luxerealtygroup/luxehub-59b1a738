@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, CheckCircle2 } from 'lucide-react';
+import { getRoleBasedRedirect } from '@/lib/utils/roleRedirect';
 
 const AuthConfirm = () => {
   const navigate = useNavigate();
@@ -22,17 +23,18 @@ const AuthConfirm = () => {
           toast({
             title: "Your email has been confirmed. Welcome to LuxeHub.",
           });
-          // Short delay so user sees the success state
-          setTimeout(() => navigate('/dashboard', { replace: true }), 1500);
+          const redirect = await getRoleBasedRedirect(session.user.id);
+          setTimeout(() => navigate(redirect, { replace: true }), 1500);
         } else {
           // No session yet — listen for auth state change (token exchange may be async)
-          const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+          const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (event === 'SIGNED_IN' && session) {
               setStatus('success');
               toast({
                 title: "Your email has been confirmed. Welcome to LuxeHub.",
               });
-              setTimeout(() => navigate('/dashboard', { replace: true }), 1500);
+              const redirect = await getRoleBasedRedirect(session.user.id);
+              setTimeout(() => navigate(redirect, { replace: true }), 1500);
               subscription.unsubscribe();
             }
           });
