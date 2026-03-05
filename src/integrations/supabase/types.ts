@@ -567,6 +567,7 @@ export type Database = {
           improvements_invested: number | null
           improvements_list: Json
           intended_list_date: string | null
+          last_edited_by: string | null
           last_equity_update: string | null
           lifecycle_history: Json
           listing_active_at: string | null
@@ -603,6 +604,7 @@ export type Database = {
           target_list_price: number | null
           updated_at: string
           user_id: string
+          version_number: number
           weak_comp_alerts: Json | null
         }
         Insert: {
@@ -641,6 +643,7 @@ export type Database = {
           improvements_invested?: number | null
           improvements_list?: Json
           intended_list_date?: string | null
+          last_edited_by?: string | null
           last_equity_update?: string | null
           lifecycle_history?: Json
           listing_active_at?: string | null
@@ -677,6 +680,7 @@ export type Database = {
           target_list_price?: number | null
           updated_at?: string
           user_id: string
+          version_number?: number
           weak_comp_alerts?: Json | null
         }
         Update: {
@@ -715,6 +719,7 @@ export type Database = {
           improvements_invested?: number | null
           improvements_list?: Json
           intended_list_date?: string | null
+          last_edited_by?: string | null
           last_equity_update?: string | null
           lifecycle_history?: Json
           listing_active_at?: string | null
@@ -751,6 +756,7 @@ export type Database = {
           target_list_price?: number | null
           updated_at?: string
           user_id?: string
+          version_number?: number
           weak_comp_alerts?: Json | null
         }
         Relationships: []
@@ -1985,6 +1991,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_cma_version: { Args: { report_id: string }; Returns: undefined }
       is_admin_or_owner: { Args: { _user_id: string }; Returns: boolean }
       is_client: { Args: { _user_id: string }; Returns: boolean }
     }
