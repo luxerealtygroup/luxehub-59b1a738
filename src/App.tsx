@@ -27,6 +27,8 @@ import BusinessPlanning from "./pages/BusinessPlanning";
 import CompanyBusinessPlanningPage from "./pages/CompanyBusinessPlanningPage";
 import NotFound from "./pages/NotFound";
 import AuthConfirm from "./pages/AuthConfirm";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import ClientLogin from "./pages/client-portal/ClientLogin";
 import ClientSignup from "./pages/client-portal/ClientSignup";
 import ClientDashboard from "./pages/client-portal/ClientDashboard";
@@ -47,6 +49,8 @@ const App = () => (
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/auth/confirm" element={<AuthConfirm />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             
             {/* Client Portal Routes */}
             <Route path="/client-portal" element={<ClientDashboard />} />
