@@ -30,6 +30,7 @@ interface SelectedContact {
 }
 
 type FormStep = 'input' | 'review';
+type ImportMethod = 'pdf' | 'link' | 'manual';
 
 const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) => {
   const { user } = useAuth();
