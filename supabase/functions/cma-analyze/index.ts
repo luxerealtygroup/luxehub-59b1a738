@@ -5,27 +5,42 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const EXTRACTION_SYSTEM_PROMPT = `You are a real estate CMA PDF data extraction specialist. Your ONLY job is to find and extract ALL comparable property data from the provided text.
+const EXTRACTION_SYSTEM_PROMPT = `You are a real estate CMA PDF data extraction specialist. Your job is to find and extract ALL comparable property data from the provided text.
+
+IMPORTANT: CloudCMA PDFs do NOT use tables. Each comparable appears as a REPEATING PROPERTY BLOCK like this:
+
+[Street Address]
+[City, Province/State]
+MLS #XXXXXXX
+$XXX,XXX
+X Beds X Baths
+XXXX Sq Ft
+[Status: Closed / Pending / Active / Expired]
+[Sold Date if applicable]
+[Days on Market]
+
+After each property block, there may be multiple pages of property photos, room images, and listing details. IGNORE those image/photo pages. A new comparable starts when you see the next street address + MLS pattern.
+
+DETECTION PATTERNS - look for ANY of these:
+1. Street addresses containing: Avenue, Street, Drive, Road, Crescent, Court, Boulevard, Place, Way, Lane, Circle, Trail, Terrace, Ave, St, Dr, Rd, Cres, Ct, Blvd, Pl
+2. MLS numbers: "MLS #" or "MLS:" followed by digits
+3. Price patterns: $XXX,XXX or $X,XXX,XXX
+4. Property stats in ANY format: "3 Beds 2 Baths", "3 BR / 2 BA", "3bd 2ba", "Beds: 3", "3 Bedroom", "3 bed", "3 br"
+5. Square footage: "XXXX Sq Ft", "XXXX sqft", "XXXX SF"
+6. Status keywords: "Closed", "Sold", "Pending", "Active", "Expired", "Withdrawn"
+7. DOM/Days on Market patterns
 
 CRITICAL RULES:
 1. Search the ENTIRE text from start to finish. Do NOT stop after finding a few properties.
-2. CloudCMA PDFs contain MULTIPLE sections: "Sold Comparables", "Active Listings", "Expired/Withdrawn Listings", summary pages, detail pages.
-3. Each comparable may appear as: a table row, a property card/block, a detail page, or a summary entry.
+2. Each property block may span multiple lines with varying formatting.
+3. A single listing may have data spread across multiple pages - treat as ONE comparable until a new address/MLS appears.
 4. Extract EVERY property you can identify - even if some fields are missing.
 5. For each property, extract whatever fields are available. Missing fields should be null.
-6. Assign comp_category based on the section header or context (sold/active/expired/other).
+6. Assign comp_category based on status keywords: "Closed"/"Sold" = sold, "Active" = active, "Pending" = active, "Expired"/"Withdrawn" = expired
 7. Assign confidence: 1.0 = all key fields found, 0.7 = most fields, 0.5 = address + some data, 0.3 = minimal data.
 8. Assign needs_review: true if important fields (price, beds/baths) are missing.
-9. If a property appears in multiple sections (e.g., summary table AND detail page), merge into one entry with highest confidence data.
-
-Look for these patterns:
-- Addresses (street number + street name + optional unit)
-- Price patterns ($XXX,XXX or $X,XXX,XXX)
-- Property stats (beds/baths/sqft in various formats: "3 BR / 2 BA", "3bd 2ba", "Beds: 3")
-- DOM/Days on Market
-- MLS numbers
-- Date patterns (sold date, list date)
-- Table headers like "Address", "Price", "Beds", "Baths", "DOM", "Status"
+9. DO NOT include the subject property as a comparable.
+10. If text appears garbled or encoded, look for recognizable patterns (addresses, prices, MLS numbers) within the noise.
 
 RESPOND WITH ONLY this JSON (no markdown, no code blocks):
 {
@@ -40,6 +55,7 @@ RESPOND WITH ONLY this JSON (no markdown, no code blocks):
       "sold_price": number or null,
       "days_on_market": number or null,
       "sale_date": "string or null",
+      "mls_number": "string or null",
       "is_weak": false,
       "weak_reason": null,
       "comp_category": "sold|active|expired|other",
@@ -125,7 +141,6 @@ function chunkText(text: string, maxChunkSize: number): string[] {
   let start = 0;
   while (start < text.length) {
     let end = Math.min(start + maxChunkSize, text.length);
-    // Try to break at a newline or space to avoid splitting words
     if (end < text.length) {
       const lastNewline = text.lastIndexOf('\n', end);
       if (lastNewline > start + maxChunkSize * 0.7) end = lastNewline + 1;
@@ -139,7 +154,10 @@ function chunkText(text: string, maxChunkSize: number): string[] {
 function deduplicateComps(comps: any[]): any[] {
   const seen = new Map<string, any>();
   for (const comp of comps) {
-    const key = (comp.address || '').toLowerCase().trim();
+    // Deduplicate by address OR MLS number
+    const addrKey = (comp.address || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+    const mlsKey = (comp.mls_number || '').toLowerCase().trim();
+    const key = mlsKey || addrKey;
     if (!key) continue;
     const existing = seen.get(key);
     if (!existing || (comp.confidence || 0) > (existing.confidence || 0)) {
@@ -147,6 +165,31 @@ function deduplicateComps(comps: any[]): any[] {
     }
   }
   return Array.from(seen.values());
+}
+
+// Pre-process PDF text to help AI identify property blocks
+function preProcessCloudCMAText(text: string): string {
+  // Add markers before likely property block starts to help AI parsing
+  // Detect address patterns that start property blocks
+  const addressPattern = /(\d+\s+[A-Za-z]+(?:\s+[A-Za-z]+)*\s+(?:Avenue|Street|Drive|Road|Crescent|Court|Boulevard|Place|Way|Lane|Circle|Trail|Terrace|Ave|St|Dr|Rd|Cres|Ct|Blvd|Pl|Crt))/gi;
+  
+  // Count detected addresses for logging
+  const matches = text.match(addressPattern);
+  if (matches) {
+    console.log(`Pre-processing: detected ${matches.length} potential address patterns`);
+    console.log(`Sample addresses: ${matches.slice(0, 5).join(' | ')}`);
+  }
+  
+  // Add clear delimiters before each detected address to help AI
+  let processed = text.replace(addressPattern, '\n---PROPERTY_BLOCK_START---\n$1');
+  
+  // Also mark MLS numbers
+  processed = processed.replace(/(MLS\s*[#:]?\s*\d+)/gi, '\n[MLS_MARKER] $1');
+  
+  // Mark price patterns
+  processed = processed.replace(/(\$\s*[\d,]+(?:\.\d{2})?)/g, '\n[PRICE_MARKER] $1');
+  
+  return processed;
 }
 
 serve(async (req) => {
@@ -199,9 +242,8 @@ Provide your complete analysis as a JSON object.`;
       });
     }
 
-    // === EXTRACTION MODE ===
+    // === NO PDF TEXT ===
     if (!pdfText) {
-      // No PDF text - analyze based on available data only
       const analysisPrompt = `Analyze this CMA data (no PDF comps available):
 
 SUBJECT PROPERTY:
@@ -223,13 +265,8 @@ There are no comparable properties extracted from a PDF. Provide analysis based 
           ...analysis,
           extracted_comps: [],
           extraction_summary: {
-            total_comps_found: 0,
-            sold_count: 0,
-            active_count: 0,
-            expired_count: 0,
-            low_confidence_count: 0,
-            needs_review_count: 0,
-            extraction_passes: 0,
+            total_comps_found: 0, sold_count: 0, active_count: 0, expired_count: 0,
+            low_confidence_count: 0, needs_review_count: 0, extraction_passes: 0,
           },
         },
       }), {
@@ -239,34 +276,51 @@ There are no comparable properties extracted from a PDF. Provide analysis based 
     }
 
     // === MULTI-CHUNK EXTRACTION ===
-    const MAX_CHUNK_SIZE = 45000; // Leave room for prompt overhead
-    const chunks = chunkText(pdfText, MAX_CHUNK_SIZE);
+    // Pre-process the text to add structural markers
+    const processedText = preProcessCloudCMAText(pdfText);
+    
+    const MAX_CHUNK_SIZE = 45000;
+    const chunks = chunkText(processedText, MAX_CHUNK_SIZE);
     let allComps: any[] = [];
     let extractionPasses = 0;
     let allSections: string[] = [];
     let extractionNotes: string[] = [];
 
-    console.log(`PDF text length: ${pdfText.length}, chunks: ${chunks.length}`);
+    console.log(`PDF text length: ${pdfText.length}, processed length: ${processedText.length}, chunks: ${chunks.length}`);
+    
+    // Log a sample of the text for debugging
+    const sampleText = pdfText.substring(0, 500);
+    console.log(`Text sample (first 500 chars): ${sampleText}`);
 
     // Pass 1: Extract from each chunk
     for (let i = 0; i < chunks.length; i++) {
       extractionPasses++;
       const chunkLabel = chunks.length > 1 ? ` (chunk ${i + 1} of ${chunks.length})` : '';
       
-      const extractionPrompt = `Extract ALL comparable properties from this CMA PDF text${chunkLabel}.
+      const extractionPrompt = `Extract ALL comparable properties from this CloudCMA PDF text${chunkLabel}.
 
-SUBJECT PROPERTY (for context, do NOT include as a comparable):
+IMPORTANT CONTEXT:
+- This is a CloudCMA report. Properties appear as REPEATING BLOCKS, not tables.
+- Each block typically starts with a street address, followed by city, MLS#, price, beds/baths/sqft, and status.
+- I've added markers to help you: ---PROPERTY_BLOCK_START--- marks likely property starts, [MLS_MARKER] marks MLS numbers, [PRICE_MARKER] marks prices.
+- Photo pages and image descriptions should be IGNORED.
+- The text may contain garbled/encoded characters mixed with readable data - extract what you can.
+
+SUBJECT PROPERTY (do NOT include as a comparable):
 Address: ${subjectProperty?.address || 'Unknown'}
 
 PDF TEXT${chunkLabel}:
 ${chunks[i]}
 
-Remember: Extract EVERY property found. Even partial data is valuable. Do not skip any properties.`;
+Remember: Extract EVERY property found. Even partial data is valuable. Do not skip any properties. Look for the markers I added and the patterns described.`;
 
       try {
         const result = await callAI(LOVABLE_API_KEY, EXTRACTION_SYSTEM_PROMPT, extractionPrompt);
         const comps = result.extracted_comps || [];
         console.log(`Chunk ${i + 1}: extracted ${comps.length} comps`);
+        if (comps.length > 0) {
+          console.log(`First comp: ${JSON.stringify(comps[0])}`);
+        }
         allComps.push(...comps);
         
         if (result.extraction_summary?.sections_found) {
@@ -285,29 +339,35 @@ Remember: Extract EVERY property found. Even partial data is valuable. Do not sk
     allComps = deduplicateComps(allComps);
     console.log(`After dedup: ${allComps.length} unique comps`);
 
-    // Pass 2: Retry if too few high-confidence comps found
+    // Pass 2: Retry if too few comps found - use original text with more aggressive prompt
     const highConfComps = allComps.filter((c: any) => (c.confidence ?? 1) >= 0.5);
     if (highConfComps.length < 3 && pdfText.length > 100) {
       extractionPasses++;
       console.log(`Low comp count (${highConfComps.length}), running focused retry pass...`);
 
-      const retryPrompt = `IMPORTANT: A previous extraction pass found only ${highConfComps.length} comparables with good confidence.
+      // For retry, try with original unprocessed text and a more aggressive prompt
+      const retryChunk = pdfText.substring(0, MAX_CHUNK_SIZE);
+      
+      const retryPrompt = `CRITICAL: A previous extraction pass found only ${highConfComps.length} comparables.
 
-Re-scan this text VERY carefully. Look for ANY property data patterns:
-- Street addresses with numbers (e.g., "123 Oak St", "45 Main Street")
-- Price values near addresses ($XXX,XXX)
-- Property details in any format
-- Table rows with property data
-- MLS listing data
-- "Comparable", "Comp", "Subject" labels followed by property details
+This is a CloudCMA report. The text may be partially garbled from PDF extraction. 
 
-Previous extraction found these addresses (do NOT duplicate):
-${allComps.map((c: any) => c.address).join(', ')}
+SCAN VERY CAREFULLY for these patterns anywhere in the text:
+1. ANY street address (number + street name): "123 Oak St", "45 Main Street", "100 King Road"
+2. ANY MLS number pattern: "MLS" followed by digits
+3. ANY dollar amounts: $XXX,XXX
+4. ANY bedroom/bathroom counts: "3 bed", "2 bath", "3 BR", "2 BA"
+5. ANY square footage: "1500 sq ft", "2000 SF"
+6. ANY status words: "Sold", "Closed", "Active", "Pending"
+
+Even if data is mixed with garbled text, extract what you can find.
+
+${allComps.length > 0 ? `Previously found addresses (do NOT duplicate): ${allComps.map((c: any) => c.address).join(', ')}` : ''}
 
 PDF TEXT:
-${pdfText.substring(0, MAX_CHUNK_SIZE)}
+${retryChunk}
 
-Extract any ADDITIONAL properties not in the list above.`;
+Extract any properties you find, even with minimal data.`;
 
       try {
         const retryResult = await callAI(LOVABLE_API_KEY, EXTRACTION_SYSTEM_PROMPT, retryPrompt);
@@ -389,7 +449,6 @@ Provide your complete analysis. Grade quality, generate pricing bands, flag risk
       analysis = await callAI(LOVABLE_API_KEY, ANALYSIS_SYSTEM_PROMPT, analysisPrompt);
     } catch (err) {
       console.error("Analysis pass failed:", err);
-      // Return extraction results even if analysis fails
       analysis = {
         cma_grade: null,
         pricing_band_low: null,
