@@ -571,6 +571,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
         analysis_status: 'processing',
         extracted_comps: finalComps,
         last_edited_by: user.id,
+        cma_source_url: cmaSourceUrl || null,
       };
 
       // Handle photos: only update if new photos were uploaded
