@@ -124,6 +124,12 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
       setMonthsOfInventory(r.months_of_inventory?.toString() || '');
       setMarketNotes(r.market_notes || '');
       setPastedStats(r.stats_pasted_text || '');
+      if (r.cma_source_url) {
+        setCmaSourceUrl(r.cma_source_url);
+        setImportMethod('link');
+      } else if (r.cma_pdf_path) {
+        setImportMethod('pdf');
+      }
       if (r.fub_person_id) {
         setSelectedContact({ id: r.fub_person_id, name: r.fub_person_name || '' });
       }
