@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Upload, Loader2, Home, DollarSign, BarChart3, FileUp, Users } from 'lucide-react';
+import { Upload, Loader2, Home, DollarSign, BarChart3, FileUp, Users, Link2, PenLine } from 'lucide-react';
 import { FUBContactTypeahead } from '@/components/FUBContactTypeahead';
 import { useHasFUB } from '@/hooks/useHasFUB';
 import CMACompReview, { type ReviewComp, type ExtractionSummary } from './CMACompReview';
