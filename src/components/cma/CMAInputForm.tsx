@@ -342,7 +342,77 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     return { comps: mappedComps, summary };
   };
 
-  // Step 1: Move to review (extract if PDF present, else empty review)
+  // Extract from CloudCMA link
+  const runLinkExtraction = async (): Promise<{ comps: ReviewComp[]; summary: ExtractionSummary | null }> => {
+    if (!cmaSourceUrl) return { comps: [], summary: null };
+    
+    const startTime = Date.now();
+    const { data: fnData, error: fnError } = await supabase.functions.invoke('cma-scrape-link', {
+      body: { url: cmaSourceUrl, subjectAddress: propertyAddress },
+    });
+
+    if (fnError) throw fnError;
+    
+    if (!fnData?.success) {
+      toast.error(fnData?.error || 'Link extraction failed. You can still add comparables manually.');
+      return { comps: [], summary: null };
+    }
+
+    const aiComps: any[] = fnData.extracted_comps || [];
+    const summary: ExtractionSummary = fnData.extraction_summary || {
+      total_comps_found: aiComps.length,
+      sold_count: aiComps.filter((c: any) => c.comp_category === 'sold').length,
+      active_count: aiComps.filter((c: any) => c.comp_category === 'active').length,
+      expired_count: aiComps.filter((c: any) => c.comp_category === 'expired').length,
+      low_confidence_count: aiComps.filter((c: any) => (c.confidence ?? 1) < 0.5).length,
+      needs_review_count: aiComps.filter((c: any) => c.needs_review).length,
+      extraction_passes: 1,
+    };
+
+    // Log import
+    if (user) {
+      const durationMs = Date.now() - startTime;
+      supabase.from('cma_import_logs').insert({
+        user_id: user.id,
+        source_type: 'link',
+        cma_source_url: cmaSourceUrl,
+        total_blocks_detected: summary.total_comps_found,
+        comps_imported: aiComps.filter((c: any) => !c.needs_review).length,
+        comps_partial: aiComps.filter((c: any) => c.needs_review).length,
+        comps_skipped: 0,
+        skip_reasons: [],
+        extraction_passes: 1,
+        extraction_duration_ms: durationMs,
+      } as any).then(() => {});
+    }
+
+    const mappedComps = aiComps.map((c: any) => ({
+      id: crypto.randomUUID(),
+      address: c.address || '',
+      comp_category: c.comp_category || 'sold',
+      list_price: c.list_price ?? null,
+      sold_price: c.sold_price ?? null,
+      sale_date: c.sale_date ?? null,
+      days_on_market: c.days_on_market ?? null,
+      beds: c.beds ?? null,
+      baths: c.baths ?? null,
+      sqft: c.sqft ?? null,
+      notes: null,
+      excluded: false,
+      _manual_edit: false,
+      confidence: c.confidence ?? 1,
+      source_page: null,
+      area: c.area || '',
+      is_weak: c.is_weak || false,
+      weak_reason: c.weak_reason || null,
+      needs_review: c.needs_review || false,
+      needs_review_reason: c.needs_review_reason || null,
+    }));
+
+    return { comps: mappedComps, summary };
+  };
+
+  // Step 1: Move to review (extract if PDF/link present, else empty review)
   const handleProceedToReview = async () => {
     if (!propertyAddress || !cityArea || !purchasePrice || !purchaseDate) {
       toast.error('Please fill in all required fields');
@@ -353,7 +423,8 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
       return;
     }
 
-    if (cmaPdf) {
+    // Extract from PDF
+    if (importMethod === 'pdf' && cmaPdf) {
       setExtracting(true);
       try {
         const { comps: extracted, summary } = await runExtraction();
@@ -363,7 +434,29 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
         toast.success(`Extracted ${extracted.length} comps from PDF${reviewCount > 0 ? ` (${reviewCount} need review)` : ''}`);
       } catch (err) {
         console.error('Extraction error:', err);
-        toast.error('Failed to extract comps from PDF');
+        toast.error('Failed to extract comps from PDF. You can add comparables manually.');
+      } finally {
+        setExtracting(false);
+      }
+    }
+
+    // Extract from CloudCMA link
+    if (importMethod === 'link' && cmaSourceUrl) {
+      // Validate URL
+      try { new URL(cmaSourceUrl); } catch {
+        toast.error('Please enter a valid URL');
+        return;
+      }
+      setExtracting(true);
+      try {
+        const { comps: extracted, summary } = await runLinkExtraction();
+        setReviewComps(extracted);
+        setExtractionSummary(summary);
+        const reviewCount = extracted.filter(c => c.needs_review).length;
+        toast.success(`Extracted ${extracted.length} comps from link${reviewCount > 0 ? ` (${reviewCount} need review)` : ''}`);
+      } catch (err) {
+        console.error('Link extraction error:', err);
+        toast.error('Unable to extract from link. You can add comparables manually.');
       } finally {
         setExtracting(false);
       }
