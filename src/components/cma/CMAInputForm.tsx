@@ -188,16 +188,50 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
   };
 
   const extractPdfText = async (file: File): Promise<string> => {
+    try {
+      // Use pdf.js for proper PDF text extraction
+      const pdfjsLib = await import('pdfjs-dist');
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+      
+      const buffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+      const pages: string[] = [];
+      
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const pageText = content.items
+          .map((item: any) => item.str)
+          .join(' ');
+        if (pageText.trim()) {
+          pages.push(`--- PAGE ${i} ---\n${pageText}`);
+        }
+      }
+      
+      const fullText = pages.join('\n\n');
+      console.log(`PDF.js extracted ${fullText.length} chars from ${pdf.numPages} pages`);
+      
+      if (fullText.length < 50) {
+        // Fallback to raw byte extraction if pdf.js gets nothing (scanned PDF)
+        return fallbackExtractPdfText(file);
+      }
+      
+      // Limit to 120k chars for large PDFs
+      return fullText.substring(0, 120000);
+    } catch (err) {
+      console.error('PDF.js extraction failed, using fallback:', err);
+      return fallbackExtractPdfText(file);
+    }
+  };
+
+  const fallbackExtractPdfText = async (file: File): Promise<string> => {
     const buffer = await file.arrayBuffer();
     const bytes = new Uint8Array(buffer);
     const decoder = new TextDecoder('utf-8', { fatal: false });
     const text = decoder.decode(bytes);
-    // Extract ALL readable text sequences (lowered threshold to 4 chars to catch table cells)
-    // Also include common real estate characters: /, #, $, %, commas, periods
     const readable = text.match(/[A-Za-z0-9\s,.$/\-#@%&()+:;'"|*=~^`{}\[\]\\!?<>]{4,}/g);
     if (!readable) return 'PDF text could not be extracted client-side';
-    // Join with newlines to preserve structure, increase limit to 80000 for multi-page PDFs
-    return readable.join('\n').substring(0, 80000);
+    return readable.join('\n').substring(0, 120000);
   };
 
   const getImprovementsTotal = () => {
