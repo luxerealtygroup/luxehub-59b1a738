@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Upload, Loader2, Home, DollarSign, BarChart3, FileUp, Users } from 'lucide-react';
+import { Upload, Loader2, Home, DollarSign, BarChart3, FileUp, Users, Link2, PenLine } from 'lucide-react';
 import { FUBContactTypeahead } from '@/components/FUBContactTypeahead';
 import { useHasFUB } from '@/hooks/useHasFUB';
 import CMACompReview, { type ReviewComp, type ExtractionSummary } from './CMACompReview';
@@ -30,6 +30,7 @@ interface SelectedContact {
 }
 
 type FormStep = 'input' | 'review';
+type ImportMethod = 'pdf' | 'link' | 'manual';
 
 const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) => {
   const { user } = useAuth();
@@ -63,6 +64,10 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
   // CloudCMA PDF
   const [cmaPdf, setCmaPdf] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+
+  // Import method
+  const [importMethod, setImportMethod] = useState<ImportMethod>('pdf');
+  const [cmaSourceUrl, setCmaSourceUrl] = useState('');
 
   // Market Stats
   const [statsMethod, setStatsMethod] = useState('manual');
@@ -119,6 +124,12 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
       setMonthsOfInventory(r.months_of_inventory?.toString() || '');
       setMarketNotes(r.market_notes || '');
       setPastedStats(r.stats_pasted_text || '');
+      if (r.cma_source_url) {
+        setCmaSourceUrl(r.cma_source_url);
+        setImportMethod('link');
+      } else if (r.cma_pdf_path) {
+        setImportMethod('pdf');
+      }
       if (r.fub_person_id) {
         setSelectedContact({ id: r.fub_person_id, name: r.fub_person_name || '' });
       }
@@ -337,7 +348,77 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     return { comps: mappedComps, summary };
   };
 
-  // Step 1: Move to review (extract if PDF present, else empty review)
+  // Extract from CloudCMA link
+  const runLinkExtraction = async (): Promise<{ comps: ReviewComp[]; summary: ExtractionSummary | null }> => {
+    if (!cmaSourceUrl) return { comps: [], summary: null };
+    
+    const startTime = Date.now();
+    const { data: fnData, error: fnError } = await supabase.functions.invoke('cma-scrape-link', {
+      body: { url: cmaSourceUrl, subjectAddress: propertyAddress },
+    });
+
+    if (fnError) throw fnError;
+    
+    if (!fnData?.success) {
+      toast.error(fnData?.error || 'Link extraction failed. You can still add comparables manually.');
+      return { comps: [], summary: null };
+    }
+
+    const aiComps: any[] = fnData.extracted_comps || [];
+    const summary: ExtractionSummary = fnData.extraction_summary || {
+      total_comps_found: aiComps.length,
+      sold_count: aiComps.filter((c: any) => c.comp_category === 'sold').length,
+      active_count: aiComps.filter((c: any) => c.comp_category === 'active').length,
+      expired_count: aiComps.filter((c: any) => c.comp_category === 'expired').length,
+      low_confidence_count: aiComps.filter((c: any) => (c.confidence ?? 1) < 0.5).length,
+      needs_review_count: aiComps.filter((c: any) => c.needs_review).length,
+      extraction_passes: 1,
+    };
+
+    // Log import
+    if (user) {
+      const durationMs = Date.now() - startTime;
+      supabase.from('cma_import_logs').insert({
+        user_id: user.id,
+        source_type: 'link',
+        cma_source_url: cmaSourceUrl,
+        total_blocks_detected: summary.total_comps_found,
+        comps_imported: aiComps.filter((c: any) => !c.needs_review).length,
+        comps_partial: aiComps.filter((c: any) => c.needs_review).length,
+        comps_skipped: 0,
+        skip_reasons: [],
+        extraction_passes: 1,
+        extraction_duration_ms: durationMs,
+      } as any).then(() => {});
+    }
+
+    const mappedComps = aiComps.map((c: any) => ({
+      id: crypto.randomUUID(),
+      address: c.address || '',
+      comp_category: c.comp_category || 'sold',
+      list_price: c.list_price ?? null,
+      sold_price: c.sold_price ?? null,
+      sale_date: c.sale_date ?? null,
+      days_on_market: c.days_on_market ?? null,
+      beds: c.beds ?? null,
+      baths: c.baths ?? null,
+      sqft: c.sqft ?? null,
+      notes: null,
+      excluded: false,
+      _manual_edit: false,
+      confidence: c.confidence ?? 1,
+      source_page: null,
+      area: c.area || '',
+      is_weak: c.is_weak || false,
+      weak_reason: c.weak_reason || null,
+      needs_review: c.needs_review || false,
+      needs_review_reason: c.needs_review_reason || null,
+    }));
+
+    return { comps: mappedComps, summary };
+  };
+
+  // Step 1: Move to review (extract if PDF/link present, else empty review)
   const handleProceedToReview = async () => {
     if (!propertyAddress || !cityArea || !purchasePrice || !purchaseDate) {
       toast.error('Please fill in all required fields');
@@ -348,7 +429,8 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
       return;
     }
 
-    if (cmaPdf) {
+    // Extract from PDF
+    if (importMethod === 'pdf' && cmaPdf) {
       setExtracting(true);
       try {
         const { comps: extracted, summary } = await runExtraction();
@@ -358,7 +440,29 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
         toast.success(`Extracted ${extracted.length} comps from PDF${reviewCount > 0 ? ` (${reviewCount} need review)` : ''}`);
       } catch (err) {
         console.error('Extraction error:', err);
-        toast.error('Failed to extract comps from PDF');
+        toast.error('Failed to extract comps from PDF. You can add comparables manually.');
+      } finally {
+        setExtracting(false);
+      }
+    }
+
+    // Extract from CloudCMA link
+    if (importMethod === 'link' && cmaSourceUrl) {
+      // Validate URL
+      try { new URL(cmaSourceUrl); } catch {
+        toast.error('Please enter a valid URL');
+        return;
+      }
+      setExtracting(true);
+      try {
+        const { comps: extracted, summary } = await runLinkExtraction();
+        setReviewComps(extracted);
+        setExtractionSummary(summary);
+        const reviewCount = extracted.filter(c => c.needs_review).length;
+        toast.success(`Extracted ${extracted.length} comps from link${reviewCount > 0 ? ` (${reviewCount} need review)` : ''}`);
+      } catch (err) {
+        console.error('Link extraction error:', err);
+        toast.error('Unable to extract from link. You can add comparables manually.');
       } finally {
         setExtracting(false);
       }
@@ -473,6 +577,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
         analysis_status: 'processing',
         extracted_comps: finalComps,
         last_edited_by: user.id,
+        cma_source_url: cmaSourceUrl || null,
       };
 
       // Handle photos: only update if new photos were uploaded
@@ -620,6 +725,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
         stats_pasted_text: statsMethod === 'paste' ? pastedStats : null,
         analysis_status: 'draft',
         last_edited_by: user.id,
+        cma_source_url: cmaSourceUrl || null,
       };
 
       if (photoPaths.length > 0) {
@@ -779,41 +885,110 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
       {/* Improvements & Upgrades */}
       <CMAImprovements items={improvementsList} onChange={setImprovementsList} />
 
-      {/* CloudCMA Upload (Optional) */}
+      {/* Comparable Import Method */}
       <Card className="border-gold/20">
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <FileUp className="h-4 w-4 text-gold" /> CloudCMA PDF Upload
-            <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+            <FileUp className="h-4 w-4 text-gold" /> Import Comparables
+            <span className="text-xs text-muted-foreground font-normal">(choose one method)</span>
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="border-2 border-dashed border-gold/20 rounded-lg p-6 text-center">
-            <input
-              type="file"
-              accept=".pdf"
-              id="cma-pdf-upload"
-              className="hidden"
-              onChange={e => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  if (file.type !== 'application/pdf') {
-                    toast.error('Only PDF files are accepted');
-                    return;
-                  }
-                  setCmaPdf(file);
-                }
-              }}
-            />
-            <label htmlFor="cma-pdf-upload" className="cursor-pointer">
-              <Upload className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
-              {cmaPdf ? (
-                <p className="text-sm text-gold font-medium">{cmaPdf.name}</p>
-              ) : (
-                <p className="text-sm text-muted-foreground">Click to upload CloudCMA PDF</p>
-              )}
-            </label>
+        <CardContent className="space-y-4">
+          {/* Method selector */}
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={() => setImportMethod('pdf')}
+              className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-all text-center ${
+                importMethod === 'pdf'
+                  ? 'border-gold bg-gold/10 text-foreground'
+                  : 'border-border hover:border-gold/40 text-muted-foreground'
+              }`}
+            >
+              <Upload className="h-5 w-5" />
+              <span className="text-xs font-medium">Upload PDF</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setImportMethod('link')}
+              className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-all text-center ${
+                importMethod === 'link'
+                  ? 'border-gold bg-gold/10 text-foreground'
+                  : 'border-border hover:border-gold/40 text-muted-foreground'
+              }`}
+            >
+              <Link2 className="h-5 w-5" />
+              <span className="text-xs font-medium">CloudCMA Link</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setImportMethod('manual')}
+              className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-all text-center ${
+                importMethod === 'manual'
+                  ? 'border-gold bg-gold/10 text-foreground'
+                  : 'border-border hover:border-gold/40 text-muted-foreground'
+              }`}
+            >
+              <PenLine className="h-5 w-5" />
+              <span className="text-xs font-medium">Manual Entry</span>
+            </button>
           </div>
+
+          {/* PDF Upload */}
+          {importMethod === 'pdf' && (
+            <div className="border-2 border-dashed border-gold/20 rounded-lg p-6 text-center">
+              <input
+                type="file"
+                accept=".pdf"
+                id="cma-pdf-upload"
+                className="hidden"
+                onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    if (file.type !== 'application/pdf') {
+                      toast.error('Only PDF files are accepted');
+                      return;
+                    }
+                    setCmaPdf(file);
+                  }
+                }}
+              />
+              <label htmlFor="cma-pdf-upload" className="cursor-pointer">
+                <Upload className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+                {cmaPdf ? (
+                  <p className="text-sm text-gold font-medium">{cmaPdf.name}</p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Click to upload CloudCMA PDF</p>
+                )}
+              </label>
+            </div>
+          )}
+
+          {/* CloudCMA Link */}
+          {importMethod === 'link' && (
+            <div className="space-y-2">
+              <Label>CloudCMA Report Link</Label>
+              <Input
+                value={cmaSourceUrl}
+                onChange={e => setCmaSourceUrl(e.target.value)}
+                placeholder="Paste CloudCMA share link here"
+                type="url"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Paste the share link from your CloudCMA report. The system will automatically extract all comparable properties.
+              </p>
+            </div>
+          )}
+
+          {/* Manual */}
+          {importMethod === 'manual' && (
+            <div className="rounded-lg bg-muted/30 p-4 text-center">
+              <PenLine className="h-6 w-6 text-muted-foreground/40 mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">
+                You'll add comparables manually in the next step.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
