@@ -533,6 +533,7 @@ export type Database = {
       cma_import_logs: {
         Row: {
           cma_report_id: string | null
+          cma_source_url: string | null
           comps_imported: number
           comps_partial: number
           comps_skipped: number
@@ -545,11 +546,13 @@ export type Database = {
           id: string
           raw_text_length: number | null
           skip_reasons: Json
+          source_type: string | null
           total_blocks_detected: number
           user_id: string
         }
         Insert: {
           cma_report_id?: string | null
+          cma_source_url?: string | null
           comps_imported?: number
           comps_partial?: number
           comps_skipped?: number
@@ -562,11 +565,13 @@ export type Database = {
           id?: string
           raw_text_length?: number | null
           skip_reasons?: Json
+          source_type?: string | null
           total_blocks_detected?: number
           user_id: string
         }
         Update: {
           cma_report_id?: string | null
+          cma_source_url?: string | null
           comps_imported?: number
           comps_partial?: number
           comps_skipped?: number
@@ -579,6 +584,7 @@ export type Database = {
           id?: string
           raw_text_length?: number | null
           skip_reasons?: Json
+          source_type?: string | null
           total_blocks_detected?: number
           user_id?: string
         }
@@ -614,6 +620,7 @@ export type Database = {
           cma_grade: string | null
           cma_pdf_name: string | null
           cma_pdf_path: string | null
+          cma_source_url: string | null
           cover_photo_index: number | null
           created_at: string
           equity_gain_high: number | null
@@ -690,6 +697,7 @@ export type Database = {
           cma_grade?: string | null
           cma_pdf_name?: string | null
           cma_pdf_path?: string | null
+          cma_source_url?: string | null
           cover_photo_index?: number | null
           created_at?: string
           equity_gain_high?: number | null
@@ -766,6 +774,7 @@ export type Database = {
           cma_grade?: string | null
           cma_pdf_name?: string | null
           cma_pdf_path?: string | null
+          cma_source_url?: string | null
           cover_photo_index?: number | null
           created_at?: string
           equity_gain_high?: number | null
