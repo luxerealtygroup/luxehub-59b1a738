@@ -725,6 +725,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
         stats_pasted_text: statsMethod === 'paste' ? pastedStats : null,
         analysis_status: 'draft',
         last_edited_by: user.id,
+        cma_source_url: cmaSourceUrl || null,
       };
 
       if (photoPaths.length > 0) {
