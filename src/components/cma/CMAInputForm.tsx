@@ -878,41 +878,110 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
       {/* Improvements & Upgrades */}
       <CMAImprovements items={improvementsList} onChange={setImprovementsList} />
 
-      {/* CloudCMA Upload (Optional) */}
+      {/* Comparable Import Method */}
       <Card className="border-gold/20">
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <FileUp className="h-4 w-4 text-gold" /> CloudCMA PDF Upload
-            <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+            <FileUp className="h-4 w-4 text-gold" /> Import Comparables
+            <span className="text-xs text-muted-foreground font-normal">(choose one method)</span>
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="border-2 border-dashed border-gold/20 rounded-lg p-6 text-center">
-            <input
-              type="file"
-              accept=".pdf"
-              id="cma-pdf-upload"
-              className="hidden"
-              onChange={e => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  if (file.type !== 'application/pdf') {
-                    toast.error('Only PDF files are accepted');
-                    return;
-                  }
-                  setCmaPdf(file);
-                }
-              }}
-            />
-            <label htmlFor="cma-pdf-upload" className="cursor-pointer">
-              <Upload className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
-              {cmaPdf ? (
-                <p className="text-sm text-gold font-medium">{cmaPdf.name}</p>
-              ) : (
-                <p className="text-sm text-muted-foreground">Click to upload CloudCMA PDF</p>
-              )}
-            </label>
+        <CardContent className="space-y-4">
+          {/* Method selector */}
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={() => setImportMethod('pdf')}
+              className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-all text-center ${
+                importMethod === 'pdf'
+                  ? 'border-gold bg-gold/10 text-foreground'
+                  : 'border-border hover:border-gold/40 text-muted-foreground'
+              }`}
+            >
+              <Upload className="h-5 w-5" />
+              <span className="text-xs font-medium">Upload PDF</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setImportMethod('link')}
+              className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-all text-center ${
+                importMethod === 'link'
+                  ? 'border-gold bg-gold/10 text-foreground'
+                  : 'border-border hover:border-gold/40 text-muted-foreground'
+              }`}
+            >
+              <Link2 className="h-5 w-5" />
+              <span className="text-xs font-medium">CloudCMA Link</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setImportMethod('manual')}
+              className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-all text-center ${
+                importMethod === 'manual'
+                  ? 'border-gold bg-gold/10 text-foreground'
+                  : 'border-border hover:border-gold/40 text-muted-foreground'
+              }`}
+            >
+              <PenLine className="h-5 w-5" />
+              <span className="text-xs font-medium">Manual Entry</span>
+            </button>
           </div>
+
+          {/* PDF Upload */}
+          {importMethod === 'pdf' && (
+            <div className="border-2 border-dashed border-gold/20 rounded-lg p-6 text-center">
+              <input
+                type="file"
+                accept=".pdf"
+                id="cma-pdf-upload"
+                className="hidden"
+                onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    if (file.type !== 'application/pdf') {
+                      toast.error('Only PDF files are accepted');
+                      return;
+                    }
+                    setCmaPdf(file);
+                  }
+                }}
+              />
+              <label htmlFor="cma-pdf-upload" className="cursor-pointer">
+                <Upload className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+                {cmaPdf ? (
+                  <p className="text-sm text-gold font-medium">{cmaPdf.name}</p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Click to upload CloudCMA PDF</p>
+                )}
+              </label>
+            </div>
+          )}
+
+          {/* CloudCMA Link */}
+          {importMethod === 'link' && (
+            <div className="space-y-2">
+              <Label>CloudCMA Report Link</Label>
+              <Input
+                value={cmaSourceUrl}
+                onChange={e => setCmaSourceUrl(e.target.value)}
+                placeholder="Paste CloudCMA share link here"
+                type="url"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Paste the share link from your CloudCMA report. The system will automatically extract all comparable properties.
+              </p>
+            </div>
+          )}
+
+          {/* Manual */}
+          {importMethod === 'manual' && (
+            <div className="rounded-lg bg-muted/30 p-4 text-center">
+              <PenLine className="h-6 w-6 text-muted-foreground/40 mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">
+                You'll add comparables manually in the next step.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
