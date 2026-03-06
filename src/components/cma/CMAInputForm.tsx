@@ -65,6 +65,10 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
   const [cmaPdf, setCmaPdf] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
 
+  // Import method
+  const [importMethod, setImportMethod] = useState<ImportMethod>('pdf');
+  const [cmaSourceUrl, setCmaSourceUrl] = useState('');
+
   // Market Stats
   const [statsMethod, setStatsMethod] = useState('manual');
   const [statsDateRange, setStatsDateRange] = useState('30');
