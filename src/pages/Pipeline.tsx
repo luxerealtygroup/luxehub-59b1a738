@@ -492,6 +492,117 @@ const Pipeline = () => {
         </CardContent>
       </Card>
 
+      {/* Monthly Pipeline Breakdown */}
+      {(() => {
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        const monthlyData = monthNames.map((name, idx) => {
+          const monthClients = filteredClients.filter(c => {
+            if (!c.expected_pending_date) return false;
+            return new Date(c.expected_pending_date).getMonth() === idx;
+          });
+          return { name, idx, clients: monthClients, gci: monthClients.reduce((s, c) => s + c.projected_gci, 0) };
+        });
+        const unassigned = filteredClients.filter(c => !c.expected_pending_date);
+        const currentMonthIdx = new Date().getMonth();
+
+        return (
+          <Card className="border-border/50">
+            <CardHeader>
+              <CardTitle className="text-foreground font-display flex items-center gap-2"><Calendar className="h-5 w-5 text-primary" />Monthly Pipeline Breakdown</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-4">
+                {monthlyData.map((m) => (
+                  <div
+                    key={m.name}
+                    className={`p-3 rounded-lg border transition-colors ${m.idx === currentMonthIdx ? 'bg-gold/10 border-gold/30' : m.idx < currentMonthIdx ? 'bg-muted/30 border-border/50' : 'bg-card border-border'}`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium text-foreground">{m.name.slice(0, 3)}</span>
+                      {m.idx === currentMonthIdx && <Badge className="bg-gold text-xs py-0 px-1.5">Now</Badge>}
+                    </div>
+                    <div className="text-lg font-bold text-foreground">{m.clients.length}</div>
+                    <div className="text-xs text-muted-foreground">{formatCurrency(m.gci)}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Expanded client list per month */}
+              <div className="space-y-4 mt-4">
+                {monthlyData.filter(m => m.clients.length > 0).map((m) => (
+                  <div key={m.name}>
+                    <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+                      {m.name}
+                      <Badge variant="outline" className="text-xs">{m.clients.length} client{m.clients.length !== 1 ? 's' : ''}</Badge>
+                      <span className="text-xs text-muted-foreground ml-auto">{formatCurrency(m.gci)} GCI</span>
+                    </h4>
+                    <div className="rounded-lg border border-border overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-muted/50 text-left">
+                            <th className="px-3 py-2 font-medium text-muted-foreground">Client</th>
+                            <th className="px-3 py-2 font-medium text-muted-foreground">Type</th>
+                            <th className="px-3 py-2 font-medium text-muted-foreground">Stage</th>
+                            <th className="px-3 py-2 font-medium text-muted-foreground text-right">Volume</th>
+                            <th className="px-3 py-2 font-medium text-muted-foreground text-right">GCI</th>
+                            <th className="px-3 py-2 font-medium text-muted-foreground">Expected Date</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {m.clients.map((c) => (
+                            <tr key={c.id} className="border-t border-border/50 hover:bg-muted/30">
+                              <td className="px-3 py-2 font-medium text-foreground">{c.client_name}</td>
+                              <td className="px-3 py-2"><Badge variant={c.client_type === 'buyer' ? 'default' : 'secondary'} className="text-xs">{c.client_type}</Badge></td>
+                              <td className="px-3 py-2 text-muted-foreground">{stageLabels[c.stage]}</td>
+                              <td className="px-3 py-2 text-right text-foreground">{formatCurrency(c.projected_sale_amount)}</td>
+                              <td className="px-3 py-2 text-right text-green-500 font-medium">{formatCurrency(c.projected_gci)}</td>
+                              <td className="px-3 py-2 text-muted-foreground">{c.expected_pending_date ? format(parseISO(c.expected_pending_date), 'MMM d, yyyy') : '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
+
+                {unassigned.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+                      No Date Assigned
+                      <Badge variant="outline" className="text-xs border-amber-500/50 text-amber-500">{unassigned.length} client{unassigned.length !== 1 ? 's' : ''}</Badge>
+                    </h4>
+                    <div className="rounded-lg border border-amber-500/20 overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-amber-500/5 text-left">
+                            <th className="px-3 py-2 font-medium text-muted-foreground">Client</th>
+                            <th className="px-3 py-2 font-medium text-muted-foreground">Type</th>
+                            <th className="px-3 py-2 font-medium text-muted-foreground">Stage</th>
+                            <th className="px-3 py-2 font-medium text-muted-foreground text-right">Volume</th>
+                            <th className="px-3 py-2 font-medium text-muted-foreground text-right">GCI</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {unassigned.map((c) => (
+                            <tr key={c.id} className="border-t border-border/50 hover:bg-muted/30">
+                              <td className="px-3 py-2 font-medium text-foreground">{c.client_name}</td>
+                              <td className="px-3 py-2"><Badge variant={c.client_type === 'buyer' ? 'default' : 'secondary'} className="text-xs">{c.client_type}</Badge></td>
+                              <td className="px-3 py-2 text-muted-foreground">{stageLabels[c.stage]}</td>
+                              <td className="px-3 py-2 text-right text-foreground">{formatCurrency(c.projected_sale_amount)}</td>
+                              <td className="px-3 py-2 text-right text-green-500 font-medium">{formatCurrency(c.projected_gci)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
+
       {/* Pace Tracker + Coach Mode */}
       <PaceTracker
         userId={queryUserId}
