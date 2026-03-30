@@ -1066,6 +1066,29 @@ const AdminDashboard = () => {
                         );
                       })}
                     </TableBody>
+                    {filteredTransactions.length > 0 && (
+                      <tfoot className="border-t-2 border-border bg-muted/30">
+                        <tr>
+                          <td colSpan={5} className="p-4 font-bold text-foreground">
+                            Totals
+                          </td>
+                          <td className="p-4 text-sm text-muted-foreground">
+                            {filteredTransactions.filter(t => t.status === 'closed').length} Closed · {filteredTransactions.filter(t => t.status === 'pending').length} Pending · {filteredTransactions.filter(t => t.status === 'conditional').length} Conditional
+                          </td>
+                          <td className="p-4 text-right font-bold text-gold">
+                            {formatCurrency(filteredTransactions.reduce((s, t) => s + t.gci, 0))}
+                          </td>
+                          <td className="p-4 text-right font-bold text-blue-500">
+                            {formatCurrency(filteredTransactions.reduce((s, t) => s + t.companyRevenue, 0))}
+                          </td>
+                          <td className="p-4">
+                            <Badge variant="outline" className="border-muted-foreground/30 text-muted-foreground">
+                              {filteredTransactions.length} deals
+                            </Badge>
+                          </td>
+                        </tr>
+                      </tfoot>
+                    )}
                   </Table>
                 </div>
               )}
