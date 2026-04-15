@@ -974,123 +974,146 @@ const AdminDashboard = () => {
               {companyTransactions.length === 0 ? (
                 <p className="text-muted-foreground text-center py-8">No transactions found</p>
               ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-8">
-                          <Checkbox
-                            checked={selectedTxIds.size > 0 && selectedTxIds.size === filteredTransactions.length}
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                setSelectedTxIds(new Set(filteredTransactions.map(t => t.id)));
-                              } else {
-                                setSelectedTxIds(new Set());
-                              }
-                            }}
-                          />
-                        </TableHead>
-                        <TableHead>Client</TableHead>
-                        <TableHead>Property</TableHead>
-                        <TableHead>Agent</TableHead>
-                        <TableHead>Closing Date</TableHead>
-                        <TableHead>Deal Type</TableHead>
-                        <TableHead className="text-right">GCI</TableHead>
-                        <TableHead className="text-right">Company Revenue</TableHead>
-                        <TableHead>Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredTransactions.map((transaction) => {
-                        const meta = dealMetadata.get(transaction.id);
-                        return (
-                          <TableRow key={transaction.id} className="border-border/50">
-                            <TableCell>
-                              <Checkbox
-                                checked={selectedTxIds.has(transaction.id)}
-                                onCheckedChange={(checked) => {
-                                  setSelectedTxIds(prev => {
-                                    const next = new Set(prev);
-                                    if (checked) next.add(transaction.id);
-                                    else next.delete(transaction.id);
-                                    return next;
-                                  });
-                                }}
-                              />
-                            </TableCell>
-                            <TableCell className="font-medium">{transaction.clientName}</TableCell>
-                            <TableCell className="text-muted-foreground max-w-[200px] truncate">
-                              {transaction.propertyAddress || '-'}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">{transaction.agentName}</TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {transaction.closingDate 
-                                ? format(parseISO(transaction.closingDate), 'MMM d, yyyy')
-                                : '-'}
-                            </TableCell>
-                            <TableCell>
-                              <DealTypeDropdown
-                                fubDealId={transaction.id}
-                                currentCategory={meta?.deal_category || null}
-                                onchange={async (fubId, cat) => {
-                                  if (!user) return;
-                                  try {
-                                    await upsertDealCategory(fubId, cat, user.id);
-                                    toast.success(`Deal marked as ${cat}`);
-                                  } catch { toast.error('Failed to update'); }
-                                }}
-                                compact
-                              />
-                            </TableCell>
-                            <TableCell className="text-right font-semibold text-gold">
-                              {formatCurrency(transaction.gci)}
-                            </TableCell>
-                            <TableCell className="text-right font-semibold text-blue-500">
-                              {formatCurrency(transaction.companyRevenue)}
-                            </TableCell>
-                            <TableCell>
-                              <Badge 
-                                variant="outline"
-                                className={
-                                  transaction.status === 'closed' 
-                                    ? 'border-green-500/30 text-green-400' 
-                                    : transaction.status === 'pending'
-                                    ? 'border-amber-500/30 text-amber-400'
-                                    : 'border-orange-500/30 text-orange-400'
-                                }
-                              >
-                                {transaction.stageName}
-                              </Badge>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                    {filteredTransactions.length > 0 && (
-                      <tfoot className="border-t-2 border-border bg-muted/30">
-                        <tr>
-                          <td colSpan={5} className="p-4 font-bold text-foreground">
-                            Totals
-                          </td>
-                          <td className="p-4 text-sm text-muted-foreground">
-                            {filteredTransactions.filter(t => t.status === 'closed').length} Closed · {filteredTransactions.filter(t => t.status === 'pending').length} Pending · {filteredTransactions.filter(t => t.status === 'conditional').length} Conditional
-                          </td>
-                          <td className="p-4 text-right font-bold text-gold">
-                            {formatCurrency(filteredTransactions.reduce((s, t) => s + t.gci, 0))}
-                          </td>
-                          <td className="p-4 text-right font-bold text-blue-500">
-                            {formatCurrency(filteredTransactions.reduce((s, t) => s + t.companyRevenue, 0))}
-                          </td>
-                          <td className="p-4">
-                            <Badge variant="outline" className="border-muted-foreground/30 text-muted-foreground">
-                              {filteredTransactions.length} deals
-                            </Badge>
-                          </td>
-                        </tr>
-                      </tfoot>
-                    )}
-                  </Table>
-                </div>
+                <>
+                  {/* Summary Cards */}
+                  {(() => {
+                    const closed = filteredTransactions.filter(t => t.status === 'closed');
+                    const pending = filteredTransactions.filter(t => t.status === 'pending');
+                    const conditional = filteredTransactions.filter(t => t.status === 'conditional');
+                    const totalGci = filteredTransactions.reduce((s, t) => s + t.gci, 0);
+                    const totalRevenue = filteredTransactions.reduce((s, t) => s + t.companyRevenue, 0);
+
+                    return (
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+                        <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3 text-center">
+                          <p className="text-2xl font-bold text-green-400">{closed.length}</p>
+                          <p className="text-xs text-muted-foreground">Closed</p>
+                        </div>
+                        <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 text-center">
+                          <p className="text-2xl font-bold text-amber-400">{pending.length}</p>
+                          <p className="text-xs text-muted-foreground">Pending</p>
+                        </div>
+                        <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-3 text-center">
+                          <p className="text-2xl font-bold text-orange-400">{conditional.length}</p>
+                          <p className="text-xs text-muted-foreground">Conditional</p>
+                        </div>
+                        <div className="bg-gold/10 border border-gold/20 rounded-lg p-3 text-center">
+                          <p className="text-lg font-bold text-gold">{formatCurrency(totalGci)}</p>
+                          <p className="text-xs text-muted-foreground">Gross GCI</p>
+                        </div>
+                        <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 text-center col-span-2 md:col-span-1">
+                          <p className="text-lg font-bold text-blue-400">{formatCurrency(totalRevenue)}</p>
+                          <p className="text-xs text-muted-foreground">Company Revenue</p>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Grouped Transaction Tables */}
+                  {([
+                    { key: 'closed', label: 'Closed Deals', color: 'green', icon: '✅' },
+                    { key: 'pending', label: 'Pending Deals', color: 'amber', icon: '⏳' },
+                    { key: 'conditional', label: 'Conditional (Offer)', color: 'orange', icon: '📝' },
+                  ] as const).map(({ key, label, color, icon }) => {
+                    const group = filteredTransactions.filter(t => t.status === key);
+                    if (group.length === 0) return null;
+                    const groupGci = group.reduce((s, t) => s + t.gci, 0);
+                    const groupRevenue = group.reduce((s, t) => s + t.companyRevenue, 0);
+
+                    return (
+                      <div key={key} className="mb-6">
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 className={`text-sm font-semibold flex items-center gap-2 text-${color}-400`}>
+                            <span>{icon}</span> {label} ({group.length})
+                          </h3>
+                          <div className="flex items-center gap-4 text-xs">
+                            <span className="text-gold font-medium">GCI: {formatCurrency(groupGci)}</span>
+                            <span className="text-blue-400 font-medium">Revenue: {formatCurrency(groupRevenue)}</span>
+                          </div>
+                        </div>
+                        <div className="overflow-x-auto border border-border/50 rounded-lg">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="w-8">
+                                  <Checkbox
+                                    checked={group.every(t => selectedTxIds.has(t.id))}
+                                    onCheckedChange={(checked) => {
+                                      setSelectedTxIds(prev => {
+                                        const next = new Set(prev);
+                                        group.forEach(t => checked ? next.add(t.id) : next.delete(t.id));
+                                        return next;
+                                      });
+                                    }}
+                                  />
+                                </TableHead>
+                                <TableHead>Client</TableHead>
+                                <TableHead>Property</TableHead>
+                                <TableHead>Agent</TableHead>
+                                <TableHead>{key === 'closed' ? 'Close Date' : 'Projected Close'}</TableHead>
+                                <TableHead>Deal Type</TableHead>
+                                <TableHead className="text-right">GCI</TableHead>
+                                <TableHead className="text-right">Company Revenue</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {group.map((transaction) => {
+                                const meta = dealMetadata.get(transaction.id);
+                                return (
+                                  <TableRow key={transaction.id} className="border-border/50">
+                                    <TableCell>
+                                      <Checkbox
+                                        checked={selectedTxIds.has(transaction.id)}
+                                        onCheckedChange={(checked) => {
+                                          setSelectedTxIds(prev => {
+                                            const next = new Set(prev);
+                                            if (checked) next.add(transaction.id);
+                                            else next.delete(transaction.id);
+                                            return next;
+                                          });
+                                        }}
+                                      />
+                                    </TableCell>
+                                    <TableCell className="font-medium">{transaction.clientName}</TableCell>
+                                    <TableCell className="text-muted-foreground max-w-[200px] truncate">
+                                      {transaction.propertyAddress || '-'}
+                                    </TableCell>
+                                    <TableCell className="text-muted-foreground">{transaction.agentName}</TableCell>
+                                    <TableCell className="text-muted-foreground">
+                                      {transaction.closingDate
+                                        ? format(parseISO(transaction.closingDate), 'MMM d, yyyy')
+                                        : '-'}
+                                    </TableCell>
+                                    <TableCell>
+                                      <DealTypeDropdown
+                                        fubDealId={transaction.id}
+                                        currentCategory={meta?.deal_category || null}
+                                        onchange={async (fubId, cat) => {
+                                          if (!user) return;
+                                          try {
+                                            await upsertDealCategory(fubId, cat, user.id);
+                                            toast.success(`Deal marked as ${cat}`);
+                                          } catch { toast.error('Failed to update'); }
+                                        }}
+                                        compact
+                                      />
+                                    </TableCell>
+                                    <TableCell className="text-right font-semibold text-gold">
+                                      {formatCurrency(transaction.gci)}
+                                    </TableCell>
+                                    <TableCell className="text-right font-semibold text-blue-500">
+                                      {formatCurrency(transaction.companyRevenue)}
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
               )}
             </CardContent>
           </Card>
