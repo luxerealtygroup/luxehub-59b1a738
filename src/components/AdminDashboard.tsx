@@ -729,6 +729,14 @@ const AdminDashboard = () => {
         </div>
         <CreateAgentDialog />
         <div className="flex items-center gap-3">
+          <Button
+            onClick={handleExportPdf}
+            variant="outline"
+            className="border-blue-500 text-blue-500 hover:bg-blue-500/10"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export PDF
+          </Button>
           <Button 
             onClick={() => setShowPipelineReport(true)} 
             variant="outline"
@@ -824,7 +832,7 @@ const AdminDashboard = () => {
       </div>
 
       {/* Main Dashboard Sections */}
-      <Tabs defaultValue="pipeline" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="bg-card border border-border h-auto p-1 flex-wrap">
           <TabsTrigger value="pipeline" className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4" /> Pipeline & Sales
@@ -847,7 +855,7 @@ const AdminDashboard = () => {
         </TabsList>
 
         {/* PIPELINE & SALES TAB */}
-        <TabsContent value="pipeline" className="space-y-6">
+        <TabsContent value="pipeline" className="space-y-6" ref={pipelineRef}>
           {/* Team Pipeline Summary */}
           <Card className="border-purple-500/20 bg-gradient-to-br from-card to-purple-500/5">
             <CardHeader>
