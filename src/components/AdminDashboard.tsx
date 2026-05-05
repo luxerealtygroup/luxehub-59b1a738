@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Building2, DollarSign, Users, TrendingUp, Target, Loader2, BarChart3, Calendar, FileText, ArrowRightLeft, Filter, CheckSquare } from 'lucide-react';
+import { Building2, DollarSign, Users, TrendingUp, Target, Loader2, BarChart3, Calendar, FileText, ArrowRightLeft, Filter, CheckSquare, Download } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
@@ -28,6 +28,17 @@ import ConversionReport from './ConversionReport';
 import { CreateAgentDialog } from './CreateAgentDialog';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { toast } from 'sonner';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+
+const TAB_LABELS: Record<string, string> = {
+  pipeline: 'Pipeline & Sales',
+  budget: 'Budget & Finances',
+  team: 'Team Performance',
+  analytics: 'Analytics',
+  team411: 'Team 4-1-1',
+  conversions: 'Conversions',
+};
 
 interface AgentData {
   id: string;
@@ -145,6 +156,13 @@ const AdminDashboard = () => {
   const [showPipelineReport, setShowPipelineReport] = useState(false);
   const [txFilter, setTxFilter] = useState<'all' | 'needs_review'>('all');
   const [selectedTxIds, setSelectedTxIds] = useState<Set<number>>(new Set());
+  const [activeTab, setActiveTab] = useState<string>('pipeline');
+  const pipelineRef = useRef<HTMLDivElement>(null);
+  const budgetRef = useRef<HTMLDivElement>(null);
+  const teamRef = useRef<HTMLDivElement>(null);
+  const analyticsRef = useRef<HTMLDivElement>(null);
+  const team411Ref = useRef<HTMLDivElement>(null);
+  const conversionsRef = useRef<HTMLDivElement>(null);
 
   const { metadata: dealMetadata, upsertDealCategory, bulkUpsert, refetch: refetchMetadata } = useDealMetadata();
 
@@ -589,6 +607,63 @@ const AdminDashboard = () => {
 
   if (!stats) return null;
 
+  const tabRefs: Record<string, React.RefObject<HTMLDivElement>> = {
+    pipeline: pipelineRef,
+    budget: budgetRef,
+    team: teamRef,
+    analytics: analyticsRef,
+    team411: team411Ref,
+    conversions: conversionsRef,
+  };
+
+  const handleExportPdf = async () => {
+    const ref = tabRefs[activeTab];
+    if (!ref?.current) {
+      toast.error('Nothing to export on this tab');
+      return;
+    }
+    const label = TAB_LABELS[activeTab] || 'Report';
+    toast.loading('Generating PDF...', { id: 'pdf-export' });
+    try {
+      const node = ref.current;
+      const canvas = await html2canvas(node, {
+        scale: 2,
+        backgroundColor: '#0F172A',
+        useCORS: true,
+        logging: false,
+        windowWidth: node.scrollWidth,
+      });
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
+      const pdf = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pageWidth - 40;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      // Header
+      pdf.setFontSize(16);
+      pdf.text(`Company Dashboard — ${label}`, 20, 30);
+      pdf.setFontSize(10);
+      pdf.text(format(new Date(), 'MMMM d, yyyy h:mm a'), 20, 46);
+
+      let heightLeft = imgHeight;
+      let position = 60;
+      pdf.addImage(imgData, 'JPEG', 20, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight - position;
+      while (heightLeft > 0) {
+        pdf.addPage();
+        position = -(imgHeight - heightLeft) + 20;
+        pdf.addImage(imgData, 'JPEG', 20, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+      pdf.save(`company-${activeTab}-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+      toast.success('PDF exported', { id: 'pdf-export' });
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to export PDF', { id: 'pdf-export' });
+    }
+  };
+
   // Agent GCI vs Goal comparison data
   const agentGciVsGoalData = stats.agents.map(a => ({
     name: a.full_name?.split(' ')[0] || 'Agent',
@@ -654,6 +729,14 @@ const AdminDashboard = () => {
         </div>
         <CreateAgentDialog />
         <div className="flex items-center gap-3">
+          <Button
+            onClick={handleExportPdf}
+            variant="outline"
+            className="border-blue-500 text-blue-500 hover:bg-blue-500/10"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export PDF
+          </Button>
           <Button 
             onClick={() => setShowPipelineReport(true)} 
             variant="outline"
@@ -749,7 +832,7 @@ const AdminDashboard = () => {
       </div>
 
       {/* Main Dashboard Sections */}
-      <Tabs defaultValue="pipeline" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="bg-card border border-border h-auto p-1 flex-wrap">
           <TabsTrigger value="pipeline" className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4" /> Pipeline & Sales
@@ -772,7 +855,7 @@ const AdminDashboard = () => {
         </TabsList>
 
         {/* PIPELINE & SALES TAB */}
-        <TabsContent value="pipeline" className="space-y-6">
+        <TabsContent value="pipeline" className="space-y-6" ref={pipelineRef}>
           {/* Team Pipeline Summary */}
           <Card className="border-purple-500/20 bg-gradient-to-br from-card to-purple-500/5">
             <CardHeader>
@@ -1120,7 +1203,7 @@ const AdminDashboard = () => {
         </TabsContent>
 
         {/* BUDGET & FINANCES TAB */}
-        <TabsContent value="budget" className="space-y-6">
+        <TabsContent value="budget" className="space-y-6" ref={budgetRef}>
           {/* Monthly Budget */}
           <CompanyBudget />
           
@@ -1135,7 +1218,7 @@ const AdminDashboard = () => {
         </TabsContent>
 
         {/* TEAM PERFORMANCE TAB */}
-        <TabsContent value="team" className="space-y-6">
+        <TabsContent value="team" className="space-y-6" ref={teamRef}>
           {/* Agent Leaderboard */}
           {fubAgents.length > 0 && (
             <Card className="border-gold/20 bg-gradient-to-br from-card to-gold/5">
@@ -1267,7 +1350,7 @@ const AdminDashboard = () => {
         </TabsContent>
 
         {/* ANALYTICS TAB */}
-        <TabsContent value="analytics" className="space-y-6">
+        <TabsContent value="analytics" className="space-y-6" ref={analyticsRef}>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* GCI vs Goal by Agent Chart */}
             <Card className="border-gold/10">
@@ -1378,11 +1461,11 @@ const AdminDashboard = () => {
           </Card>
         </TabsContent>
         {/* TEAM 4-1-1 TAB */}
-        <TabsContent value="team411" className="space-y-6">
+        <TabsContent value="team411" className="space-y-6" ref={team411Ref}>
           <Team411 />
         </TabsContent>
         {/* CONVERSION REPORT TAB */}
-        <TabsContent value="conversions" className="space-y-6">
+        <TabsContent value="conversions" className="space-y-6" ref={conversionsRef}>
           <ConversionReport />
         </TabsContent>
       </Tabs>
