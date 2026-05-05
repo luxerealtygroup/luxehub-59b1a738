@@ -2065,6 +2065,7 @@ export type Database = {
       increment_cma_version: { Args: { report_id: string }; Returns: undefined }
       is_admin_or_owner: { Args: { _user_id: string }; Returns: boolean }
       is_client: { Args: { _user_id: string }; Returns: boolean }
+      is_team_member: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       activity_type:
