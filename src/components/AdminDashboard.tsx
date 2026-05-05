@@ -1203,7 +1203,7 @@ const AdminDashboard = () => {
         </TabsContent>
 
         {/* BUDGET & FINANCES TAB */}
-        <TabsContent value="budget" className="space-y-6">
+        <TabsContent value="budget" className="space-y-6" ref={budgetRef}>
           {/* Monthly Budget */}
           <CompanyBudget />
           
@@ -1218,7 +1218,7 @@ const AdminDashboard = () => {
         </TabsContent>
 
         {/* TEAM PERFORMANCE TAB */}
-        <TabsContent value="team" className="space-y-6">
+        <TabsContent value="team" className="space-y-6" ref={teamRef}>
           {/* Agent Leaderboard */}
           {fubAgents.length > 0 && (
             <Card className="border-gold/20 bg-gradient-to-br from-card to-gold/5">
@@ -1350,7 +1350,7 @@ const AdminDashboard = () => {
         </TabsContent>
 
         {/* ANALYTICS TAB */}
-        <TabsContent value="analytics" className="space-y-6">
+        <TabsContent value="analytics" className="space-y-6" ref={analyticsRef}>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* GCI vs Goal by Agent Chart */}
             <Card className="border-gold/10">
@@ -1461,11 +1461,11 @@ const AdminDashboard = () => {
           </Card>
         </TabsContent>
         {/* TEAM 4-1-1 TAB */}
-        <TabsContent value="team411" className="space-y-6">
+        <TabsContent value="team411" className="space-y-6" ref={team411Ref}>
           <Team411 />
         </TabsContent>
         {/* CONVERSION REPORT TAB */}
-        <TabsContent value="conversions" className="space-y-6">
+        <TabsContent value="conversions" className="space-y-6" ref={conversionsRef}>
           <ConversionReport />
         </TabsContent>
       </Tabs>
