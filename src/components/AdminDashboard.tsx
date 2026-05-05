@@ -600,6 +600,63 @@ const AdminDashboard = () => {
 
   if (!stats) return null;
 
+  const tabRefs: Record<string, React.RefObject<HTMLDivElement>> = {
+    pipeline: pipelineRef,
+    budget: budgetRef,
+    team: teamRef,
+    analytics: analyticsRef,
+    team411: team411Ref,
+    conversions: conversionsRef,
+  };
+
+  const handleExportPdf = async () => {
+    const ref = tabRefs[activeTab];
+    if (!ref?.current) {
+      toast.error('Nothing to export on this tab');
+      return;
+    }
+    const label = TAB_LABELS[activeTab] || 'Report';
+    toast.loading('Generating PDF...', { id: 'pdf-export' });
+    try {
+      const node = ref.current;
+      const canvas = await html2canvas(node, {
+        scale: 2,
+        backgroundColor: '#0F172A',
+        useCORS: true,
+        logging: false,
+        windowWidth: node.scrollWidth,
+      });
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
+      const pdf = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pageWidth - 40;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      // Header
+      pdf.setFontSize(16);
+      pdf.text(`Company Dashboard — ${label}`, 20, 30);
+      pdf.setFontSize(10);
+      pdf.text(format(new Date(), 'MMMM d, yyyy h:mm a'), 20, 46);
+
+      let heightLeft = imgHeight;
+      let position = 60;
+      pdf.addImage(imgData, 'JPEG', 20, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight - position;
+      while (heightLeft > 0) {
+        pdf.addPage();
+        position = -(imgHeight - heightLeft) + 20;
+        pdf.addImage(imgData, 'JPEG', 20, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+      pdf.save(`company-${activeTab}-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+      toast.success('PDF exported', { id: 'pdf-export' });
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to export PDF', { id: 'pdf-export' });
+    }
+  };
+
   // Agent GCI vs Goal comparison data
   const agentGciVsGoalData = stats.agents.map(a => ({
     name: a.full_name?.split(' ')[0] || 'Agent',
