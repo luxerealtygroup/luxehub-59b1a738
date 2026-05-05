@@ -156,6 +156,13 @@ const AdminDashboard = () => {
   const [showPipelineReport, setShowPipelineReport] = useState(false);
   const [txFilter, setTxFilter] = useState<'all' | 'needs_review'>('all');
   const [selectedTxIds, setSelectedTxIds] = useState<Set<number>>(new Set());
+  const [activeTab, setActiveTab] = useState<string>('pipeline');
+  const pipelineRef = useRef<HTMLDivElement>(null);
+  const budgetRef = useRef<HTMLDivElement>(null);
+  const teamRef = useRef<HTMLDivElement>(null);
+  const analyticsRef = useRef<HTMLDivElement>(null);
+  const team411Ref = useRef<HTMLDivElement>(null);
+  const conversionsRef = useRef<HTMLDivElement>(null);
 
   const { metadata: dealMetadata, upsertDealCategory, bulkUpsert, refetch: refetchMetadata } = useDealMetadata();
 
