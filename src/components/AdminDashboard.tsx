@@ -28,6 +28,17 @@ import ConversionReport from './ConversionReport';
 import { CreateAgentDialog } from './CreateAgentDialog';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { toast } from 'sonner';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+
+const TAB_LABELS: Record<string, string> = {
+  pipeline: 'Pipeline & Sales',
+  budget: 'Budget & Finances',
+  team: 'Team Performance',
+  analytics: 'Analytics',
+  team411: 'Team 4-1-1',
+  conversions: 'Conversions',
+};
 
 interface AgentData {
   id: string;
