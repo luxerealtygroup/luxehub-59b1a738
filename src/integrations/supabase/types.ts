@@ -1498,6 +1498,7 @@ export type Database = {
           fub_user_id: number | null
           full_name: string | null
           id: string
+          is_demo_account: boolean
           updated_at: string
         }
         Insert: {
@@ -1507,6 +1508,7 @@ export type Database = {
           fub_user_id?: number | null
           full_name?: string | null
           id: string
+          is_demo_account?: boolean
           updated_at?: string
         }
         Update: {
@@ -1516,6 +1518,7 @@ export type Database = {
           fub_user_id?: number | null
           full_name?: string | null
           id?: string
+          is_demo_account?: boolean
           updated_at?: string
         }
         Relationships: []
@@ -2065,6 +2068,7 @@ export type Database = {
       increment_cma_version: { Args: { report_id: string }; Returns: undefined }
       is_admin_or_owner: { Args: { _user_id: string }; Returns: boolean }
       is_client: { Args: { _user_id: string }; Returns: boolean }
+      is_demo_account: { Args: { _user_id: string }; Returns: boolean }
       is_team_member: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
