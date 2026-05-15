@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.coach-me]
 verify_jwt = false
+
+[functions.sync-claude-profiles]
+verify_jwt = false
