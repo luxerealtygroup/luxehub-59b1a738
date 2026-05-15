@@ -1,5 +1,8 @@
 project_id = "sxpfxmlxegpmfamlmjyg"
 
+[functions.create-demo-account]
+verify_jwt = false
+
 [functions.follow-up-boss]
 verify_jwt = false
 
