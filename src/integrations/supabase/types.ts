@@ -64,6 +64,42 @@ export type Database = {
           },
         ]
       }
+      agent_claude_profiles: {
+        Row: {
+          agent_id: string
+          assistant_intro: string | null
+          bio: string | null
+          created_at: string
+          goals: Json | null
+          id: string
+          synced_at: string
+          tasks: Json | null
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          assistant_intro?: string | null
+          bio?: string | null
+          created_at?: string
+          goals?: Json | null
+          id?: string
+          synced_at?: string
+          tasks?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          assistant_intro?: string | null
+          bio?: string | null
+          created_at?: string
+          goals?: Json | null
+          id?: string
+          synced_at?: string
+          tasks?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       agent_documents: {
         Row: {
           category: string | null
