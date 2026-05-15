@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Building2, DollarSign, Users, TrendingUp, Target, Loader2, BarChart3, Calendar, FileText, ArrowRightLeft, Filter, CheckSquare, Download } from 'lucide-react';
+import { Building2, DollarSign, Users, TrendingUp, Target, Loader2, BarChart3, Calendar, FileText, ArrowRightLeft, Filter, CheckSquare, Download, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
@@ -729,6 +729,7 @@ const AdminDashboard = () => {
         </div>
         <CreateAgentDialog />
         <div className="flex items-center gap-3">
+          <SyncClaudeProfilesButton />
           <Button
             onClick={handleExportPdf}
             variant="outline"
