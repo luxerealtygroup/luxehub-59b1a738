@@ -21,6 +21,7 @@ import Reports from "./pages/Reports";
 import AdminReports from "./pages/AdminReports";
 import AgentProfile from "./pages/AgentProfile";
 import Library from "./pages/Library";
+import ListingsResources from "./pages/resources/Listings";
 import Submissions from "./pages/Submissions";
 import CMABoss from "./pages/CMABoss";
 import BusinessPlanning from "./pages/BusinessPlanning";
@@ -71,6 +72,7 @@ const App = () => (
               <Route path="411" element={<FourOneOne />} />
               <Route path="reports" element={<Reports />} />
               <Route path="library" element={<RoleGuard><Library /></RoleGuard>} />
+              <Route path="resources/listings" element={<RoleGuard><ListingsResources /></RoleGuard>} />
               <Route path="cma-boss" element={<RoleGuard><CMABoss /></RoleGuard>} />
               <Route path="business-planning" element={<BusinessPlanning />} />
               <Route path="settings" element={<AccountSettings />} />
