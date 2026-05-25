@@ -1,5 +1,6 @@
 import { ExternalLink, FileText, BookOpen } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import { Link } from 'react-router-dom';
 
 export default function ListingsResources() {
   return (
@@ -57,6 +58,22 @@ export default function ListingsResources() {
             </div>
           </Card>
         </a>
+
+        <Link to="/dashboard/cma-boss" className="group">
+          <Card className="p-5 h-full border-gold/20 hover:border-gold/60 hover:bg-gold/5 transition-colors">
+            <div className="flex items-start gap-3">
+              <div className="h-10 w-10 rounded-lg bg-gold/10 flex items-center justify-center shrink-0">
+                <FileText className="h-5 w-5 text-gold" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium text-foreground">CMA Boss</h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Generate comparative market analyses for your listings.
+                </p>
+              </div>
+            </div>
+          </Card>
+        </Link>
       </div>
     </div>
   );
