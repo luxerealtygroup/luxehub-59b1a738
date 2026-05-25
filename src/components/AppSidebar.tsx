@@ -20,7 +20,8 @@ import {
   Users,
   Briefcase,
   UserCheck,
-  KeyRound
+  KeyRound,
+  Mail
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -116,6 +117,7 @@ const agentResourcesItems = [
   { title: 'Commercial', url: '/dashboard/resources/commercial', icon: Briefcase },
   { title: 'Tenants', url: '/dashboard/resources/tenants', icon: UserCheck },
   { title: 'Landlords', url: '/dashboard/resources/landlords', icon: KeyRound },
+  { title: 'Newsletters', url: '/dashboard/resources/newsletters', icon: Mail },
 ];
 
 // Planning-only users see only planningVisible sections, and within Performance only Goals, 4-1-1, Reports
