@@ -1,4 +1,4 @@
-import { ExternalLink, FileText, Wand2 } from 'lucide-react';
+import { ExternalLink, FileText, Wand2, ListChecks } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 
 const docs = [
@@ -24,6 +24,13 @@ const links = [
     title: 'Clause Generator',
     desc: 'Ontario eXp Transaction Guide clause generator.',
     href: 'https://exptransactionguide.com/ON/clause-generator',
+    icon: Wand2,
+  },
+  {
+    title: 'Transaction Checklists',
+    desc: 'Ontario eXp Transaction Guide checklists.',
+    href: 'https://exptransactionguide.com/ON/transaction-checklists',
+    icon: ListChecks,
   },
 ];
 
@@ -59,7 +66,7 @@ export default function BuyersResources() {
             <Card className="p-5 h-full border-gold/20 hover:border-gold/60 hover:bg-gold/5 transition-colors">
               <div className="flex items-start gap-3">
                 <div className="h-10 w-10 rounded-lg bg-gold/10 flex items-center justify-center shrink-0">
-                  <Wand2 className="h-5 w-5 text-gold" />
+                  <d.icon className="h-5 w-5 text-gold" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
