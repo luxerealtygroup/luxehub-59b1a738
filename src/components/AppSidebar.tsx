@@ -21,7 +21,8 @@ import {
   Briefcase,
   UserCheck,
   KeyRound,
-  Mail
+  Mail,
+  DoorOpen
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -111,6 +112,7 @@ const agentResourcesItems = [
   { title: 'Tenants', url: '/dashboard/resources/tenants', icon: UserCheck },
   { title: 'Landlords', url: '/dashboard/resources/landlords', icon: KeyRound },
   { title: 'Newsletters', url: '/dashboard/resources/newsletters', icon: Mail },
+  { title: 'MyOpenHouse', url: '/dashboard/resources/myopenhouse', icon: DoorOpen },
 ];
 
 // Planning-only users see only planningVisible sections, and within Performance only Goals, 4-1-1, Reports
