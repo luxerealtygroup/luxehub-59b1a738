@@ -13,9 +13,17 @@ import {
   Phone,
   ExternalLink,
   Compass,
-  Settings
+  Settings,
+  ChevronDown,
+  BookOpen,
+  Home,
+  Users,
+  Briefcase,
+  UserCheck,
+  KeyRound
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Button } from '@/components/ui/button';
@@ -100,6 +108,14 @@ const allSections: MenuSection[] = [
       { title: 'Library', url: '/dashboard/library', icon: Library },
     ],
   },
+];
+
+const agentResourcesItems = [
+  { title: 'Listings', url: '/dashboard/resources/listings', icon: Home },
+  { title: 'Buyers', url: '/dashboard/resources/buyers', icon: Users },
+  { title: 'Commercial', url: '/dashboard/resources/commercial', icon: Briefcase },
+  { title: 'Tenants', url: '/dashboard/resources/tenants', icon: UserCheck },
+  { title: 'Landlords', url: '/dashboard/resources/landlords', icon: KeyRound },
 ];
 
 // Planning-only users see only planningVisible sections, and within Performance only Goals, 4-1-1, Reports
