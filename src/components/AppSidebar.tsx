@@ -221,6 +221,43 @@ export function AppSidebar() {
                       </Tooltip>
                     </SidebarMenuItem>
                   ))}
+                  {section.label === 'Resources' && (
+                    <SidebarMenuItem>
+                      <Collapsible defaultOpen className="group/collapsible">
+                        <CollapsibleTrigger asChild>
+                          <SidebarMenuButton className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:bg-gold/10 hover:text-gold transition-colors w-full">
+                            <BookOpen className="h-5 w-5 shrink-0" />
+                            {!collapsed && (
+                              <>
+                                <span className="flex-1 text-left">Agent Resources</span>
+                                <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
+                              </>
+                            )}
+                          </SidebarMenuButton>
+                        </CollapsibleTrigger>
+                        {!collapsed && (
+                          <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
+                            <SidebarMenu className="ml-4 mt-1 border-l border-gold/10 pl-2">
+                              {agentResourcesItems.map((sub) => (
+                                <SidebarMenuItem key={sub.title}>
+                                  <SidebarMenuButton asChild>
+                                    <NavLink
+                                      to={sub.url}
+                                      className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:bg-blue-500/10 hover:text-blue-500 transition-colors border-l-2 border-transparent text-sm"
+                                      activeClassName="bg-blue-500/15 text-blue-500 font-medium border-l-2 !border-blue-500"
+                                    >
+                                      <sub.icon className="h-4 w-4 shrink-0" />
+                                      <span>{sub.title}</span>
+                                    </NavLink>
+                                  </SidebarMenuButton>
+                                </SidebarMenuItem>
+                              ))}
+                            </SidebarMenu>
+                          </CollapsibleContent>
+                        )}
+                      </Collapsible>
+                    </SidebarMenuItem>
+                  )}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
