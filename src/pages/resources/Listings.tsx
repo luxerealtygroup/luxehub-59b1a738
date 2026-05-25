@@ -59,6 +59,78 @@ export default function ListingsResources() {
           </Card>
         </a>
 
+        <a
+          href="/resources/listings/Ontario-211-Listing-Schedule.pdf"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group"
+        >
+          <Card className="p-5 h-full border-gold/20 hover:border-gold/60 hover:bg-gold/5 transition-colors">
+            <div className="flex items-start gap-3">
+              <div className="h-10 w-10 rounded-lg bg-gold/10 flex items-center justify-center shrink-0">
+                <FileText className="h-5 w-5 text-gold" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-medium text-foreground">Ontario 211 – Listing Schedule</h3>
+                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/60 group-hover:text-gold" />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Schedule – Listing Agreement – Authority to Offer for Sale.
+                </p>
+              </div>
+            </div>
+          </Card>
+        </a>
+
+        <a
+          href="/resources/listings/Schedule-A-Listing.pdf"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group"
+        >
+          <Card className="p-5 h-full border-gold/20 hover:border-gold/60 hover:bg-gold/5 transition-colors">
+            <div className="flex items-start gap-3">
+              <div className="h-10 w-10 rounded-lg bg-gold/10 flex items-center justify-center shrink-0">
+                <FileText className="h-5 w-5 text-gold" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-medium text-foreground">Schedule A – Listing (PDF)</h3>
+                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/60 group-hover:text-gold" />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  LUXE Schedule A for listing agreements.
+                </p>
+              </div>
+            </div>
+          </Card>
+        </a>
+
+        <a
+          href="/resources/listings/Schedule-A-Seller.docx"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group"
+        >
+          <Card className="p-5 h-full border-gold/20 hover:border-gold/60 hover:bg-gold/5 transition-colors">
+            <div className="flex items-start gap-3">
+              <div className="h-10 w-10 rounded-lg bg-gold/10 flex items-center justify-center shrink-0">
+                <FileText className="h-5 w-5 text-gold" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-medium text-foreground">Schedule A – Seller (DOCX)</h3>
+                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/60 group-hover:text-gold" />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Editable Word version of Schedule A for sellers.
+                </p>
+              </div>
+            </div>
+          </Card>
+        </a>
+
         <Link to="/dashboard/cma-boss" className="group">
           <Card className="p-5 h-full border-gold/20 hover:border-gold/60 hover:bg-gold/5 transition-colors">
             <div className="flex items-start gap-3">
