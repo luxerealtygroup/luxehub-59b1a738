@@ -1,4 +1,4 @@
-import { ExternalLink, FileText, BookOpen, ClipboardList } from 'lucide-react';
+import { ExternalLink, FileText, BookOpen, ClipboardList, Wand2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Link } from 'react-router-dom';
 
@@ -125,6 +125,30 @@ export default function ListingsResources() {
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   Submit Ontario deposit instructions via eXp Realty form.
+                </p>
+              </div>
+            </div>
+          </Card>
+        </a>
+
+        <a
+          href="https://exptransactionguide.com/ON/clause-generator"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group"
+        >
+          <Card className="p-5 h-full border-gold/20 hover:border-gold/60 hover:bg-gold/5 transition-colors">
+            <div className="flex items-start gap-3">
+              <div className="h-10 w-10 rounded-lg bg-gold/10 flex items-center justify-center shrink-0">
+                <Wand2 className="h-5 w-5 text-gold" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-medium text-foreground">Clause Generator</h3>
+                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/60 group-hover:text-gold" />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Ontario eXp Transaction Guide clause generator.
                 </p>
               </div>
             </div>
