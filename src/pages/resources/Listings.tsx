@@ -179,21 +179,29 @@ export default function ListingsResources() {
           </Card>
         </a>
 
-        <Link to="/dashboard/cma-boss" className="group">
+        <a
+          href="https://claude.ai/project/019e6495-7aeb-74ab-9a2a-bcef737ae5ab"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group"
+        >
           <Card className="p-5 h-full border-gold/20 hover:border-gold/60 hover:bg-gold/5 transition-colors">
             <div className="flex items-start gap-3">
               <div className="h-10 w-10 rounded-lg bg-gold/10 flex items-center justify-center shrink-0">
                 <FileText className="h-5 w-5 text-gold" />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="font-medium text-foreground">CMA Boss</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-medium text-foreground">CMA Boss</h3>
+                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/60 group-hover:text-gold" />
+                </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   Generate comparative market analyses for your listings.
                 </p>
               </div>
             </div>
           </Card>
-        </Link>
+        </a>
       </div>
     </div>
   );
