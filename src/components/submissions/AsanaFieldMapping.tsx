@@ -44,6 +44,8 @@ const FORM_FIELDS: Record<string, Array<{ key: string; label: string }>> = {
     { key: 'door_knockers_needed', label: 'Door Knockers Needed' },
     { key: 'door_knockers_quantity', label: 'How Many Door Knockers' },
     { key: 'feature_sheets_needed', label: 'Feature Sheets Needed' },
+    { key: 'bmo_rep_needed', label: 'BMO Rep at Open House' },
+    { key: 'bmo_flyers_needed', label: 'BMO Mortgage Flyers' },
   ],
   invoice: [
     { key: 'vendor_name', label: 'Vendor Name' },

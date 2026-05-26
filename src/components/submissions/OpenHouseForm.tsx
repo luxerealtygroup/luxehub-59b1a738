@@ -44,6 +44,8 @@ interface OpenHouseFormProps {
     door_knockers_needed?: string;
     door_knockers_quantity?: string;
     feature_sheets_needed?: string;
+    bmo_rep_needed?: string;
+    bmo_flyers_needed?: string;
     notes?: string;
     attachment_urls?: Array<{ url: string; name: string }>;
   }) => void;
@@ -128,6 +130,8 @@ export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
         door_knockers_needed: data.door_knockers_needed,
         door_knockers_quantity: data.door_knockers_needed === 'Yes' ? data.door_knockers_quantity : undefined,
         feature_sheets_needed: data.feature_sheets_needed,
+        bmo_rep_needed: data.bmo_rep_needed,
+        bmo_flyers_needed: data.bmo_flyers_needed,
         notes: data.notes,
         attachment_urls: attachmentUrls,
       });
