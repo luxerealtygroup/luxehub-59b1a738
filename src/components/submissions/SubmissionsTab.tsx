@@ -213,6 +213,8 @@ export function SubmissionsTab() {
       door_knockers_needed: formData.door_knockers_needed,
       door_knockers_quantity: formData.door_knockers_quantity,
       feature_sheets_needed: formData.feature_sheets_needed,
+      bmo_rep_needed: formData.bmo_rep_needed,
+      bmo_flyers_needed: formData.bmo_flyers_needed,
       // Invoice fields
       vendor_name: formData.vendor_name,
       vendor_type: formData.vendor_type,
