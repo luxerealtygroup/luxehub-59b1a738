@@ -1,0 +1,1 @@
+ALTER TABLE public.submissions ADD COLUMN IF NOT EXISTS bmo_rep_needed text, ADD COLUMN IF NOT EXISTS bmo_flyers_needed text;

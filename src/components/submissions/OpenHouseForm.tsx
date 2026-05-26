@@ -21,6 +21,8 @@ const formSchema = z.object({
   door_knockers_needed: z.string().optional(),
   door_knockers_quantity: z.string().optional(),
   feature_sheets_needed: z.string().optional(),
+  bmo_rep_needed: z.string().optional(),
+  bmo_flyers_needed: z.string().optional(),
   open_house_date: z.string().min(1, 'Date is required'),
   open_house_start_time: z.string().min(1, 'Start time is required'),
   open_house_end_time: z.string().min(1, 'End time is required'),
@@ -60,6 +62,8 @@ export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
       door_knockers_needed: '',
       door_knockers_quantity: '',
       feature_sheets_needed: '',
+      bmo_rep_needed: '',
+      bmo_flyers_needed: '',
       open_house_date: '',
       open_house_start_time: '',
       open_house_end_time: '',
@@ -96,6 +100,8 @@ export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
         door_knockers_needed: data.door_knockers_needed || null,
         door_knockers_quantity: data.door_knockers_needed === 'Yes' ? data.door_knockers_quantity : null,
         feature_sheets_needed: data.feature_sheets_needed || null,
+        bmo_rep_needed: data.bmo_rep_needed || null,
+        bmo_flyers_needed: data.bmo_flyers_needed || null,
         open_house_date: data.open_house_date,
         open_house_time: `${data.open_house_start_time} - ${data.open_house_end_time}`,
         second_date: data.second_date || null,
@@ -225,6 +231,50 @@ export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Feature Sheets Needed?</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose one..." />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="bmo_rep_needed"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Would you like a BMO rep at the open house?</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose one..." />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="bmo_flyers_needed"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Would you like BMO mortgage flyers?</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>

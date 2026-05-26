@@ -1677,6 +1677,8 @@ export type Database = {
         Row: {
           agent_name: string | null
           attachments: Json | null
+          bmo_flyers_needed: string | null
+          bmo_rep_needed: string | null
           bra_reco_files: Json | null
           buyer_emails: string | null
           buyer_names: string | null
@@ -1734,6 +1736,8 @@ export type Database = {
         Insert: {
           agent_name?: string | null
           attachments?: Json | null
+          bmo_flyers_needed?: string | null
+          bmo_rep_needed?: string | null
           bra_reco_files?: Json | null
           buyer_emails?: string | null
           buyer_names?: string | null
@@ -1791,6 +1795,8 @@ export type Database = {
         Update: {
           agent_name?: string | null
           attachments?: Json | null
+          bmo_flyers_needed?: string | null
+          bmo_rep_needed?: string | null
           bra_reco_files?: Json | null
           buyer_emails?: string | null
           buyer_names?: string | null
