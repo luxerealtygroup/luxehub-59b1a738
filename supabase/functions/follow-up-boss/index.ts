@@ -1,12 +1,40 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const FUB_API_KEY = Deno.env.get('FOLLOW_UP_BOSS_API_KEY');
+const FUB_API_KEY_PRIMARY = Deno.env.get('FOLLOW_UP_BOSS_API_KEY');
+const FUB_API_KEY_SECONDARY = Deno.env.get('FOLLOW_UP_BOSS_API_KEY_2');
 const FUB_BASE_URL = 'https://api.followupboss.com/v1';
+
+async function resolveApiKey(req: Request): Promise<string | null> {
+  try {
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) return FUB_API_KEY_PRIMARY ?? null;
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user } } = await supabase.auth.getUser(token);
+    if (!user) return FUB_API_KEY_PRIMARY ?? null;
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('fub_account')
+      .eq('id', user.id)
+      .maybeSingle();
+    if (profile?.fub_account === 'secondary' && FUB_API_KEY_SECONDARY) {
+      return FUB_API_KEY_SECONDARY;
+    }
+    return FUB_API_KEY_PRIMARY ?? null;
+  } catch (e) {
+    console.error('resolveApiKey error', e);
+    return FUB_API_KEY_PRIMARY ?? null;
+  }
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -14,7 +42,8 @@ serve(async (req) => {
   }
 
   try {
-    if (!FUB_API_KEY) {
+    const apiKey = await resolveApiKey(req);
+    if (!apiKey) {
       console.error('FOLLOW_UP_BOSS_API_KEY not configured');
       return new Response(
         JSON.stringify({ success: false, error: 'Follow Up Boss API key not configured' }),
@@ -25,7 +54,7 @@ serve(async (req) => {
     const { action, params } = await req.json();
     console.log('FUB Action:', action, 'Params:', params);
 
-    const authHeader = 'Basic ' + btoa(FUB_API_KEY + ':');
+    const authHeader = 'Basic ' + btoa(apiKey + ':');
 
     let endpoint = '';
     let method = 'GET';
