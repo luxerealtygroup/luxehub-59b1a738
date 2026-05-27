@@ -1,0 +1,2 @@
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS fub_account text NOT NULL DEFAULT 'primary';
+UPDATE public.profiles SET fub_account = 'secondary' WHERE id IN ('4ab11461-fd13-405d-9521-82665c094f86','14e0c9a2-9f1a-46aa-a02d-49dcc85f04d3');
