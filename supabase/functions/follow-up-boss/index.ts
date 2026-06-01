@@ -21,10 +21,23 @@ async function resolveApiKey(req: Request): Promise<string | null> {
     const token = authHeader.replace('Bearer ', '');
     const { data: { user } } = await supabase.auth.getUser(token);
     if (!user) return FUB_API_KEY_PRIMARY ?? null;
+
+    // If caller is an admin/owner viewing as another agent, resolve that agent's fub_account
+    let targetUserId = user.id;
+    const viewAsUserId = req.headers.get('x-view-as-user-id');
+    if (viewAsUserId && viewAsUserId !== user.id) {
+      const { data: roles } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id);
+      const isAdmin = (roles || []).some((r: { role: string }) => r.role === 'admin' || r.role === 'owner');
+      if (isAdmin) targetUserId = viewAsUserId;
+    }
+
     const { data: profile } = await supabase
       .from('profiles')
       .select('fub_account')
-      .eq('id', user.id)
+      .eq('id', targetUserId)
       .maybeSingle();
     if (profile?.fub_account === 'secondary' && FUB_API_KEY_SECONDARY) {
       return FUB_API_KEY_SECONDARY;
