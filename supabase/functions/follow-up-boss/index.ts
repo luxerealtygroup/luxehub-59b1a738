@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-view-as-user-id, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 const FUB_API_KEY_PRIMARY = Deno.env.get('FOLLOW_UP_BOSS_API_KEY');
@@ -40,8 +40,10 @@ async function resolveApiKey(req: Request): Promise<string | null> {
       .eq('id', targetUserId)
       .maybeSingle();
     if (profile?.fub_account === 'secondary' && FUB_API_KEY_SECONDARY) {
+      console.log('Resolved FUB account: secondary');
       return FUB_API_KEY_SECONDARY;
     }
+    console.log('Resolved FUB account: primary');
     return FUB_API_KEY_PRIMARY ?? null;
   } catch (e) {
     console.error('resolveApiKey error', e);
