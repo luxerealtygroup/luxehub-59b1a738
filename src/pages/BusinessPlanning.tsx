@@ -258,7 +258,10 @@ const BusinessPlanning = () => {
 
   // ─── Bootstrap ───
   useEffect(() => { fetchSupplemental(); fetchGoals(); }, [fetchSupplemental, fetchGoals]);
-  useEffect(() => { if (!hasFUB && !isViewingAsAgent) setMode('planning'); }, [hasFUB, isViewingAsAgent]);
+  useEffect(() => {
+    if (!hasFUB && !isViewingAsAgent) setMode('planning');
+    else setMode('active');
+  }, [hasFUB, isViewingAsAgent]);
 
   const effectiveRates = mode === 'active' && metrics ? {
     contactToAppt: metrics.contactToApptPct || goals.contact_to_appt_rate,
