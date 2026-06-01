@@ -14,13 +14,6 @@ function getViewAsHeaders(): Record<string, string> {
   return {};
 }
 
-async function invokeFUB(action: string, params: unknown) {
-  return await supabase.functions.invoke('follow-up-boss', {
-    body: { action, params },
-    headers: getViewAsHeaders(),
-  });
-}
-
 export interface FUBPerson {
   id: number;
   name: string;
