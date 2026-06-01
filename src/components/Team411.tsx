@@ -231,7 +231,7 @@ const Team411 = () => {
           {filteredAgents.map(agent => {
             const data = weeklyData.find(w => w.user_id === agent.id);
             const agentAppts = appointmentRecords.filter(a => a.user_id === agent.id);
-            if (!data && selectedAgent === 'all') return null;
+            if (!data && agentAppts.length === 0 && selectedAgent === 'all') return null;
 
             return (
               <Card key={agent.id} className="border-primary/10">
