@@ -1,5 +1,26 @@
 import { supabase } from '@/integrations/supabase/client';
 
+function getViewAsHeaders(): Record<string, string> {
+  try {
+    const saved = localStorage.getItem('viewAsAgent');
+    if (!saved) return {};
+    const parsed = JSON.parse(saved);
+    if (parsed?.enabled && parsed?.agentId) {
+      return { 'x-view-as-user-id': String(parsed.agentId) };
+    }
+  } catch {
+    // ignore
+  }
+  return {};
+}
+
+async function invokeFUB(action: string, params: unknown) {
+  return await supabase.functions.invoke('follow-up-boss', {
+    body: { action, params },
+    headers: getViewAsHeaders(),
+  });
+}
+
 export interface FUBPerson {
   id: number;
   name: string;
