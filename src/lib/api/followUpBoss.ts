@@ -124,6 +124,7 @@ export const followUpBossApi = {
   async searchPeople(query: string, limit = 20): Promise<FUBResponse<{ people: FUBPerson[] }>> {
     const { data, error } = await supabase.functions.invoke('follow-up-boss', {
       body: { action: 'search_people', params: { query, limit } },
+      headers: getViewAsHeaders(),
     });
 
     if (error) {
@@ -135,6 +136,7 @@ export const followUpBossApi = {
   async getPeople(limit = 50, offset = 0): Promise<FUBResponse<{ people: FUBPerson[] }>> {
     const { data, error } = await supabase.functions.invoke('follow-up-boss', {
       body: { action: 'get_people', params: { limit, offset } },
+      headers: getViewAsHeaders(),
     });
 
     if (error) {
@@ -146,6 +148,7 @@ export const followUpBossApi = {
   async getPerson(id: number): Promise<FUBResponse<FUBPerson>> {
     const { data, error } = await supabase.functions.invoke('follow-up-boss', {
       body: { action: 'get_person', params: { id } },
+      headers: getViewAsHeaders(),
     });
 
     if (error) {
@@ -157,6 +160,7 @@ export const followUpBossApi = {
   async getDeals(limit = 50, offset = 0, stage?: string): Promise<FUBResponse<{ deals: FUBDeal[] }>> {
     const { data, error } = await supabase.functions.invoke('follow-up-boss', {
       body: { action: 'get_deals', params: { limit, offset, stage } },
+      headers: getViewAsHeaders(),
     });
 
     if (error) {
@@ -168,6 +172,7 @@ export const followUpBossApi = {
   async getNotes(limit = 50, offset = 0, personId?: number): Promise<FUBResponse<{ notes: FUBNote[] }>> {
     const { data, error } = await supabase.functions.invoke('follow-up-boss', {
       body: { action: 'get_notes', params: { limit, offset, personId } },
+      headers: getViewAsHeaders(),
     });
 
     if (error) {
@@ -179,6 +184,7 @@ export const followUpBossApi = {
   async getCalls(limit = 50, offset = 0, personId?: number): Promise<FUBResponse<{ calls: FUBCall[] }>> {
     const { data, error } = await supabase.functions.invoke('follow-up-boss', {
       body: { action: 'get_calls', params: { limit, offset, personId } },
+      headers: getViewAsHeaders(),
     });
 
     if (error) {
@@ -190,6 +196,7 @@ export const followUpBossApi = {
   async getSmartLists(limit = 100, offset = 0): Promise<FUBResponse<{ smartlists: FUBSmartList[] }>> {
     const { data, error } = await supabase.functions.invoke('follow-up-boss', {
       body: { action: 'get_smartlists', params: { limit, offset } },
+      headers: getViewAsHeaders(),
     });
 
     if (error) {
@@ -201,6 +208,7 @@ export const followUpBossApi = {
   async getSmartListPeople(id: number, limit = 50, offset = 0): Promise<FUBResponse<{ people: FUBPerson[] }>> {
     const { data, error } = await supabase.functions.invoke('follow-up-boss', {
       body: { action: 'get_smartlist_people', params: { id, limit, offset } },
+      headers: getViewAsHeaders(),
     });
 
     if (error) {
