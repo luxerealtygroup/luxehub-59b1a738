@@ -1,0 +1,1 @@
+UPDATE public.profiles SET full_name = 'Lisa Pearcey' WHERE id = 'cab7c72d-5a81-4c4c-846d-92e963c5a2cc' AND full_name IS NULL;
