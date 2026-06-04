@@ -179,12 +179,7 @@ export default function ListingsResources() {
           </Card>
         </a>
 
-        <a
-          href="https://claude.ai/project/019e6495-7aeb-74ab-9a2a-bcef737ae5ab"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="group"
-        >
+        <Link to="/dashboard/cma-boss" className="group">
           <Card className="p-5 h-full border-gold/20 hover:border-gold/60 hover:bg-gold/5 transition-colors">
             <div className="flex items-start gap-3">
               <div className="h-10 w-10 rounded-lg bg-gold/10 flex items-center justify-center shrink-0">
@@ -201,7 +196,7 @@ export default function ListingsResources() {
               </div>
             </div>
           </Card>
-        </a>
+        </Link>
       </div>
     </div>
   );
