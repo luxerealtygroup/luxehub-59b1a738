@@ -93,7 +93,29 @@ export function SubmissionsTab() {
         .order('full_name');
       
       if (!error && data) {
-        setAgents(data);
+        // Only show agents that match Asana assignees
+        const ALLOWED = [
+          'nick dertinger',
+          'hana karimi',
+          'lexi vanderwerf-mcneil',
+          'terra white',
+          'lisa proude',
+        ];
+        const DISPLAY_OVERRIDES: Record<string, string> = {
+          'hana': 'Hana Karimi',
+          'terra': 'Terra White',
+        };
+        const filtered = data
+          .filter((a) => {
+            const n = (a.full_name || '').trim().toLowerCase();
+            return ALLOWED.includes(n) || n in DISPLAY_OVERRIDES;
+          })
+          .map((a) => {
+            const n = (a.full_name || '').trim().toLowerCase();
+            return { ...a, full_name: DISPLAY_OVERRIDES[n] || a.full_name };
+          })
+          .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+        setAgents(filtered);
       }
     };
 
