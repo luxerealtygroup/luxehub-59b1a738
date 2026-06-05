@@ -17,13 +17,13 @@ const SERVER_INFO = { name: "luxehub-mcp", version: "1.0.0" };
 const TOOLS = [
   {
     name: "get_my_pipeline",
-    description: "Get my upcoming pipeline clients",
+    description: "Return all pipeline clients for the authenticated LUXEhub user from the pipeline_clients table.",
     inputSchema: {
       type: "object",
       properties: {
         email: {
           type: "string",
-          description: "Your LUXEhub email address",
+          description: "Email of the authenticated user",
         },
       },
       required: ["email"],
@@ -31,18 +31,18 @@ const TOOLS = [
   },
   {
     name: "get_my_deals",
-    description: "Get my deals",
+    description: "Return deals for the authenticated LUXEhub user from the deals table.",
     inputSchema: {
       type: "object",
       properties: {
         email: {
           type: "string",
-          description: "Your LUXEhub email address",
+          description: "Email of the authenticated user",
         },
         stage: {
           type: "string",
           enum: ["active", "under_contract", "closed", "all"],
-          description: "Optional stage filter. Defaults to 'all'.",
+          description: "Filter by deal stage",
         },
       },
       required: ["email"],
