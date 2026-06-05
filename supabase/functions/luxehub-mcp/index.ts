@@ -17,30 +17,27 @@ const SERVER_INFO = { name: "luxehub-mcp", version: "1.0.0" };
 const TOOLS = [
   {
     name: "get_my_pipeline",
-    description:
-      "Return all pipeline clients for a LuxeHub user. Requires the user's email address to identify them.",
+    description: "Get my upcoming pipeline clients",
     inputSchema: {
       type: "object",
       properties: {
         email: {
           type: "string",
-          description: "The LuxeHub user's email address (used to look up their account).",
+          description: "Your LUXEhub email address",
         },
       },
       required: ["email"],
-      additionalProperties: false,
     },
   },
   {
     name: "get_my_deals",
-    description:
-      "Return deals for a LuxeHub user. Requires the user's email address. Optionally filter by stage.",
+    description: "Get my deals",
     inputSchema: {
       type: "object",
       properties: {
         email: {
           type: "string",
-          description: "The LuxeHub user's email address (used to look up their account).",
+          description: "Your LUXEhub email address",
         },
         stage: {
           type: "string",
@@ -49,7 +46,6 @@ const TOOLS = [
         },
       },
       required: ["email"],
-      additionalProperties: false,
     },
   },
 ];
