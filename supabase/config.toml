@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.sync-claude-profiles]
 verify_jwt = false
+
+[functions.luxehub-mcp]
+verify_jwt = false
