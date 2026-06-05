@@ -18,26 +18,37 @@ const TOOLS = [
   {
     name: "get_my_pipeline",
     description:
-      "Return all pipeline clients for the authenticated LuxeHub user from the pipeline_clients table.",
+      "Return all pipeline clients for a LuxeHub user. Requires the user's email address to identify them.",
     inputSchema: {
       type: "object",
-      properties: {},
+      properties: {
+        email: {
+          type: "string",
+          description: "The LuxeHub user's email address (used to look up their account).",
+        },
+      },
+      required: ["email"],
       additionalProperties: false,
     },
   },
   {
     name: "get_my_deals",
     description:
-      "Return deals for the authenticated LuxeHub user from the deals table. Optionally filter by stage.",
+      "Return deals for a LuxeHub user. Requires the user's email address. Optionally filter by stage.",
     inputSchema: {
       type: "object",
       properties: {
+        email: {
+          type: "string",
+          description: "The LuxeHub user's email address (used to look up their account).",
+        },
         stage: {
           type: "string",
           enum: ["active", "under_contract", "closed", "all"],
           description: "Optional stage filter. Defaults to 'all'.",
         },
       },
+      required: ["email"],
       additionalProperties: false,
     },
   },
@@ -104,24 +115,43 @@ Deno.serve(async (req) => {
       const args = ((params as { arguments?: Record<string, unknown> }).arguments) ?? {};
       if (!toolName) return rpcError(id, -32602, "Invalid params: missing tool name");
 
-      // Authenticate via Supabase JWT
-      const authHeader = req.headers.get("Authorization") || "";
-      if (!authHeader.startsWith("Bearer ")) {
-        return rpcError(id, -32001, "Unauthorized: missing Bearer token");
+      // Identify user by email (no JWT — Claude.ai passes its own bearer token)
+      const emailRaw = (args as { email?: string }).email;
+      if (!emailRaw || typeof emailRaw !== "string") {
+        return rpcError(id, -32602, "Missing required parameter: email");
       }
-      const token = authHeader.replace("Bearer ", "");
+      const email = emailRaw.trim().toLowerCase();
 
+      // Use service-role client to look up the auth user by email
       const supabase = createClient(
         Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_ANON_KEY")!,
-        { global: { headers: { Authorization: authHeader } } },
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
       );
 
-      const { data: claimsData, error: claimsErr } = await supabase.auth.getClaims(token);
-      if (claimsErr || !claimsData?.claims?.sub) {
-        return rpcError(id, -32001, "Unauthorized: invalid token");
+      const { data: userLookup, error: lookupErr } =
+        await (supabase.auth.admin as unknown as {
+          getUserByEmail: (e: string) => Promise<{ data: { user: { id: string } | null }; error: unknown }>;
+        }).getUserByEmail?.(email).catch(() => ({ data: { user: null }, error: null })) ??
+        { data: { user: null }, error: null };
+
+      let userId: string | null = userLookup?.user?.id ?? null;
+
+      // Fallback: page through auth users (small team) if getUserByEmail isn't available
+      if (!userId) {
+        let page = 1;
+        while (page <= 5 && !userId) {
+          const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 200 });
+          if (error) break;
+          const match = data?.users?.find((u) => (u.email ?? "").toLowerCase() === email);
+          if (match) { userId = match.id; break; }
+          if (!data?.users?.length || data.users.length < 200) break;
+          page++;
+        }
       }
-      const userId = claimsData.claims.sub as string;
+
+      if (!userId) {
+        return rpcError(id, -32004, `No LuxeHub user found for email '${email}'.`);
+      }
 
       const toText = (payload: unknown) => ({
         content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
