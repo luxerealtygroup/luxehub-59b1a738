@@ -100,6 +100,7 @@ export function SubmissionsTab() {
           'lexi vanderwerf-mcneil',
           'terra white',
           'lisa proude',
+          'kristen schulz',
         ];
         const DISPLAY_OVERRIDES: Record<string, string> = {
           'hana': 'Hana Karimi',
