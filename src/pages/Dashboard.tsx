@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useHasFUB } from '@/hooks/useHasFUB';
+import { useViewAsAgent } from '@/hooks/useViewAsAgent';
+import { useFubDealMetrics } from '@/hooks/useFubDealMetrics';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Building2, Phone, DollarSign, Target, Users, Search, Loader2, TrendingUp, Flame, Award, ArrowUp, CheckCircle, Clock, FileText, Briefcase, Calendar, Info } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -106,6 +108,8 @@ const Dashboard = () => {
   const { hasFUB } = useHasFUB();
   const { toast } = useToast();
   const { isPlanningAccess, isAgent } = useUserRole();
+  const { isViewingAsAgent, effectiveUserId, effectiveFubUserId, viewingAgentName } = useViewAsAgent();
+  const dataUserId = effectiveUserId || user?.id || null;
   const isPlanningOnly = isPlanningAccess && !isAgent;
   const [stats, setStats] = useState<Stats>({
     totalDeals: 0,
@@ -140,14 +144,14 @@ const Dashboard = () => {
   });
 
   useEffect(() => {
-    if (!user) return;
+    if (!dataUserId) return;
 
     const fetchStats = async () => {
       const [dealsRes, commissionsRes, activitiesRes, goalsRes] = await Promise.all([
-        supabase.from('deals').select('*').eq('user_id', user.id),
-        supabase.from('commissions').select('gross_commission, amount, status, paid_at').eq('user_id', user.id),
-        supabase.from('agent_activities').select('*').eq('user_id', user.id),
-        supabase.from('agent_goals').select('*').eq('user_id', user.id).eq('period', 'yearly')
+        supabase.from('deals').select('*').eq('user_id', dataUserId),
+        supabase.from('commissions').select('gross_commission, amount, status, paid_at').eq('user_id', dataUserId),
+        supabase.from('agent_activities').select('*').eq('user_id', dataUserId),
+        supabase.from('agent_goals').select('*').eq('user_id', dataUserId).eq('period', 'yearly')
       ]);
 
       const deals = dealsRes.data || [];
@@ -180,7 +184,7 @@ const Dashboard = () => {
         const { data: rows } = await supabase
           .from('manual_production')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('user_id', dataUserId)
           .eq('year', currentYear);
         mpRows = rows || [];
 
@@ -263,7 +267,7 @@ const Dashboard = () => {
     }
 
     return () => { if (refreshInterval) clearInterval(refreshInterval); };
-  }, [user, hasFUB]);
+  }, [dataUserId, hasFUB, isViewingAsAgent]);
 
   const syncClientToFUB = async (clientData: typeof newClient) => {
     try {
