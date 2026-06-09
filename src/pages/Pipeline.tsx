@@ -20,6 +20,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { differenceInDays, format, parseISO } from 'date-fns';
 import { SOURCE_OPTIONS } from '@/lib/constants/sourceOptions';
 import { formatCurrency, formatNumber } from '@/lib/utils';
+
+// Safely format a date string; returns '—' on invalid input so one bad row
+// (e.g. a typo'd year) can't crash the whole Pipeline page.
+const safeFormatDate = (value?: string | null, fmt = 'MMM d, yyyy'): string => {
+  if (!value) return '—';
+  try {
+    const d = parseISO(value);
+    if (isNaN(d.getTime())) return '—';
+    return format(d, fmt);
+  } catch {
+    return '—';
+  }
+};
 import { usePipelineMetrics } from '@/hooks/usePipelineMetrics';
 import { ActivityRequirementsEngine } from '@/components/ActivityRequirementsEngine';
 import { PaceTracker } from '@/components/PaceTracker';
