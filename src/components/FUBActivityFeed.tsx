@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 import { followUpBossApi, FUBNote, FUBCall } from '@/lib/api/followUpBoss';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { useViewAsAgent } from '@/hooks/useViewAsAgent';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -26,6 +29,10 @@ type ActivityItem = {
 };
 
 const FUBActivityFeed = ({ limit = 20, showTabs = true, title = 'Recent Activity' }: FUBActivityFeedProps) => {
+  const { user } = useAuth();
+  const { effectiveUserId, effectiveFubUserId, isViewingAsAgent } = useViewAsAgent();
+  const [filterFubUserId, setFilterFubUserId] = useState<number | null>(null);
+  const [filterReady, setFilterReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [notes, setNotes] = useState<FUBNote[]>([]);
@@ -53,12 +60,45 @@ const FUBActivityFeed = ({ limit = 20, showTabs = true, title = 'Recent Activity
   };
 
   useEffect(() => {
-    fetchActivities();
-  }, [limit]);
+    const resolveFilter = async () => {
+      setFilterReady(false);
+      if (isViewingAsAgent) {
+        setFilterFubUserId(effectiveFubUserId ?? null);
+        setFilterReady(true);
+        return;
+      }
+      const uid = effectiveUserId || user?.id;
+      if (!uid) {
+        setFilterFubUserId(null);
+        setFilterReady(true);
+        return;
+      }
+      const { data } = await supabase
+        .from('profiles')
+        .select('fub_user_id')
+        .eq('id', uid)
+        .maybeSingle();
+      setFilterFubUserId(data?.fub_user_id ?? null);
+      setFilterReady(true);
+    };
+    resolveFilter();
+  }, [user?.id, effectiveUserId, effectiveFubUserId, isViewingAsAgent]);
+
+  useEffect(() => {
+    if (filterReady) fetchActivities();
+  }, [limit, filterReady, filterFubUserId]);
+
+  // Filter to only this user's activities when we know their FUB user id
+  const filteredNotes = filterFubUserId != null
+    ? notes.filter(n => n.userId === filterFubUserId)
+    : notes;
+  const filteredCalls = filterFubUserId != null
+    ? calls.filter(c => c.userId === filterFubUserId)
+    : calls;
 
   // Combine and sort all activities
   const allActivities: ActivityItem[] = [
-    ...notes.map(n => ({
+    ...filteredNotes.map(n => ({
       id: `note-${n.id}`,
       type: 'note' as const,
       created: n.created,
@@ -66,7 +106,7 @@ const FUBActivityFeed = ({ limit = 20, showTabs = true, title = 'Recent Activity
       userName: n.userName,
       content: n.subject || n.body || 'Note added',
     })),
-    ...calls.map(c => ({
+    ...filteredCalls.map(c => ({
       id: `call-${c.id}`,
       type: 'call' as const,
       created: c.created,
@@ -149,8 +189,8 @@ const FUBActivityFeed = ({ limit = 20, showTabs = true, title = 'Recent Activity
           <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-4">
             <TabsList className="grid grid-cols-3 w-full">
               <TabsTrigger value="all">All ({allActivities.length})</TabsTrigger>
-              <TabsTrigger value="calls">Calls ({calls.length})</TabsTrigger>
-              <TabsTrigger value="notes">Notes ({notes.length})</TabsTrigger>
+              <TabsTrigger value="calls">Calls ({filteredCalls.length})</TabsTrigger>
+              <TabsTrigger value="notes">Notes ({filteredNotes.length})</TabsTrigger>
             </TabsList>
           </Tabs>
         )}
