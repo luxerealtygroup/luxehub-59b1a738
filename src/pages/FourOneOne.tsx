@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -149,6 +150,10 @@ const FourOneOne = () => {
   const { hasFUB } = useHasFUB();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [autoSaving, setAutoSaving] = useState(false);
+  const [lastAutoSavedAt, setLastAutoSavedAt] = useState<Date | null>(null);
+  const lastSavedSnapshotRef = useRef<string>('');
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [weeklyData, setWeeklyData] = useState<Weekly411>({ ...emptyWeekly });
   const [appointmentRecords, setAppointmentRecords] = useState<AppointmentRecord[]>([]);
@@ -217,19 +222,23 @@ const FourOneOne = () => {
 
     if (data) {
       setWeeklyData(data as unknown as Weekly411);
+      lastSavedSnapshotRef.current = JSON.stringify(data);
     } else {
       // Auto-populate weekly goals from Goals page monthly breakdown
       const weeksInMonth = 4;
       const monthlyDeals = syncedGoals.monthly_deals[currentWeek.getMonth()] || 0;
       const weeklyDealsTarget = Math.ceil(monthlyDeals / weeksInMonth);
-      setWeeklyData({ 
+      const fresh = { 
         ...emptyWeekly, 
         week_start_date: weekStart,
         calls_goal: syncedGoals.deals_goal > 0 ? Math.ceil((monthlyDeals * 10) / weeksInMonth) : 50,
         appointments_goal: syncedGoals.deals_goal > 0 ? Math.ceil((monthlyDeals * 4) / weeksInMonth) : 10,
         listings_goal: syncedGoals.deals_goal > 0 ? weeklyDealsTarget : 2,
         contracts_goal: syncedGoals.deals_goal > 0 ? weeklyDealsTarget : 2,
-      });
+      };
+      setWeeklyData(fresh);
+      // mark as unsaved so first edits trigger creation
+      lastSavedSnapshotRef.current = '';
     }
   };
 
@@ -325,6 +334,54 @@ const FourOneOne = () => {
   useEffect(() => {
     setWeeklyData(prev => ({ ...prev, appointments_held: appointmentRecords.length }));
   }, [appointmentRecords]);
+
+  // Debounced autosave for 4-1-1
+  useEffect(() => {
+    if (!user || !weeklyData.week_start_date) return;
+    const snapshot = JSON.stringify(weeklyData);
+    if (snapshot === lastSavedSnapshotRef.current) return;
+
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(async () => {
+      setAutoSaving(true);
+      const weekStart = format(currentWeek, 'yyyy-MM-dd');
+      const payload = {
+        ...weeklyData,
+        user_id: user.id,
+        week_start_date: weekStart,
+        appointments_held: appointmentRecords.length,
+      };
+      let savedRow: any = null;
+      if (weeklyData.id) {
+        const { data, error } = await supabase
+          .from('weekly_411')
+          .update(payload)
+          .eq('id', weeklyData.id)
+          .select()
+          .maybeSingle();
+        if (!error) savedRow = data;
+      } else {
+        const { data, error } = await supabase
+          .from('weekly_411')
+          .insert(payload)
+          .select()
+          .maybeSingle();
+        if (!error && data) {
+          savedRow = data;
+          setWeeklyData(prev => ({ ...prev, id: data.id }));
+        }
+      }
+      if (savedRow) {
+        lastSavedSnapshotRef.current = JSON.stringify({ ...savedRow });
+        setLastAutoSavedAt(new Date());
+      }
+      setAutoSaving(false);
+    }, 1200);
+
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    };
+  }, [weeklyData, appointmentRecords.length, user, currentWeek]);
 
   const saveWeeklyData = async () => {
     if (!user) return;
@@ -996,9 +1053,18 @@ const FourOneOne = () => {
             </CardContent>
           </Card>
 
-          <Button onClick={saveWeeklyData} disabled={saving} className="w-full bg-primary text-primary-foreground">
-            <Save className="h-4 w-4 mr-2" /> {saving ? 'Saving...' : 'Save Weekly 4-1-1'}
-          </Button>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">
+              {autoSaving
+                ? 'Autosaving…'
+                : lastAutoSavedAt
+                  ? `Autosaved at ${format(lastAutoSavedAt, 'h:mm:ss a')}`
+                  : 'Changes save automatically.'}
+            </p>
+            <Button onClick={saveWeeklyData} disabled={saving} variant="outline" size="sm">
+              <Save className="h-4 w-4 mr-2" /> {saving ? 'Saving...' : 'Save Now'}
+            </Button>
+          </div>
         </TabsContent>
 
         {/* MONTHLY TAB */}
