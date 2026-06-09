@@ -311,10 +311,9 @@ const AdminDashboard = () => {
           })),
         ].sort((a, b) => {
           // Sort by closing date descending (most recent first)
-          if (!a.closingDate && !b.closingDate) return 0;
-          if (!a.closingDate) return 1;
-          if (!b.closingDate) return -1;
-          return new Date(b.closingDate).getTime() - new Date(a.closingDate).getTime();
+          const aTime = getValidDate(a.closingDate)?.getTime() ?? 0;
+          const bTime = getValidDate(b.closingDate)?.getTime() ?? 0;
+          return bTime - aTime;
         });
         
         setCompanyTransactions(allTransactions);
@@ -390,16 +389,8 @@ const AdminDashboard = () => {
         const revenueByMonth = new Map<string, { earned: number; pending: number }>();
         deals.forEach((deal: FUBDeal) => {
           const closeDate = deal.projectedCloseDate || deal.createdAt;
-          if (!closeDate) return;
-
-          let monthKey: string;
-          try {
-            const parsed = parseISO(closeDate);
-            if (isNaN(parsed.getTime())) return;
-            monthKey = format(startOfMonth(parsed), 'yyyy-MM');
-          } catch {
-            return;
-          }
+          const monthKey = getMonthKey(closeDate);
+          if (!monthKey) return;
           const existing = revenueByMonth.get(monthKey) || { earned: 0, pending: 0 };
           
           const isClosedDeal = deal.status?.toLowerCase() === 'won' || 
@@ -419,12 +410,7 @@ const AdminDashboard = () => {
         const monthlyRevenueData = Array.from(revenueByMonth.entries())
           .map(([month, data]) => ({
             month,
-            monthLabel: (() => {
-              try {
-                const d = parseISO(month + '-01');
-                return isNaN(d.getTime()) ? month : format(d, 'MMM yyyy');
-              } catch { return month; }
-            })(),
+            monthLabel: formatMonthLabel(month),
             earned: data.earned,
             pending: data.pending,
           }))
