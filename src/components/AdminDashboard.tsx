@@ -178,6 +178,7 @@ const AdminDashboard = () => {
   const [companyTransactions, setCompanyTransactions] = useState<CompanyTransaction[]>([]);
   const [quarterlyGoals, setQuarterlyGoals] = useState<QuarterlyGoals | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   const [showPipelineReport, setShowPipelineReport] = useState(false);
   const [txFilter, setTxFilter] = useState<'all' | 'needs_review'>('all');
@@ -197,6 +198,7 @@ const AdminDashboard = () => {
 
     const fetchCompanyData = async () => {
       setLoading(true);
+      setLoadError(null);
 
       // Fetch FUB deals for company-wide stats
       const fubResponse = await followUpBossApi.getDeals(200, 0);
@@ -634,12 +636,20 @@ const AdminDashboard = () => {
       setLoading(false);
     };
 
-    fetchCompanyData();
+    const safeFetchCompanyData = () => {
+      fetchCompanyData().catch((error) => {
+        console.error('Company dashboard failed to load:', error);
+        setLoadError('Company dashboard could not load. Please refresh and try again.');
+        setLoading(false);
+      });
+    };
+
+    safeFetchCompanyData();
 
     // Auto-refresh FUB data every 3 minutes
     const refreshInterval = setInterval(() => {
       console.log('Auto-refreshing admin FUB data...');
-      fetchCompanyData();
+      safeFetchCompanyData();
     }, 3 * 60 * 1000);
 
     return () => clearInterval(refreshInterval);
