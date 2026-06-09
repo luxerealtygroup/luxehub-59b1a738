@@ -673,6 +673,17 @@ const AdminDashboard = () => {
     );
   }
 
+  if (loadError) {
+    return (
+      <Card className="border-destructive/20">
+        <CardContent className="p-8 text-center space-y-3">
+          <p className="text-destructive font-medium">{loadError}</p>
+          <Button onClick={() => window.location.reload()} variant="outline">Refresh Dashboard</Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (!stats) return null;
 
   const tabRefs: Record<string, React.RefObject<HTMLDivElement>> = {
