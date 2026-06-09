@@ -1222,9 +1222,7 @@ const AdminDashboard = () => {
                                     </TableCell>
                                     <TableCell className="text-muted-foreground">{transaction.agentName}</TableCell>
                                     <TableCell className="text-muted-foreground">
-                                      {transaction.closingDate
-                                        ? format(parseISO(transaction.closingDate), 'MMM d, yyyy')
-                                        : '-'}
+                                      {formatDashboardDate(transaction.closingDate)}
                                     </TableCell>
                                     <TableCell>
                                       <DealTypeDropdown
