@@ -364,9 +364,24 @@ const Dashboard = () => {
     });
   };
 
+  // Merge FUB-sourced metrics into the displayed stats. FUB is the source of
+  // truth for deals/GCI whenever the effective user has a FUB id (including
+  // when an admin is viewing as that agent).
+  const useFubStats = !fubMetricsLoading && (effectiveFubUserId != null || fubMetrics.deals_closed > 0 || fubMetrics.deals_pending > 0);
+  const displayStats = useFubStats
+    ? {
+        ...stats,
+        closedDeals: fubMetrics.deals_closed,
+        activeDeals: fubMetrics.deals_pending,
+        totalDeals: fubMetrics.deals_closed + fubMetrics.deals_pending,
+        totalCommissions: fubMetrics.gci_earned,
+        pendingCommissions: fubMetrics.gci_pending,
+      }
+    : stats;
+
   // Calculate progress percentages
-  const dealsProgress = stats.dealsGoal > 0 ? (stats.closedDeals / stats.dealsGoal) * 100 : 0;
-  const gciProgress = stats.gciGoal > 0 ? (stats.totalCommissions / stats.gciGoal) * 100 : 0;
+  const dealsProgress = displayStats.dealsGoal > 0 ? (displayStats.closedDeals / displayStats.dealsGoal) * 100 : 0;
+  const gciProgress = displayStats.gciGoal > 0 ? (displayStats.totalCommissions / displayStats.gciGoal) * 100 : 0;
 
   // Motivational message based on progress
   const getMotivationalMessage = () => {
