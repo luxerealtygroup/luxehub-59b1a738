@@ -605,9 +605,8 @@ const AdminDashboard = () => {
       const pipelineByMonth = new Map<string, { buyers: number; sellers: number; projectedGci: number }>();
       (pipelineClients || []).forEach((client: { expected_pending_date?: string; created_at: string; client_type: string; projected_gci?: number }) => {
         const targetDate = client.expected_pending_date || client.created_at;
-        if (!targetDate) return;
-        
-        const monthKey = format(startOfMonth(parseISO(targetDate)), 'yyyy-MM');
+        const monthKey = getMonthKey(targetDate);
+        if (!monthKey) return;
         const existing = pipelineByMonth.get(monthKey) || { buyers: 0, sellers: 0, projectedGci: 0 };
         
         if (client.client_type === 'buyer') {
@@ -623,7 +622,7 @@ const AdminDashboard = () => {
       const monthlyPipelineData = Array.from(pipelineByMonth.entries())
         .map(([month, data]) => ({
           month,
-          monthLabel: format(parseISO(month + '-01'), 'MMM yyyy'),
+          monthLabel: formatMonthLabel(month),
           buyers: data.buyers,
           sellers: data.sellers,
           total: data.buyers + data.sellers,
