@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useHasFUB } from '@/hooks/useHasFUB';
+import { useViewAsAgent } from '@/hooks/useViewAsAgent';
+import { useFubDealMetrics } from '@/hooks/useFubDealMetrics';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Building2, Phone, DollarSign, Target, Users, Search, Loader2, TrendingUp, Flame, Award, ArrowUp, CheckCircle, Clock, FileText, Briefcase, Calendar, Info } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -106,6 +108,8 @@ const Dashboard = () => {
   const { hasFUB } = useHasFUB();
   const { toast } = useToast();
   const { isPlanningAccess, isAgent } = useUserRole();
+  const { isViewingAsAgent, effectiveUserId, effectiveFubUserId, viewingAgentName } = useViewAsAgent();
+  const dataUserId = effectiveUserId || user?.id || null;
   const isPlanningOnly = isPlanningAccess && !isAgent;
   const [stats, setStats] = useState<Stats>({
     totalDeals: 0,
@@ -124,6 +128,15 @@ const Dashboard = () => {
   const [fubLoading, setFubLoading] = useState(false);
   const [fubError, setFubError] = useState<string | null>(null);
   const [manualProduction, setManualProduction] = useState<ManualProductionData | null>(null);
+
+  // Pull FUB-backed metrics so that stats reflect the source of truth.
+  // This also powers correctly impersonated views (View as Agent).
+  const { metrics: fubMetrics, loading: fubMetricsLoading } = useFubDealMetrics({
+    userId: dataUserId,
+    fubUserId: effectiveFubUserId,
+    year: currentYear,
+    hasFUB: true,
+  });
   
   // Add client dialog state
   const [addClientOpen, setAddClientOpen] = useState(false);
@@ -140,14 +153,14 @@ const Dashboard = () => {
   });
 
   useEffect(() => {
-    if (!user) return;
+    if (!dataUserId) return;
 
     const fetchStats = async () => {
       const [dealsRes, commissionsRes, activitiesRes, goalsRes] = await Promise.all([
-        supabase.from('deals').select('*').eq('user_id', user.id),
-        supabase.from('commissions').select('gross_commission, amount, status, paid_at').eq('user_id', user.id),
-        supabase.from('agent_activities').select('*').eq('user_id', user.id),
-        supabase.from('agent_goals').select('*').eq('user_id', user.id).eq('period', 'yearly')
+        supabase.from('deals').select('*').eq('user_id', dataUserId),
+        supabase.from('commissions').select('gross_commission, amount, status, paid_at').eq('user_id', dataUserId),
+        supabase.from('agent_activities').select('*').eq('user_id', dataUserId),
+        supabase.from('agent_goals').select('*').eq('user_id', dataUserId).eq('period', 'yearly')
       ]);
 
       const deals = dealsRes.data || [];
@@ -180,7 +193,7 @@ const Dashboard = () => {
         const { data: rows } = await supabase
           .from('manual_production')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('user_id', dataUserId)
           .eq('year', currentYear);
         mpRows = rows || [];
 
@@ -263,7 +276,7 @@ const Dashboard = () => {
     }
 
     return () => { if (refreshInterval) clearInterval(refreshInterval); };
-  }, [user, hasFUB]);
+  }, [dataUserId, hasFUB, isViewingAsAgent]);
 
   const syncClientToFUB = async (clientData: typeof newClient) => {
     try {
@@ -351,9 +364,24 @@ const Dashboard = () => {
     });
   };
 
+  // Merge FUB-sourced metrics into the displayed stats. FUB is the source of
+  // truth for deals/GCI whenever the effective user has a FUB id (including
+  // when an admin is viewing as that agent).
+  const useFubStats = !fubMetricsLoading && (effectiveFubUserId != null || fubMetrics.deals_closed > 0 || fubMetrics.deals_pending > 0);
+  const displayStats = useFubStats
+    ? {
+        ...stats,
+        closedDeals: fubMetrics.deals_closed,
+        activeDeals: fubMetrics.deals_pending,
+        totalDeals: fubMetrics.deals_closed + fubMetrics.deals_pending,
+        totalCommissions: fubMetrics.gci_earned,
+        pendingCommissions: fubMetrics.gci_pending,
+      }
+    : stats;
+
   // Calculate progress percentages
-  const dealsProgress = stats.dealsGoal > 0 ? (stats.closedDeals / stats.dealsGoal) * 100 : 0;
-  const gciProgress = stats.gciGoal > 0 ? (stats.totalCommissions / stats.gciGoal) * 100 : 0;
+  const dealsProgress = displayStats.dealsGoal > 0 ? (displayStats.closedDeals / displayStats.dealsGoal) * 100 : 0;
+  const gciProgress = displayStats.gciGoal > 0 ? (displayStats.totalCommissions / displayStats.gciGoal) * 100 : 0;
 
   // Motivational message based on progress
   const getMotivationalMessage = () => {
@@ -452,20 +480,20 @@ const Dashboard = () => {
             <div className="text-center">
               <ProgressRing progress={dealsProgress} color={dealsProgress >= 100 ? "hsl(142 71% 45%)" : "hsl(var(--gold))"} />
               <p className="mt-3 text-sm font-medium text-foreground">Deals Goal</p>
-              <p className="text-xs text-muted-foreground">{stats.closedDeals} / {stats.dealsGoal}</p>
+              <p className="text-xs text-muted-foreground">{displayStats.closedDeals} / {displayStats.dealsGoal}</p>
             </div>
             <div className="text-center">
               <ProgressRing progress={gciProgress} color={gciProgress >= 100 ? "hsl(142 71% 45%)" : "hsl(var(--gold))"} />
               <p className="mt-3 text-sm font-medium text-foreground">GCI Goal (Gross)</p>
-              <p className="text-xs text-muted-foreground">{formatCurrency(stats.totalCommissions)} / {formatCurrency(stats.gciGoal)}</p>
+              <p className="text-xs text-muted-foreground">{formatCurrency(displayStats.totalCommissions)} / {formatCurrency(displayStats.gciGoal)}</p>
             </div>
             <div className="text-center">
               <ProgressRing 
-                progress={stats.gciGoal > 0 ? ((stats.totalCommissions + stats.pendingCommissions) / stats.gciGoal) * 100 : 0} 
+                progress={displayStats.gciGoal > 0 ? ((displayStats.totalCommissions + displayStats.pendingCommissions) / displayStats.gciGoal) * 100 : 0} 
                 color="hsl(43 74% 49%)" 
               />
               <p className="mt-3 text-sm font-medium text-foreground">Projected GCI</p>
-              <p className="text-xs text-muted-foreground">{formatCurrency(stats.totalCommissions + stats.pendingCommissions)} total</p>
+              <p className="text-xs text-muted-foreground">{formatCurrency(displayStats.totalCommissions + displayStats.pendingCommissions)} total</p>
             </div>
           </div>
         </CardContent>
@@ -604,8 +632,8 @@ const Dashboard = () => {
                 <h3 className="text-sm font-medium text-muted-foreground">Closed Deals</h3>
               </div>
             </div>
-            <p className="text-3xl font-bold text-foreground">{stats.closedDeals}</p>
-            <p className="text-xs text-muted-foreground mt-1">of {stats.dealsGoal} goal</p>
+            <p className="text-3xl font-bold text-foreground">{displayStats.closedDeals}</p>
+            <p className="text-xs text-muted-foreground mt-1">of {displayStats.dealsGoal} goal</p>
             <Progress value={dealsProgress} className="h-2 mt-3" />
             <p className="text-xs text-green-500 mt-1">{Math.round(dealsProgress)}% complete</p>
           </CardContent>
@@ -619,11 +647,11 @@ const Dashboard = () => {
                 <h3 className="text-sm font-medium text-muted-foreground">Active Deals</h3>
               </div>
             </div>
-            <p className="text-3xl font-bold text-foreground">{stats.activeDeals}</p>
+            <p className="text-3xl font-bold text-foreground">{displayStats.activeDeals}</p>
             <p className="text-xs text-muted-foreground mt-1">in pipeline</p>
             <div className="mt-3 flex items-center gap-2">
               <Badge variant="outline" className="border-amber-500/30 text-amber-500 bg-amber-500/10 text-xs">
-                {stats.totalDeals} total deals
+                {displayStats.totalDeals} total deals
               </Badge>
             </div>
           </CardContent>
@@ -637,8 +665,8 @@ const Dashboard = () => {
                 <h3 className="text-sm font-medium text-muted-foreground">Earned GCI (Gross)</h3>
               </div>
             </div>
-            <p className="text-3xl font-bold text-foreground">{formatCurrency(stats.totalCommissions)}</p>
-            <p className="text-xs text-muted-foreground mt-1">of {formatCurrency(stats.gciGoal)} goal</p>
+            <p className="text-3xl font-bold text-foreground">{formatCurrency(displayStats.totalCommissions)}</p>
+            <p className="text-xs text-muted-foreground mt-1">of {formatCurrency(displayStats.gciGoal)} goal</p>
             <Progress value={gciProgress} className="h-2 mt-3" />
             <p className="text-xs text-green-500 mt-1">{Math.round(gciProgress)}% complete</p>
           </CardContent>
@@ -652,11 +680,11 @@ const Dashboard = () => {
                 <h3 className="text-sm font-medium text-muted-foreground">Pending GCI (Gross)</h3>
               </div>
             </div>
-            <p className="text-3xl font-bold text-gold">{formatCurrency(stats.pendingCommissions)}</p>
+            <p className="text-3xl font-bold text-gold">{formatCurrency(displayStats.pendingCommissions)}</p>
             <p className="text-xs text-muted-foreground mt-1">awaiting close</p>
             <div className="mt-3 flex items-center gap-2">
               <Badge variant="outline" className="border-gold/30 text-gold bg-gold/10 text-xs">
-                {formatCurrency(stats.totalCommissions + stats.pendingCommissions)} total
+                {formatCurrency(displayStats.totalCommissions + displayStats.pendingCommissions)} total
               </Badge>
             </div>
           </CardContent>
@@ -719,28 +747,28 @@ const Dashboard = () => {
         <Card className="border-gold/10 bg-card/50 hover:border-gold/30 transition-colors">
           <CardContent className="p-4 text-center">
             <Phone className="h-8 w-8 mx-auto text-gold mb-2" />
-            <p className="text-2xl font-bold text-foreground">{stats.activitiesThisWeek}</p>
+            <p className="text-2xl font-bold text-foreground">{displayStats.activitiesThisWeek}</p>
             <p className="text-xs text-muted-foreground">Activities Logged</p>
           </CardContent>
         </Card>
         <Card className="border-gold/10 bg-card/50 hover:border-gold/30 transition-colors">
           <CardContent className="p-4 text-center">
             <Target className="h-8 w-8 mx-auto text-gold mb-2" />
-            <p className="text-2xl font-bold text-foreground">{stats.goalsProgress}%</p>
+            <p className="text-2xl font-bold text-foreground">{displayStats.goalsProgress}%</p>
             <p className="text-xs text-muted-foreground">Goals Progress</p>
           </CardContent>
         </Card>
         <Card className="border-gold/10 bg-card/50 hover:border-gold/30 transition-colors">
           <CardContent className="p-4 text-center">
             <Building2 className="h-8 w-8 mx-auto text-gold mb-2" />
-            <p className="text-2xl font-bold text-foreground">{stats.totalDeals}</p>
+            <p className="text-2xl font-bold text-foreground">{displayStats.totalDeals}</p>
             <p className="text-xs text-muted-foreground">Total Deals</p>
           </CardContent>
         </Card>
         <Card className="border-gold/10 bg-card/50 hover:border-gold/30 transition-colors">
           <CardContent className="p-4 text-center">
             <DollarSign className="h-8 w-8 mx-auto text-green-500 mb-2" />
-            <p className="text-2xl font-bold text-green-500">{formatCurrency(stats.pendingCommissions)}</p>
+            <p className="text-2xl font-bold text-green-500">{formatCurrency(displayStats.pendingCommissions)}</p>
             <p className="text-xs text-muted-foreground">Pending GCI</p>
           </CardContent>
         </Card>
