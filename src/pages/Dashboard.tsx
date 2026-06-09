@@ -368,7 +368,7 @@ const Dashboard = () => {
   // Merge FUB-sourced metrics into the displayed stats. FUB is the source of
   // truth for deals/GCI whenever the effective user has a FUB id (including
   // when an admin is viewing as that agent).
-  const useFubStats = !fubMetricsLoading && (effectiveFubUserId != null || fubMetrics.deals_closed > 0 || fubMetrics.deals_pending > 0);
+  const useFubStats = hasEffectiveFUB && !fubMetricsLoading;
   const displayStats = useFubStats
     ? {
         ...stats,
@@ -396,7 +396,7 @@ const Dashboard = () => {
 
   const motivation = getMotivationalMessage();
 
-  if (loading) {
+  if (loading || hasFUBLoading || (hasEffectiveFUB && fubMetricsLoading)) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-gold animate-pulse">Loading dashboard...</div>
