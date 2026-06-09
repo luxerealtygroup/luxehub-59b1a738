@@ -128,6 +128,15 @@ const Dashboard = () => {
   const [fubLoading, setFubLoading] = useState(false);
   const [fubError, setFubError] = useState<string | null>(null);
   const [manualProduction, setManualProduction] = useState<ManualProductionData | null>(null);
+
+  // Pull FUB-backed metrics so that stats reflect the source of truth.
+  // This also powers correctly impersonated views (View as Agent).
+  const { metrics: fubMetrics, loading: fubMetricsLoading } = useFubDealMetrics({
+    userId: dataUserId,
+    fubUserId: effectiveFubUserId,
+    year: currentYear,
+    hasFUB: true,
+  });
   
   // Add client dialog state
   const [addClientOpen, setAddClientOpen] = useState(false);
