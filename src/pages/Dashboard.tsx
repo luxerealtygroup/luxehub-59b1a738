@@ -476,24 +476,26 @@ const Dashboard = () => {
       {/* Combined Progress Rings */}
       <Card className="border-gold/20 bg-gradient-to-br from-card via-card to-gold/5">
         <CardContent className="p-6">
-          <div className="flex flex-col md:flex-row items-center justify-around gap-8">
+          <div className="grid grid-cols-3 items-start justify-around gap-2 md:gap-8">
             <div className="text-center">
-              <ProgressRing progress={dealsProgress} color={dealsProgress >= 100 ? "hsl(142 71% 45%)" : "hsl(var(--gold))"} />
-              <p className="mt-3 text-sm font-medium text-foreground">Deals Goal</p>
-              <p className="text-xs text-muted-foreground">{displayStats.closedDeals} / {displayStats.dealsGoal}</p>
+              <ProgressRing progress={dealsProgress} size={typeof window !== 'undefined' && window.innerWidth < 768 ? 84 : 120} strokeWidth={7} color={dealsProgress >= 100 ? "hsl(142 71% 45%)" : "hsl(var(--gold))"} />
+              <p className="mt-2 md:mt-3 text-xs md:text-sm font-medium text-foreground">Deals Goal</p>
+              <p className="text-[10px] md:text-xs text-muted-foreground">{displayStats.closedDeals} / {displayStats.dealsGoal}</p>
             </div>
             <div className="text-center">
-              <ProgressRing progress={gciProgress} color={gciProgress >= 100 ? "hsl(142 71% 45%)" : "hsl(var(--gold))"} />
-              <p className="mt-3 text-sm font-medium text-foreground">GCI Goal (Gross)</p>
-              <p className="text-xs text-muted-foreground">{formatCurrency(displayStats.totalCommissions)} / {formatCurrency(displayStats.gciGoal)}</p>
+              <ProgressRing progress={gciProgress} size={typeof window !== 'undefined' && window.innerWidth < 768 ? 84 : 120} strokeWidth={7} color={gciProgress >= 100 ? "hsl(142 71% 45%)" : "hsl(var(--gold))"} />
+              <p className="mt-2 md:mt-3 text-xs md:text-sm font-medium text-foreground">GCI Goal (Gross)</p>
+              <p className="text-[10px] md:text-xs text-muted-foreground break-words">{formatCurrency(displayStats.totalCommissions)} / {formatCurrency(displayStats.gciGoal)}</p>
             </div>
             <div className="text-center">
-              <ProgressRing 
-                progress={displayStats.gciGoal > 0 ? ((displayStats.totalCommissions + displayStats.pendingCommissions) / displayStats.gciGoal) * 100 : 0} 
-                color="hsl(43 74% 49%)" 
+              <ProgressRing
+                progress={displayStats.gciGoal > 0 ? ((displayStats.totalCommissions + displayStats.pendingCommissions) / displayStats.gciGoal) * 100 : 0}
+                size={typeof window !== 'undefined' && window.innerWidth < 768 ? 84 : 120}
+                strokeWidth={7}
+                color="hsl(43 74% 49%)"
               />
-              <p className="mt-3 text-sm font-medium text-foreground">Projected GCI</p>
-              <p className="text-xs text-muted-foreground">{formatCurrency(displayStats.totalCommissions + displayStats.pendingCommissions)} total</p>
+              <p className="mt-2 md:mt-3 text-xs md:text-sm font-medium text-foreground">Projected GCI</p>
+              <p className="text-[10px] md:text-xs text-muted-foreground">{formatCurrency(displayStats.totalCommissions + displayStats.pendingCommissions)} total</p>
             </div>
           </div>
         </CardContent>
