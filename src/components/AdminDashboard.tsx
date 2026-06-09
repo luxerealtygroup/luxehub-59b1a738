@@ -141,6 +141,31 @@ const COLORS = ['hsl(43, 74%, 49%)', 'hsl(142, 71%, 45%)', 'hsl(217, 91%, 60%)',
 // FUB user IDs of admin-only users (not agents) - exclude from leaderboards
 const ADMIN_ONLY_FUB_IDS = [8]; // Marie Zinger
 
+const getValidDate = (value?: string | null): Date | null => {
+  if (!value) return null;
+  try {
+    const parsed = parseISO(value);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  } catch {
+    return null;
+  }
+};
+
+const getMonthKey = (value?: string | null): string | null => {
+  const date = getValidDate(value);
+  return date ? format(startOfMonth(date), 'yyyy-MM') : null;
+};
+
+const formatMonthLabel = (month: string) => {
+  const date = getValidDate(`${month}-01`);
+  return date ? format(date, 'MMM yyyy') : month;
+};
+
+const formatDashboardDate = (value?: string | null) => {
+  const date = getValidDate(value);
+  return date ? format(date, 'MMM d, yyyy') : '-';
+};
+
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const { isAdmin, isLoading: roleLoading } = useUserRole();
@@ -153,6 +178,7 @@ const AdminDashboard = () => {
   const [companyTransactions, setCompanyTransactions] = useState<CompanyTransaction[]>([]);
   const [quarterlyGoals, setQuarterlyGoals] = useState<QuarterlyGoals | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   const [showPipelineReport, setShowPipelineReport] = useState(false);
   const [txFilter, setTxFilter] = useState<'all' | 'needs_review'>('all');
@@ -172,6 +198,7 @@ const AdminDashboard = () => {
 
     const fetchCompanyData = async () => {
       setLoading(true);
+      setLoadError(null);
 
       // Fetch FUB deals for company-wide stats
       const fubResponse = await followUpBossApi.getDeals(200, 0);
@@ -286,10 +313,9 @@ const AdminDashboard = () => {
           })),
         ].sort((a, b) => {
           // Sort by closing date descending (most recent first)
-          if (!a.closingDate && !b.closingDate) return 0;
-          if (!a.closingDate) return 1;
-          if (!b.closingDate) return -1;
-          return new Date(b.closingDate).getTime() - new Date(a.closingDate).getTime();
+          const aTime = getValidDate(a.closingDate)?.getTime() ?? 0;
+          const bTime = getValidDate(b.closingDate)?.getTime() ?? 0;
+          return bTime - aTime;
         });
         
         setCompanyTransactions(allTransactions);
@@ -365,16 +391,8 @@ const AdminDashboard = () => {
         const revenueByMonth = new Map<string, { earned: number; pending: number }>();
         deals.forEach((deal: FUBDeal) => {
           const closeDate = deal.projectedCloseDate || deal.createdAt;
-          if (!closeDate) return;
-
-          let monthKey: string;
-          try {
-            const parsed = parseISO(closeDate);
-            if (isNaN(parsed.getTime())) return;
-            monthKey = format(startOfMonth(parsed), 'yyyy-MM');
-          } catch {
-            return;
-          }
+          const monthKey = getMonthKey(closeDate);
+          if (!monthKey) return;
           const existing = revenueByMonth.get(monthKey) || { earned: 0, pending: 0 };
           
           const isClosedDeal = deal.status?.toLowerCase() === 'won' || 
@@ -394,12 +412,7 @@ const AdminDashboard = () => {
         const monthlyRevenueData = Array.from(revenueByMonth.entries())
           .map(([month, data]) => ({
             month,
-            monthLabel: (() => {
-              try {
-                const d = parseISO(month + '-01');
-                return isNaN(d.getTime()) ? month : format(d, 'MMM yyyy');
-              } catch { return month; }
-            })(),
+            monthLabel: formatMonthLabel(month),
             earned: data.earned,
             pending: data.pending,
           }))
@@ -594,9 +607,8 @@ const AdminDashboard = () => {
       const pipelineByMonth = new Map<string, { buyers: number; sellers: number; projectedGci: number }>();
       (pipelineClients || []).forEach((client: { expected_pending_date?: string; created_at: string; client_type: string; projected_gci?: number }) => {
         const targetDate = client.expected_pending_date || client.created_at;
-        if (!targetDate) return;
-        
-        const monthKey = format(startOfMonth(parseISO(targetDate)), 'yyyy-MM');
+        const monthKey = getMonthKey(targetDate);
+        if (!monthKey) return;
         const existing = pipelineByMonth.get(monthKey) || { buyers: 0, sellers: 0, projectedGci: 0 };
         
         if (client.client_type === 'buyer') {
@@ -612,7 +624,7 @@ const AdminDashboard = () => {
       const monthlyPipelineData = Array.from(pipelineByMonth.entries())
         .map(([month, data]) => ({
           month,
-          monthLabel: format(parseISO(month + '-01'), 'MMM yyyy'),
+          monthLabel: formatMonthLabel(month),
           buyers: data.buyers,
           sellers: data.sellers,
           total: data.buyers + data.sellers,
@@ -624,12 +636,20 @@ const AdminDashboard = () => {
       setLoading(false);
     };
 
-    fetchCompanyData();
+    const safeFetchCompanyData = () => {
+      fetchCompanyData().catch((error) => {
+        console.error('Company dashboard failed to load:', error);
+        setLoadError('Company dashboard could not load. Please refresh and try again.');
+        setLoading(false);
+      });
+    };
+
+    safeFetchCompanyData();
 
     // Auto-refresh FUB data every 3 minutes
     const refreshInterval = setInterval(() => {
       console.log('Auto-refreshing admin FUB data...');
-      fetchCompanyData();
+      safeFetchCompanyData();
     }, 3 * 60 * 1000);
 
     return () => clearInterval(refreshInterval);
@@ -648,6 +668,17 @@ const AdminDashboard = () => {
       <Card className="border-destructive/20">
         <CardContent className="p-8 text-center">
           <p className="text-destructive">Access denied. Admin privileges required.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <Card className="border-destructive/20">
+        <CardContent className="p-8 text-center space-y-3">
+          <p className="text-destructive font-medium">{loadError}</p>
+          <Button onClick={() => window.location.reload()} variant="outline">Refresh Dashboard</Button>
         </CardContent>
       </Card>
     );
@@ -1212,9 +1243,7 @@ const AdminDashboard = () => {
                                     </TableCell>
                                     <TableCell className="text-muted-foreground">{transaction.agentName}</TableCell>
                                     <TableCell className="text-muted-foreground">
-                                      {transaction.closingDate
-                                        ? format(parseISO(transaction.closingDate), 'MMM d, yyyy')
-                                        : '-'}
+                                      {formatDashboardDate(transaction.closingDate)}
                                     </TableCell>
                                     <TableCell>
                                       <DealTypeDropdown
