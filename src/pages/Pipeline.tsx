@@ -20,6 +20,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { differenceInDays, format, parseISO } from 'date-fns';
 import { SOURCE_OPTIONS } from '@/lib/constants/sourceOptions';
 import { formatCurrency, formatNumber } from '@/lib/utils';
+
+// Safely format a date string; returns '—' on invalid input so one bad row
+// (e.g. a typo'd year) can't crash the whole Pipeline page.
+const safeFormatDate = (value?: string | null, fmt = 'MMM d, yyyy'): string => {
+  if (!value) return '—';
+  try {
+    const d = parseISO(value);
+    if (isNaN(d.getTime())) return '—';
+    return format(d, fmt);
+  } catch {
+    return '—';
+  }
+};
 import { usePipelineMetrics } from '@/hooks/usePipelineMetrics';
 import { ActivityRequirementsEngine } from '@/components/ActivityRequirementsEngine';
 import { PaceTracker } from '@/components/PaceTracker';
@@ -556,7 +569,7 @@ const Pipeline = () => {
                               <td className="px-3 py-2 text-muted-foreground">{stageLabels[c.stage]}</td>
                               <td className="px-3 py-2 text-right text-foreground">{formatCurrency(c.projected_sale_amount)}</td>
                               <td className="px-3 py-2 text-right text-green-500 font-medium">{formatCurrency(c.projected_gci)}</td>
-                              <td className="px-3 py-2 text-muted-foreground">{c.expected_pending_date ? format(parseISO(c.expected_pending_date), 'MMM d, yyyy') : '—'}</td>
+                              <td className="px-3 py-2 text-muted-foreground">{safeFormatDate(c.expected_pending_date)}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -684,7 +697,7 @@ const Pipeline = () => {
               </div>
               {client.expected_pending_date && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Calendar className="h-3 w-3" /><span>Expected: {format(parseISO(client.expected_pending_date), 'MMM d, yyyy')}</span>
+                  <Calendar className="h-3 w-3" /><span>Expected: {safeFormatDate(client.expected_pending_date)}</span>
                 </div>
               )}
               {client.notes && <p className="text-xs text-muted-foreground mt-2 p-2 bg-muted/50 rounded">{client.notes}</p>}
