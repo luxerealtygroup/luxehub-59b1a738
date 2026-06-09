@@ -480,20 +480,20 @@ const Dashboard = () => {
             <div className="text-center">
               <ProgressRing progress={dealsProgress} color={dealsProgress >= 100 ? "hsl(142 71% 45%)" : "hsl(var(--gold))"} />
               <p className="mt-3 text-sm font-medium text-foreground">Deals Goal</p>
-              <p className="text-xs text-muted-foreground">{stats.closedDeals} / {stats.dealsGoal}</p>
+              <p className="text-xs text-muted-foreground">{displayStats.closedDeals} / {displayStats.dealsGoal}</p>
             </div>
             <div className="text-center">
               <ProgressRing progress={gciProgress} color={gciProgress >= 100 ? "hsl(142 71% 45%)" : "hsl(var(--gold))"} />
               <p className="mt-3 text-sm font-medium text-foreground">GCI Goal (Gross)</p>
-              <p className="text-xs text-muted-foreground">{formatCurrency(stats.totalCommissions)} / {formatCurrency(stats.gciGoal)}</p>
+              <p className="text-xs text-muted-foreground">{formatCurrency(displayStats.totalCommissions)} / {formatCurrency(displayStats.gciGoal)}</p>
             </div>
             <div className="text-center">
               <ProgressRing 
-                progress={stats.gciGoal > 0 ? ((stats.totalCommissions + stats.pendingCommissions) / stats.gciGoal) * 100 : 0} 
+                progress={displayStats.gciGoal > 0 ? ((displayStats.totalCommissions + displayStats.pendingCommissions) / displayStats.gciGoal) * 100 : 0} 
                 color="hsl(43 74% 49%)" 
               />
               <p className="mt-3 text-sm font-medium text-foreground">Projected GCI</p>
-              <p className="text-xs text-muted-foreground">{formatCurrency(stats.totalCommissions + stats.pendingCommissions)} total</p>
+              <p className="text-xs text-muted-foreground">{formatCurrency(displayStats.totalCommissions + displayStats.pendingCommissions)} total</p>
             </div>
           </div>
         </CardContent>
@@ -632,8 +632,8 @@ const Dashboard = () => {
                 <h3 className="text-sm font-medium text-muted-foreground">Closed Deals</h3>
               </div>
             </div>
-            <p className="text-3xl font-bold text-foreground">{stats.closedDeals}</p>
-            <p className="text-xs text-muted-foreground mt-1">of {stats.dealsGoal} goal</p>
+            <p className="text-3xl font-bold text-foreground">{displayStats.closedDeals}</p>
+            <p className="text-xs text-muted-foreground mt-1">of {displayStats.dealsGoal} goal</p>
             <Progress value={dealsProgress} className="h-2 mt-3" />
             <p className="text-xs text-green-500 mt-1">{Math.round(dealsProgress)}% complete</p>
           </CardContent>
@@ -647,11 +647,11 @@ const Dashboard = () => {
                 <h3 className="text-sm font-medium text-muted-foreground">Active Deals</h3>
               </div>
             </div>
-            <p className="text-3xl font-bold text-foreground">{stats.activeDeals}</p>
+            <p className="text-3xl font-bold text-foreground">{displayStats.activeDeals}</p>
             <p className="text-xs text-muted-foreground mt-1">in pipeline</p>
             <div className="mt-3 flex items-center gap-2">
               <Badge variant="outline" className="border-amber-500/30 text-amber-500 bg-amber-500/10 text-xs">
-                {stats.totalDeals} total deals
+                {displayStats.totalDeals} total deals
               </Badge>
             </div>
           </CardContent>
@@ -665,8 +665,8 @@ const Dashboard = () => {
                 <h3 className="text-sm font-medium text-muted-foreground">Earned GCI (Gross)</h3>
               </div>
             </div>
-            <p className="text-3xl font-bold text-foreground">{formatCurrency(stats.totalCommissions)}</p>
-            <p className="text-xs text-muted-foreground mt-1">of {formatCurrency(stats.gciGoal)} goal</p>
+            <p className="text-3xl font-bold text-foreground">{formatCurrency(displayStats.totalCommissions)}</p>
+            <p className="text-xs text-muted-foreground mt-1">of {formatCurrency(displayStats.gciGoal)} goal</p>
             <Progress value={gciProgress} className="h-2 mt-3" />
             <p className="text-xs text-green-500 mt-1">{Math.round(gciProgress)}% complete</p>
           </CardContent>
@@ -680,11 +680,11 @@ const Dashboard = () => {
                 <h3 className="text-sm font-medium text-muted-foreground">Pending GCI (Gross)</h3>
               </div>
             </div>
-            <p className="text-3xl font-bold text-gold">{formatCurrency(stats.pendingCommissions)}</p>
+            <p className="text-3xl font-bold text-gold">{formatCurrency(displayStats.pendingCommissions)}</p>
             <p className="text-xs text-muted-foreground mt-1">awaiting close</p>
             <div className="mt-3 flex items-center gap-2">
               <Badge variant="outline" className="border-gold/30 text-gold bg-gold/10 text-xs">
-                {formatCurrency(stats.totalCommissions + stats.pendingCommissions)} total
+                {formatCurrency(displayStats.totalCommissions + displayStats.pendingCommissions)} total
               </Badge>
             </div>
           </CardContent>
@@ -747,28 +747,28 @@ const Dashboard = () => {
         <Card className="border-gold/10 bg-card/50 hover:border-gold/30 transition-colors">
           <CardContent className="p-4 text-center">
             <Phone className="h-8 w-8 mx-auto text-gold mb-2" />
-            <p className="text-2xl font-bold text-foreground">{stats.activitiesThisWeek}</p>
+            <p className="text-2xl font-bold text-foreground">{displayStats.activitiesThisWeek}</p>
             <p className="text-xs text-muted-foreground">Activities Logged</p>
           </CardContent>
         </Card>
         <Card className="border-gold/10 bg-card/50 hover:border-gold/30 transition-colors">
           <CardContent className="p-4 text-center">
             <Target className="h-8 w-8 mx-auto text-gold mb-2" />
-            <p className="text-2xl font-bold text-foreground">{stats.goalsProgress}%</p>
+            <p className="text-2xl font-bold text-foreground">{displayStats.goalsProgress}%</p>
             <p className="text-xs text-muted-foreground">Goals Progress</p>
           </CardContent>
         </Card>
         <Card className="border-gold/10 bg-card/50 hover:border-gold/30 transition-colors">
           <CardContent className="p-4 text-center">
             <Building2 className="h-8 w-8 mx-auto text-gold mb-2" />
-            <p className="text-2xl font-bold text-foreground">{stats.totalDeals}</p>
+            <p className="text-2xl font-bold text-foreground">{displayStats.totalDeals}</p>
             <p className="text-xs text-muted-foreground">Total Deals</p>
           </CardContent>
         </Card>
         <Card className="border-gold/10 bg-card/50 hover:border-gold/30 transition-colors">
           <CardContent className="p-4 text-center">
             <DollarSign className="h-8 w-8 mx-auto text-green-500 mb-2" />
-            <p className="text-2xl font-bold text-green-500">{formatCurrency(stats.pendingCommissions)}</p>
+            <p className="text-2xl font-bold text-green-500">{formatCurrency(displayStats.pendingCommissions)}</p>
             <p className="text-xs text-muted-foreground">Pending GCI</p>
           </CardContent>
         </Card>
