@@ -366,8 +366,15 @@ const AdminDashboard = () => {
         deals.forEach((deal: FUBDeal) => {
           const closeDate = deal.projectedCloseDate || deal.createdAt;
           if (!closeDate) return;
-          
-          const monthKey = format(startOfMonth(parseISO(closeDate)), 'yyyy-MM');
+
+          let monthKey: string;
+          try {
+            const parsed = parseISO(closeDate);
+            if (isNaN(parsed.getTime())) return;
+            monthKey = format(startOfMonth(parsed), 'yyyy-MM');
+          } catch {
+            return;
+          }
           const existing = revenueByMonth.get(monthKey) || { earned: 0, pending: 0 };
           
           const isClosedDeal = deal.status?.toLowerCase() === 'won' || 
@@ -387,7 +394,12 @@ const AdminDashboard = () => {
         const monthlyRevenueData = Array.from(revenueByMonth.entries())
           .map(([month, data]) => ({
             month,
-            monthLabel: format(parseISO(month + '-01'), 'MMM yyyy'),
+            monthLabel: (() => {
+              try {
+                const d = parseISO(month + '-01');
+                return isNaN(d.getTime()) ? month : format(d, 'MMM yyyy');
+              } catch { return month; }
+            })(),
             earned: data.earned,
             pending: data.pending,
           }))
