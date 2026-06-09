@@ -467,6 +467,7 @@ const AdminDashboard = () => {
       }
 
       const profilesMap = new Map((profiles || []).map(p => [p.id, p.full_name || 'Unknown Agent']));
+      const fubIdMap = new Map<string, number | null>((profiles || []).map(p => [p.id, p.fub_user_id ?? null]));
       const goalsMap = new Map((productionGoals || []).map(g => [g.user_id, g]));
       
       // Include all agents (with or without fub_user_id), excluding admin-only users
@@ -485,8 +486,26 @@ const AdminDashboard = () => {
         const agentPipeline = (pipelineClients || []).filter(p => p.user_id === agentId);
         const agentGoals = goalsMap.get(agentId);
 
-        const closedDeals = agentDeals.filter(d => d.stage === 'closed').length;
-        const activeDeals = agentDeals.filter(d => ['lead', 'contacted', 'showing', 'offer', 'under_contract'].includes(d.stage)).length;
+        // Source of truth: FUB. If the agent is linked to a FUB user, count
+        // their closed/active deals and GCI from the FUB feed instead of local DB.
+        const fubUserId = fubIdMap.get(agentId) ?? null;
+        let closedDeals = agentDeals.filter(d => d.stage === 'closed').length;
+        let activeDeals = agentDeals.filter(d => ['lead', 'contacted', 'showing', 'offer', 'under_contract'].includes(d.stage)).length;
+
+        if (fubUserId && fubDealsAll.length > 0) {
+          const agentFubDeals = fubDealsAll.filter(d => d.users?.some(u => u.id === fubUserId));
+          closedDeals = agentFubDeals.filter(d =>
+            d.status?.toLowerCase() === 'won' ||
+            d.stageName?.toLowerCase().includes('closed') ||
+            d.stageName?.toLowerCase().includes('won')
+          ).length;
+          activeDeals = agentFubDeals.filter(d =>
+            d.status?.toLowerCase() !== 'won' &&
+            d.status?.toLowerCase() !== 'lost' &&
+            !d.stageName?.toLowerCase().includes('closed') &&
+            !d.stageName?.toLowerCase().includes('won')
+          ).length;
+        }
 
         const totalGci = agentCommissions
           .filter(c => c.status === 'paid')
