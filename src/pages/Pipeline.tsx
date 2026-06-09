@@ -75,10 +75,14 @@ interface NewClient {
 
 const stageLabels: { [key: number]: string } = {
   1: 'Lead',
-  2: 'Qualified',
-  3: 'Showing',
-  4: 'Offer',
-  5: 'Pending',
+  2: 'Active on MLS',
+  3: 'Exclusive Listing',
+  4: 'BRA Signed',
+  5: 'Appointment Held',
+  6: 'Appointment Set',
+  7: 'Showing',
+  8: 'Offer',
+  9: 'Pending',
 };
 
 const Pipeline = () => {
