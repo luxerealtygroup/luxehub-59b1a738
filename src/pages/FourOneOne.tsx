@@ -1053,9 +1053,18 @@ const FourOneOne = () => {
             </CardContent>
           </Card>
 
-          <Button onClick={saveWeeklyData} disabled={saving} className="w-full bg-primary text-primary-foreground">
-            <Save className="h-4 w-4 mr-2" /> {saving ? 'Saving...' : 'Save Weekly 4-1-1'}
-          </Button>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">
+              {autoSaving
+                ? 'Autosaving…'
+                : lastAutoSavedAt
+                  ? `Autosaved at ${format(lastAutoSavedAt, 'h:mm:ss a')}`
+                  : 'Changes save automatically.'}
+            </p>
+            <Button onClick={saveWeeklyData} disabled={saving} variant="outline" size="sm">
+              <Save className="h-4 w-4 mr-2" /> {saving ? 'Saving...' : 'Save Now'}
+            </Button>
+          </div>
         </TabsContent>
 
         {/* MONTHLY TAB */}
