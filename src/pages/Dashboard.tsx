@@ -105,11 +105,12 @@ const ProgressRing = ({ progress, size = 120, strokeWidth = 8, color = "hsl(var(
 
 const Dashboard = () => {
   const { user } = useAuth();
-  const { hasFUB } = useHasFUB();
+  const { hasFUB, loading: hasFUBLoading } = useHasFUB();
   const { toast } = useToast();
   const { isPlanningAccess, isAgent } = useUserRole();
   const { isViewingAsAgent, effectiveUserId, effectiveFubUserId, viewingAgentName } = useViewAsAgent();
   const dataUserId = effectiveUserId || user?.id || null;
+  const hasEffectiveFUB = isViewingAsAgent ? effectiveFubUserId != null : hasFUB;
   const isPlanningOnly = isPlanningAccess && !isAgent;
   const [stats, setStats] = useState<Stats>({
     totalDeals: 0,
@@ -135,7 +136,7 @@ const Dashboard = () => {
     userId: dataUserId,
     fubUserId: effectiveFubUserId,
     year: currentYear,
-    hasFUB: true,
+    hasFUB: hasEffectiveFUB,
   });
   
   // Add client dialog state
@@ -189,7 +190,7 @@ const Dashboard = () => {
       // For non-FUB agents, fetch manual production for YTD overlay
       let mpRows: any[] = [];
       let manualData: ManualProductionData | null = null;
-      if (!hasFUB) {
+      if (!hasEffectiveFUB) {
         const { data: rows } = await supabase
           .from('manual_production')
           .select('*')
@@ -216,7 +217,7 @@ const Dashboard = () => {
 
       // Build monthly GCI chart data
       const monthlyGci = monthNames.map((month, idx) => {
-        if (!hasFUB && mpRows.length > 0) {
+        if (!hasEffectiveFUB && mpRows.length > 0) {
           const monthRow = mpRows.find((r: any) => r.month === idx + 1);
           return { month, gci: monthRow ? Number(monthRow.gci_closed || 0) : 0 };
         }
@@ -229,7 +230,7 @@ const Dashboard = () => {
       });
       setMonthlyData(monthlyGci);
 
-      const useManual = !hasFUB && manualData;
+      const useManual = !hasEffectiveFUB && manualData;
       setStats({
         totalDeals: useManual ? manualData!.closed_deals + manualData!.pending_deals : deals.length,
         activeDeals: useManual ? manualData!.pending_deals : activeDeals.length,
@@ -245,7 +246,7 @@ const Dashboard = () => {
     };
 
     const fetchFUBClients = async () => {
-      if (!hasFUB) return;
+      if (!hasEffectiveFUB) return;
       setFubLoading(true);
       setFubError(null);
       try {
@@ -268,7 +269,7 @@ const Dashboard = () => {
 
     // Auto-refresh FUB data every 3 minutes (only if connected)
     let refreshInterval: ReturnType<typeof setInterval> | undefined;
-    if (hasFUB) {
+    if (hasEffectiveFUB) {
       refreshInterval = setInterval(() => {
         console.log('Auto-refreshing FUB data...');
         fetchFUBClients();
@@ -276,7 +277,7 @@ const Dashboard = () => {
     }
 
     return () => { if (refreshInterval) clearInterval(refreshInterval); };
-  }, [dataUserId, hasFUB, isViewingAsAgent]);
+  }, [dataUserId, hasEffectiveFUB, isViewingAsAgent]);
 
   const syncClientToFUB = async (clientData: typeof newClient) => {
     try {
