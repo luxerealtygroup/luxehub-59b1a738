@@ -175,8 +175,10 @@ const AdminDashboard = () => {
 
       // Fetch FUB deals for company-wide stats
       const fubResponse = await followUpBossApi.getDeals(200, 0);
+      let fubDealsAll: FUBDeal[] = [];
       if (fubResponse.success && fubResponse.data?.deals) {
         const deals = fubResponse.data.deals;
+        fubDealsAll = deals;
         
         // Closed deals = status is "Won" or similar closed status
         const closedDeals = deals.filter((d: FUBDeal) => 
@@ -465,6 +467,7 @@ const AdminDashboard = () => {
       }
 
       const profilesMap = new Map((profiles || []).map(p => [p.id, p.full_name || 'Unknown Agent']));
+      const fubIdMap = new Map<string, number | null>((profiles || []).map(p => [p.id, p.fub_user_id ?? null]));
       const goalsMap = new Map((productionGoals || []).map(g => [g.user_id, g]));
       
       // Include all agents (with or without fub_user_id), excluding admin-only users
@@ -483,14 +486,32 @@ const AdminDashboard = () => {
         const agentPipeline = (pipelineClients || []).filter(p => p.user_id === agentId);
         const agentGoals = goalsMap.get(agentId);
 
-        const closedDeals = agentDeals.filter(d => d.stage === 'closed').length;
-        const activeDeals = agentDeals.filter(d => ['lead', 'contacted', 'showing', 'offer', 'under_contract'].includes(d.stage)).length;
+        // Source of truth: FUB. If the agent is linked to a FUB user, count
+        // their closed/active deals and GCI from the FUB feed instead of local DB.
+        const fubUserId = fubIdMap.get(agentId) ?? null;
+        let closedDeals = agentDeals.filter(d => d.stage === 'closed').length;
+        let activeDeals = agentDeals.filter(d => ['lead', 'contacted', 'showing', 'offer', 'under_contract'].includes(d.stage)).length;
 
-        const totalGci = agentCommissions
+        if (fubUserId && fubDealsAll.length > 0) {
+          const agentFubDeals = fubDealsAll.filter(d => d.users?.some(u => u.id === fubUserId));
+          closedDeals = agentFubDeals.filter(d =>
+            d.status?.toLowerCase() === 'won' ||
+            d.stageName?.toLowerCase().includes('closed') ||
+            d.stageName?.toLowerCase().includes('won')
+          ).length;
+          activeDeals = agentFubDeals.filter(d =>
+            d.status?.toLowerCase() !== 'won' &&
+            d.status?.toLowerCase() !== 'lost' &&
+            !d.stageName?.toLowerCase().includes('closed') &&
+            !d.stageName?.toLowerCase().includes('won')
+          ).length;
+        }
+
+        let totalGci = agentCommissions
           .filter(c => c.status === 'paid')
           .reduce((sum, c) => sum + Number(c.gross_commission || c.amount || 0), 0);
 
-        const pendingGci = agentCommissions
+        let pendingGci = agentCommissions
           .filter(c => c.status === 'pending')
           .reduce((sum, c) => sum + Number(c.gross_commission || c.amount || 0), 0);
 
@@ -498,7 +519,7 @@ const AdminDashboard = () => {
           .reduce((sum, p) => sum + Number(p.projected_gci || 0), 0);
 
         // Calculate company cut from deals
-        const companyCut = agentDeals
+        let companyCut = agentDeals
           .filter(d => d.stage === 'closed')
           .reduce((sum, d) => {
             const dealValue = Number(d.deal_value || 0);
@@ -506,6 +527,20 @@ const AdminDashboard = () => {
             const companySplit = Number(d.company_split_percentage || 30) / 100;
             return sum + (dealValue * commissionRate * companySplit);
           }, 0);
+
+        // FUB override for GCI / company cut when the agent is linked to FUB
+        if (fubUserId && fubDealsAll.length > 0) {
+          const agentFubDeals = fubDealsAll.filter(d => d.users?.some(u => u.id === fubUserId));
+          const fubClosed = agentFubDeals.filter(d =>
+            d.status?.toLowerCase() === 'won' ||
+            d.stageName?.toLowerCase().includes('closed') ||
+            d.stageName?.toLowerCase().includes('won')
+          );
+          const fubPending = agentFubDeals.filter(d => d.stageName?.toLowerCase() === 'pending');
+          totalGci = fubClosed.reduce((s, d) => s + Number(d.agentCommission || 0), 0);
+          pendingGci = fubPending.reduce((s, d) => s + Number(d.agentCommission || 0), 0);
+          companyCut = fubClosed.reduce((s, d) => s + Number(d.teamCommission || 0), 0);
+        }
 
         return {
           id: agentId,
