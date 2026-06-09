@@ -141,6 +141,31 @@ const COLORS = ['hsl(43, 74%, 49%)', 'hsl(142, 71%, 45%)', 'hsl(217, 91%, 60%)',
 // FUB user IDs of admin-only users (not agents) - exclude from leaderboards
 const ADMIN_ONLY_FUB_IDS = [8]; // Marie Zinger
 
+const getValidDate = (value?: string | null): Date | null => {
+  if (!value) return null;
+  try {
+    const parsed = parseISO(value);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  } catch {
+    return null;
+  }
+};
+
+const getMonthKey = (value?: string | null): string | null => {
+  const date = getValidDate(value);
+  return date ? format(startOfMonth(date), 'yyyy-MM') : null;
+};
+
+const formatMonthLabel = (month: string) => {
+  const date = getValidDate(`${month}-01`);
+  return date ? format(date, 'MMM yyyy') : month;
+};
+
+const formatDashboardDate = (value?: string | null) => {
+  const date = getValidDate(value);
+  return date ? format(date, 'MMM d, yyyy') : '-';
+};
+
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const { isAdmin, isLoading: roleLoading } = useUserRole();
