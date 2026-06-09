@@ -175,8 +175,10 @@ const AdminDashboard = () => {
 
       // Fetch FUB deals for company-wide stats
       const fubResponse = await followUpBossApi.getDeals(200, 0);
+      let fubDealsAll: FUBDeal[] = [];
       if (fubResponse.success && fubResponse.data?.deals) {
         const deals = fubResponse.data.deals;
+        fubDealsAll = deals;
         
         // Closed deals = status is "Won" or similar closed status
         const closedDeals = deals.filter((d: FUBDeal) => 
