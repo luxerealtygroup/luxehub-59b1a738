@@ -57,7 +57,11 @@ const Commissions = () => {
 
       let deals = all;
       if (isViewingAsAgent && effectiveFubUserId) {
-        deals = deals.filter(d => d.users?.some(u => u.id === effectiveFubUserId));
+        deals = deals.filter((d: any) =>
+          d.users?.some((u: any) => u.id === effectiveFubUserId) ||
+          d.assignedUserId === effectiveFubUserId ||
+          d.userId === effectiveFubUserId
+        );
       } else if (!isAdmin) {
         const { data: profile } = await supabase
           .from('profiles')
@@ -65,7 +69,12 @@ const Commissions = () => {
           .eq('id', user?.id)
           .maybeSingle();
         if (profile?.fub_user_id) {
-          deals = deals.filter(d => d.users?.some(u => u.id === profile.fub_user_id));
+          const fid = profile.fub_user_id;
+          deals = deals.filter((d: any) =>
+            d.users?.some((u: any) => u.id === fid) ||
+            d.assignedUserId === fid ||
+            d.userId === fid
+          );
         }
       }
 
