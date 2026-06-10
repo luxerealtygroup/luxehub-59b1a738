@@ -108,8 +108,8 @@ const Pipeline = () => {
     email: '',
     notes: '',
     projected_sale_amount: 0,
-    commission_percent: 3,
-    split_percent: 70,
+    commission_percent: 0,
+    split_percent: 0,
     expected_pending_date: '',
   });
 
@@ -219,8 +219,8 @@ const Pipeline = () => {
     // Map DB rows to PipelineClient (add defaults for client-side fields)
     const mapped: PipelineClient[] = (data || []).map((row: any) => ({
       ...row,
-      commission_percent: row.commission_percent ?? 3,
-      split_percent: row.split_percent ?? 70,
+      commission_percent: row.commission_percent ?? 0,
+      split_percent: row.split_percent ?? 0,
     }));
     setClients(mapped);
     setLoading(false);
@@ -274,7 +274,7 @@ const Pipeline = () => {
 
     toast({ title: 'Success', description: 'Client added to pipeline' });
     setAddDialogOpen(false);
-    setNewClient({ client_name: '', client_type: 'buyer', stage: 1, source: '', phone: '', email: '', notes: '', projected_sale_amount: 0, commission_percent: 3, split_percent: 70, expected_pending_date: '' });
+    setNewClient({ client_name: '', client_type: 'buyer', stage: 1, source: '', phone: '', email: '', notes: '', projected_sale_amount: 0, commission_percent: 0, split_percent: 0, expected_pending_date: '' });
     fetchClients();
   };
 
