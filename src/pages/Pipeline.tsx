@@ -293,6 +293,8 @@ const Pipeline = () => {
         email: editingClient.email,
         notes: editingClient.notes,
         projected_sale_amount: editingClient.projected_sale_amount,
+        commission_percent: editingClient.commission_percent,
+        split_percent: editingClient.split_percent,
         projected_gci: gci,
         expected_pending_date: editingClient.expected_pending_date || null,
       })
