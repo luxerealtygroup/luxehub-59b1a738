@@ -42,7 +42,7 @@ import { currentYear, safe, pct } from '@/components/business-planning/types';
 interface PipelineClient {
   id: string;
   client_name: string;
-  client_type: 'buyer' | 'seller';
+  client_type: 'buyer' | 'seller' | 'tenant' | 'landlord';
   stage: number;
   source?: string;
   phone?: string;
@@ -60,7 +60,7 @@ interface PipelineClient {
 
 interface NewClient {
   client_name: string;
-  client_type: 'buyer' | 'seller';
+  client_type: 'buyer' | 'seller' | 'tenant' | 'landlord';
   stage: number;
   source: string;
   phone: string;
@@ -97,7 +97,7 @@ const Pipeline = () => {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<PipelineClient | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState<'all' | 'buyer' | 'seller'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'buyer' | 'seller' | 'tenant' | 'landlord'>('all');
   const [filterStage, setFilterStage] = useState<string>('all');
   const [newClient, setNewClient] = useState<NewClient>({
     client_name: '',
@@ -385,11 +385,13 @@ const Pipeline = () => {
                 </div>
                 <div>
                   <Label>Client Type *</Label>
-                  <Select value={newClient.client_type} onValueChange={(value: 'buyer' | 'seller') => setNewClient({ ...newClient, client_type: value })}>
+                  <Select value={newClient.client_type} onValueChange={(value: 'buyer' | 'seller' | 'tenant' | 'landlord') => setNewClient({ ...newClient, client_type: value })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="buyer">Buyer</SelectItem>
                       <SelectItem value="seller">Seller</SelectItem>
+                      <SelectItem value="tenant">Tenant</SelectItem>
+                      <SelectItem value="landlord">Landlord</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -655,6 +657,8 @@ const Pipeline = () => {
                 <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="buyer">Buyers</SelectItem>
                 <SelectItem value="seller">Sellers</SelectItem>
+                <SelectItem value="tenant">Tenants</SelectItem>
+                <SelectItem value="landlord">Landlords</SelectItem>
               </SelectContent>
             </Select>
             <Select value={filterStage} onValueChange={setFilterStage}>
@@ -735,9 +739,9 @@ const Pipeline = () => {
                 <div><Label>Client Name *</Label><Input value={editingClient.client_name} onChange={(e) => setEditingClient({ ...editingClient, client_name: e.target.value })} /></div>
                 <div>
                   <Label>Client Type *</Label>
-                  <Select value={editingClient.client_type} onValueChange={(value: 'buyer' | 'seller') => setEditingClient({ ...editingClient, client_type: value })}>
+                  <Select value={editingClient.client_type} onValueChange={(value: 'buyer' | 'seller' | 'tenant' | 'landlord') => setEditingClient({ ...editingClient, client_type: value })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="buyer">Buyer</SelectItem><SelectItem value="seller">Seller</SelectItem></SelectContent>
+                    <SelectContent><SelectItem value="buyer">Buyer</SelectItem><SelectItem value="seller">Seller</SelectItem><SelectItem value="tenant">Tenant</SelectItem><SelectItem value="landlord">Landlord</SelectItem></SelectContent>
                   </Select>
                 </div>
               </div>
