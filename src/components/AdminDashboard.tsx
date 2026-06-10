@@ -509,6 +509,10 @@ const AdminDashboard = () => {
         const agentDeals = (deals || []).filter(d => d.user_id === agentId);
         const agentCommissions = (commissions || []).filter(c => c.user_id === agentId);
         const agentPipeline = (pipelineClients || []).filter(p => p.user_id === agentId);
+        const weightPipeline = (arr: any[]) =>
+          Math.round(
+            arr.reduce((s, c) => s + (c.client_type === 'tenant' || c.client_type === 'landlord' ? 1 / 3 : 1), 0) * 100,
+          ) / 100;
         const agentGoals = goalsMap.get(agentId);
 
         // Source of truth: FUB. If the agent is linked to a FUB user, count
@@ -575,7 +579,7 @@ const AdminDashboard = () => {
           totalGci,
           pendingGci,
           companyCut,
-          pipelineClients: agentPipeline.length,
+          pipelineClients: weightPipeline(agentPipeline),
           pipelineGci,
           dealsGoal: agentGoals?.annual_units_goal || 0,
           gciGoal: Number(agentGoals?.annual_gci_goal || 0),
@@ -594,7 +598,12 @@ const AdminDashboard = () => {
         totalDeals: (deals || []).length,
         closedDeals: (deals || []).filter(d => d.stage === 'closed').length,
         activeDeals: (deals || []).filter(d => ['lead', 'contacted', 'showing', 'offer', 'under_contract'].includes(d.stage)).length,
-        totalPipelineClients: (pipelineClients || []).length,
+        totalPipelineClients: Math.round(
+          (pipelineClients || []).reduce(
+            (s: number, c: any) => s + (c.client_type === 'tenant' || c.client_type === 'landlord' ? 1 / 3 : 1),
+            0,
+          ) * 100,
+        ) / 100,
         totalPipelineGci,
         agents: agentData
           .filter(a => a.full_name && a.full_name !== 'Unknown Agent') // Exclude unknown agents

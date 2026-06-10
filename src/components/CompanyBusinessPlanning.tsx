@@ -280,8 +280,10 @@ const CompanyBusinessPlanning = () => {
   const fetchPipeline = async () => {
     const { data } = await supabase.from('pipeline_clients').select('client_type, projected_gci, deal_category');
     const clients = data || [];
-    const leases = clients.filter(c => c.deal_category === 'lease');
-    const weightedTotal = clients.reduce((sum, c) => sum + (c.deal_category === 'lease' ? 1/3 : 1), 0);
+    const isLeaseLike = (c: any) =>
+      c.deal_category === 'lease' || c.client_type === 'tenant' || c.client_type === 'landlord';
+    const leases = clients.filter(isLeaseLike);
+    const weightedTotal = clients.reduce((sum, c) => sum + (isLeaseLike(c) ? 1 / 3 : 1), 0);
     setPipelineSummary({
       totalClients: clients.length,
       buyers: clients.filter(c => c.client_type === 'buyer').length,

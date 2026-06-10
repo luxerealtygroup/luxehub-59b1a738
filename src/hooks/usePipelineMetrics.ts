@@ -55,12 +55,19 @@ export function usePipelineMetrics({ userId, dateStart, dateEnd }: UsePipelineMe
 
     const { data, error } = await supabase
       .from('pipeline_clients')
-      .select('id, client_name, stage, expected_pending_date')
+      .select('id, client_name, stage, expected_pending_date, client_type')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
     const clients = data || [];
-    const totalBeforeFilter = clients.length;
+    // Weight tenants & landlords as 1/3 of a pipeline addition (3 = 1 unit).
+    // Sales (buyer/seller) count as a full 1.0.
+    const weightOf = (c: any) =>
+      c.client_type === 'tenant' || c.client_type === 'landlord' ? 1 / 3 : 1;
+    const sumWeighted = (arr: any[]) =>
+      Math.round(arr.reduce((s, c) => s + weightOf(c), 0) * 100) / 100;
+
+    const totalBeforeFilter = sumWeighted(clients);
 
     const missingDate = clients.filter(c => !c.expected_pending_date);
     const inRange = clients.filter(c => {
@@ -70,15 +77,15 @@ export function usePipelineMetrics({ userId, dateStart, dateEnd }: UsePipelineMe
 
     setMetrics({
       totalClients: totalBeforeFilter,
-      clientsInDateRange: inRange.length,
-      missingDateCount: missingDate.length,
+      clientsInDateRange: sumWeighted(inRange),
+      missingDateCount: sumWeighted(missingDate),
       debug: {
         effectiveUserId: userId,
         dateRangeStart: dateStart,
         dateRangeEnd: dateEnd,
         totalBeforeFilter,
-        afterDateFilter: inRange.length,
-        missingDateCount: missingDate.length,
+        afterDateFilter: sumWeighted(inRange),
+        missingDateCount: sumWeighted(missingDate),
         top5: clients.slice(0, 5).map(c => ({
           id: c.id,
           client_name: c.client_name,
