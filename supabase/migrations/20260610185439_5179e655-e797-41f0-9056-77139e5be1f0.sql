@@ -1,0 +1,2 @@
+ALTER TABLE public.pipeline_clients DROP CONSTRAINT IF EXISTS pipeline_clients_client_type_check;
+ALTER TABLE public.pipeline_clients ADD CONSTRAINT pipeline_clients_client_type_check CHECK (client_type = ANY (ARRAY['buyer'::text, 'seller'::text, 'tenant'::text, 'landlord'::text]));
