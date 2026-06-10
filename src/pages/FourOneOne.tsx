@@ -411,12 +411,17 @@ const FourOneOne = () => {
   const addAppointmentRecord = async () => {
     if (!user || !newAppointment.contact_name || !newAppointment.outcome || !newAppointment.appointment_type) return;
     if (hasFUB && !newAppointment.fub_contact_id) return;
-    const weekStart = format(currentWeek, 'yyyy-MM-dd');
+    // Compute week_start_date from the actual appointment date (Mon-based week),
+    // so appointments are tracked in the week they were held, not when they were entered.
+    const apptDate = new Date(`${newAppointment.appointment_date}T00:00:00`);
+    const apptWeekStart = format(startOfWeek(apptDate, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+    const currentWeekStart = format(currentWeek, 'yyyy-MM-dd');
+    const sameWeek = apptWeekStart === currentWeekStart;
 
     const { error } = await supabase.from('appointment_records').insert({
       user_id: user.id,
-      week_start_date: weekStart,
-      weekly_411_id: weeklyData.id || null,
+      week_start_date: apptWeekStart,
+      weekly_411_id: sameWeek ? (weeklyData.id || null) : null,
       fub_contact_id: newAppointment.fub_contact_id,
       contact_name: newAppointment.contact_name,
       appointment_date: newAppointment.appointment_date,
