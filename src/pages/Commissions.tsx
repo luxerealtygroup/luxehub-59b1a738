@@ -38,47 +38,53 @@ const Commissions = () => {
   const [loading, setLoading] = useState(true);
   const [fubLoading, setFubLoading] = useState(false);
 
-  // Fetch FUB deals – scoped to effective agent when in agent view
-  useEffect(() => {
-    const fetchFUBDeals = async () => {
-      if (!hasFUB) { setLoading(false); return; }
-      setFubLoading(true);
-      try {
-        const response = await followUpBossApi.getDeals(200, 0);
-        if (response.success && response.data?.deals) {
-          let deals = response.data.deals;
-
-          // If viewing as a specific agent, filter by their fub_user_id
-          if (isViewingAsAgent && effectiveFubUserId) {
-            deals = deals.filter(d => d.users?.some(u => u.id === effectiveFubUserId));
-          } else if (!isAdmin) {
-            // Non-admin agent: get their own fub_user_id from profile
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('fub_user_id')
-              .eq('id', user?.id)
-              .maybeSingle();
-            if (profile?.fub_user_id) {
-              deals = deals.filter(d => d.users?.some(u => u.id === profile.fub_user_id));
-            }
-          }
-
-          setFUBDeals(deals);
-        }
-      } catch (error) {
-        console.error('Error fetching FUB deals:', error);
-      } finally {
-        setFubLoading(false);
-        setLoading(false);
+  // Fetch ALL FUB deals (paginated) – scoped to effective agent when in agent view
+  const loadAllFUBDeals = async () => {
+    if (!hasFUB) { setLoading(false); return; }
+    setFubLoading(true);
+    try {
+      const pageSize = 100;
+      let offset = 0;
+      let all: FUBDeal[] = [];
+      // Hard cap pages to avoid runaway loops
+      for (let i = 0; i < 50; i++) {
+        const response = await followUpBossApi.getDeals(pageSize, offset);
+        if (!response.success || !response.data?.deals) break;
+        all = all.concat(response.data.deals);
+        if (response.data.deals.length < pageSize) break;
+        offset += pageSize;
       }
-    };
 
-    fetchFUBDeals();
+      let deals = all;
+      if (isViewingAsAgent && effectiveFubUserId) {
+        deals = deals.filter(d => d.users?.some(u => u.id === effectiveFubUserId));
+      } else if (!isAdmin) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('fub_user_id')
+          .eq('id', user?.id)
+          .maybeSingle();
+        if (profile?.fub_user_id) {
+          deals = deals.filter(d => d.users?.some(u => u.id === profile.fub_user_id));
+        }
+      }
+
+      setFUBDeals(deals);
+    } catch (error) {
+      console.error('Error fetching FUB deals:', error);
+    } finally {
+      setFubLoading(false);
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAllFUBDeals();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasFUB, isAdmin, isViewingAsAgent, effectiveFubUserId, user]);
 
   useEffect(() => {
     const displayDeals = fubDeals
-      .filter((deal) => deal.agentCommission)
       .map((deal) => ({
         id: deal.id,
         clientName: deal.people?.[0]?.name || deal.name || 'Unknown Client',
@@ -96,35 +102,7 @@ const Commissions = () => {
     setFUBDealsDisplay(displayDeals);
   }, [fubDeals]);
 
-  const refreshFUBDeals = async () => {
-    if (!hasFUB) return;
-    setFubLoading(true);
-    try {
-      const response = await followUpBossApi.getDeals(200, 0);
-      if (response.success && response.data?.deals) {
-        let deals = response.data.deals;
-
-        if (isViewingAsAgent && effectiveFubUserId) {
-          deals = deals.filter(d => d.users?.some(u => u.id === effectiveFubUserId));
-        } else if (!isAdmin) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('fub_user_id')
-            .eq('id', user?.id)
-            .maybeSingle();
-          if (profile?.fub_user_id) {
-            deals = deals.filter(d => d.users?.some(u => u.id === profile.fub_user_id));
-          }
-        }
-
-        setFUBDeals(deals);
-      }
-    } catch (error) {
-      console.error('Error fetching FUB deals:', error);
-    } finally {
-      setFubLoading(false);
-    }
-  };
+  const refreshFUBDeals = () => loadAllFUBDeals();
 
   // Helper to classify FUB stage names
   const classifyStage = (status: string): 'closed' | 'pending' | 'conditional' | 'other' => {
