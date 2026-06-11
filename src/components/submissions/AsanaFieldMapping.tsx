@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Loader2, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
@@ -143,12 +143,25 @@ export function AsanaFieldMapping({ formType, projectId, mappings, onMappingsCha
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="border rounded-md p-2 bg-muted/30">
-      <CollapsibleTrigger asChild>
-        <Button variant="ghost" size="sm" className="w-full justify-between">
-          <span className="text-xs">Custom Field Mapping</span>
-          {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-        </Button>
-      </CollapsibleTrigger>
+      <div className="flex items-center gap-1">
+        <CollapsibleTrigger asChild>
+          <Button variant="ghost" size="sm" className="flex-1 justify-between">
+            <span className="text-xs">Custom Field Mapping</span>
+            {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </Button>
+        </CollapsibleTrigger>
+        {isOpen && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => { e.stopPropagation(); fetchCustomFields(); }}
+            disabled={loading}
+            title="Refresh fields from Asana"
+          >
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+          </Button>
+        )}
+      </div>
       <CollapsibleContent className="pt-2 space-y-2">
         {loading ? (
           <div className="flex items-center justify-center py-4">
