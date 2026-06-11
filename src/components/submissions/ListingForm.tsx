@@ -29,6 +29,8 @@ const formSchema = z.object({
   listing_date: z.string().min(1, 'Listing date is required'),
   photography_package: z.string().optional(),
   staging_consult: z.string().optional(),
+  staging_booked_date: z.string().optional(),
+  photography_booked_date: z.string().optional(),
   occupancy: z.string().optional(),
   door_knockers: z.string().optional(),
   feature_sheets: z.string().optional(),
@@ -61,6 +63,8 @@ export function ListingForm({ agents, onSuccess }: ListingFormProps) {
       listing_date: '',
       photography_package: '',
       staging_consult: 'no',
+      staging_booked_date: '',
+      photography_booked_date: '',
       occupancy: '',
       door_knockers: 'no',
       feature_sheets: 'no',
@@ -100,7 +104,15 @@ export function ListingForm({ agents, onSuccess }: ListingFormProps) {
         occupancy: data.occupancy || null,
         door_knockers: data.door_knockers === 'yes',
         feature_sheets: data.feature_sheets === 'yes',
-        listing_notes: data.notes || null,
+        listing_notes: [
+          data.notes || null,
+          data.staging_consult === 'already_booked' && data.staging_booked_date
+            ? `Staging consult already booked for ${data.staging_booked_date}`
+            : null,
+          data.photography_package === 'Already Booked' && data.photography_booked_date
+            ? `Photography already booked for ${data.photography_booked_date}`
+            : null,
+        ].filter(Boolean).join('\n') || null,
         attachments: attachmentPaths,
       });
 
@@ -134,7 +146,10 @@ export function ListingForm({ agents, onSuccess }: ListingFormProps) {
         list_price: data.list_price,
         listing_date: data.listing_date,
         photography_package: data.photography_package,
+        photography_booked_date: data.photography_package === 'Already Booked' ? data.photography_booked_date : '',
         staging_consult: data.staging_consult === 'yes',
+        staging_consult_status: data.staging_consult,
+        staging_booked_date: data.staging_consult === 'already_booked' ? data.staging_booked_date : '',
         occupancy: data.occupancy,
         door_knockers: data.door_knockers === 'yes',
         feature_sheets: data.feature_sheets === 'yes',
@@ -339,6 +354,22 @@ export function ListingForm({ agents, onSuccess }: ListingFormProps) {
               )}
             />
 
+            {form.watch('photography_package') === 'Already Booked' && (
+              <FormField
+                control={form.control}
+                name="photography_booked_date"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Photography Booked Date *</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -359,6 +390,10 @@ export function ListingForm({ agents, onSuccess }: ListingFormProps) {
                         <div className="flex items-center space-x-2">
                           <RadioGroupItem value="no" id="staging-no" />
                           <Label htmlFor="staging-no">No</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="already_booked" id="staging-booked" />
+                          <Label htmlFor="staging-booked">Already Booked</Label>
                         </div>
                       </RadioGroup>
                     </FormControl>
@@ -392,6 +427,22 @@ export function ListingForm({ agents, onSuccess }: ListingFormProps) {
                 )}
               />
             </div>
+
+            {form.watch('staging_consult') === 'already_booked' && (
+              <FormField
+                control={form.control}
+                name="staging_booked_date"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Staging Consult Booked Date *</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <FormField
