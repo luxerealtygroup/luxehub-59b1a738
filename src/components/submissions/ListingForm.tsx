@@ -354,6 +354,22 @@ export function ListingForm({ agents, onSuccess }: ListingFormProps) {
               )}
             />
 
+            {form.watch('photography_package') === 'Already Booked' && (
+              <FormField
+                control={form.control}
+                name="photography_booked_date"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Photography Booked Date *</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -374,6 +390,10 @@ export function ListingForm({ agents, onSuccess }: ListingFormProps) {
                         <div className="flex items-center space-x-2">
                           <RadioGroupItem value="no" id="staging-no" />
                           <Label htmlFor="staging-no">No</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="already_booked" id="staging-booked" />
+                          <Label htmlFor="staging-booked">Already Booked</Label>
                         </div>
                       </RadioGroup>
                     </FormControl>
@@ -407,6 +427,22 @@ export function ListingForm({ agents, onSuccess }: ListingFormProps) {
                 )}
               />
             </div>
+
+            {form.watch('staging_consult') === 'already_booked' && (
+              <FormField
+                control={form.control}
+                name="staging_booked_date"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Staging Consult Booked Date *</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <FormField
