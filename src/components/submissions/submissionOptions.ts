@@ -33,6 +33,7 @@ export const photographyPackages = [
   'Full package - Photos, Iguide, video walkthrough',
   'Photos only',
   'No photography',
+  'Already Booked',
 ];
 
 export const occupancyOptions = [
