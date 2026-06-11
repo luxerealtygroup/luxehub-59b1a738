@@ -360,9 +360,9 @@ export function ListingForm({ agents, onSuccess }: ListingFormProps) {
                 name="photography_booked_date"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Photography Booked Date *</FormLabel>
+                  <FormLabel>Photography Booked Date &amp; Time *</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <Input type="datetime-local" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -434,9 +434,9 @@ export function ListingForm({ agents, onSuccess }: ListingFormProps) {
                 name="staging_booked_date"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Staging Consult Booked Date *</FormLabel>
+                  <FormLabel>Staging Consult Booked Date &amp; Time *</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <Input type="datetime-local" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
