@@ -882,7 +882,7 @@ const AdminDashboard = () => {
 
       {/* Company-wide Stats from FUB */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card className="border-green-500/20 bg-gradient-to-br from-card to display green-500/5">
+        <Card className="border-green-500/20 bg-gradient-to-br from-card to-green-500/5">
           <CardContent className="p-5">
             <div className="flex items-center gap-2 mb-2">
               <DollarSign className="h-5 w-5 text-green-500" />
