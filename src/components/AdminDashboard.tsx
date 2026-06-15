@@ -80,6 +80,12 @@ interface FUBStats {
   closedDeals: number;
   pendingDeals: number;
   conditionalDeals: number;
+  saleClosedGci: number;
+  salePendingGci: number;
+  saleConditionalGci: number;
+  leaseClosedGci: number;
+  leasePendingGci: number;
+  leaseConditionalGci: number;
 }
 
 interface FUBAgentStats {
