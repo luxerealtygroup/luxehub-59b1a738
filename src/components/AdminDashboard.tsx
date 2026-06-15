@@ -882,7 +882,7 @@ const AdminDashboard = () => {
 
       {/* Company-wide Stats from FUB */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card className="border-green-500/20 bg-gradient-to-br from-card to-green-500/5">
+        <Card className="border-green-500/20 bg-gradient-to-br from-card to display green-500/5">
           <CardContent className="p-5">
             <div className="flex items-center gap-2 mb-2">
               <DollarSign className="h-5 w-5 text-green-500" />
@@ -891,10 +891,13 @@ const AdminDashboard = () => {
             <p className="text-3xl font-bold text-foreground">
               {formatCurrency((fubStats?.saleClosedGci || 0) + (fubStats?.salePendingGci || 0) + (fubStats?.saleConditionalGci || 0))}
             </p>
+            <p className="text-xs font-medium text-green-500 mt-1">
+              {formatWeightedDeals((fubStats?.saleClosedUnits || 0) + (fubStats?.salePendingUnits || 0) + (fubStats?.saleConditionalUnits || 0))} units
+            </p>
             <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
-              <p>{formatCurrency(fubStats?.saleClosedGci)} closed</p>
-              <p>{formatCurrency(fubStats?.salePendingGci)} pending</p>
-              <p>{formatCurrency(fubStats?.saleConditionalGci)} conditional</p>
+              <p>{formatWeightedDeals(fubStats?.saleClosedUnits || 0)} units — {formatCurrency(fubStats?.saleClosedGci)} closed</p>
+              <p>{formatWeightedDeals(fubStats?.salePendingUnits || 0)} units — {formatCurrency(fubStats?.salePendingGci)} pending</p>
+              <p>{formatWeightedDeals(fubStats?.saleConditionalUnits || 0)} units — {formatCurrency(fubStats?.saleConditionalGci)} conditional</p>
             </div>
           </CardContent>
         </Card>
