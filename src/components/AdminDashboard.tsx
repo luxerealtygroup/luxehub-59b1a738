@@ -911,10 +911,13 @@ const AdminDashboard = () => {
             <p className="text-3xl font-bold text-teal-500">
               {formatCurrency((fubStats?.leaseClosedGci || 0) + (fubStats?.leasePendingGci || 0) + (fubStats?.leaseConditionalGci || 0))}
             </p>
+            <p className="text-xs font-medium text-teal-500 mt-1">
+              {formatWeightedDeals((fubStats?.leaseClosedUnits || 0) + (fubStats?.leasePendingUnits || 0) + (fubStats?.leaseConditionalUnits || 0))} units
+            </p>
             <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
-              <p>{formatCurrency(fubStats?.leaseClosedGci)} closed</p>
-              <p>{formatCurrency(fubStats?.leasePendingGci)} pending</p>
-              <p>{formatCurrency(fubStats?.leaseConditionalGci)} conditional</p>
+              <p>{formatWeightedDeals(fubStats?.leaseClosedUnits || 0)} units — {formatCurrency(fubStats?.leaseClosedGci)} closed</p>
+              <p>{formatWeightedDeals(fubStats?.leasePendingUnits || 0)} units — {formatCurrency(fubStats?.leasePendingGci)} pending</p>
+              <p>{formatWeightedDeals(fubStats?.leaseConditionalUnits || 0)} units — {formatCurrency(fubStats?.leaseConditionalGci)} conditional</p>
             </div>
           </CardContent>
         </Card>
