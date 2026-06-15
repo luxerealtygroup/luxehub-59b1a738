@@ -931,6 +931,9 @@ const AdminDashboard = () => {
             <p className="text-3xl font-bold text-blue-500">
               {formatCurrency((fubStats?.companyRevenueEarned || 0) + (fubStats?.companyRevenuePending || 0) + (fubStats?.companyRevenueConditional || 0))}
             </p>
+            <p className="text-xs font-medium text-blue-500 mt-1">
+              {formatWeightedDeals((fubStats?.closedDeals || 0) + (fubStats?.pendingDeals || 0) + (fubStats?.conditionalDeals || 0))} total units
+            </p>
             <p className="text-xs text-muted-foreground mt-1">
               {formatCurrency(fubStats?.companyRevenueEarned)} earned / {formatCurrency(fubStats?.companyRevenuePending)} pending / {formatCurrency(fubStats?.companyRevenueConditional)} conditional
             </p>
