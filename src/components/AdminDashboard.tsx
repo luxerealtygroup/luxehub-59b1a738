@@ -872,44 +872,33 @@ const AdminDashboard = () => {
           <CardContent className="p-5">
             <div className="flex items-center gap-2 mb-2">
               <DollarSign className="h-5 w-5 text-green-500" />
-              <span className="text-sm text-muted-foreground">Total GCI Earned</span>
+              <span className="text-sm text-muted-foreground">Sales GCI</span>
             </div>
             <p className="text-3xl font-bold text-foreground">
-              {formatCurrency(fubStats?.totalGci)}
+              {formatCurrency((fubStats?.saleClosedGci || 0) + (fubStats?.salePendingGci || 0) + (fubStats?.saleConditionalGci || 0))}
             </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {formatWeightedDeals(fubStats?.closedDeals || 0)} closed deals (leases = 0.33)
-            </p>
+            <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+              <p>{formatCurrency(fubStats?.saleClosedGci)} closed</p>
+              <p>{formatCurrency(fubStats?.salePendingGci)} pending</p>
+              <p>{formatCurrency(fubStats?.saleConditionalGci)} conditional</p>
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="border-gold/20 bg-gradient-to-br from-card to-gold/5">
+        <Card className="border-teal-500/20 bg-gradient-to-br from-card to-teal-500/5">
           <CardContent className="p-5">
             <div className="flex items-center gap-2 mb-2">
-              <TrendingUp className="h-5 w-5 text-gold" />
-              <span className="text-sm text-muted-foreground">Pending GCI</span>
+              <ArrowRightLeft className="h-5 w-5 text-teal-500" />
+              <span className="text-sm text-muted-foreground">Lease GCI</span>
             </div>
-            <p className="text-3xl font-bold text-gold">
-              {formatCurrency(fubStats?.pendingGci)}
+            <p className="text-3xl font-bold text-teal-500">
+              {formatCurrency((fubStats?.leaseClosedGci || 0) + (fubStats?.leasePendingGci || 0) + (fubStats?.leaseConditionalGci || 0))}
             </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {formatWeightedDeals(fubStats?.pendingDeals || 0)} pending deals (leases = 0.33)
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-orange-500/20 bg-gradient-to-br from-card to-orange-500/5">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-2 mb-2">
-              <Calendar className="h-5 w-5 text-orange-500" />
-              <span className="text-sm text-muted-foreground">Conditional GCI</span>
+            <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+              <p>{formatCurrency(fubStats?.leaseClosedGci)} closed</p>
+              <p>{formatCurrency(fubStats?.leasePendingGci)} pending</p>
+              <p>{formatCurrency(fubStats?.leaseConditionalGci)} conditional</p>
             </div>
-            <p className="text-3xl font-bold text-orange-500">
-              {formatCurrency(fubStats?.conditionalGci)}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {formatWeightedDeals(fubStats?.conditionalDeals || 0)} conditional deals (leases = 0.33)
-            </p>
           </CardContent>
         </Card>
 
