@@ -663,7 +663,7 @@ const AdminDashboard = () => {
     }, 3 * 60 * 1000);
 
     return () => clearInterval(refreshInterval);
-  }, [isAdmin, roleLoading]);
+  }, [isAdmin, roleLoading, dealMetadata]);
 
   if (roleLoading || loading) {
     return (
