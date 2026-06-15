@@ -5,6 +5,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { useAuth } from '@/hooks/useAuth';
 import { followUpBossApi, FUBDeal, FUBDealUser } from '@/lib/api/followUpBoss';
 import { useDealMetadata } from '@/hooks/useDealMetadata';
+import { sumWeightedDeals, getDealWeight, formatWeightedDeals } from '@/lib/utils/dealWeight';
 import { DealTypeDropdown } from '@/components/DealTypeDropdown';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -271,9 +272,9 @@ const AdminDashboard = () => {
           companyRevenueEarned,
           companyRevenuePending,
           companyRevenueConditional,
-          closedDeals: closedDeals.length,
-          pendingDeals: pendingDeals.length,
-          conditionalDeals: conditionalDeals.length,
+          closedDeals: sumWeightedDeals(closedDeals, dealMetadata),
+          pendingDeals: sumWeightedDeals(pendingDeals, dealMetadata),
+          conditionalDeals: sumWeightedDeals(conditionalDeals, dealMetadata),
         });
 
         // Build company transactions list from all relevant deals
@@ -344,15 +345,15 @@ const AdminDashboard = () => {
             if (isClosedDeal) {
               existing.totalGci += deal.commissionValue || 0;
               existing.teamCommission += deal.teamCommission || 0;
-              existing.dealCount += 1;
+              existing.dealCount += getDealWeight(deal, dealMetadata);
             } else if (isPendingDeal) {
               existing.pendingGci += deal.commissionValue || 0;
               existing.teamCommission += deal.teamCommission || 0;
-              existing.dealCount += 1;
+              existing.dealCount += getDealWeight(deal, dealMetadata);
             } else if (isConditionalDeal) {
               existing.conditionalGci += deal.commissionValue || 0;
               existing.teamCommission += deal.teamCommission || 0;
-              existing.dealCount += 1;
+              existing.dealCount += getDealWeight(deal, dealMetadata);
             }
             
             agentMap.set(user.id, existing);
@@ -523,17 +524,17 @@ const AdminDashboard = () => {
 
         if (fubUserId && fubDealsAll.length > 0) {
           const agentFubDeals = fubDealsAll.filter(d => d.users?.some(u => u.id === fubUserId));
-          closedDeals = agentFubDeals.filter(d =>
+          closedDeals = sumWeightedDeals(agentFubDeals.filter(d =>
             d.status?.toLowerCase() === 'won' ||
             d.stageName?.toLowerCase().includes('closed') ||
             d.stageName?.toLowerCase().includes('won')
-          ).length;
-          activeDeals = agentFubDeals.filter(d =>
+          ), dealMetadata);
+          activeDeals = sumWeightedDeals(agentFubDeals.filter(d =>
             d.status?.toLowerCase() !== 'won' &&
             d.status?.toLowerCase() !== 'lost' &&
             !d.stageName?.toLowerCase().includes('closed') &&
             !d.stageName?.toLowerCase().includes('won')
-          ).length;
+          ), dealMetadata);
         }
 
         let totalGci = agentCommissions
