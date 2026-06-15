@@ -86,6 +86,12 @@ interface FUBStats {
   leaseClosedGci: number;
   leasePendingGci: number;
   leaseConditionalGci: number;
+  saleClosedUnits: number;
+  salePendingUnits: number;
+  saleConditionalUnits: number;
+  leaseClosedUnits: number;
+  leasePendingUnits: number;
+  leaseConditionalUnits: number;
 }
 
 interface FUBAgentStats {
