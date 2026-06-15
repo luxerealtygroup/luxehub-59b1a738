@@ -5,6 +5,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { useAuth } from '@/hooks/useAuth';
 import { followUpBossApi, FUBDeal, FUBDealUser } from '@/lib/api/followUpBoss';
 import { useDealMetadata } from '@/hooks/useDealMetadata';
+import { sumWeightedDeals, getDealWeight, formatWeightedDeals } from '@/lib/utils/dealWeight';
 import { DealTypeDropdown } from '@/components/DealTypeDropdown';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -271,9 +272,9 @@ const AdminDashboard = () => {
           companyRevenueEarned,
           companyRevenuePending,
           companyRevenueConditional,
-          closedDeals: closedDeals.length,
-          pendingDeals: pendingDeals.length,
-          conditionalDeals: conditionalDeals.length,
+          closedDeals: sumWeightedDeals(closedDeals, dealMetadata),
+          pendingDeals: sumWeightedDeals(pendingDeals, dealMetadata),
+          conditionalDeals: sumWeightedDeals(conditionalDeals, dealMetadata),
         });
 
         // Build company transactions list from all relevant deals
@@ -344,15 +345,15 @@ const AdminDashboard = () => {
             if (isClosedDeal) {
               existing.totalGci += deal.commissionValue || 0;
               existing.teamCommission += deal.teamCommission || 0;
-              existing.dealCount += 1;
+              existing.dealCount += getDealWeight(deal, dealMetadata);
             } else if (isPendingDeal) {
               existing.pendingGci += deal.commissionValue || 0;
               existing.teamCommission += deal.teamCommission || 0;
-              existing.dealCount += 1;
+              existing.dealCount += getDealWeight(deal, dealMetadata);
             } else if (isConditionalDeal) {
               existing.conditionalGci += deal.commissionValue || 0;
               existing.teamCommission += deal.teamCommission || 0;
-              existing.dealCount += 1;
+              existing.dealCount += getDealWeight(deal, dealMetadata);
             }
             
             agentMap.set(user.id, existing);
@@ -523,17 +524,17 @@ const AdminDashboard = () => {
 
         if (fubUserId && fubDealsAll.length > 0) {
           const agentFubDeals = fubDealsAll.filter(d => d.users?.some(u => u.id === fubUserId));
-          closedDeals = agentFubDeals.filter(d =>
+          closedDeals = sumWeightedDeals(agentFubDeals.filter(d =>
             d.status?.toLowerCase() === 'won' ||
             d.stageName?.toLowerCase().includes('closed') ||
             d.stageName?.toLowerCase().includes('won')
-          ).length;
-          activeDeals = agentFubDeals.filter(d =>
+          ), dealMetadata);
+          activeDeals = sumWeightedDeals(agentFubDeals.filter(d =>
             d.status?.toLowerCase() !== 'won' &&
             d.status?.toLowerCase() !== 'lost' &&
             !d.stageName?.toLowerCase().includes('closed') &&
             !d.stageName?.toLowerCase().includes('won')
-          ).length;
+          ), dealMetadata);
         }
 
         let totalGci = agentCommissions
@@ -662,7 +663,7 @@ const AdminDashboard = () => {
     }, 3 * 60 * 1000);
 
     return () => clearInterval(refreshInterval);
-  }, [isAdmin, roleLoading]);
+  }, [isAdmin, roleLoading, dealMetadata]);
 
   if (roleLoading || loading) {
     return (
@@ -856,7 +857,7 @@ const AdminDashboard = () => {
               {formatCurrency(fubStats?.totalGci)}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              {fubStats?.closedDeals || 0} closed deals from FUB
+              {formatWeightedDeals(fubStats?.closedDeals || 0)} closed deals (leases = 0.33)
             </p>
           </CardContent>
         </Card>
@@ -871,7 +872,7 @@ const AdminDashboard = () => {
               {formatCurrency(fubStats?.pendingGci)}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              {fubStats?.pendingDeals || 0} pending deals
+              {formatWeightedDeals(fubStats?.pendingDeals || 0)} pending deals (leases = 0.33)
             </p>
           </CardContent>
         </Card>
@@ -886,7 +887,7 @@ const AdminDashboard = () => {
               {formatCurrency(fubStats?.conditionalGci)}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              {fubStats?.conditionalDeals || 0} conditional deals
+              {formatWeightedDeals(fubStats?.conditionalDeals || 0)} conditional deals (leases = 0.33)
             </p>
           </CardContent>
         </Card>
@@ -1336,7 +1337,7 @@ const AdminDashboard = () => {
                       </Avatar>
                       <div className="flex-1">
                         <p className="font-semibold text-foreground">{agent.name}</p>
-                        <p className="text-sm text-muted-foreground">{agent.dealCount} deals</p>
+                        <p className="text-sm text-muted-foreground">{formatWeightedDeals(agent.dealCount)} deals</p>
                       </div>
                       <div className="text-right">
                         <p className="text-lg font-bold text-green-500">
@@ -1386,11 +1387,11 @@ const AdminDashboard = () => {
                     </div>
                     <div>
                       <p className="text-muted-foreground">Closed Deals</p>
-                      <p className="font-semibold">{agent.closedDeals}</p>
+                      <p className="font-semibold">{formatWeightedDeals(agent.closedDeals)}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Active Deals</p>
-                      <p className="font-semibold">{agent.activeDeals}</p>
+                      <p className="font-semibold">{formatWeightedDeals(agent.activeDeals)}</p>
                     </div>
                   </div>
 
@@ -1423,7 +1424,7 @@ const AdminDashboard = () => {
                     <p className="text-sm text-muted-foreground">Pending GCI</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-3xl font-bold text-foreground">{selectedAgentData.closedDeals + selectedAgentData.activeDeals}</p>
+                    <p className="text-3xl font-bold text-foreground">{formatWeightedDeals(selectedAgentData.closedDeals + selectedAgentData.activeDeals)}</p>
                     <p className="text-sm text-muted-foreground">Total Deals</p>
                   </div>
                   <div className="text-center">
