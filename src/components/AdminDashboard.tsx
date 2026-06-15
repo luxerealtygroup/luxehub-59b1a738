@@ -285,6 +285,8 @@ const AdminDashboard = () => {
         };
         const sumGciBy = (arr: FUBDeal[], lease: boolean) =>
           arr.filter(d => isLease(d) === lease).reduce((s, d) => s + (d.commissionValue || 0), 0);
+        const sumUnitsBy = (arr: FUBDeal[], lease: boolean) =>
+          arr.filter(d => isLease(d) === lease).reduce((s, d) => s + getDealWeight(d, dealMetadata), 0);
 
         setFubStats({
           totalGci,
@@ -302,6 +304,12 @@ const AdminDashboard = () => {
           leaseClosedGci: sumGciBy(closedDeals, true),
           leasePendingGci: sumGciBy(pendingDeals, true),
           leaseConditionalGci: sumGciBy(conditionalDeals, true),
+          saleClosedUnits: sumUnitsBy(closedDeals, false),
+          salePendingUnits: sumUnitsBy(pendingDeals, false),
+          saleConditionalUnits: sumUnitsBy(conditionalDeals, false),
+          leaseClosedUnits: sumUnitsBy(closedDeals, true),
+          leasePendingUnits: sumUnitsBy(pendingDeals, true),
+          leaseConditionalUnits: sumUnitsBy(conditionalDeals, true),
         });
 
         // Build company transactions list from all relevant deals
