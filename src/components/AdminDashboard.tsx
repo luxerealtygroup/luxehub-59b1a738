@@ -86,6 +86,12 @@ interface FUBStats {
   leaseClosedGci: number;
   leasePendingGci: number;
   leaseConditionalGci: number;
+  saleClosedUnits: number;
+  salePendingUnits: number;
+  saleConditionalUnits: number;
+  leaseClosedUnits: number;
+  leasePendingUnits: number;
+  leaseConditionalUnits: number;
 }
 
 interface FUBAgentStats {
@@ -279,6 +285,8 @@ const AdminDashboard = () => {
         };
         const sumGciBy = (arr: FUBDeal[], lease: boolean) =>
           arr.filter(d => isLease(d) === lease).reduce((s, d) => s + (d.commissionValue || 0), 0);
+        const sumUnitsBy = (arr: FUBDeal[], lease: boolean) =>
+          arr.filter(d => isLease(d) === lease).reduce((s, d) => s + getDealWeight(d, dealMetadata), 0);
 
         setFubStats({
           totalGci,
@@ -296,6 +304,12 @@ const AdminDashboard = () => {
           leaseClosedGci: sumGciBy(closedDeals, true),
           leasePendingGci: sumGciBy(pendingDeals, true),
           leaseConditionalGci: sumGciBy(conditionalDeals, true),
+          saleClosedUnits: sumUnitsBy(closedDeals, false),
+          salePendingUnits: sumUnitsBy(pendingDeals, false),
+          saleConditionalUnits: sumUnitsBy(conditionalDeals, false),
+          leaseClosedUnits: sumUnitsBy(closedDeals, true),
+          leasePendingUnits: sumUnitsBy(pendingDeals, true),
+          leaseConditionalUnits: sumUnitsBy(conditionalDeals, true),
         });
 
         // Build company transactions list from all relevant deals
@@ -877,10 +891,13 @@ const AdminDashboard = () => {
             <p className="text-3xl font-bold text-foreground">
               {formatCurrency((fubStats?.saleClosedGci || 0) + (fubStats?.salePendingGci || 0) + (fubStats?.saleConditionalGci || 0))}
             </p>
+            <p className="text-xs font-medium text-green-500 mt-1">
+              {formatWeightedDeals((fubStats?.saleClosedUnits || 0) + (fubStats?.salePendingUnits || 0) + (fubStats?.saleConditionalUnits || 0))} units
+            </p>
             <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
-              <p>{formatCurrency(fubStats?.saleClosedGci)} closed</p>
-              <p>{formatCurrency(fubStats?.salePendingGci)} pending</p>
-              <p>{formatCurrency(fubStats?.saleConditionalGci)} conditional</p>
+              <p>{formatWeightedDeals(fubStats?.saleClosedUnits || 0)} units — {formatCurrency(fubStats?.saleClosedGci)} closed</p>
+              <p>{formatWeightedDeals(fubStats?.salePendingUnits || 0)} units — {formatCurrency(fubStats?.salePendingGci)} pending</p>
+              <p>{formatWeightedDeals(fubStats?.saleConditionalUnits || 0)} units — {formatCurrency(fubStats?.saleConditionalGci)} conditional</p>
             </div>
           </CardContent>
         </Card>
@@ -894,10 +911,13 @@ const AdminDashboard = () => {
             <p className="text-3xl font-bold text-teal-500">
               {formatCurrency((fubStats?.leaseClosedGci || 0) + (fubStats?.leasePendingGci || 0) + (fubStats?.leaseConditionalGci || 0))}
             </p>
+            <p className="text-xs font-medium text-teal-500 mt-1">
+              {formatWeightedDeals((fubStats?.leaseClosedUnits || 0) + (fubStats?.leasePendingUnits || 0) + (fubStats?.leaseConditionalUnits || 0))} units
+            </p>
             <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
-              <p>{formatCurrency(fubStats?.leaseClosedGci)} closed</p>
-              <p>{formatCurrency(fubStats?.leasePendingGci)} pending</p>
-              <p>{formatCurrency(fubStats?.leaseConditionalGci)} conditional</p>
+              <p>{formatWeightedDeals(fubStats?.leaseClosedUnits || 0)} units — {formatCurrency(fubStats?.leaseClosedGci)} closed</p>
+              <p>{formatWeightedDeals(fubStats?.leasePendingUnits || 0)} units — {formatCurrency(fubStats?.leasePendingGci)} pending</p>
+              <p>{formatWeightedDeals(fubStats?.leaseConditionalUnits || 0)} units — {formatCurrency(fubStats?.leaseConditionalGci)} conditional</p>
             </div>
           </CardContent>
         </Card>
@@ -910,6 +930,9 @@ const AdminDashboard = () => {
             </div>
             <p className="text-3xl font-bold text-blue-500">
               {formatCurrency((fubStats?.companyRevenueEarned || 0) + (fubStats?.companyRevenuePending || 0) + (fubStats?.companyRevenueConditional || 0))}
+            </p>
+            <p className="text-xs font-medium text-blue-500 mt-1">
+              {formatWeightedDeals((fubStats?.closedDeals || 0) + (fubStats?.pendingDeals || 0) + (fubStats?.conditionalDeals || 0))} total units
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               {formatCurrency(fubStats?.companyRevenueEarned)} earned / {formatCurrency(fubStats?.companyRevenuePending)} pending / {formatCurrency(fubStats?.companyRevenueConditional)} conditional
