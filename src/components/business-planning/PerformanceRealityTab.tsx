@@ -218,29 +218,8 @@ export function PerformanceRealityTab({
   const net = (v: number) => Math.round(v * splitFactor);
   const NET_LABEL = q3Requirements.netLabel;
 
-  // ── Pipeline Deficit Analysis with Q(n-1) carryover ──
-  const qTargetGCI = goals.gci_target > 0
-    ? goals.gci_target
-    : (metrics?.targetGCI && metrics.targetGCI > 0 ? Math.round(metrics.targetGCI / 4) : 0);
-  // avg GCI/deal — net of agent split so pipeline math is apples-to-apples with the net target
-  const avgGCIPerDeal = metrics?.avgCommission && metrics.avgCommission > 0
-    ? net(metrics.avgCommission)
-    : (goals.avg_commission > 0 ? net(goals.avg_commission) : 0);
-
-  const hasTarget = qTargetGCI > 0 && avgGCIPerDeal > 0;
-  const q2BaseGoal = hasTarget ? Math.ceil(qTargetGCI / avgGCIPerDeal) : 0;
-
-  // Carryover: shortfall from previous quarter
-  const prevQGap = Math.max(0, pipelineGapData.prevQRequiredClosings - pipelineGapData.prevQActualClosings);
-  const adjustedClosingsGoal = q2BaseGoal + prevQGap;
-
-  const falloutRate = DEFAULT_FALLOUT_RATE;
-  const conversionFactor = 1 - falloutRate; // 0.30
-  const requiredPipelineDeals = hasTarget ? Math.ceil(adjustedClosingsGoal / conversionFactor) : 0;
-  const currentPipelineDeals = pipelineGapData.pipelineTotal;
-  const pipelineDeficit = hasTarget ? Math.max(0, requiredPipelineDeals - currentPipelineDeals) : null;
-  const pipelineSurplus = hasTarget ? Math.max(0, currentPipelineDeals - requiredPipelineDeals) : 0;
   const missingDateCount = pipelineGapData.missingDateCount;
+  const q3PipelineSurplus = Math.max(0, q3Requirements.q3CurrentPipeline - q3Requirements.q3PipelineRequired);
 
   const prevQ = quarter > 1 ? quarter - 1 : 4;
 
@@ -261,7 +240,7 @@ export function PerformanceRealityTab({
   const projectedUnits = (metrics?.ytdClosedDeals || 0) + firmPendingUnits + conditionalUnits;
   const projectedVsGoal = annualGoal > 0 ? projectedGci - annualGoal : 0;
   const projectedPct = annualGoal > 0 ? Math.min(100, Math.round((projectedGci / annualGoal) * 100)) : 0;
-  const weeksToCloseDeficit = pipelineDeficit && pipelineDeficit > 0 ? Math.ceil(pipelineDeficit / 3) : 0;
+  
 
   // ── Mid-Year Review math + Q3 pipeline requirement (sourced from canonical q3Requirements) ──
   const expectedMidyear = q3Requirements.expectedMidyearNet;
@@ -342,7 +321,7 @@ export function PerformanceRealityTab({
 
       {mode === 'active' && metrics ? (
         <>
-        {annualGoal > 0 && avgGCIPerDeal > 0 && (
+        {annualGoal > 0 && q3Requirements.avgGciPerSaleNet > 0 && (
           <Card className="border-2 border-foreground/20 bg-muted/30 shadow-sm">
             <CardHeader className="pb-4">
               <CardTitle className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground">
@@ -460,7 +439,7 @@ export function PerformanceRealityTab({
                    <Step label="Q3 share (60% of remaining)" value={formatCurrency(q3ShareOfRemaining)} muted />
                    <Step
                      label="+ Extra added because you're behind pace"
-                     sub={isBehind ? "60% of the H1 gap — Q4 carries the other 40%" : undefined}
+                     sub={isBehind ? "60% of the Jan-Jun gap — Q4 carries the other 40%" : undefined}
                      value={`+ ${formatCurrency(q3CarryoverShare)}`}
                      muted={!isBehind}
                      amber={isBehind}
@@ -477,15 +456,15 @@ export function PerformanceRealityTab({
                    </div>
                  </div>
 
-                 {isBehind ? (
-                   <p className="text-[12px] text-muted-foreground">
-                     Your original Q3 goal was <span className="font-semibold text-foreground">{formatCurrency(originalQ3Goal)}</span>. The remaining gap from H1 has been split across Q3 and Q4 based on how agents on this team typically produce. Q3 carries 60%, Q4 carries 40%.
-                   </p>
-                 ) : (
-                   <p className="text-[12px] text-muted-foreground">
-                     You banked <span className="font-semibold text-green-600">{formatCurrency(surplus)}</span> in H1. Your Q3 target is <span className="font-semibold text-foreground">{formatCurrency(adjustedQ3Target)}</span> — but don't coast.
-                   </p>
-                 )}
+                  {isBehind ? (
+                    <p className="text-[12px] text-muted-foreground">
+                      Your original Q3 goal was <span className="font-semibold text-foreground">{formatCurrency(originalQ3Goal)}</span>. The remaining gap from Jan-Jun has been split across Q3 and Q4 based on how agents on this team typically produce. Q3 carries 60%, Q4 carries 40%.
+                    </p>
+                  ) : (
+                    <p className="text-[12px] text-muted-foreground">
+                      You banked <span className="font-semibold text-green-600">{formatCurrency(surplus)}</span> in Jan-Jun. Your Q3 target is <span className="font-semibold text-foreground">{formatCurrency(adjustedQ3Target)}</span> — but don't coast.
+                    </p>
+                  )}
                  <p className="text-[11px] text-muted-foreground italic">
                    Q3/Q4 split based on typical team production patterns — Q3 historically outperforms Q4.
                  </p>
@@ -526,6 +505,15 @@ export function PerformanceRealityTab({
                         : `Based on team average until confirmed sales are available. Leases are not included in your sales average or your goal — they're gravy.`}
                     </p>
                   </div>
+
+                  {salesClosed > 0 && salesClosed < 3 && (
+                    <div className="rounded-md border border-amber-500/60 bg-amber-500/10 p-3 flex gap-2">
+                      <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <p className="text-[12px] text-foreground leading-snug">
+                        Your average is based on fewer than 3 closed sales — it may shift as more deals close. Kristen can review this with you.
+                      </p>
+                    </div>
+                  )}
 
                   {saleAverageLooksLow && (
                     <div className="rounded-md border border-amber-500/60 bg-amber-500/10 p-3 flex gap-2">
@@ -667,19 +655,21 @@ export function PerformanceRealityTab({
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Snapshot bar — borderless horizontal row */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 py-2">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 py-2 items-stretch">
               <div>
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{rangeLabel} Closed</p>
-                <p className="text-3xl font-bold text-foreground leading-none">{formatWeightedDeals(metrics.weightedClosed)}</p>
+                <p className="text-xl font-medium text-muted-foreground leading-none">{formatWeightedDeals(metrics.weightedClosed)}</p>
                 <p className="text-[11px] text-muted-foreground mt-1.5">
                   {metrics.weightedDebugClosed?.leaseCount ? `${metrics.ytdClosedDeals} raw · ${metrics.weightedDebugClosed.leaseCount} leases` : `${metrics.ytdClosedDeals} raw`}
                 </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">(history)</p>
               </div>
               <div>
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{rangeLabel} GCI</p>
-                <p className="text-3xl font-bold text-foreground leading-none">{formatCurrency(metrics.ytdGCI)}</p>
+                <p className="text-xl font-medium text-muted-foreground leading-none">{formatCurrency(ytdClosedGci)}</p>
+                <p className="text-[11px] text-muted-foreground mt-1.5">(after team split)</p>
               </div>
-              <div>
+              <div className="rounded-lg border-2 border-gold/40 bg-gold/5 p-4">
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Pending</p>
                 <p className="text-3xl font-bold text-foreground leading-none">{formatWeightedDeals(metrics.weightedPending)}</p>
                 <p className="text-[11px] text-muted-foreground mt-1.5">
@@ -719,23 +709,23 @@ export function PerformanceRealityTab({
                 </p>
                 <p className="text-xs text-muted-foreground mt-3">
                   YTD closed + pending + conditional
-                  {metrics.targetGCI > 0 ? ` · Target: ${formatCurrency(metrics.targetGCI)}` : ''}
+                  {annualGoal > 0 ? ` · Target: ${formatCurrency(annualGoal)}` : ''}
                 </p>
               </div>
-              {metrics.targetGCI > 0 && (
+              {annualGoal > 0 && (
                 <div className={`rounded-lg border-2 p-6 min-h-[160px] flex flex-col justify-center ${
-                  projectedGci < metrics.targetGCI ? 'border-destructive/60' : 'border-green-600/60'
+                  projectedGci < annualGoal ? 'border-destructive/60' : 'border-green-600/60'
                 }`}>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground mb-2">
                     GCI Gap to Annual Goal
                   </p>
                   <p className={`text-4xl md:text-5xl font-bold leading-none ${
-                    projectedGci < metrics.targetGCI ? 'text-destructive' : 'text-green-600'
+                    projectedGci < annualGoal ? 'text-destructive' : 'text-green-600'
                   }`}>
-                    {projectedGci < metrics.targetGCI ? formatCurrency(metrics.targetGCI - projectedGci) : 'On Track'}
+                    {projectedGci < annualGoal ? formatCurrency(annualGoal - projectedGci) : 'On Track'}
                   </p>
                   <p className="text-xs text-muted-foreground mt-3">
-                    {projectedGci < metrics.targetGCI ? 'Shortfall vs pipeline projection' : 'Projected to meet or exceed annual goal'}
+                    {projectedGci < annualGoal ? 'Shortfall vs pipeline projection' : 'Projected to meet or exceed annual goal'}
                   </p>
                 </div>
               )}
@@ -747,7 +737,7 @@ export function PerformanceRealityTab({
                 Pipeline Deficit Analysis
               </h3>
 
-              {pipelineDeficit === null ? (
+              {q3Requirements.adjustedQ3TargetNet === 0 || q3Requirements.avgGciPerSaleNet === 0 ? (
                 <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
                   <p className="text-sm font-medium text-amber-600">
                     <Info className="h-4 w-4 inline mr-1" />
@@ -758,38 +748,27 @@ export function PerformanceRealityTab({
               ) : (
                 <>
                   {/* Inline contextual callout above the math */}
-                  {pipelineDeficit > 0 && (
+                  {q3Requirements.q3PipelineGap > 0 && (
                     <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-4">
                       <p className="text-sm text-foreground">
-                        You need <span className="font-bold">{pipelineDeficit}</span> more pipeline contacts to hit your Q{quarter} goal.
-                        At 3 adds/week, that's <span className="font-bold">{weeksToCloseDeficit} week{weeksToCloseDeficit === 1 ? '' : 's'}</span> of work.
+                        You need <span className="font-bold">{q3Requirements.q3PipelineGap}</span> more pipeline contacts to hit your Q{quarter} goal.
+                        At 3 adds/week, that's <span className="font-bold">{Math.ceil(q3Requirements.q3PipelineGap / 3)} week{Math.ceil(q3Requirements.q3PipelineGap / 3) === 1 ? '' : 's'}</span> of work.
                       </p>
                     </div>
                   )}
 
                   {/* Vertical step layout */}
                   <div className="rounded-lg border border-border bg-background p-5 space-y-3">
-                    <Step label={`Sales you need to close in Q${quarter}`} value={`${formatNumber(q2BaseGoal)} sales`} sub={`Q${quarter} base closings goal`} />
-                    {prevQGap > 0 && (
-                      <Step
-                        label="Add"
-                        value={`+${prevQGap} sales`}
-                        sub={`YTD sales gap through Q${prevQ} (carryover)`}
-                        amber
-                      />
-                    )}
-                    {prevQGap > 0 && (
-                      <Step label="Adjusted sales required" value={`${formatNumber(adjustedClosingsGoal)} sales`} bold />
-                    )}
+                    <Step label={`Sales you need to close in Q${quarter}`} value={`${formatNumber(q3Requirements.q3SalesNeeded)} sales`} sub="Q3 adjusted closings goal" />
                     <Step
-                      label="÷ Fallout Rate"
-                      value={`${Math.round(conversionFactor * 100)}%`}
-                      sub={`100% − ${Math.round(falloutRate * 100)}% fallout`}
+                      label="÷ Your close rate"
+                      value="3 in 10"
+                      sub="7 of 10 usually fall through"
                       muted
                     />
                     <Separator />
-                    <Step label="Pipeline contacts required" value={`${formatNumber(requiredPipelineDeals)} people`} bold />
-                    <Step label="People already in your pipeline" value={`${formatNumber(currentPipelineDeals)} people`} sub={`Q${prevQ}+Q${quarter}`} />
+                    <Step label="Pipeline contacts required" value={`${formatNumber(q3Requirements.q3PipelineRequired)} people`} bold />
+                    <Step label="People already in your pipeline" value={`${formatNumber(q3Requirements.q3CurrentPipeline)} people`} sub={`Q${prevQ}+Q${quarter}`} />
                     {missingDateCount > 0 && (
                       <p className="text-xs text-amber-600">
                         <AlertTriangle className="h-3 w-3 inline mr-1" />
@@ -797,29 +776,29 @@ export function PerformanceRealityTab({
                       </p>
                     )}
                     <Separator />
-                    {pipelineDeficit > 0 ? (
-                      <Step label="= People still to find" value={`${pipelineDeficit} people short`} bold danger />
-                    ) : pipelineSurplus > 0 ? (
-                      <Step label="= Surplus" value={`+${pipelineSurplus} people ahead`} bold success />
+                    {q3Requirements.q3PipelineGap > 0 ? (
+                      <Step label="= People still to find" value={`${q3Requirements.q3PipelineGap} people short`} bold danger />
+                    ) : q3PipelineSurplus > 0 ? (
+                      <Step label="= Surplus" value={`+${q3PipelineSurplus} people ahead`} bold success />
                     ) : (
                       <Step label="= Covered" value="Exactly on target" bold success />
                     )}
                   </div>
 
                   {/* Bottom callout — actionable conclusion */}
-                  {pipelineDeficit > 0 ? (
+                  {q3Requirements.q3PipelineGap > 0 ? (
                     <div className="rounded-lg border-2 border-amber-500 bg-amber-500/10 p-5 text-center">
                       <p className="text-[11px] uppercase tracking-[0.15em] text-amber-700 dark:text-amber-500 font-semibold mb-2">
                         Action Required
                       </p>
                       <p className="text-3xl md:text-4xl font-bold text-amber-700 dark:text-amber-400 leading-none">
-                        {pipelineDeficit} more pipeline additions needed
+                        {q3Requirements.q3PipelineGap} more pipeline additions needed
                       </p>
                     </div>
-                  ) : pipelineSurplus > 0 ? (
+                  ) : q3PipelineSurplus > 0 ? (
                     <div className="rounded-lg border-2 border-green-600 bg-green-500/10 p-5 text-center">
                       <p className="text-3xl md:text-4xl font-bold text-green-700 dark:text-green-400 leading-none">
-                        +{pipelineSurplus} people ahead of pipeline target
+                        +{q3PipelineSurplus} people ahead of pipeline target
                       </p>
                     </div>
                   ) : (
