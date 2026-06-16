@@ -95,7 +95,7 @@ export const PlanningDataPrompt: React.FC<Props> = ({ userId, year, quarter, dis
     }
     setSaving(true);
     try {
-      const ops: Promise<any>[] = [];
+      const ops: PromiseLike<any>[] = [];
       if (missing.production) {
         ops.push(supabase.from('production_goals').upsert({
           user_id: userId,
