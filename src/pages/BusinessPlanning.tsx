@@ -480,6 +480,7 @@ const BusinessPlanning = () => {
           <ActionPlanTab
             metrics={metrics} mode={mode} goals={goals} quarter={quarter}
             uid={uid} isViewingAsAgent={isViewingAsAgent} effectiveRates={effectiveRates}
+            q3Requirements={q3Requirements}
           />
         </TabsContent>
       </Tabs>

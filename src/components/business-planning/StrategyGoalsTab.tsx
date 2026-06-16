@@ -247,7 +247,7 @@ export function StrategyGoalsTab({
           <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3">Goal Inputs</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <div>
-              <Label className="text-xs">Q{quarter} Pending Goal (Deals)</Label>
+              <Label className="text-xs">Q{quarter} Sales Goal (Closings)</Label>
               <Input
                 type="number"
                 min={0}
@@ -337,7 +337,7 @@ export function StrategyGoalsTab({
           {/* Supporting calculations */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <LockedField
-              label={`Q${quarter > 1 ? quarter - 1 : 4} Gap (Deals)`}
+              label={`Q${quarter > 1 ? quarter - 1 : 4} Sales Gap`}
               value={String(strategy.prevQGap)}
               sub={`${prevQActualClosings} pending of ${prevQGoalClosings} goal`}
               highlight={strategy.prevQGap > 0}
@@ -468,7 +468,7 @@ export function StrategyGoalsTab({
                         <span className="text-lg font-bold text-gold">{formatCurrency(s.gci)}</span>
                       </div>
                       <div className="space-y-1 text-xs text-muted-foreground">
-                        <p>{s.closings} pending required</p>
+                        <p>{s.closings} sales to close</p>
                         <p>{s.weeklyDials} dials/wk · {s.weeklyContacts} contacts/wk</p>
                         <p>{s.weeklyAppts} appts/wk · {s.weeklyCMAs} CMAs/wk</p>
                       </div>
@@ -494,6 +494,25 @@ export function StrategyGoalsTab({
         )}
 
         <Separator />
+        {pipelineGap > 0 ? (
+          <div className="rounded-lg border-2 border-gold/50 bg-gold/5 p-4">
+            <p className="text-sm font-semibold text-foreground">
+              Your number this week: add {formatNumber(q3Requirements.weeklyNewContacts)} new {q3Requirements.weeklyNewContacts === 1 ? 'person' : 'people'} to your pipeline.
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Do that for 13 weeks and you hit your Q{quarter} target.
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-lg border-2 border-green-500/40 bg-green-500/5 p-4">
+            <p className="text-sm font-semibold text-green-700">
+              Your pipeline is on track for Q{quarter}.
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Stay consistent — 3 new people a week minimum, every week.
+            </p>
+          </div>
+        )}
         <p className="text-[11px] text-muted-foreground italic text-center pt-1">
           All figures synced from Performance Reality calculations.
         </p>

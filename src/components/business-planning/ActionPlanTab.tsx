@@ -10,6 +10,7 @@ import { formatCurrency, formatNumber } from '@/lib/utils';
 import { TrendingUp, Save, Loader2, ShieldCheck, Rocket, AlertTriangle } from 'lucide-react';
 import { ActiveMetrics, GoalInputs, currentYear } from './types';
 import { StatCard } from './shared';
+import { Q3Requirements } from './q3Requirements';
 
 interface Props {
   metrics: ActiveMetrics | null;
@@ -19,15 +20,15 @@ interface Props {
   uid: string | null;
   isViewingAsAgent: boolean;
   effectiveRates: { contactToAppt: number; apptToContract: number; cmaToListing: number; dialsToAppt: number };
+  q3Requirements: Q3Requirements;
 }
 
-export function ActionPlanTab({ metrics, mode, goals, quarter, uid, isViewingAsAgent, effectiveRates }: Props) {
+export function ActionPlanTab({ metrics, mode, goals, quarter, uid, isViewingAsAgent, effectiveRates, q3Requirements }: Props) {
   const { toast } = useToast();
   const [shareWithAdmin, setShareWithAdmin] = useState(false);
 
-  // Calculated weekly targets
-  const netPerDeal = goals.avg_commission * (goals.split_percent / 100);
-  const requiredClosings = netPerDeal > 0 ? Math.ceil(goals.gci_target / netPerDeal) : 0;
+  // Calculated weekly targets — sales count sourced from canonical Q-Requirements
+  const requiredClosings = q3Requirements.q3SalesNeeded;
   const requiredAppts = effectiveRates.apptToContract > 0 ? Math.ceil(requiredClosings / (effectiveRates.apptToContract / 100)) : 0;
   const requiredContacts = effectiveRates.contactToAppt > 0 ? Math.ceil(requiredAppts / (effectiveRates.contactToAppt / 100)) : 0;
   const requiredDials = effectiveRates.dialsToAppt > 0 ? Math.ceil(requiredAppts / (effectiveRates.dialsToAppt / 100)) : 0;
@@ -54,6 +55,9 @@ export function ActionPlanTab({ metrics, mode, goals, quarter, uid, isViewingAsA
   const anyOverCap = dialsOverCap || contactsOverCap;
   const displayDials = dialsOverCap ? `${DIAL_CAP}+` : formatNumber(reqWeeklyDials);
   const displayContacts = contactsOverCap ? `${CONTACT_CAP}+` : formatNumber(reqWeeklyContacts);
+
+  // Conversion-rate sanity check (mirrors StrategyGoalsTab)
+  const ratesOver100 = Object.values(effectiveRates).some(v => v > 100);
 
   const projections = metrics && goals.gci_target > 0 ? (() => {
     const dialGap = reqWeeklyDials - metrics.weeklyAvgDials;
@@ -84,6 +88,14 @@ export function ActionPlanTab({ metrics, mode, goals, quarter, uid, isViewingAsA
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
+          {ratesOver100 && (
+            <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3">
+              <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+              <p className="text-sm text-foreground">
+                One or more conversion rates exceed 100% — the math below may be off. Review your rates with Kristen.
+              </p>
+            </div>
+          )}
           {goals.gci_target <= 0 ? (
             <p className="text-sm text-muted-foreground">Set a GCI target in Q{quarter} Strategy & Goals to auto-calculate weekly targets.</p>
           ) : (
@@ -210,6 +222,16 @@ export function ActionPlanTab({ metrics, mode, goals, quarter, uid, isViewingAsA
               )}
             </>
           )}
+
+          {/* Bottom floor action card — always visible */}
+          <div className="rounded-lg border-2 border-gold/50 bg-gold/5 p-4">
+            <p className="text-sm font-semibold text-foreground">
+              This week: have {formatNumber(FLOOR.conversations)} conversations, add {formatNumber(FLOOR.pipelineAdds)} new people to your pipeline, and book {formatNumber(FLOOR.appointments)} appointment.
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              That's the floor — hit it every week.
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>
