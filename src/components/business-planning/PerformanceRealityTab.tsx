@@ -245,8 +245,8 @@ export function PerformanceRealityTab({
   const prevQ = quarter > 1 ? quarter - 1 : 4;
 
   // ── Forward-looking outlook: pending + conditional vs annual goal ──
-  // All GCI figures below are net of agent split (what the agent actually takes home as GCI).
-  const annualGoal = net(metrics?.targetGCI || 0);
+  // All GCI figures below are NET of agent split — sourced from the canonical q3Requirements.
+  const annualGoal = q3Requirements.annualGoalNet;
   const ytdClosedGci = net(metrics?.ytdGCI || 0);
   const q1Gci = net(pipelineGapData.q1ClosedGci || 0);
   const q2Gci = net(pipelineGapData.q2ClosedGci || 0);
@@ -263,48 +263,40 @@ export function PerformanceRealityTab({
   const projectedPct = annualGoal > 0 ? Math.min(100, Math.round((projectedGci / annualGoal) * 100)) : 0;
   const weeksToCloseDeficit = pipelineDeficit && pipelineDeficit > 0 ? Math.ceil(pipelineDeficit / 3) : 0;
 
-  // ── Mid-Year Review math (Q3 Accountability) ──
-  const expectedMidyear = annualGoal > 0 ? annualGoal / 2 : 0;
-  const conditionalAt99 = conditionalGci * 0.99;
-  const projectedH1Actual = ytdClosedGci + firmPendingGci + conditionalAt99;
-  const midyearGap = expectedMidyear - projectedH1Actual; // positive = behind
-  const isBehind = midyearGap > 0;
-  const remainingGoal = Math.max(0, annualGoal - projectedH1Actual);
-  const h1Carryover = isBehind ? midyearGap : 0;
-  // Q3/Q4 split of remaining goal — Q3 historically outperforms Q4
-  const Q3_SHARE = 0.60;
-  const Q4_SHARE = 0.40;
-  const q3ShareOfRemaining = remainingGoal * Q3_SHARE;
-  const q4ShareOfRemaining = remainingGoal * Q4_SHARE;
-  const q3CarryoverShare = h1Carryover * Q3_SHARE;
-  const adjustedQ3Target = q3ShareOfRemaining + q3CarryoverShare;
-  const originalQ3Goal = annualGoal > 0 ? annualGoal / 4 : 0;
-  const surplus = !isBehind ? Math.abs(midyearGap) : 0;
+  // ── Mid-Year Review math + Q3 pipeline requirement (sourced from canonical q3Requirements) ──
+  const expectedMidyear = q3Requirements.expectedMidyearNet;
+  const projectedH1Actual = q3Requirements.projectedH1ActualNet;
+  const midyearGap = q3Requirements.midyearGap;
+  const isBehind = q3Requirements.isBehind;
+  const remainingGoal = q3Requirements.remainingGoalNet;
+  const q3ShareOfRemaining = q3Requirements.q3ShareOfRemaining;
+  const q4ShareOfRemaining = q3Requirements.q4ShareOfRemaining;
+  const q3CarryoverShare = q3Requirements.q3CarryoverShare;
+  const adjustedQ3Target = q3Requirements.adjustedQ3TargetNet;
+  const originalQ3Goal = q3Requirements.originalQ3GoalNet;
+  const surplus = q3Requirements.surplusNet;
   // Progress bar geometry
   const midyearTickPct = annualGoal > 0 ? 50 : 0;
   const actualPct = annualGoal > 0 ? Math.max(0, Math.min(100, (projectedH1Actual / annualGoal) * 100)) : 0;
-  // ── Q3 Pipeline requirement — sales only (leases are bonus income, not planned production) ──
-  const TEAM_AVG_GCI_FALLBACK = 15000;
-  const salesClosed = metrics?.salesCountClosed || 0;
-  const salesPending = metrics?.salesCountPending || 0;
-  const salesConditional = metrics?.salesCountConditional || 0;
-  const confirmedSalesCount = salesClosed + salesPending + salesConditional;
-  const inFlightSalesCount = salesPending + salesConditional;
-  const usingConfirmedSaleAvg = confirmedSalesCount > 0 && (metrics?.avgGciPerSale || 0) > 0;
-  // Net averages — agent-facing figures always reflect their cut, not the team's gross
-  const avgGciPerSale = usingConfirmedSaleAvg ? net(metrics!.avgGciPerSale) : net(TEAM_AVG_GCI_FALLBACK);
-  const avgGciPerClosedSale = net(metrics?.avgGciPerClosedSale || 0);
-  const avgGciPerInFlightSale = net(metrics?.avgGciPerPendingSale || 0);
-  const saleAverageLooksLow = usingConfirmedSaleAvg && avgGciPerSale < 5000;
-  const q3SalesNeeded = avgGciPerSale > 0 ? Math.ceil(adjustedQ3Target / avgGciPerSale) : 0;
+  // Sales + pipeline numbers — read from canonical source (also used by Strategy tab)
+  const salesClosed = q3Requirements.salesClosed;
+  const salesPending = q3Requirements.salesPending;
+  const salesConditional = q3Requirements.salesConditional;
+  const confirmedSalesCount = q3Requirements.confirmedSalesCount;
+  const inFlightSalesCount = q3Requirements.inFlightSalesCount;
+  const usingConfirmedSaleAvg = q3Requirements.usingConfirmedSaleAvg;
+  const avgGciPerSale = q3Requirements.avgGciPerSaleNet;
+  const avgGciPerClosedSale = q3Requirements.avgGciPerClosedSaleNet;
+  const avgGciPerInFlightSale = q3Requirements.avgGciPerPendingSaleNet;
+  const saleAverageLooksLow = q3Requirements.saleAverageLooksLow;
+  const q3SalesNeeded = q3Requirements.q3SalesNeeded;
   const q3ClosingsNeeded = q3SalesNeeded;
-  const q3PipelineRequired = q3ClosingsNeeded > 0 ? Math.ceil(q3ClosingsNeeded / 0.30) : 0;
-  const q3CurrentPipeline = currentPipelineDeals;
-  const q3PipelineGap = Math.max(0, q3PipelineRequired - q3CurrentPipeline);
-  const weeklyNewContacts = q3PipelineGap > 0 ? Math.ceil(q3PipelineGap / 13) : 0;
-  // Sense-check: Q3 deals needed should not exceed full-year deal goal
-  const annualDealGoal = avgGciPerSale > 0 && annualGoal > 0 ? Math.ceil(annualGoal / avgGciPerSale) : 0;
-  const q3DealCountUnreasonable = annualDealGoal > 0 && q3ClosingsNeeded > annualDealGoal;
+  const q3PipelineRequired = q3Requirements.q3PipelineRequired;
+  const q3CurrentPipeline = q3Requirements.q3CurrentPipeline;
+  const q3PipelineGap = q3Requirements.q3PipelineGap;
+  const weeklyNewContacts = q3Requirements.weeklyNewContacts;
+  const annualDealGoal = q3Requirements.annualDealGoal;
+  const q3DealCountUnreasonable = q3Requirements.q3DealCountUnreasonable;
 
   // ── Activity Pace (Section 1b) ──
   const now = new Date();
