@@ -603,7 +603,7 @@ const FourOneOne = () => {
             <CardContent className="py-4">
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <div className="text-center">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Annual Deals Goal</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Annual Sales Goal</p>
                   <p className="text-2xl font-bold text-primary">{syncedGoals.deals_goal}</p>
                 </div>
                 <div className="text-center">
@@ -611,7 +611,7 @@ const FourOneOne = () => {
                   <p className="text-2xl font-bold text-primary">{formatCurrency(syncedGoals.gci_goal)}</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">{monthNames[weekMonth]} Deals</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">{monthNames[weekMonth]} Sales</p>
                   <p className="text-2xl font-bold text-foreground">{Math.round(syncedGoals.monthly_deals[weekMonth] * 10) / 10}</p>
                 </div>
                 <div className="text-center">
@@ -662,7 +662,7 @@ const FourOneOne = () => {
                 const pipelineCurrent = syncedGoals.pipeline_by_month[weekMonth];
                 return (
                   <p className="text-sm text-muted-foreground">
-                    {monthNames[weekMonth]}: {Math.round(syncedGoals.monthly_deals[weekMonth] * 10) / 10} deals • {formatCurrency(Math.round(syncedGoals.monthly_gci[weekMonth]))} GCI • Pipeline: {pipelineCurrent}/{pipelineNeeded}
+                    {monthNames[weekMonth]}: {Math.round(syncedGoals.monthly_deals[weekMonth] * 10) / 10} sales • {formatCurrency(Math.round(syncedGoals.monthly_gci[weekMonth]))} GCI • Pipeline: {pipelineCurrent}/{pipelineNeeded}
                   </p>
                 );
               })()}
@@ -686,7 +686,7 @@ const FourOneOne = () => {
                   { label: 'Appointments Set', key: 'appointments_set' },
                   { label: 'Pipeline Additions', key: 'pipeline_additions' },
                   { label: 'Contracts Signed', key: 'contracts_signed' },
-                  { label: 'Firm Deals', key: 'firm_deals' },
+                  { label: 'Firm Sales', key: 'firm_deals' },
                   { label: 'Database Size', key: 'database_size' },
                 ].map((field) => (
                   <div key={field.key} className="space-y-1">
