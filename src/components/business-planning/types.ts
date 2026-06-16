@@ -33,6 +33,7 @@ export interface ActiveMetrics {
   totalContacts: number;
   totalDials: number;
   weeksOfData: number;
+  totalPipelineAdditions: number;
   // Weighted deal metrics
   weightedClosed: number;
   weightedPending: number;

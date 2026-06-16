@@ -274,6 +274,36 @@ export function PerformanceRealityTab({
   const q3PipelineGap = Math.max(0, q3PipelineRequired - q3CurrentPipeline);
   const weeklyNewContacts = q3PipelineGap > 0 ? Math.ceil(q3PipelineGap / 13) : 0;
 
+  // ── Activity Pace (Section 1b) ──
+  const now = new Date();
+  const yearStart = new Date(currentYear, 0, 1);
+  const weeksElapsed = Math.max(1, Math.floor((now.getTime() - yearStart.getTime()) / (1000 * 60 * 60 * 24 * 7)));
+  const totalWeeksInYear = 52;
+  type ActivityRow = {
+    key: string; label: string; weeklyTarget: number; actual: number;
+  };
+  const activityRows: ActivityRow[] = metrics ? [
+    { key: 'conversations', label: 'Conversations',  weeklyTarget: 10, actual: metrics.totalContacts },
+    { key: 'pipeline',      label: 'Pipeline Adds',  weeklyTarget: 3,  actual: metrics.totalPipelineAdditions },
+    { key: 'appts',         label: 'Appointments',   weeklyTarget: 1,  actual: metrics.totalAppts },
+    { key: 'listings',      label: 'Listings Taken', weeklyTarget: 0.5, actual: metrics.totalListings },
+    { key: 'offers',        label: 'Offers Written', weeklyTarget: 0.5, actual: metrics.totalContracts },
+  ] : [];
+  const activityComputed = activityRows.map(r => {
+    const expected = Math.round(r.weeklyTarget * weeksElapsed);
+    const pace = expected > 0 ? r.actual / expected : 1;
+    const status: 'green' | 'amber' | 'red' = pace >= 1 ? 'green' : pace >= 0.8 ? 'amber' : 'red';
+    const fillPct = expected > 0 ? Math.min(100, Math.round((r.actual / expected) * 100)) : 0;
+    const weeklyActual = r.actual / weeksElapsed;
+    const projectedAnnual = Math.round(weeklyActual * totalWeeksInYear);
+    const requiredAnnual = Math.round(r.weeklyTarget * totalWeeksInYear);
+    const shortfallPct = expected > 0 ? Math.max(0, 1 - pace) : 0;
+    return { ...r, expected, pace, status, fillPct, weeklyActual, projectedAnnual, requiredAnnual, shortfallPct };
+  });
+  const worstActivity = activityComputed.length
+    ? activityComputed.reduce((a, b) => (b.shortfallPct > a.shortfallPct ? b : a))
+    : null;
+
   // Manual metrics state for planning mode display
   const [manualData, setManualData] = useState<ManualPerformance | null>(null);
 
@@ -299,7 +329,7 @@ export function PerformanceRealityTab({
               {/* ── Section 1: Annual Snapshot ── */}
               <div className="space-y-4">
                 <div className="flex items-baseline justify-between">
-                  <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Annual Snapshot</p>
+                  <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Midyear Scorecard — GCI + Activity</p>
                   <p className="text-[11px] text-muted-foreground">Halfway through {currentYear}</p>
                 </div>
 
@@ -353,6 +383,42 @@ export function PerformanceRealityTab({
                     ? `You are ${formatCurrency(Math.abs(midyearGap))} behind midyear pace. That gap rolls into Q3.`
                     : `You are ${formatCurrency(Math.abs(midyearGap))} ahead of midyear pace — Q3 is about maintaining momentum.`}
                 </p>
+
+                {/* ── Activity Pace sub-section ── */}
+                {activityComputed.length > 0 && (
+                  <div className="pt-4 space-y-3">
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">Activity Pace</p>
+                    <div className="space-y-2">
+                      {activityComputed.map(a => {
+                        const dot = a.status === 'green' ? 'bg-green-500' : a.status === 'amber' ? 'bg-amber-500' : 'bg-red-500';
+                        const fill = a.status === 'green' ? 'bg-green-500' : a.status === 'amber' ? 'bg-amber-500' : 'bg-red-500';
+                        return (
+                          <div key={a.key} className="grid grid-cols-[110px_1fr_auto_auto] items-center gap-3 text-[12px]">
+                            <span className="text-muted-foreground">{a.label}</span>
+                            <div className="h-1.5 bg-muted rounded-full overflow-hidden relative">
+                              <div className={`h-full ${fill} transition-all`} style={{ width: `${a.fillPct}%` }} />
+                              <div className="absolute top-[-2px] h-[10px] w-0.5 bg-foreground/60" style={{ left: '100%', transform: 'translateX(-1px)' }} />
+                            </div>
+                            <span className="tabular-nums text-foreground whitespace-nowrap">
+                              {formatNumber(a.actual)} of {formatNumber(a.expected)}
+                            </span>
+                            <span className="tabular-nums text-muted-foreground whitespace-nowrap flex items-center gap-2">
+                              {a.weeklyActual.toFixed(1)}/wk vs {a.weeklyTarget}/wk
+                              <span className={`inline-block h-2 w-2 rounded-full ${dot}`} aria-label={a.status} />
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {worstActivity && worstActivity.shortfallPct > 0 && (
+                      <div className="rounded-md border border-border bg-muted/40 px-4 py-3">
+                        <p className="text-[12px] text-foreground leading-relaxed">
+                          Your biggest activity gap is <span className="font-semibold">{worstActivity.label.toLowerCase()}</span>. At your current pace, you will finish the year with <span className="font-semibold tabular-nums">{formatNumber(worstActivity.projectedAnnual)}</span> — <span className="font-semibold tabular-nums">{formatNumber(Math.max(0, worstActivity.requiredAnnual - worstActivity.projectedAnnual))}</span> short of what the math requires to hit your GCI goal.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <Separator />
