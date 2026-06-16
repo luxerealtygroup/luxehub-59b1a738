@@ -726,7 +726,7 @@ export function PerformanceRealityTab({
                 Pipeline Deficit Analysis
               </h3>
 
-              {pipelineDeficit === null ? (
+              {q3Requirements.adjustedQ3TargetNet === 0 || q3Requirements.avgGciPerSaleNet === 0 ? (
                 <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
                   <p className="text-sm font-medium text-amber-600">
                     <Info className="h-4 w-4 inline mr-1" />
@@ -737,38 +737,27 @@ export function PerformanceRealityTab({
               ) : (
                 <>
                   {/* Inline contextual callout above the math */}
-                  {pipelineDeficit > 0 && (
+                  {q3Requirements.q3PipelineGap > 0 && (
                     <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-4">
                       <p className="text-sm text-foreground">
-                        You need <span className="font-bold">{pipelineDeficit}</span> more pipeline contacts to hit your Q{quarter} goal.
-                        At 3 adds/week, that's <span className="font-bold">{weeksToCloseDeficit} week{weeksToCloseDeficit === 1 ? '' : 's'}</span> of work.
+                        You need <span className="font-bold">{q3Requirements.q3PipelineGap}</span> more pipeline contacts to hit your Q{quarter} goal.
+                        At 3 adds/week, that's <span className="font-bold">{Math.ceil(q3Requirements.q3PipelineGap / 3)} week{Math.ceil(q3Requirements.q3PipelineGap / 3) === 1 ? '' : 's'}</span> of work.
                       </p>
                     </div>
                   )}
 
                   {/* Vertical step layout */}
                   <div className="rounded-lg border border-border bg-background p-5 space-y-3">
-                    <Step label={`Sales you need to close in Q${quarter}`} value={`${formatNumber(q2BaseGoal)} sales`} sub={`Q${quarter} base closings goal`} />
-                    {prevQGap > 0 && (
-                      <Step
-                        label="Add"
-                        value={`+${prevQGap} sales`}
-                        sub={`YTD sales gap through Q${prevQ} (carryover)`}
-                        amber
-                      />
-                    )}
-                    {prevQGap > 0 && (
-                      <Step label="Adjusted sales required" value={`${formatNumber(adjustedClosingsGoal)} sales`} bold />
-                    )}
+                    <Step label={`Sales you need to close in Q${quarter}`} value={`${formatNumber(q3Requirements.q3SalesNeeded)} sales`} sub="Q3 adjusted closings goal" />
                     <Step
-                      label="÷ Fallout Rate"
-                      value={`${Math.round(conversionFactor * 100)}%`}
-                      sub={`100% − ${Math.round(falloutRate * 100)}% fallout`}
+                      label="÷ Your close rate"
+                      value="3 in 10"
+                      sub="7 of 10 usually fall through"
                       muted
                     />
                     <Separator />
-                    <Step label="Pipeline contacts required" value={`${formatNumber(requiredPipelineDeals)} people`} bold />
-                    <Step label="People already in your pipeline" value={`${formatNumber(currentPipelineDeals)} people`} sub={`Q${prevQ}+Q${quarter}`} />
+                    <Step label="Pipeline contacts required" value={`${formatNumber(q3Requirements.q3PipelineRequired)} people`} bold />
+                    <Step label="People already in your pipeline" value={`${formatNumber(q3Requirements.q3CurrentPipeline)} people`} sub={`Q${prevQ}+Q${quarter}`} />
                     {missingDateCount > 0 && (
                       <p className="text-xs text-amber-600">
                         <AlertTriangle className="h-3 w-3 inline mr-1" />
@@ -776,29 +765,29 @@ export function PerformanceRealityTab({
                       </p>
                     )}
                     <Separator />
-                    {pipelineDeficit > 0 ? (
-                      <Step label="= People still to find" value={`${pipelineDeficit} people short`} bold danger />
-                    ) : pipelineSurplus > 0 ? (
-                      <Step label="= Surplus" value={`+${pipelineSurplus} people ahead`} bold success />
+                    {q3Requirements.q3PipelineGap > 0 ? (
+                      <Step label="= People still to find" value={`${q3Requirements.q3PipelineGap} people short`} bold danger />
+                    ) : q3PipelineSurplus > 0 ? (
+                      <Step label="= Surplus" value={`+${q3PipelineSurplus} people ahead`} bold success />
                     ) : (
                       <Step label="= Covered" value="Exactly on target" bold success />
                     )}
                   </div>
 
                   {/* Bottom callout — actionable conclusion */}
-                  {pipelineDeficit > 0 ? (
+                  {q3Requirements.q3PipelineGap > 0 ? (
                     <div className="rounded-lg border-2 border-amber-500 bg-amber-500/10 p-5 text-center">
                       <p className="text-[11px] uppercase tracking-[0.15em] text-amber-700 dark:text-amber-500 font-semibold mb-2">
                         Action Required
                       </p>
                       <p className="text-3xl md:text-4xl font-bold text-amber-700 dark:text-amber-400 leading-none">
-                        {pipelineDeficit} more pipeline additions needed
+                        {q3Requirements.q3PipelineGap} more pipeline additions needed
                       </p>
                     </div>
-                  ) : pipelineSurplus > 0 ? (
+                  ) : q3PipelineSurplus > 0 ? (
                     <div className="rounded-lg border-2 border-green-600 bg-green-500/10 p-5 text-center">
                       <p className="text-3xl md:text-4xl font-bold text-green-700 dark:text-green-400 leading-none">
-                        +{pipelineSurplus} people ahead of pipeline target
+                        +{q3PipelineSurplus} people ahead of pipeline target
                       </p>
                     </div>
                   ) : (
