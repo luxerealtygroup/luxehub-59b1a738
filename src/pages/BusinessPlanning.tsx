@@ -19,6 +19,7 @@ import { ReflectionTab } from '@/components/business-planning/ReflectionTab';
 import { StrategyGoalsTab } from '@/components/business-planning/StrategyGoalsTab';
 import { ActionPlanTab } from '@/components/business-planning/ActionPlanTab';
 import { ActiveMetrics, GoalInputs, defaultGoals, currentYear, safe, pct } from '@/components/business-planning/types';
+import { computeQ3Requirements } from '@/components/business-planning/q3Requirements';
 
 
 const BusinessPlanning = () => {
@@ -374,6 +375,14 @@ const BusinessPlanning = () => {
   };
 
   const loading = metricsLoading || suppLoading;
+
+  // ── CANONICAL Q-Pipeline Requirements ──
+  // Single source of truth: every "pipeline gap / sales needed / Q-target / avg GCI"
+  // number on every tab reads from this object. Do not recompute these elsewhere.
+  const q3Requirements = React.useMemo(
+    () => computeQ3Requirements(metrics, goals, pipelineGapData),
+    [metrics, goals, pipelineGapData],
+  );
 
   if (loading) {
     return <div className="flex items-center justify-center h-64"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>;
