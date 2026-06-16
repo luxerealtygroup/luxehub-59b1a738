@@ -82,6 +82,8 @@ export interface DealMetrics {
   deals_pending: number;
   gci_earned: number;
   gci_pending: number;
+  /** Sum of sale price for closed deals (volume) */
+  sales_volume_closed: number;
   /** Weighted deal counts (leases = 0.33) */
   weighted_closed: number;
   weighted_pending: number;
@@ -131,6 +133,7 @@ export function useFubDealMetrics({
 }: UseFubDealMetricsOptions) {
   const [metrics, setMetrics] = useState<DealMetrics>({
     deals_closed: 0, deals_pending: 0, gci_earned: 0, gci_pending: 0,
+    sales_volume_closed: 0,
     weighted_closed: 0, weighted_pending: 0, weighted_debug_closed: null, weighted_debug_pending: null,
   });
   const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
@@ -282,9 +285,14 @@ export function useFubDealMetrics({
 
     const weightedClosed = sumWeightedDeals(closedDealsArr, dealMetadataMap);
     const weightedPending = sumWeightedDeals(pendingDealsArr, dealMetadataMap);
+    const salesVolumeClosed = closedDealsArr.reduce(
+      (sum, d: any) => sum + Number(d.price || 0),
+      0
+    );
     setMetrics({
       deals_closed: dealsClosed, deals_pending: dealsPending,
       gci_earned: gciEarned, gci_pending: gciPending,
+      sales_volume_closed: salesVolumeClosed,
       weighted_closed: Math.round(weightedClosed * 100) / 100,
       weighted_pending: Math.round(weightedPending * 100) / 100,
       weighted_debug_closed: buildWeightedDebug(closedDealsArr, dealMetadataMap),
