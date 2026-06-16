@@ -8,7 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { BarChart3, Crosshair, Save, Pencil, AlertTriangle, CheckCircle, TrendingUp, Info } from 'lucide-react';
+import { Save, Pencil, AlertTriangle, CheckCircle, TrendingUp, Info, ChevronDown } from 'lucide-react';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { DebugMetricsPanel } from '@/components/DebugMetricsPanel';
 import { DebugInfo } from '@/hooks/useFubDealMetrics';
@@ -16,6 +16,7 @@ import { ActiveMetrics, ActiveListingDebug, GoalInputs, currentYear, safe } from
 import { StatCard } from './shared';
 import { toast } from 'sonner';
 import { formatWeightedDeals } from '@/lib/utils/dealWeight';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 // ── Pipeline data from shared usePipelineMetrics hook (same source as Pipeline tab) ──
 export interface PipelineGapData {
