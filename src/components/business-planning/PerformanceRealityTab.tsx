@@ -501,6 +501,11 @@ export function PerformanceRealityTab({
                       value={formatCurrency(avgGciPerSale)}
                       muted
                     />
+                    <div className="mt-3 space-y-2 rounded-md border border-border/70 bg-muted/30 p-3">
+                      <Step label="Closed sales avg" value={avgGciPerClosedSale > 0 ? formatCurrency(avgGciPerClosedSale) : '—'} sub={`${formatNumber(salesClosed)} ${salesClosed === 1 ? 'deal' : 'deals'}`} muted />
+                      <Step label="Pending + conditional sales avg" value={avgGciPerInFlightSale > 0 ? formatCurrency(avgGciPerInFlightSale) : '—'} sub={`${formatNumber(inFlightSalesCount)} ${inFlightSalesCount === 1 ? 'deal' : 'deals'}`} muted />
+                      <Step label="Blended average" value={formatCurrency(avgGciPerSale)} sub="Used for this pipeline math" bold />
+                    </div>
                     <div className="mt-3">
                       <Step
                         label="= Sales you need to close"
@@ -508,11 +513,20 @@ export function PerformanceRealityTab({
                       />
                     </div>
                     <p className="text-[11px] text-muted-foreground mt-2 italic">
-                      {usingPersonalSaleAvg
-                        ? `Based on your ${formatNumber(salesClosed)} closed ${salesClosed === 1 ? 'sale' : 'sales'} this year. Leases are not included in your sales average or your goal — they're gravy.`
-                        : `Based on team average (not enough personal data yet — need ${MIN_DEALS_FOR_PERSONAL_AVG}+ closed sales). Leases are not included in your sales average or your goal — they're gravy.`}
+                      {usingConfirmedSaleAvg
+                        ? `Based on your ${formatNumber(confirmedSalesCount)} closed, pending, and conditional sales this year. Leases are not included in your sales average or your goal — they're gravy.`
+                        : `Based on team average until confirmed sales are available. Leases are not included in your sales average or your goal — they're gravy.`}
                     </p>
                   </div>
+
+                  {saleAverageLooksLow && (
+                    <div className="rounded-md border border-amber-500/60 bg-amber-500/10 p-3 flex gap-2">
+                      <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <p className="text-[12px] text-foreground leading-snug">
+                        Your average looks low. This may mean your pending deals haven't been included, or earlier closed deals were smaller than usual. Kristen can review this with you.
+                      </p>
+                    </div>
+                  )}
 
                   {q3DealCountUnreasonable && (
                     <div className="rounded-md border border-amber-500/60 bg-amber-500/10 p-3 flex gap-2">
