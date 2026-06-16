@@ -41,6 +41,8 @@ const BusinessPlanning = () => {
     return inFinalStretch ? (currentQ === 4 ? 1 : currentQ + 1) : currentQ;
   };
   const [quarter, setQuarter] = useState(getPlanningQuarter());
+  // Force Q3 planning context for the current cycle
+  useEffect(() => { setQuarter(3); }, []);
   const [dateRange, setDateRange] = useState<'ytd' | 'q1' | 'q2' | 'q3' | 'q4' | 'custom'>('ytd');
   const [customStart, setCustomStart] = useState(`${currentYear}-01-01`);
   const [customEnd, setCustomEnd] = useState(`${currentYear}-12-31`);
@@ -416,8 +418,8 @@ const BusinessPlanning = () => {
         </TabsContent>
 
         <TabsContent value="reflection" className="mt-6">
-          {/* Reflection is always about the JUST-ENDED quarter (the one prior to planning) */}
-          <ReflectionTab uid={uid} quarter={quarter > 1 ? quarter - 1 : 4} isViewingAsAgent={isViewingAsAgent} />
+          {/* Reflection & Mindset tied to the quarter being planned */}
+          <ReflectionTab uid={uid} quarter={quarter} isViewingAsAgent={isViewingAsAgent} />
         </TabsContent>
 
         <TabsContent value="strategy" className="mt-6">
