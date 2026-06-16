@@ -301,7 +301,8 @@ const Pipeline = () => {
       .eq('id', editingClient.id);
 
     if (error) {
-      toast({ title: 'Error', description: 'Failed to update client', variant: 'destructive' });
+      console.error('Pipeline update error:', error);
+      toast({ title: 'Error', description: error.message || 'Failed to update client', variant: 'destructive' });
       return;
     }
 
@@ -691,8 +692,12 @@ const Pipeline = () => {
                   {client.source && <p className="text-xs text-muted-foreground">Source: {client.source}</p>}
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" variant="ghost" onClick={() => setEditingClient(client)}><Edit2 className="h-4 w-4" /></Button>
-                  <Button size="sm" variant="ghost" onClick={() => handleDeleteClient(client.id)}><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                  {!isReadOnly && (
+                    <>
+                      <Button size="sm" variant="ghost" onClick={() => setEditingClient(client)}><Edit2 className="h-4 w-4" /></Button>
+                      <Button size="sm" variant="ghost" onClick={() => handleDeleteClient(client.id)}><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                    </>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2 text-sm mb-3">
