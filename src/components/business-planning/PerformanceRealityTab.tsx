@@ -31,6 +31,8 @@ export interface PipelineGapData {
   prevQActualClosings: number;
   /** Q(n-1) required closings (goal-based) */
   prevQRequiredClosings: number;
+  /** Q(n-1) actual GCI from closed deals */
+  prevQActualGci?: number;
 }
 
 interface ManualPerformance {
@@ -190,6 +192,16 @@ export function PerformanceRealityTab({
 
   const prevQ = quarter > 1 ? quarter - 1 : 4;
 
+  // ── Q-over-Q comparison: prior quarter actuals vs upcoming quarter required GCI ──
+  const annualGoal = metrics?.targetGCI || 0;
+  const ytdGci = metrics?.ytdGCI || 0;
+  const remainingGoal = Math.max(0, annualGoal - ytdGci);
+  const remainingQuarters = Math.max(1, 4 - quarter + 1); // quarters left including current planning Q
+  const requiredPerRemainingQ = annualGoal > 0 ? Math.round(remainingGoal / remainingQuarters) : 0;
+  const prevQActualGci = pipelineGapData.prevQActualGci || 0;
+  const qOverQDelta = requiredPerRemainingQ - prevQActualGci;
+  const yearProgressPct = annualGoal > 0 ? Math.min(100, Math.round((ytdGci / annualGoal) * 100)) : 0;
+
   // Manual metrics state for planning mode display
   const [manualData, setManualData] = useState<ManualPerformance | null>(null);
 
@@ -203,6 +215,44 @@ export function PerformanceRealityTab({
       <DebugMetricsPanel debugInfo={debugInfo} isAdmin={isAdmin} />
 
       {mode === 'active' && metrics ? (
+        <>
+        {annualGoal > 0 && (
+          <Card className="border-gold/30 bg-gold/5">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <TrendingUp className="h-5 w-5 text-gold" />
+                Q{prevQ} → Q{quarter} Outlook
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <StatCard label={`Q${prevQ} Actual GCI`} value={formatCurrency(prevQActualGci)} sub="Closed last quarter" />
+                <StatCard label="YTD GCI" value={formatCurrency(ytdGci)} sub={`${yearProgressPct}% of annual goal`} />
+                <StatCard label="Annual Goal" value={formatCurrency(annualGoal)} sub={`${formatCurrency(remainingGoal)} remaining`} />
+                <StatCard
+                  label={`Q${quarter}–Q4 Required / Q`}
+                  value={formatCurrency(requiredPerRemainingQ)}
+                  sub={`To finish year on goal (${remainingQuarters} Q${remainingQuarters > 1 ? "'s" : ''} left)`}
+                  danger={qOverQDelta > 0}
+                />
+              </div>
+              <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                <div className="h-full bg-gold transition-all" style={{ width: `${yearProgressPct}%` }} />
+              </div>
+              {qOverQDelta > 0 ? (
+                <div className="text-sm text-amber-600 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  Q{quarter} needs <span className="font-bold">{formatCurrency(qOverQDelta)}</span> more than Q{prevQ} delivered to stay on pace.
+                </div>
+              ) : annualGoal > 0 && (
+                <div className="text-sm text-green-600 flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4" />
+                  Q{prevQ} pace was sufficient — repeat it through Q4 to hit the annual goal.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
         <Card className="border-border">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
