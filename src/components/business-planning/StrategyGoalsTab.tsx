@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency, formatNumber } from '@/lib/utils';
-import { Target, Brain, Zap, Save, Loader2, AlertTriangle, ChevronRight, Lock } from 'lucide-react';
+import { Target, Brain, Zap, Save, Loader2, AlertTriangle, ChevronRight } from 'lucide-react';
 import { ActiveMetrics, GoalInputs, AISuggestion, AIInsight, currentYear } from './types';
 import { BreakdownRow } from './shared';
 import {
@@ -39,8 +39,7 @@ interface Props {
 /* ── Locked display field ── */
 const LockedField = ({ label, value, sub, highlight }: { label: string; value: string; sub?: string; highlight?: boolean }) => (
   <div className={`rounded-lg border p-3 ${highlight ? 'border-gold/30 bg-gold/5' : 'border-border bg-muted/30'}`}>
-    <div className="flex items-center gap-1.5 mb-1">
-      <Lock className="h-3 w-3 text-muted-foreground" />
+    <div className="mb-1">
       <span className="text-xs text-muted-foreground uppercase tracking-wider">{label}</span>
     </div>
     <p className={`text-lg font-bold ${highlight ? 'text-gold' : 'text-foreground'}`}>{value}</p>
@@ -123,6 +122,20 @@ export function StrategyGoalsTab({
   const monthly = (v: number) => Math.ceil(v / monthsInQ);
   const weekly = (v: number) => Math.ceil(v / weeksInQ);
   const daily = (v: number) => Math.ceil(v / daysInQ);
+
+  // ── Conversion rate sanity check ──
+  const allRates = [
+    { name: 'Contact → Appointment', val: effectiveRates.contactToAppt },
+    { name: 'Appointment → Contract', val: effectiveRates.apptToContract },
+    { name: 'CMA → Listing', val: effectiveRates.cmaToListing },
+    { name: 'Dials → Appointment', val: effectiveRates.dialsToAppt },
+    { name: 'Contact → Appointment (override)', val: goals.contact_to_appt_rate },
+    { name: 'Appointment → Contract (override)', val: goals.appt_to_contract_rate },
+    { name: 'CMA → Listing (override)', val: goals.cma_to_listing_rate },
+    { name: 'Dials → Appointment (override)', val: goals.dials_to_appt_rate },
+  ];
+  const impossibleRates = allRates.filter(r => r.val > 100);
+  const hasImpossibleRate = impossibleRates.length > 0;
 
   const saveGoals = async () => {
     if (!uid || isViewingAsAgent) return;
@@ -287,9 +300,38 @@ export function StrategyGoalsTab({
         {/* ── Q-Strategy Calculated Fields (locked) ── */}
         <Separator />
         <div>
+          {hasImpossibleRate && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 mb-3 flex items-start gap-2 text-amber-800">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+              <p className="text-xs font-medium">
+                One or more conversion rates exceed 100% ({impossibleRates.map(r => r.name).join(', ')}).
+                The data may be incorrect — please review your inputs.
+              </p>
+            </div>
+          )}
           <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3">
             Q{quarter} Strategy — Auto-Calculated
           </h3>
+
+          {/* Dominant KPIs */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div className="rounded-lg border-2 border-gold/40 bg-gold/5 p-5">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Adjusted Pending Needed</p>
+              <p className="text-3xl font-bold text-foreground tabular-nums">{strategy.adjustedClosings}</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {strategy.prevQGap > 0 ? `+${strategy.prevQGap} from Q${quarter > 1 ? quarter - 1 : 4} gap` : 'No carryover'}
+              </p>
+            </div>
+            <div className={`rounded-lg border-2 p-5 ${pipelineGap > 0 ? 'border-gold/40 bg-gold/5' : 'border-green-300/40 bg-green-50/50'}`}>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Pipeline Gap</p>
+              <p className={`text-3xl font-bold tabular-nums ${pipelineGap > 0 ? 'text-foreground' : 'text-green-700'}`}>{pipelineGap}</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {pipelineGap > 0 ? `Need ${pipelineGap} more additions` : 'On track'}
+              </p>
+            </div>
+          </div>
+
+          {/* Supporting calculations */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <LockedField
               label={`Q${quarter > 1 ? quarter - 1 : 4} Gap (Deals)`}
@@ -303,12 +345,6 @@ export function StrategyGoalsTab({
               sub="Before carryover"
             />
             <LockedField
-              label="Adjusted Pending Needed"
-              value={String(strategy.adjustedClosings)}
-              sub={strategy.prevQGap > 0 ? `+${strategy.prevQGap} from Q${quarter > 1 ? quarter - 1 : 4} gap` : 'No carryover'}
-              highlight
-            />
-            <LockedField
               label="Avg GCI/Deal (Gross)"
               value={formatCurrency(Math.round(strategy.avgGciPerDeal))}
             />
@@ -317,13 +353,14 @@ export function StrategyGoalsTab({
               value={formatCurrency(Math.round(strategy.agentNetPerDeal))}
             />
             <LockedField
-              label={`Q${quarter} Gross GCI Target`}
+              label={`Q${quarter} GCI Target`}
               value={formatCurrency(Math.round(strategy.qGciGross))}
               highlight
             />
             <LockedField
-              label={`Q${quarter} Net Income Target`}
+              label="Your Estimated Take-Home"
               value={formatCurrency(Math.round(strategy.qIncomeNet))}
+              sub={`At ${(AGENT_SPLIT * 100).toFixed(0)}% agent split`}
               highlight
             />
             <LockedField
@@ -331,19 +368,13 @@ export function StrategyGoalsTab({
               value={String(pipelineNeeded)}
               sub={`${currentPipeline} current · 70% fallout rate`}
             />
-            <LockedField
-              label="Pipeline Gap"
-              value={String(pipelineGap)}
-              sub={pipelineGap > 0 ? `Need ${pipelineGap} more additions` : 'On track'}
-              highlight={pipelineGap > 0}
-            />
           </div>
         </div>
 
         {/* ── Conversion Rates (read-only from Performance) ── */}
         <div className="rounded-lg border border-border bg-muted/30 p-3">
-          <p className="text-xs text-muted-foreground mb-2 font-medium flex items-center gap-1.5">
-            <Lock className="h-3 w-3" /> Conversion Rates (from Performance)
+          <p className="text-xs text-muted-foreground mb-2 font-medium">
+            Conversion Rates (from Performance)
           </p>
           <div className="flex flex-wrap gap-4 text-xs">
             <span>Contact → Appt: <strong>{effectiveRates.contactToAppt}%</strong></span>
