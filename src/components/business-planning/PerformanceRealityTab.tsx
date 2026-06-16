@@ -213,8 +213,13 @@ export function PerformanceRealityTab({
   const q2Gci = pipelineGapData.q2ClosedGci || 0;
   const firmPendingGci = pipelineGapData.firmPendingGci || 0;
   const conditionalGci = pipelineGapData.conditionalGci || 0;
+  const q1Units = pipelineGapData.q1ClosedUnits || 0;
+  const q2Units = pipelineGapData.q2ClosedUnits || 0;
+  const firmPendingUnits = pipelineGapData.firmPendingUnits || 0;
+  const conditionalUnits = pipelineGapData.conditionalUnits || 0;
   // Projected = banked YTD + firm pending (likely to close) + conditional (at-risk upside)
   const projectedGci = ytdClosedGci + firmPendingGci + conditionalGci;
+  const projectedUnits = (metrics?.ytdClosedDeals || 0) + firmPendingUnits + conditionalUnits;
   const projectedVsGoal = annualGoal > 0 ? projectedGci - annualGoal : 0;
   const projectedPct = annualGoal > 0 ? Math.min(100, Math.round((projectedGci / annualGoal) * 100)) : 0;
 
