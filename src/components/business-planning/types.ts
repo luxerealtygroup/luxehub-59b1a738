@@ -42,7 +42,14 @@ export interface ActiveMetrics {
   // Sale / lease split (for honest per-deal averages)
   salesCountClosed: number;
   leaseCountClosed: number;
+  salesCountPending: number;
+  salesCountConditional: number;
+  gciSalesClosed: number;
+  gciSalesPending: number;
+  gciSalesConditional: number;
   avgGciPerSale: number;
+  avgGciPerClosedSale: number;
+  avgGciPerPendingSale: number;
   avgGciPerLease: number;
 }
 
