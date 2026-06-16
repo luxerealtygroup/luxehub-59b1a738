@@ -700,23 +700,23 @@ export function PerformanceRealityTab({
                 </p>
                 <p className="text-xs text-muted-foreground mt-3">
                   YTD closed + pending + conditional
-                  {metrics.targetGCI > 0 ? ` · Target: ${formatCurrency(metrics.targetGCI)}` : ''}
+                  {annualGoal > 0 ? ` · Target: ${formatCurrency(annualGoal)}` : ''}
                 </p>
               </div>
-              {metrics.targetGCI > 0 && (
+              {annualGoal > 0 && (
                 <div className={`rounded-lg border-2 p-6 min-h-[160px] flex flex-col justify-center ${
-                  projectedGci < metrics.targetGCI ? 'border-destructive/60' : 'border-green-600/60'
+                  projectedGci < annualGoal ? 'border-destructive/60' : 'border-green-600/60'
                 }`}>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground mb-2">
                     GCI Gap to Annual Goal
                   </p>
                   <p className={`text-4xl md:text-5xl font-bold leading-none ${
-                    projectedGci < metrics.targetGCI ? 'text-destructive' : 'text-green-600'
+                    projectedGci < annualGoal ? 'text-destructive' : 'text-green-600'
                   }`}>
-                    {projectedGci < metrics.targetGCI ? formatCurrency(metrics.targetGCI - projectedGci) : 'On Track'}
+                    {projectedGci < annualGoal ? formatCurrency(annualGoal - projectedGci) : 'On Track'}
                   </p>
                   <p className="text-xs text-muted-foreground mt-3">
-                    {projectedGci < metrics.targetGCI ? 'Shortfall vs pipeline projection' : 'Projected to meet or exceed annual goal'}
+                    {projectedGci < annualGoal ? 'Shortfall vs pipeline projection' : 'Projected to meet or exceed annual goal'}
                   </p>
                 </div>
               )}
