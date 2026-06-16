@@ -226,16 +226,16 @@ const ConversionReport = () => {
           appointments_held: 0, pipeline_additions: 0, contracts_signed: 0,
           firm_deals: 0, database_size: 0,
         });
-  const exceededRates = conversionMetrics
+  const exceededRates: { label: string; value: string }[] = conversionMetrics
     .map(m => {
       const num = scopeTotals[m.num as keyof AgentTotals];
       const den = scopeTotals[m.den as keyof AgentTotals];
       if (den > 0 && num / den > 1) {
-        return { label: m.label, value: ((num / den) * 100).toFixed(1) + '%' };
+        return { label: m.label as string, value: ((num / den) * 100).toFixed(1) + '%' };
       }
       return null;
     })
-    .filter((x): x is { label: string; value: string } => x !== null);
+    .filter(Boolean) as { label: string; value: string }[];
 
   if (loading) {
     return (
