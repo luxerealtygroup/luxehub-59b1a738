@@ -111,7 +111,7 @@ export function ActivityRequirementsEngine({ pipelineDeficit, quarter, conversio
   if (deficit === 0) return null;
 
   const metrics = [
-    { icon: TrendingUp, label: 'Pipeline Deals Needed', total: deficit, weekly: weeklyPipeline, color: 'text-destructive' },
+    { icon: TrendingUp, label: 'New Pipeline Contacts Needed', total: deficit, weekly: weeklyPipeline, color: 'text-destructive' },
     { icon: CalendarCheck, label: 'Appointments Required', total: apptsRequired, weekly: weeklyAppts, color: 'text-primary' },
     { icon: Users, label: 'Contacts Required', total: contactsRequired, weekly: weeklyContacts, color: 'text-blue-500' },
     { icon: Phone, label: 'Dials Required', total: dialsRequired, weekly: weeklyDials, color: 'text-gold' },

@@ -390,7 +390,7 @@ const Dashboard = () => {
     if (avg >= 100) return { icon: Award, text: "Outstanding! You've crushed your goals! 🏆", color: "text-green-500" };
     if (avg >= 75) return { icon: Flame, text: "You're on fire! Keep pushing to hit your targets!", color: "text-orange-500" };
     if (avg >= 50) return { icon: TrendingUp, text: "Great momentum! You're halfway to your goals!", color: "text-gold" };
-    if (avg >= 25) return { icon: ArrowUp, text: "Building momentum! Every deal counts!", color: "text-blue-500" };
+    if (avg >= 25) return { icon: ArrowUp, text: "Building momentum! Every sale counts!", color: "text-blue-500" };
     return { icon: Target, text: "Start strong! Your next deal is waiting!", color: "text-muted-foreground" };
   };
 
@@ -468,7 +468,7 @@ const Dashboard = () => {
           <div className="mt-4 p-3 rounded-lg bg-gold/10 border border-gold/20">
             <p className="text-sm text-foreground font-medium">💡 Pro Tip</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Agents who log their activities daily close 40% more deals. Keep tracking to stay ahead!
+              Agents who log their activities daily close 40% more sales. Keep tracking to stay ahead!
             </p>
           </div>
         </CardContent>
@@ -480,12 +480,12 @@ const Dashboard = () => {
           <div className="grid grid-cols-3 items-start justify-around gap-2 md:gap-8">
             <div className="text-center">
               <ProgressRing progress={dealsProgress} size={typeof window !== 'undefined' && window.innerWidth < 768 ? 84 : 120} strokeWidth={7} color={dealsProgress >= 100 ? "hsl(142 71% 45%)" : "hsl(var(--gold))"} />
-              <p className="mt-2 md:mt-3 text-xs md:text-sm font-medium text-foreground">Deals Goal</p>
+              <p className="mt-2 md:mt-3 text-xs md:text-sm font-medium text-foreground">Sales Goal</p>
               <p className="text-[10px] md:text-xs text-muted-foreground">{displayStats.closedDeals} / {displayStats.dealsGoal}</p>
             </div>
             <div className="text-center">
               <ProgressRing progress={gciProgress} size={typeof window !== 'undefined' && window.innerWidth < 768 ? 84 : 120} strokeWidth={7} color={gciProgress >= 100 ? "hsl(142 71% 45%)" : "hsl(var(--gold))"} />
-              <p className="mt-2 md:mt-3 text-xs md:text-sm font-medium text-foreground">GCI Goal (Gross)</p>
+              <p className="mt-2 md:mt-3 text-xs md:text-sm font-medium text-foreground">GCI Goal (Net)</p>
               <p className="text-[10px] md:text-xs text-muted-foreground break-words">{formatCurrency(displayStats.totalCommissions)} / {formatCurrency(displayStats.gciGoal)}</p>
             </div>
             <div className="text-center">
@@ -632,7 +632,7 @@ const Dashboard = () => {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <CheckCircle className="h-5 w-5 text-green-500" />
-                <h3 className="text-sm font-medium text-muted-foreground">Closed Deals</h3>
+                <h3 className="text-sm font-medium text-muted-foreground">Closed Sales</h3>
               </div>
             </div>
             <p className="text-3xl font-bold text-foreground">{displayStats.closedDeals}</p>
@@ -647,14 +647,14 @@ const Dashboard = () => {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Building2 className="h-5 w-5 text-amber-500" />
-                <h3 className="text-sm font-medium text-muted-foreground">Active Deals</h3>
+                <h3 className="text-sm font-medium text-muted-foreground">Pipeline Clients</h3>
               </div>
             </div>
             <p className="text-3xl font-bold text-foreground">{displayStats.activeDeals}</p>
             <p className="text-xs text-muted-foreground mt-1">in pipeline</p>
             <div className="mt-3 flex items-center gap-2">
               <Badge variant="outline" className="border-amber-500/30 text-amber-500 bg-amber-500/10 text-xs">
-                {displayStats.totalDeals} total deals
+                {displayStats.totalDeals} in pipeline
               </Badge>
             </div>
           </CardContent>
@@ -665,7 +665,7 @@ const Dashboard = () => {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <DollarSign className="h-5 w-5 text-green-500" />
-                <h3 className="text-sm font-medium text-muted-foreground">Earned GCI (Gross)</h3>
+                <h3 className="text-sm font-medium text-muted-foreground">Earned GCI (Net)</h3>
               </div>
             </div>
             <p className="text-3xl font-bold text-foreground">{formatCurrency(displayStats.totalCommissions)}</p>
@@ -680,7 +680,7 @@ const Dashboard = () => {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Clock className="h-5 w-5 text-gold" />
-                <h3 className="text-sm font-medium text-muted-foreground">Pending GCI (Gross)</h3>
+                <h3 className="text-sm font-medium text-muted-foreground">Pending GCI</h3>
               </div>
             </div>
             <p className="text-3xl font-bold text-gold">{formatCurrency(displayStats.pendingCommissions)}</p>
@@ -699,7 +699,7 @@ const Dashboard = () => {
         <CardHeader>
           <CardTitle className="text-lg font-display text-foreground flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-gold" />
-            {currentYear} GCI Trend (Gross)
+            {currentYear} GCI Trend (Net)
           </CardTitle>
         </CardHeader>
         <CardContent>
