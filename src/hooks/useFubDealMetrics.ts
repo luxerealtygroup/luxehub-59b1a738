@@ -16,6 +16,13 @@ export const classifyStage = (stageName: string): 'closed' | 'pending' | 'other'
   return 'other';
 };
 
+const isConditionalStage = (stageName: string): boolean => {
+  const s = (stageName || '').toLowerCase();
+  return s.includes('conditional') || s.includes('offer');
+};
+
+const getDealGci = (deal: any): number => Number(deal.commissionValue ?? deal.agentCommission ?? 0) || 0;
+
 // ── Deal-side inference ──────────────────────────────────────────────────
 /** Infer whether a deal is listing/seller-side or buyer-side.
  *  Returns 'listing', 'buyer', or 'unknown'. */
@@ -98,6 +105,14 @@ export interface DealMetrics {
   gci_sales_closed: number;
   /** GCI earned from leases only */
   gci_leases_closed: number;
+  /** Number of pending sales, excluding leases and conditional/offer stages */
+  sales_count_pending: number;
+  /** Number of conditional/offer sales, excluding leases */
+  sales_count_conditional: number;
+  /** Pending sales GCI, excluding leases and conditional/offer stages */
+  gci_sales_pending: number;
+  /** Conditional/offer sales GCI, excluding leases */
+  gci_sales_conditional: number;
 }
 
 export interface DebugInfo {
@@ -145,6 +160,7 @@ export function useFubDealMetrics({
     sales_volume_closed: 0,
     weighted_closed: 0, weighted_pending: 0, weighted_debug_closed: null, weighted_debug_pending: null,
     sales_count_closed: 0, lease_count_closed: 0, gci_sales_closed: 0, gci_leases_closed: 0,
+    sales_count_pending: 0, sales_count_conditional: 0, gci_sales_pending: 0, gci_sales_conditional: 0,
   });
   const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -239,7 +255,7 @@ export function useFubDealMetrics({
         debug.dealsInClosedStagesAndDateRange = closedInYear.length;
 
         dealsClosed = closedInYear.length;
-        gciEarned = closedInYear.reduce((sum, d) => sum + Number(d.agentCommission || 0), 0);
+        gciEarned = closedInYear.reduce((sum, d) => sum + getDealGci(d), 0);
         closedDealsArr = closedInYear;
 
         // (d) PENDING = pending stage, NOT in closed stages, any date
@@ -248,7 +264,7 @@ export function useFubDealMetrics({
           return stage === 'pending';
         });
         dealsPending = pendingDeals.length;
-        gciPending = pendingDeals.reduce((sum, d) => sum + Number(d.agentCommission || 0), 0);
+        gciPending = pendingDeals.reduce((sum, d) => sum + getDealGci(d), 0);
         pendingDealsArr = pendingDeals;
 
         setAllDeals(agentDeals);
@@ -301,20 +317,43 @@ export function useFubDealMetrics({
     );
     const weightedDebugClosed = buildWeightedDebug(closedDealsArr, dealMetadataMap);
     const salesCountClosed = closedDealsArr.length > 0 ? weightedDebugClosed.saleCount : dealsClosed;
-    // Split GCI by sale vs lease
+    // Split GCI by sale vs lease. Sales-only planning uses full GCI from closed,
+    // pending, and conditional activity so early-year closed deals don't skew the average.
     let gciSalesClosed = 0;
     let gciLeasesClosed = 0;
     let leaseCountClosed = 0;
+    let salesCountPending = 0;
+    let salesCountConditional = 0;
+    let gciSalesPending = 0;
+    let gciSalesConditional = 0;
     if (closedDealsArr.length > 0) {
       for (const d of closedDealsArr) {
         const cat = inferDealCategory(d, dealMetadataMap).category;
-        const gci = Number((d as any).agentCommission || 0);
+        const gci = getDealGci(d);
         if (cat === 'lease') { gciLeasesClosed += gci; leaseCountClosed++; }
         else { gciSalesClosed += gci; }
       }
     } else {
       // Local/manual fallback: treat everything as sales
       gciSalesClosed = gciEarned;
+    }
+    if (pendingDealsArr.length > 0) {
+      for (const d of pendingDealsArr) {
+        const cat = inferDealCategory(d, dealMetadataMap).category;
+        if (cat === 'lease') continue;
+        const gci = getDealGci(d);
+        if (isConditionalStage((d as any).stageName)) {
+          salesCountConditional++;
+          gciSalesConditional += gci;
+        } else {
+          salesCountPending++;
+          gciSalesPending += gci;
+        }
+      }
+    } else if (dealsPending > 0) {
+      // Local/manual fallback: treat pending as sales when no FUB deal rows exist.
+      salesCountPending = dealsPending;
+      gciSalesPending = gciPending;
     }
     setMetrics({
       deals_closed: dealsClosed, deals_pending: dealsPending,
@@ -328,6 +367,10 @@ export function useFubDealMetrics({
       lease_count_closed: leaseCountClosed,
       gci_sales_closed: Math.round(gciSalesClosed),
       gci_leases_closed: Math.round(gciLeasesClosed),
+      sales_count_pending: salesCountPending,
+      sales_count_conditional: salesCountConditional,
+      gci_sales_pending: Math.round(gciSalesPending),
+      gci_sales_conditional: Math.round(gciSalesConditional),
     });
     setDebugInfo(debug);
     setLoading(false);

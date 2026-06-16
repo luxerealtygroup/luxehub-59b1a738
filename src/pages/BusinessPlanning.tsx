@@ -263,7 +263,15 @@ const BusinessPlanning = () => {
     const monthsPassed = now.getMonth() + (now.getDate() / 30);
     const ytdGCI = Math.round(dealMetrics.gci_earned);
     const projected = monthsPassed > 0 ? Math.round((ytdGCI / monthsPassed) * 12) : 0;
-    const avgComm = dealMetrics.sales_count_closed > 0 ? Math.round(ytdGCI / dealMetrics.sales_count_closed) : 15000;
+    const totalSalesForAverage = dealMetrics.sales_count_closed + dealMetrics.sales_count_pending + dealMetrics.sales_count_conditional;
+    const totalSalesGciForAverage = dealMetrics.gci_sales_closed + dealMetrics.gci_sales_pending + dealMetrics.gci_sales_conditional;
+    const avgComm = totalSalesForAverage > 0 ? Math.round(totalSalesGciForAverage / totalSalesForAverage) : 15000;
+    const avgClosedSale = dealMetrics.sales_count_closed > 0
+      ? Math.round(dealMetrics.gci_sales_closed / dealMetrics.sales_count_closed)
+      : 0;
+    const avgPendingSale = (dealMetrics.sales_count_pending + dealMetrics.sales_count_conditional) > 0
+      ? Math.round((dealMetrics.gci_sales_pending + dealMetrics.gci_sales_conditional) / (dealMetrics.sales_count_pending + dealMetrics.sales_count_conditional))
+      : 0;
     setMetrics({
       ytdClosedDeals: dealMetrics.deals_closed, ytdGCI, pendingGCI: Math.round(dealMetrics.gci_pending),
       activeListings: fubActiveListings.length, cmaToListingPct: suppMetrics.cmaToListingPct,
@@ -284,9 +292,14 @@ const BusinessPlanning = () => {
       weightedDebugPending: dealMetrics.weighted_debug_pending,
       salesCountClosed: dealMetrics.sales_count_closed,
       leaseCountClosed: dealMetrics.lease_count_closed,
-      avgGciPerSale: dealMetrics.sales_count_closed > 0
-        ? Math.round(dealMetrics.gci_sales_closed / dealMetrics.sales_count_closed)
-        : 0,
+      salesCountPending: dealMetrics.sales_count_pending,
+      salesCountConditional: dealMetrics.sales_count_conditional,
+      gciSalesClosed: dealMetrics.gci_sales_closed,
+      gciSalesPending: dealMetrics.gci_sales_pending,
+      gciSalesConditional: dealMetrics.gci_sales_conditional,
+      avgGciPerSale: avgComm,
+      avgGciPerClosedSale: avgClosedSale,
+      avgGciPerPendingSale: avgPendingSale,
       avgGciPerLease: dealMetrics.lease_count_closed > 0
         ? Math.round(dealMetrics.gci_leases_closed / dealMetrics.lease_count_closed)
         : 0,
