@@ -123,12 +123,14 @@ const BusinessPlanning = () => {
     const cd = getCloseDate(d);
     return cd && cd >= prevQRange.start && cd <= prevQRange.end;
   });
-  // Pending/conditional deals projected to close in prev quarter still count toward its goal
+  // In-flight pending/conditional deals credit toward the prev quarter's goal.
+  // Include pending deals with no close date OR a close date on/after prev quarter start
+  // (covers deals extended past Q2 — they were Q2 pipeline work).
   const prevQPendingDeals = allDeals.filter(d => {
     if (classifyStage(d.stageName) !== 'pending') return false;
     if (!isDealOwnedByAgent(d, effectiveFubUserId)) return false;
     const cd = getCloseDate(d);
-    return cd && cd >= prevQRange.start && cd <= prevQRange.end;
+    return !cd || cd >= prevQRange.start;
   });
   const prevQActualOrPendingCount = prevQClosedDeals.length + prevQPendingDeals.length;
 
