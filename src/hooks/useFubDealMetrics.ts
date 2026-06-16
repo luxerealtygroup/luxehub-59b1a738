@@ -89,6 +89,8 @@ export interface DealMetrics {
   weighted_pending: number;
   weighted_debug_closed: WeightedDebugInfo | null;
   weighted_debug_pending: WeightedDebugInfo | null;
+  /** Number of closed deals that are actual sales (excludes leases) */
+  sales_count_closed: number;
 }
 
 export interface DebugInfo {
@@ -135,6 +137,7 @@ export function useFubDealMetrics({
     deals_closed: 0, deals_pending: 0, gci_earned: 0, gci_pending: 0,
     sales_volume_closed: 0,
     weighted_closed: 0, weighted_pending: 0, weighted_debug_closed: null, weighted_debug_pending: null,
+    sales_count_closed: 0,
   });
   const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -289,14 +292,17 @@ export function useFubDealMetrics({
       (sum, d: any) => sum + Number(d.price || 0),
       0
     );
+    const weightedDebugClosed = buildWeightedDebug(closedDealsArr, dealMetadataMap);
+    const salesCountClosed = closedDealsArr.length > 0 ? weightedDebugClosed.saleCount : dealsClosed;
     setMetrics({
       deals_closed: dealsClosed, deals_pending: dealsPending,
       gci_earned: gciEarned, gci_pending: gciPending,
       sales_volume_closed: salesVolumeClosed,
       weighted_closed: Math.round(weightedClosed * 100) / 100,
       weighted_pending: Math.round(weightedPending * 100) / 100,
-      weighted_debug_closed: buildWeightedDebug(closedDealsArr, dealMetadataMap),
+      weighted_debug_closed: weightedDebugClosed,
       weighted_debug_pending: buildWeightedDebug(pendingDealsArr, dealMetadataMap),
+      sales_count_closed: salesCountClosed,
     });
     setDebugInfo(debug);
     setLoading(false);

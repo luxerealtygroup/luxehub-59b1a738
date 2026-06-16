@@ -263,7 +263,7 @@ const BusinessPlanning = () => {
     const monthsPassed = now.getMonth() + (now.getDate() / 30);
     const ytdGCI = Math.round(dealMetrics.gci_earned);
     const projected = monthsPassed > 0 ? Math.round((ytdGCI / monthsPassed) * 12) : 0;
-    const avgComm = dealMetrics.deals_closed > 0 ? Math.round(ytdGCI / dealMetrics.deals_closed) : 15000;
+    const avgComm = dealMetrics.sales_count_closed > 0 ? Math.round(ytdGCI / dealMetrics.sales_count_closed) : 15000;
     setMetrics({
       ytdClosedDeals: dealMetrics.deals_closed, ytdGCI, pendingGCI: Math.round(dealMetrics.gci_pending),
       activeListings: fubActiveListings.length, cmaToListingPct: suppMetrics.cmaToListingPct,
@@ -316,8 +316,8 @@ const BusinessPlanning = () => {
         const annualTarget = metrics.targetGCI || 0;
         const autoQGci = annualTarget > 0 ? Math.round(annualTarget / 4) : g.gci_target;
         // Auto-derive average sale price from FUB closed-deal volume
-        const autoAvgSalePrice = (dealMetrics && dealMetrics.deals_closed > 0 && dealMetrics.sales_volume_closed > 0)
-          ? Math.round(dealMetrics.sales_volume_closed / dealMetrics.deals_closed)
+        const autoAvgSalePrice = (dealMetrics && dealMetrics.sales_count_closed > 0 && dealMetrics.sales_volume_closed > 0)
+          ? Math.round(dealMetrics.sales_volume_closed / dealMetrics.sales_count_closed)
           : g.avg_sale_price;
         return {
           ...g,
