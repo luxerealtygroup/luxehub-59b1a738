@@ -192,6 +192,10 @@ const BusinessPlanning = () => {
     q2ClosedGci,
     firmPendingGci,
     conditionalGci,
+    q1ClosedUnits,
+    q2ClosedUnits,
+    firmPendingUnits,
+    conditionalUnits,
   };
 
   // ─── Supplemental metrics (411, CMA, production goals) ───
