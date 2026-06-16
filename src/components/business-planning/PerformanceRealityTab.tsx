@@ -456,15 +456,15 @@ export function PerformanceRealityTab({
                    </div>
                  </div>
 
-                 {isBehind ? (
-                   <p className="text-[12px] text-muted-foreground">
-                     Your original Q3 goal was <span className="font-semibold text-foreground">{formatCurrency(originalQ3Goal)}</span>. The remaining gap from H1 has been split across Q3 and Q4 based on how agents on this team typically produce. Q3 carries 60%, Q4 carries 40%.
-                   </p>
-                 ) : (
-                   <p className="text-[12px] text-muted-foreground">
-                     You banked <span className="font-semibold text-green-600">{formatCurrency(surplus)}</span> in H1. Your Q3 target is <span className="font-semibold text-foreground">{formatCurrency(adjustedQ3Target)}</span> — but don't coast.
-                   </p>
-                 )}
+                  {isBehind ? (
+                    <p className="text-[12px] text-muted-foreground">
+                      Your original Q3 goal was <span className="font-semibold text-foreground">{formatCurrency(originalQ3Goal)}</span>. The remaining gap from Jan-Jun has been split across Q3 and Q4 based on how agents on this team typically produce. Q3 carries 60%, Q4 carries 40%.
+                    </p>
+                  ) : (
+                    <p className="text-[12px] text-muted-foreground">
+                      You banked <span className="font-semibold text-green-600">{formatCurrency(surplus)}</span> in Jan-Jun. Your Q3 target is <span className="font-semibold text-foreground">{formatCurrency(adjustedQ3Target)}</span> — but don't coast.
+                    </p>
+                  )}
                  <p className="text-[11px] text-muted-foreground italic">
                    Q3/Q4 split based on typical team production patterns — Q3 historically outperforms Q4.
                  </p>
