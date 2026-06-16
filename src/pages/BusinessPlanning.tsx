@@ -316,8 +316,8 @@ const BusinessPlanning = () => {
         const annualTarget = metrics.targetGCI || 0;
         const autoQGci = annualTarget > 0 ? Math.round(annualTarget / 4) : g.gci_target;
         // Auto-derive average sale price from FUB closed-deal volume
-        const autoAvgSalePrice = (dealMetrics && dealMetrics.deals_closed > 0 && dealMetrics.sales_volume_closed > 0)
-          ? Math.round(dealMetrics.sales_volume_closed / dealMetrics.deals_closed)
+        const autoAvgSalePrice = (dealMetrics && dealMetrics.sales_count_closed > 0 && dealMetrics.sales_volume_closed > 0)
+          ? Math.round(dealMetrics.sales_volume_closed / dealMetrics.sales_count_closed)
           : g.avg_sale_price;
         return {
           ...g,
