@@ -8,7 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { BarChart3, Crosshair, Save, Pencil, AlertTriangle, CheckCircle, TrendingUp, Info } from 'lucide-react';
+import { Save, Pencil, AlertTriangle, CheckCircle, TrendingUp, Info, ChevronDown } from 'lucide-react';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { DebugMetricsPanel } from '@/components/DebugMetricsPanel';
 import { DebugInfo } from '@/hooks/useFubDealMetrics';
@@ -16,6 +16,7 @@ import { ActiveMetrics, ActiveListingDebug, GoalInputs, currentYear, safe } from
 import { StatCard } from './shared';
 import { toast } from 'sonner';
 import { formatWeightedDeals } from '@/lib/utils/dealWeight';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 // ── Pipeline data from shared usePipelineMetrics hook (same source as Pipeline tab) ──
 export interface PipelineGapData {
@@ -175,6 +176,33 @@ function ManualPerformanceForm({ uid, onSaved }: { uid: string | null; onSaved: 
 // ── Default fallout rate ──
 const DEFAULT_FALLOUT_RATE = 0.70;
 
+function Step({
+  label, value, sub, bold, muted, amber, danger, success,
+}: {
+  label: string; value: string; sub?: string;
+  bold?: boolean; muted?: boolean; amber?: boolean; danger?: boolean; success?: boolean;
+}) {
+  const valueColor = danger
+    ? 'text-destructive'
+    : success
+      ? 'text-green-600'
+      : amber
+        ? 'text-amber-600'
+        : 'text-foreground';
+  const labelColor = muted ? 'text-muted-foreground' : 'text-foreground';
+  return (
+    <div className="flex items-baseline justify-between gap-4">
+      <div className="min-w-0">
+        <p className={`text-sm ${bold ? 'font-bold' : 'font-medium'} ${labelColor}`}>{label}</p>
+        {sub && <p className="text-[11px] text-muted-foreground mt-0.5">{sub}</p>}
+      </div>
+      <p className={`text-base ${bold ? 'font-bold' : 'font-semibold'} ${valueColor} tabular-nums whitespace-nowrap`}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
 export function PerformanceRealityTab({
   metrics, mode, dateRange, customStart, customEnd,
   isAdmin, debugInfo, activeListingDebug, goals, effectiveRates, uid, quarter, pipelineGapData, onManualMetrics,
@@ -222,6 +250,7 @@ export function PerformanceRealityTab({
   const projectedUnits = (metrics?.ytdClosedDeals || 0) + firmPendingUnits + conditionalUnits;
   const projectedVsGoal = annualGoal > 0 ? projectedGci - annualGoal : 0;
   const projectedPct = annualGoal > 0 ? Math.min(100, Math.round((projectedGci / annualGoal) * 100)) : 0;
+  const weeksToCloseDeficit = pipelineDeficit && pipelineDeficit > 0 ? Math.ceil(pipelineDeficit / 3) : 0;
 
   // Manual metrics state for planning mode display
   const [manualData, setManualData] = useState<ManualPerformance | null>(null);
@@ -238,49 +267,68 @@ export function PerformanceRealityTab({
       {mode === 'active' && metrics ? (
         <>
         {annualGoal > 0 && (
-          <Card className="border-gold/30 bg-gold/5">
+          <Card className="border-border">
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <TrendingUp className="h-5 w-5 text-gold" />
-                Q{quarter} Outlook — Pending + Conditional
+              <CardTitle className="text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+                Q{quarter} Outlook
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Quarterly historical context */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <StatCard label="Q1 GCI" value={formatCurrency(q1Gci)} sub={`${q1Units} closed`} />
-                <StatCard label="Q2 GCI" value={formatCurrency(q2Gci)} sub={`${q2Units} closed`} />
-                <StatCard label="Pending GCI" value={formatCurrency(firmPendingGci)} sub={`${firmPendingUnits} under contract / pending`} />
-                <StatCard label="Conditional GCI" value={formatCurrency(conditionalGci)} sub={`${conditionalUnits} offer / conditional`} />
+            <CardContent className="space-y-5">
+              {/* History de-emphasized, pending/conditional dominant */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-stretch">
+                <div className="rounded-lg border border-dashed border-border/60 p-3 bg-muted/20">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1">Q1 GCI</p>
+                  <p className="text-lg font-medium text-muted-foreground">{formatCurrency(q1Gci)}</p>
+                  <p className="text-[11px] text-muted-foreground/70 mt-0.5">{q1Units} closed</p>
+                </div>
+                <div className="rounded-lg border border-dashed border-border/60 p-3 bg-muted/20">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1">Q2 GCI</p>
+                  <p className="text-lg font-medium text-muted-foreground">{formatCurrency(q2Gci)}</p>
+                  <p className="text-[11px] text-muted-foreground/70 mt-0.5">{q2Units} closed</p>
+                </div>
+                <div className="rounded-lg border-2 border-gold/40 bg-gold/5 p-4">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Pending GCI</p>
+                  <p className="text-2xl font-bold text-foreground">{formatCurrency(firmPendingGci)}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{firmPendingUnits} under contract / pending</p>
+                </div>
+                <div className="rounded-lg border-2 border-gold/40 bg-gold/5 p-4">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Conditional GCI</p>
+                  <p className="text-2xl font-bold text-foreground">{formatCurrency(conditionalGci)}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{conditionalUnits} offer / conditional</p>
+                </div>
               </div>
-              {/* Projected vs goal */}
-              <Separator />
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <StatCard
-                  label="Projected Total GCI"
-                  value={formatCurrency(projectedGci)}
-                  sub={`${projectedUnits} deals — YTD closed + pending + conditional`}
-                />
-                <StatCard label="Annual Goal" value={formatCurrency(annualGoal)} sub={`${projectedPct}% projected`} />
-                <StatCard
-                  label={projectedVsGoal >= 0 ? 'Projected Surplus' : 'Projected Gap'}
-                  value={formatCurrency(Math.abs(projectedVsGoal))}
-                  danger={projectedVsGoal < 0}
-                  sub={projectedVsGoal >= 0 ? 'Above annual goal' : 'Below annual goal'}
-                />
+
+              {/* Progress with explicit label */}
+              <div className="space-y-2">
+                <div className="flex items-baseline justify-between">
+                  <p className="text-[11px] uppercase tracking-wider text-muted-foreground">% of annual goal already in pipeline</p>
+                  <p className="text-sm font-bold text-foreground">{projectedPct}%</p>
+                </div>
+                <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-gold transition-all" style={{ width: `${projectedPct}%` }} />
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Projected {formatCurrency(projectedGci)} of {formatCurrency(annualGoal)} annual goal
+                </p>
               </div>
-              <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                <div className="h-full bg-gold transition-all" style={{ width: `${projectedPct}%` }} />
-              </div>
+
               {projectedVsGoal < 0 ? (
-                <div className="text-sm text-amber-600 flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4" />
-                  Even with all pending and conditional deals closing, projected falls <span className="font-bold">{formatCurrency(Math.abs(projectedVsGoal))}</span> short of annual goal. Q{quarter} needs new pipeline.
+                <div className="rounded-lg border-l-4 border-amber-500 bg-amber-500/5 p-4">
+                  <p className="text-sm font-bold text-foreground">
+                    Current pipeline covers only {projectedPct}% of your annual goal.
+                  </p>
+                  <p className="text-sm text-amber-700 dark:text-amber-500 mt-1">
+                    You need {formatCurrency(Math.abs(projectedVsGoal))} more in closings. Q{quarter} new pipeline is not optional.
+                  </p>
                 </div>
               ) : (
-                <div className="text-sm text-green-600 flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4" />
-                  Pending + conditional puts you {formatCurrency(projectedVsGoal)} above annual goal — protect those deals.
+                <div className="rounded-lg border-l-4 border-green-600 bg-green-500/5 p-4">
+                  <p className="text-sm font-bold text-foreground">
+                    Pending + conditional puts you above annual goal.
+                  </p>
+                  <p className="text-sm text-green-700 dark:text-green-500 mt-1">
+                    {formatCurrency(projectedVsGoal)} surplus — protect those deals through close.
+                  </p>
                 </div>
               )}
             </CardContent>
@@ -288,49 +336,93 @@ export function PerformanceRealityTab({
         )}
         <Card className="border-border">
           <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <BarChart3 className="h-5 w-5 text-gold" />
-              Performance Reality
-              <Badge variant="outline" className="ml-2 text-xs font-normal">{rangeLabel} {currentYear}</Badge>
+            <CardTitle className="flex items-baseline justify-between">
+              <span className="text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+                Performance Reality
+              </span>
+              <Badge variant="outline" className="text-xs font-normal">{rangeLabel} {currentYear}</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <StatCard label={`${rangeLabel} Closed (weighted)`} value={formatWeightedDeals(metrics.weightedClosed)} sub={metrics.weightedDebugClosed?.leaseCount ? `${metrics.ytdClosedDeals} raw · ${metrics.weightedDebugClosed.leaseCount} leases` : `${metrics.ytdClosedDeals} raw`} />
-              <StatCard label={`${rangeLabel} GCI`} value={formatCurrency(metrics.ytdGCI)} />
-              <StatCard label="Pending (weighted)" value={formatWeightedDeals(metrics.weightedPending)} sub={metrics.weightedDebugPending?.leaseCount ? `${metrics.pendingDeals} raw · ${metrics.weightedDebugPending.leaseCount} leases` : `${metrics.pendingDeals} raw`} />
-              <StatCard label="Active Listings" value={formatNumber(metrics.activeListings)} />
+            {/* Snapshot bar — borderless horizontal row */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 py-2">
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{rangeLabel} Closed</p>
+                <p className="text-3xl font-bold text-foreground leading-none">{formatWeightedDeals(metrics.weightedClosed)}</p>
+                <p className="text-[11px] text-muted-foreground mt-1.5">
+                  {metrics.weightedDebugClosed?.leaseCount ? `${metrics.ytdClosedDeals} raw · ${metrics.weightedDebugClosed.leaseCount} leases` : `${metrics.ytdClosedDeals} raw`}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{rangeLabel} GCI</p>
+                <p className="text-3xl font-bold text-foreground leading-none">{formatCurrency(metrics.ytdGCI)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Pending</p>
+                <p className="text-3xl font-bold text-foreground leading-none">{formatWeightedDeals(metrics.weightedPending)}</p>
+                <p className="text-[11px] text-muted-foreground mt-1.5">
+                  {metrics.weightedDebugPending?.leaseCount ? `${metrics.pendingDeals} raw · ${metrics.weightedDebugPending.leaseCount} leases` : `${metrics.pendingDeals} raw`}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Active Listings</p>
+                <p className="text-3xl font-bold text-foreground leading-none">{formatNumber(metrics.activeListings)}</p>
+              </div>
             </div>
 
-            {/* Active Listings Debug — hidden, re-enable for debugging */}
+            {/* Conversion rates — collapsed by default */}
+            <Collapsible>
+              <CollapsibleTrigger className="group flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground hover:text-foreground transition-colors">
+                Conversion Rates
+                <ChevronDown className="h-3 w-3 transition-transform group-data-[state=open]:rotate-180" />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <StatCard label="CMA → Listing" value={`${metrics.cmaToListingPct}%`} />
+                  <StatCard label="Appt → Contract" value={`${metrics.apptToContractPct}%`} />
+                  <StatCard label="Contact → Appt" value={`${metrics.contactToApptPct}%`} />
+                  <StatCard label="Dials → Appt" value={`${metrics.dialsToApptPct}%`} />
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <StatCard label="CMA → Listing" value={`${metrics.cmaToListingPct}%`} />
-              <StatCard label="Appt → Contract" value={`${metrics.apptToContractPct}%`} />
-              <StatCard label="Contact → Appt" value={`${metrics.contactToApptPct}%`} />
-              <StatCard label="Dials → Appt" value={`${metrics.dialsToApptPct}%`} />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <StatCard
-                label="Projected Year-End GCI"
-                value={formatCurrency(projectedGci)}
-                sub={`YTD closed + pending + conditional${metrics.targetGCI > 0 ? ` · Target: ${formatCurrency(metrics.targetGCI)}` : ''}`}
-              />
+            {/* Hero numbers: Projected Year-End GCI + Gap */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="rounded-lg border-2 border-gold/40 bg-gold/5 p-6 min-h-[160px] flex flex-col justify-center">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground mb-2">
+                  Projected Year-End GCI
+                </p>
+                <p className="text-4xl md:text-5xl font-bold text-foreground leading-none">
+                  {formatCurrency(projectedGci)}
+                </p>
+                <p className="text-xs text-muted-foreground mt-3">
+                  YTD closed + pending + conditional
+                  {metrics.targetGCI > 0 ? ` · Target: ${formatCurrency(metrics.targetGCI)}` : ''}
+                </p>
+              </div>
               {metrics.targetGCI > 0 && (
-                <StatCard
-                  label="Gap to Target"
-                  value={projectedGci < metrics.targetGCI ? formatCurrency(metrics.targetGCI - projectedGci) : 'On Track'}
-                  danger={projectedGci < metrics.targetGCI}
-                  sub={projectedGci < metrics.targetGCI ? 'Shortfall vs pipeline projection' : 'Projected to meet or exceed'}
-                />
+                <div className={`rounded-lg border-2 p-6 min-h-[160px] flex flex-col justify-center ${
+                  projectedGci < metrics.targetGCI ? 'border-destructive/60' : 'border-green-600/60'
+                }`}>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground mb-2">
+                    GCI Gap to Annual Goal
+                  </p>
+                  <p className={`text-4xl md:text-5xl font-bold leading-none ${
+                    projectedGci < metrics.targetGCI ? 'text-destructive' : 'text-green-600'
+                  }`}>
+                    {projectedGci < metrics.targetGCI ? formatCurrency(metrics.targetGCI - projectedGci) : 'On Track'}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-3">
+                    {projectedGci < metrics.targetGCI ? 'Shortfall vs pipeline projection' : 'Projected to meet or exceed annual goal'}
+                  </p>
+                </div>
               )}
             </div>
 
-            <Separator />
-            <div>
-              <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
-                <Crosshair className="h-4 w-4" /> Pipeline Deficit Analysis
+            {/* Pipeline Deficit — distinct background */}
+            <div className="rounded-xl bg-muted/40 dark:bg-muted/20 p-5 md:p-6 space-y-4">
+              <h3 className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+                Pipeline Deficit Analysis
               </h3>
 
               {pipelineDeficit === null ? (
@@ -339,77 +431,82 @@ export function PerformanceRealityTab({
                     <Info className="h-4 w-4 inline mr-1" />
                     Set Q{quarter} Goal
                   </p>
-                  <p className="text-xs text-muted-foreground mt-1">Set a GCI target in the Strategy & Goals tab to enable pipeline deficit analysis.</p>
+                  <p className="text-xs text-muted-foreground mt-1">Set a GCI target in the Strategy &amp; Goals tab to enable pipeline deficit analysis.</p>
                 </div>
               ) : (
                 <>
-                  <div className="rounded-lg border border-border bg-card p-4 space-y-2 font-mono text-sm">
-                    {prevQGap > 0 && (
-                      <div className="flex items-center justify-between text-amber-600">
-                        <span>YTD Deal Gap through Q{prevQ} (carryover)</span>
-                        <span className="font-bold">+{prevQGap} deals</span>
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Q{quarter} Base Closings Goal</span>
-                      <span className="font-bold text-foreground">{formatNumber(q2BaseGoal)} deals</span>
+                  {/* Inline contextual callout above the math */}
+                  {pipelineDeficit > 0 && (
+                    <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-4">
+                      <p className="text-sm text-foreground">
+                        You need <span className="font-bold">{pipelineDeficit}</span> more pipeline contacts to hit your Q{quarter} goal.
+                        At 3 adds/week, that's <span className="font-bold">{weeksToCloseDeficit} week{weeksToCloseDeficit === 1 ? '' : 's'}</span> of work.
+                      </p>
                     </div>
-                    {prevQGap > 0 && (
-                      <div className="flex items-center justify-between font-bold">
-                        <span className="text-foreground">Adjusted Q{quarter} Required</span>
-                        <span className="text-foreground">{formatNumber(adjustedClosingsGoal)} deals</span>
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between text-muted-foreground">
-                      <span>÷ Conversion Factor ({Math.round(conversionFactor * 100)}%)</span>
-                      <span className="text-xs">(100% − {Math.round(falloutRate * 100)}% fallout)</span>
-                    </div>
-                    <Separator />
-                    <div className="flex items-center justify-between font-bold">
-                      <span className="text-foreground">Required Pipeline Deals</span>
-                      <span className="text-foreground">{formatNumber(requiredPipelineDeals)}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Current Pipeline (Q{prevQ}+Q{quarter})</span>
-                       <span className="font-bold text-foreground">{formatNumber(currentPipelineDeals)}</span>
-                     </div>
-                     {missingDateCount > 0 && (
-                       <div className="flex items-center justify-between text-amber-600 text-xs">
-                         <span><AlertTriangle className="h-3 w-3 inline mr-1" />{missingDateCount} client(s) missing expected pending date — not counted</span>
-                       </div>
-                     )}
-                    <Separator />
-                    <div className="flex items-center justify-between">
-                      {pipelineDeficit > 0 ? (
-                        <>
-                          <span className="font-bold text-destructive">= Pipeline Deficit</span>
-                          <span className="text-lg font-bold text-destructive">{pipelineDeficit} more pipeline additions needed</span>
-                        </>
-                      ) : pipelineSurplus > 0 ? (
-                        <>
-                          <span className="font-bold text-green-600">= Pipeline Surplus</span>
-                          <span className="text-lg font-bold text-green-600">+{pipelineSurplus} deals ahead</span>
-                        </>
-                      ) : (
-                        <>
-                          <span className="font-bold text-green-600">= Pipeline Covered</span>
-                          <span className="text-lg font-bold text-green-600">Exactly on target</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
+                  )}
 
-                  <div className="flex items-center gap-3 mt-3">
+                  {/* Vertical step layout */}
+                  <div className="rounded-lg border border-border bg-background p-5 space-y-3">
+                    <Step label="Starting Point" value={`${formatNumber(q2BaseGoal)} deals`} sub={`Q${quarter} base closings goal`} />
+                    {prevQGap > 0 && (
+                      <Step
+                        label="Add"
+                        value={`+${prevQGap} deals`}
+                        sub={`YTD deal gap through Q${prevQ} (carryover)`}
+                        amber
+                      />
+                    )}
+                    {prevQGap > 0 && (
+                      <Step label="Adjusted Required" value={`${formatNumber(adjustedClosingsGoal)} deals`} bold />
+                    )}
+                    <Step
+                      label="÷ Fallout Rate"
+                      value={`${Math.round(conversionFactor * 100)}%`}
+                      sub={`100% − ${Math.round(falloutRate * 100)}% fallout`}
+                      muted
+                    />
+                    <Separator />
+                    <Step label="Required Pipeline" value={`${formatNumber(requiredPipelineDeals)} deals`} bold />
+                    <Step label="Current Pipeline" value={`${formatNumber(currentPipelineDeals)} deals`} sub={`Q${prevQ}+Q${quarter}`} />
+                    {missingDateCount > 0 && (
+                      <p className="text-xs text-amber-600">
+                        <AlertTriangle className="h-3 w-3 inline mr-1" />
+                        {missingDateCount} client(s) missing expected pending date — not counted
+                      </p>
+                    )}
+                    <Separator />
                     {pipelineDeficit > 0 ? (
-                      <Badge className="bg-destructive text-destructive-foreground gap-1"><AlertTriangle className="h-3 w-3" />Pipeline Deficit: {pipelineDeficit} additions needed</Badge>
+                      <Step label="= Deficit" value={`${pipelineDeficit} deals short`} bold danger />
                     ) : pipelineSurplus > 0 ? (
-                      <Badge className="bg-green-600 text-white gap-1"><TrendingUp className="h-3 w-3" />Ahead by {pipelineSurplus} pipeline deals</Badge>
+                      <Step label="= Surplus" value={`+${pipelineSurplus} deals ahead`} bold success />
                     ) : (
-                      <Badge className="bg-green-600 text-white gap-1"><CheckCircle className="h-3 w-3" />Pipeline Covered</Badge>
+                      <Step label="= Covered" value="Exactly on target" bold success />
                     )}
                   </div>
 
-                  {/* Pipeline Deficit Debug — hidden, re-enable for debugging */}
+                  {/* Bottom callout — actionable conclusion */}
+                  {pipelineDeficit > 0 ? (
+                    <div className="rounded-lg border-2 border-amber-500 bg-amber-500/10 p-5 text-center">
+                      <p className="text-[11px] uppercase tracking-[0.15em] text-amber-700 dark:text-amber-500 font-semibold mb-2">
+                        Action Required
+                      </p>
+                      <p className="text-3xl md:text-4xl font-bold text-amber-700 dark:text-amber-400 leading-none">
+                        {pipelineDeficit} more pipeline additions needed
+                      </p>
+                    </div>
+                  ) : pipelineSurplus > 0 ? (
+                    <div className="rounded-lg border-2 border-green-600 bg-green-500/10 p-5 text-center">
+                      <p className="text-3xl md:text-4xl font-bold text-green-700 dark:text-green-400 leading-none">
+                        +{pipelineSurplus} deals ahead of pipeline target
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border-2 border-green-600 bg-green-500/10 p-5 text-center">
+                      <p className="text-3xl md:text-4xl font-bold text-green-700 dark:text-green-400 leading-none">
+                        Pipeline covered
+                      </p>
+                    </div>
+                  )}
                 </>
               )}
             </div>
