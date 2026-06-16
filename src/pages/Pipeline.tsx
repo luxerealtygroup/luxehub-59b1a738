@@ -280,7 +280,6 @@ const Pipeline = () => {
 
   const handleUpdateClient = async () => {
     if (!editingClient) return;
-    const gci = calculateGCI(editingClient.projected_sale_amount, editingClient.commission_percent, editingClient.split_percent);
 
     const { error } = await supabase
       .from('pipeline_clients')
@@ -293,9 +292,7 @@ const Pipeline = () => {
         email: editingClient.email,
         notes: editingClient.notes,
         projected_sale_amount: editingClient.projected_sale_amount,
-        commission_percent: editingClient.commission_percent,
-        split_percent: editingClient.split_percent,
-        projected_gci: gci,
+        projected_gci: editingClient.projected_gci,
         expected_pending_date: editingClient.expected_pending_date || null,
       })
       .eq('id', editingClient.id);
