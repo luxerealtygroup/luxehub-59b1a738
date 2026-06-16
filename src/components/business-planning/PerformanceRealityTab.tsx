@@ -252,6 +252,28 @@ export function PerformanceRealityTab({
   const projectedPct = annualGoal > 0 ? Math.min(100, Math.round((projectedGci / annualGoal) * 100)) : 0;
   const weeksToCloseDeficit = pipelineDeficit && pipelineDeficit > 0 ? Math.ceil(pipelineDeficit / 3) : 0;
 
+  // ── Mid-Year Review math (Q3 Accountability) ──
+  const expectedMidyear = annualGoal > 0 ? annualGoal / 2 : 0;
+  const conditionalAt99 = conditionalGci * 0.99;
+  const projectedH1Actual = ytdClosedGci + firmPendingGci + conditionalAt99;
+  const midyearGap = expectedMidyear - projectedH1Actual; // positive = behind
+  const isBehind = midyearGap > 0;
+  const rawQ3Need = Math.max(0, annualGoal - projectedH1Actual);
+  const h1Carryover = isBehind ? midyearGap : 0;
+  const adjustedQ3Target = rawQ3Need + h1Carryover;
+  const originalQ3Goal = annualGoal > 0 ? annualGoal / 4 : 0;
+  const surplus = !isBehind ? Math.abs(midyearGap) : 0;
+  // Progress bar geometry
+  const midyearTickPct = annualGoal > 0 ? 50 : 0;
+  const actualPct = annualGoal > 0 ? Math.max(0, Math.min(100, (projectedH1Actual / annualGoal) * 100)) : 0;
+  // Q3 Pipeline requirement
+  const q3AvgGci = avgGCIPerDeal > 0 ? avgGCIPerDeal : 0;
+  const q3ClosingsNeeded = q3AvgGci > 0 ? Math.ceil(adjustedQ3Target / q3AvgGci) : 0;
+  const q3PipelineRequired = q3ClosingsNeeded > 0 ? Math.ceil(q3ClosingsNeeded / 0.30) : 0;
+  const q3CurrentPipeline = currentPipelineDeals;
+  const q3PipelineGap = Math.max(0, q3PipelineRequired - q3CurrentPipeline);
+  const weeklyNewContacts = q3PipelineGap > 0 ? Math.ceil(q3PipelineGap / 13) : 0;
+
   // Manual metrics state for planning mode display
   const [manualData, setManualData] = useState<ManualPerformance | null>(null);
 
@@ -266,6 +288,162 @@ export function PerformanceRealityTab({
 
       {mode === 'active' && metrics ? (
         <>
+        {annualGoal > 0 && avgGCIPerDeal > 0 && (
+          <Card className="border-2 border-foreground/20 bg-muted/30 shadow-sm">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground">
+                Mid-Year Review — Q3 Accountability Plan
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-8">
+              {/* ── Section 1: Annual Snapshot ── */}
+              <div className="space-y-4">
+                <div className="flex items-baseline justify-between">
+                  <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Annual Snapshot</p>
+                  <p className="text-[11px] text-muted-foreground">Halfway through {currentYear}</p>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Annual GCI Goal</p>
+                    <p className="text-xl font-bold text-foreground tabular-nums">{formatCurrency(annualGoal)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Expected at Midyear</p>
+                    <p className="text-xl font-bold text-foreground tabular-nums">{formatCurrency(expectedMidyear)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Projected Actual</p>
+                    <p className={`text-xl font-bold tabular-nums ${isBehind ? 'text-amber-600' : 'text-green-600'}`}>
+                      {formatCurrency(projectedH1Actual)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Progress bar: filled = actual, tick = midyear, end = annual goal */}
+                <div className="relative pt-6 pb-2">
+                  <div className="relative h-3 w-full bg-muted rounded-full overflow-hidden">
+                    {/* Filled actual */}
+                    <div
+                      className={`h-full ${isBehind ? 'bg-foreground/70' : 'bg-green-600'} transition-all`}
+                      style={{ width: `${actualPct}%` }}
+                    />
+                    {/* Amber shading from actual → midyear when behind */}
+                    {isBehind && actualPct < midyearTickPct && (
+                      <div
+                        className="absolute top-0 h-full bg-amber-500/40"
+                        style={{ left: `${actualPct}%`, width: `${midyearTickPct - actualPct}%` }}
+                      />
+                    )}
+                    {/* Midyear tick */}
+                    <div
+                      className="absolute top-[-4px] h-5 w-0.5 bg-foreground"
+                      style={{ left: `${midyearTickPct}%` }}
+                    />
+                  </div>
+                  <div className="relative mt-1 text-[10px] text-muted-foreground">
+                    <span className="absolute left-0">$0</span>
+                    <span className="absolute left-1/2 -translate-x-1/2 font-semibold text-foreground">Midyear</span>
+                    <span className="absolute right-0">{formatCurrency(annualGoal)}</span>
+                  </div>
+                </div>
+
+                <p className={`text-sm font-medium ${isBehind ? 'text-amber-700 dark:text-amber-500' : 'text-green-700 dark:text-green-500'} pt-2`}>
+                  {isBehind
+                    ? `You are ${formatCurrency(Math.abs(midyearGap))} behind midyear pace. That gap rolls into Q3.`
+                    : `You are ${formatCurrency(Math.abs(midyearGap))} ahead of midyear pace — Q3 is about maintaining momentum.`}
+                </p>
+              </div>
+
+              <Separator />
+
+              {/* ── Section 2: Q3 Adjusted Target ── */}
+              <div className="space-y-4">
+                <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Q3 Adjusted Target</p>
+
+                <div className="rounded-lg border border-border bg-background p-5 space-y-3">
+                  <Step label="Annual GCI Goal" value={formatCurrency(annualGoal)} muted />
+                  <Step label="− Projected H1 Actual" value={`− ${formatCurrency(projectedH1Actual)}`} muted />
+                  <div className="border-t border-dashed border-border pt-3">
+                    <Step label="= Raw Q3 Need" value={formatCurrency(rawQ3Need)} />
+                  </div>
+                  <Step
+                    label="+ H1 Gap Carryover"
+                    value={`+ ${formatCurrency(h1Carryover)}`}
+                    muted={!isBehind}
+                    amber={isBehind}
+                  />
+                  <div className="border-t-2 border-foreground/20 pt-4 flex items-baseline justify-between gap-4">
+                    <p className="text-sm font-bold uppercase tracking-wider text-foreground">Adjusted Q3 Target</p>
+                    <p className={`text-3xl font-bold tabular-nums ${isBehind ? 'text-foreground' : 'text-green-600'}`}>
+                      {formatCurrency(adjustedQ3Target)}
+                    </p>
+                  </div>
+                </div>
+
+                {isBehind ? (
+                  <p className="text-[12px] text-muted-foreground">
+                    This replaces your original Q3 goal of <span className="font-semibold text-foreground">{formatCurrency(originalQ3Goal)}</span>. The gap from H1 has been added.
+                  </p>
+                ) : (
+                  <p className="text-[12px] text-muted-foreground">
+                    You banked <span className="font-semibold text-green-600">{formatCurrency(surplus)}</span> in H1. Your Q3 target is <span className="font-semibold text-foreground">{formatCurrency(adjustedQ3Target)}</span> — but don't coast.
+                  </p>
+                )}
+              </div>
+
+              <Separator />
+
+              {/* ── Section 3: Q3 Pipeline Requirement ── */}
+              <div className="space-y-4">
+                <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Q3 Pipeline Requirement</p>
+
+                <div className="rounded-lg border border-border bg-background p-5 space-y-3">
+                  <Step label="Adjusted Q3 Target (GCI)" value={formatCurrency(adjustedQ3Target)} muted />
+                  <Step label="÷ Average GCI per deal" value={formatCurrency(q3AvgGci)} muted />
+                  <div className="border-t border-dashed border-border pt-3">
+                    <Step label="= Closings needed in Q3" value={`${q3ClosingsNeeded} deals`} />
+                  </div>
+                  <Step label="÷ 30% conversion rate" sub="70% fallout assumed" value="" muted />
+                  <div className="border-t border-dashed border-border pt-3">
+                    <Step label="= Pipeline contacts required" value={`${formatNumber(q3PipelineRequired)} contacts`} />
+                  </div>
+                  <Step label="− Current Q3 pipeline" value={`− ${formatNumber(q3CurrentPipeline)} contacts`} muted />
+                  <div className="border-t-2 border-foreground/20 pt-4">
+                    <Step
+                      label="Pipeline gap"
+                      value={`${formatNumber(q3PipelineGap)} contacts still needed`}
+                      bold
+                      amber={q3PipelineGap > 0}
+                      success={q3PipelineGap === 0}
+                    />
+                  </div>
+                </div>
+
+                {q3PipelineGap > 0 ? (
+                  <div className="rounded-lg border-2 border-amber-500 bg-amber-500/10 p-5">
+                    <p className="text-[10px] uppercase tracking-[0.15em] text-amber-700 dark:text-amber-500 font-bold mb-2">
+                      Weekly Action — Next 13 Weeks
+                    </p>
+                    <p className="text-lg font-bold text-foreground leading-snug">
+                      Add <span className="text-2xl text-amber-700 dark:text-amber-500">{weeklyNewContacts}</span> new pipeline contacts per week —
+                      on top of your existing 3/week non-negotiable.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border-2 border-green-600 bg-green-500/10 p-5">
+                    <p className="text-[10px] uppercase tracking-[0.15em] text-green-700 dark:text-green-500 font-bold mb-2">
+                      Pipeline Sufficient
+                    </p>
+                    <p className="text-base font-bold text-foreground leading-snug">
+                      Your current pipeline is enough to hit your adjusted Q3 target if you execute. Stay consistent.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
         {annualGoal > 0 && (
           <Card className="border-border">
             <CardHeader className="pb-3">
