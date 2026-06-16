@@ -646,19 +646,21 @@ export function PerformanceRealityTab({
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Snapshot bar — borderless horizontal row */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 py-2">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 py-2 items-stretch">
               <div>
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{rangeLabel} Closed</p>
-                <p className="text-3xl font-bold text-foreground leading-none">{formatWeightedDeals(metrics.weightedClosed)}</p>
+                <p className="text-xl font-medium text-muted-foreground leading-none">{formatWeightedDeals(metrics.weightedClosed)}</p>
                 <p className="text-[11px] text-muted-foreground mt-1.5">
                   {metrics.weightedDebugClosed?.leaseCount ? `${metrics.ytdClosedDeals} raw · ${metrics.weightedDebugClosed.leaseCount} leases` : `${metrics.ytdClosedDeals} raw`}
                 </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">(history)</p>
               </div>
               <div>
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{rangeLabel} GCI</p>
-                <p className="text-3xl font-bold text-foreground leading-none">{formatCurrency(metrics.ytdGCI)}</p>
+                <p className="text-xl font-medium text-muted-foreground leading-none">{formatCurrency(ytdClosedGci)}</p>
+                <p className="text-[11px] text-muted-foreground mt-1.5">(after team split)</p>
               </div>
-              <div>
+              <div className="rounded-lg border-2 border-gold/40 bg-gold/5 p-4">
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Pending</p>
                 <p className="text-3xl font-bold text-foreground leading-none">{formatWeightedDeals(metrics.weightedPending)}</p>
                 <p className="text-[11px] text-muted-foreground mt-1.5">
