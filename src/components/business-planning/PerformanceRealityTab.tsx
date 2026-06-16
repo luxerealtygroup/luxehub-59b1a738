@@ -502,16 +502,46 @@ export function PerformanceRealityTab({
                 <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Q3 Pipeline Requirement</p>
 
                 <div className="rounded-lg border border-border bg-background p-5 space-y-3">
-                  <Step label="Your Q3 revenue target" value={formatCurrency(adjustedQ3Target)} muted />
-                  <Step label="÷ Average commission per deal" value={formatCurrency(q3AvgGci)} muted />
+                  <Step label="Your Q3 GCI target" value={formatCurrency(adjustedQ3Target)} muted />
                   <div className="border-t border-dashed border-border pt-3">
-                    <Step label="Deals you need to close in Q3" value={`${q3ClosingsNeeded} deals`} />
+                    <Step
+                      label="Sales needed in Q3"
+                      sub={`avg ${formatCurrency(avgGciPerSale)} per sale`}
+                      value={`${formatNumber(q3SalesNeeded)} ${q3SalesNeeded === 1 ? 'sale' : 'sales'}`}
+                    />
+                    {hasLeaseMix && (
+                      <div className="mt-3">
+                        <Step
+                          label="Leases needed in Q3"
+                          sub={`avg ${formatCurrency(avgGciPerLease)} per lease`}
+                          value={`${formatNumber(q3LeasesNeeded)} ${q3LeasesNeeded === 1 ? 'lease' : 'leases'}`}
+                        />
+                      </div>
+                    )}
+                    <p className="text-[11px] text-muted-foreground mt-2 italic">
+                      {usingPersonalSaleAvg
+                        ? `Based on your ${formatNumber(salesClosed)} closed ${salesClosed === 1 ? 'sale' : 'sales'} this year${hasLeaseMix ? ` and ${formatNumber(leasesClosed)} ${leasesClosed === 1 ? 'lease' : 'leases'}` : ''}.`
+                        : `Based on team average (not enough personal data yet — need ${MIN_DEALS_FOR_PERSONAL_AVG}+ closed sales).`}
+                    </p>
+                  </div>
+
+                  {q3DealCountUnreasonable && (
+                    <div className="rounded-md border border-amber-500/60 bg-amber-500/10 p-3 flex gap-2">
+                      <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <p className="text-[12px] text-foreground leading-snug">
+                        This number looks high — it may mean your Q3 GCI target needs to be reviewed with Kristen, or your average deal size is being pulled down by leases. Leases are counted as ⅓ of a deal and significantly reduce your average.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="border-t border-dashed border-border pt-3">
+                    <Step label="Total deals to close in Q3" value={`${formatNumber(q3ClosingsNeeded)} deals`} bold />
                   </div>
                   <Step label="÷ Your close rate (3 in 10)" sub="7 of 10 usually fall through" value="" muted />
                   <div className="border-t border-dashed border-border pt-3">
-                    <Step label="New people you need to talk to" value={`${formatNumber(q3PipelineRequired)} people`} />
+                    <Step label="Total pipeline required" value={`${formatNumber(q3PipelineRequired)} people`} />
                   </div>
-                  <Step label="− Already in your pipeline" value={`− ${formatNumber(q3CurrentPipeline)} people`} muted />
+                  <Step label="− Already in pipeline" value={`− ${formatNumber(q3CurrentPipeline)} people`} muted />
                   <div className="border-t-2 border-foreground/20 pt-4">
                     <Step
                       label="Still need to find"
