@@ -761,17 +761,17 @@ export function PerformanceRealityTab({
 
                   {/* Vertical step layout */}
                   <div className="rounded-lg border border-border bg-background p-5 space-y-3">
-                    <Step label="Starting Point" value={`${formatNumber(q2BaseGoal)} deals`} sub={`Q${quarter} base closings goal`} />
+                    <Step label={`Sales you need to close in Q${quarter}`} value={`${formatNumber(q2BaseGoal)} sales`} sub={`Q${quarter} base closings goal`} />
                     {prevQGap > 0 && (
                       <Step
                         label="Add"
-                        value={`+${prevQGap} deals`}
-                        sub={`YTD deal gap through Q${prevQ} (carryover)`}
+                        value={`+${prevQGap} sales`}
+                        sub={`YTD sales gap through Q${prevQ} (carryover)`}
                         amber
                       />
                     )}
                     {prevQGap > 0 && (
-                      <Step label="Adjusted Required" value={`${formatNumber(adjustedClosingsGoal)} deals`} bold />
+                      <Step label="Adjusted sales required" value={`${formatNumber(adjustedClosingsGoal)} sales`} bold />
                     )}
                     <Step
                       label="÷ Fallout Rate"
@@ -780,8 +780,8 @@ export function PerformanceRealityTab({
                       muted
                     />
                     <Separator />
-                    <Step label="Required Pipeline" value={`${formatNumber(requiredPipelineDeals)} deals`} bold />
-                    <Step label="Current Pipeline" value={`${formatNumber(currentPipelineDeals)} deals`} sub={`Q${prevQ}+Q${quarter}`} />
+                    <Step label="Pipeline contacts required" value={`${formatNumber(requiredPipelineDeals)} people`} bold />
+                    <Step label="People already in your pipeline" value={`${formatNumber(currentPipelineDeals)} people`} sub={`Q${prevQ}+Q${quarter}`} />
                     {missingDateCount > 0 && (
                       <p className="text-xs text-amber-600">
                         <AlertTriangle className="h-3 w-3 inline mr-1" />
@@ -790,9 +790,9 @@ export function PerformanceRealityTab({
                     )}
                     <Separator />
                     {pipelineDeficit > 0 ? (
-                      <Step label="= Deficit" value={`${pipelineDeficit} deals short`} bold danger />
+                      <Step label="= People still to find" value={`${pipelineDeficit} people short`} bold danger />
                     ) : pipelineSurplus > 0 ? (
-                      <Step label="= Surplus" value={`+${pipelineSurplus} deals ahead`} bold success />
+                      <Step label="= Surplus" value={`+${pipelineSurplus} people ahead`} bold success />
                     ) : (
                       <Step label="= Covered" value="Exactly on target" bold success />
                     )}
@@ -811,7 +811,7 @@ export function PerformanceRealityTab({
                   ) : pipelineSurplus > 0 ? (
                     <div className="rounded-lg border-2 border-green-600 bg-green-500/10 p-5 text-center">
                       <p className="text-3xl md:text-4xl font-bold text-green-700 dark:text-green-400 leading-none">
-                        +{pipelineSurplus} deals ahead of pipeline target
+                        +{pipelineSurplus} people ahead of pipeline target
                       </p>
                     </div>
                   ) : (
