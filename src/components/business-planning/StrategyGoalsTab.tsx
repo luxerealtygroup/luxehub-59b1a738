@@ -320,16 +320,16 @@ export function StrategyGoalsTab({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div className="rounded-lg border-2 border-gold/40 bg-gold/5 p-5">
               <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Adjusted Pending Needed</p>
-              <p className="text-3xl font-bold text-foreground tabular-nums">{strategy.adjustedClosings}</p>
+              <p className="text-3xl font-bold text-foreground tabular-nums">{requiredClosings}</p>
               <p className="text-sm text-muted-foreground mt-1">
-                {strategy.prevQGap > 0 ? `+${strategy.prevQGap} from Q${quarter > 1 ? quarter - 1 : 4} gap` : 'No carryover'}
+                Sales to close in Q{quarter} (synced from Performance Reality)
               </p>
             </div>
             <div className={`rounded-lg border-2 p-5 ${pipelineGap > 0 ? 'border-gold/40 bg-gold/5' : 'border-green-300/40 bg-green-50/50'}`}>
               <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Pipeline Gap</p>
               <p className={`text-3xl font-bold tabular-nums ${pipelineGap > 0 ? 'text-foreground' : 'text-green-700'}`}>{pipelineGap}</p>
               <p className="text-sm text-muted-foreground mt-1">
-                {pipelineGap > 0 ? `Need ${pipelineGap} more additions` : 'On track'}
+                {pipelineGap > 0 ? `Need ${pipelineGap} more people in pipeline` : 'On track'}
               </p>
             </div>
           </div>
@@ -348,15 +348,15 @@ export function StrategyGoalsTab({
               sub="Before carryover"
             />
             <LockedField
+              label="Avg GCI/Sale (Net)"
+              value={formatCurrency(q3Requirements.avgGciPerSaleNet)}
+              sub={q3Requirements.netLabel}
+              highlight
+            />
+            <LockedField
               label="Avg GCI/Deal (Gross)"
               value={formatCurrency(Math.round(strategy.avgGciPerDeal))}
               sub="Team total — context only"
-            />
-            <LockedField
-              label={`Avg Net/Deal (${(AGENT_SPLIT * 100).toFixed(0)}% split)`}
-              value={formatCurrency(Math.round(strategy.agentNetPerDeal))}
-              sub="Your net GCI after team split"
-              highlight
             />
             <LockedField
               label={`Q${quarter} GCI Target (Gross)`}
@@ -365,14 +365,14 @@ export function StrategyGoalsTab({
             />
             <LockedField
               label={`Your Q${quarter} Net GCI Target`}
-              value={formatCurrency(Math.round(strategy.qIncomeNet))}
-              sub={`Your net GCI after team split (${(AGENT_SPLIT * 100).toFixed(0)}%) — this is your number`}
+              value={formatCurrency(q3Requirements.adjustedQ3TargetNet)}
+              sub={`${q3Requirements.netLabel} — this is your number`}
               highlight
             />
             <LockedField
-              label="Pipeline Needed"
+              label="Pipeline Required"
               value={String(pipelineNeeded)}
-              sub={`${currentPipeline} current · 70% fallout rate`}
+              sub={`${q3Requirements.q3CurrentPipeline} current · 70% fallout rate`}
             />
           </div>
         </div>
