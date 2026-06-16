@@ -148,6 +148,17 @@ export function ReflectionTab({ uid, quarter, isViewingAsAgent }: Props) {
             </div>
           </div>
         </div>
+
+        {(reflection.stress >= 7 || reflection.confidence < 5) && (
+          <div className="mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-foreground">
+            {reflection.stress >= 7 && (
+              <div>Kristen will check in on this at the start of your session.</div>
+            )}
+            {reflection.confidence < 5 && (
+              <div>Come ready to talk about what's getting in your way.</div>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
 
