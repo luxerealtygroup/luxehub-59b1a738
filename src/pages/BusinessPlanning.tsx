@@ -455,6 +455,7 @@ const BusinessPlanning = () => {
             goals={goals} effectiveRates={effectiveRates}
             uid={uid} quarter={quarter}
             pipelineGapData={pipelineGapData}
+            q3Requirements={q3Requirements}
           />
         </TabsContent>
 
@@ -471,6 +472,7 @@ const BusinessPlanning = () => {
             prevQActualClosings={pipelineGapData.prevQActualClosings}
             prevQGoalClosings={pipelineGapData.prevQRequiredClosings}
             currentPipeline={pipelineGapData.pipelineTotal}
+            q3Requirements={q3Requirements}
           />
         </TabsContent>
 
