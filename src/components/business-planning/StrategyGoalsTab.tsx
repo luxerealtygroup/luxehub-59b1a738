@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency, formatNumber } from '@/lib/utils';
-import { Target, Brain, Zap, Save, Loader2, AlertTriangle, ChevronRight, Lock } from 'lucide-react';
+import { Target, Brain, Zap, Save, Loader2, AlertTriangle, ChevronRight } from 'lucide-react';
 import { ActiveMetrics, GoalInputs, AISuggestion, AIInsight, currentYear } from './types';
 import { BreakdownRow } from './shared';
 import {
