@@ -11,6 +11,7 @@ import { formatCurrency, formatNumber } from '@/lib/utils';
 import { Target, Brain, Zap, Save, Loader2, AlertTriangle, ChevronRight } from 'lucide-react';
 import { ActiveMetrics, GoalInputs, AISuggestion, AIInsight, currentYear } from './types';
 import { BreakdownRow } from './shared';
+import { Q3Requirements } from './q3Requirements';
 import {
   computeStrategy,
   validateCommissionRate,
@@ -34,6 +35,8 @@ interface Props {
   prevQActualClosings: number;
   prevQGoalClosings: number;
   currentPipeline: number;
+  /** Canonical Q-Pipeline Requirements — single source of truth, shared with PerformanceRealityTab */
+  q3Requirements: Q3Requirements;
 }
 
 /* ── Locked display field ── */
@@ -50,7 +53,7 @@ const LockedField = ({ label, value, sub, highlight }: { label: string; value: s
 export function StrategyGoalsTab({
   metrics, mode, goals, setGoals, goalsId, setGoalsId,
   quarter, uid, isViewingAsAgent, effectiveRates,
-  prevQActualClosings, prevQGoalClosings, currentPipeline,
+  prevQActualClosings, prevQGoalClosings, currentPipeline, q3Requirements,
 }: Props) {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
@@ -101,12 +104,12 @@ export function StrategyGoalsTab({
   const commRateError = commissionRateDecimal !== null ? validateCommissionRate(commissionRateDecimal) : null;
   const salePriceError = goals.avg_sale_price > 0 ? null : validateAvgSalePrice(goals.avg_sale_price);
 
-  const requiredClosings = strategy.adjustedClosings;
-
-  // ── Pipeline needed (assuming 70% fallout) ──
-  const FALLOUT_RATE = 0.70;
-  const pipelineNeeded = requiredClosings > 0 ? Math.ceil(requiredClosings / (1 - FALLOUT_RATE)) : 0;
-  const pipelineGap = Math.max(0, pipelineNeeded - currentPipeline);
+  // ── Canonical Q-Requirements (sourced from PerformanceRealityTab's math) ──
+  // Adjusted Pending Needed, Pipeline Required, Pipeline Gap, Avg GCI/Sale, and Q-GCI Target
+  // ALL come from q3Requirements so the two tabs can never disagree.
+  const requiredClosings = q3Requirements.q3SalesNeeded;
+  const pipelineNeeded = q3Requirements.q3PipelineRequired;
+  const pipelineGap = q3Requirements.q3PipelineGap;
   const requiredPipelineAdditions = pipelineGap;
 
   // ── Activity breakdown from adjusted closings ──
@@ -317,16 +320,16 @@ export function StrategyGoalsTab({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div className="rounded-lg border-2 border-gold/40 bg-gold/5 p-5">
               <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Adjusted Pending Needed</p>
-              <p className="text-3xl font-bold text-foreground tabular-nums">{strategy.adjustedClosings}</p>
+              <p className="text-3xl font-bold text-foreground tabular-nums">{requiredClosings}</p>
               <p className="text-sm text-muted-foreground mt-1">
-                {strategy.prevQGap > 0 ? `+${strategy.prevQGap} from Q${quarter > 1 ? quarter - 1 : 4} gap` : 'No carryover'}
+                Sales to close in Q{quarter} (synced from Performance Reality)
               </p>
             </div>
             <div className={`rounded-lg border-2 p-5 ${pipelineGap > 0 ? 'border-gold/40 bg-gold/5' : 'border-green-300/40 bg-green-50/50'}`}>
               <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Pipeline Gap</p>
               <p className={`text-3xl font-bold tabular-nums ${pipelineGap > 0 ? 'text-foreground' : 'text-green-700'}`}>{pipelineGap}</p>
               <p className="text-sm text-muted-foreground mt-1">
-                {pipelineGap > 0 ? `Need ${pipelineGap} more additions` : 'On track'}
+                {pipelineGap > 0 ? `Need ${pipelineGap} more people in pipeline` : 'On track'}
               </p>
             </div>
           </div>
@@ -345,15 +348,15 @@ export function StrategyGoalsTab({
               sub="Before carryover"
             />
             <LockedField
+              label="Avg GCI/Sale (Net)"
+              value={formatCurrency(q3Requirements.avgGciPerSaleNet)}
+              sub={q3Requirements.netLabel}
+              highlight
+            />
+            <LockedField
               label="Avg GCI/Deal (Gross)"
               value={formatCurrency(Math.round(strategy.avgGciPerDeal))}
               sub="Team total — context only"
-            />
-            <LockedField
-              label={`Avg Net/Deal (${(AGENT_SPLIT * 100).toFixed(0)}% split)`}
-              value={formatCurrency(Math.round(strategy.agentNetPerDeal))}
-              sub="Your net GCI after team split"
-              highlight
             />
             <LockedField
               label={`Q${quarter} GCI Target (Gross)`}
@@ -362,14 +365,14 @@ export function StrategyGoalsTab({
             />
             <LockedField
               label={`Your Q${quarter} Net GCI Target`}
-              value={formatCurrency(Math.round(strategy.qIncomeNet))}
-              sub={`Your net GCI after team split (${(AGENT_SPLIT * 100).toFixed(0)}%) — this is your number`}
+              value={formatCurrency(q3Requirements.adjustedQ3TargetNet)}
+              sub={`${q3Requirements.netLabel} — this is your number`}
               highlight
             />
             <LockedField
-              label="Pipeline Needed"
+              label="Pipeline Required"
               value={String(pipelineNeeded)}
-              sub={`${currentPipeline} current · 70% fallout rate`}
+              sub={`${q3Requirements.q3CurrentPipeline} current · 70% fallout rate`}
             />
           </div>
         </div>
@@ -489,6 +492,11 @@ export function StrategyGoalsTab({
             </div>
           </>
         )}
+
+        <Separator />
+        <p className="text-[11px] text-muted-foreground italic text-center pt-1">
+          All figures synced from Performance Reality calculations.
+        </p>
       </CardContent>
     </Card>
   );
