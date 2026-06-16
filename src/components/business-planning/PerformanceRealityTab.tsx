@@ -506,6 +506,15 @@ export function PerformanceRealityTab({
                     </p>
                   </div>
 
+                  {salesClosed > 0 && salesClosed < 3 && (
+                    <div className="rounded-md border border-amber-500/60 bg-amber-500/10 p-3 flex gap-2">
+                      <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <p className="text-[12px] text-foreground leading-snug">
+                        Your average is based on fewer than 3 closed sales — it may shift as more deals close. Kristen can review this with you.
+                      </p>
+                    </div>
+                  )}
+
                   {saleAverageLooksLow && (
                     <div className="rounded-md border border-amber-500/60 bg-amber-500/10 p-3 flex gap-2">
                       <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
