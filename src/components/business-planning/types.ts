@@ -39,6 +39,11 @@ export interface ActiveMetrics {
   weightedPending: number;
   weightedDebugClosed: WeightedDebugInfo | null;
   weightedDebugPending: WeightedDebugInfo | null;
+  // Sale / lease split (for honest per-deal averages)
+  salesCountClosed: number;
+  leaseCountClosed: number;
+  avgGciPerSale: number;
+  avgGciPerLease: number;
 }
 
 export interface GoalInputs {

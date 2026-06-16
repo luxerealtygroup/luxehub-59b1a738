@@ -282,6 +282,14 @@ const BusinessPlanning = () => {
       weightedPending: dealMetrics.weighted_pending,
       weightedDebugClosed: dealMetrics.weighted_debug_closed,
       weightedDebugPending: dealMetrics.weighted_debug_pending,
+      salesCountClosed: dealMetrics.sales_count_closed,
+      leaseCountClosed: dealMetrics.lease_count_closed,
+      avgGciPerSale: dealMetrics.sales_count_closed > 0
+        ? Math.round(dealMetrics.gci_sales_closed / dealMetrics.sales_count_closed)
+        : 0,
+      avgGciPerLease: dealMetrics.lease_count_closed > 0
+        ? Math.round(dealMetrics.gci_leases_closed / dealMetrics.lease_count_closed)
+        : 0,
     });
   }, [dealMetrics, suppMetrics, fubActiveListings.length]);
 
