@@ -347,20 +347,23 @@ export function StrategyGoalsTab({
             <LockedField
               label="Avg GCI/Deal (Gross)"
               value={formatCurrency(Math.round(strategy.avgGciPerDeal))}
+              sub="Team total — context only"
             />
             <LockedField
               label={`Avg Net/Deal (${(AGENT_SPLIT * 100).toFixed(0)}% split)`}
               value={formatCurrency(Math.round(strategy.agentNetPerDeal))}
-            />
-            <LockedField
-              label={`Q${quarter} GCI Target`}
-              value={formatCurrency(Math.round(strategy.qGciGross))}
+              sub="Your net GCI after team split"
               highlight
             />
             <LockedField
-              label="Your Estimated Take-Home"
+              label={`Q${quarter} GCI Target (Gross)`}
+              value={formatCurrency(Math.round(strategy.qGciGross))}
+              sub="Team total — context only"
+            />
+            <LockedField
+              label={`Your Q${quarter} Net GCI Target`}
               value={formatCurrency(Math.round(strategy.qIncomeNet))}
-              sub={`At ${(AGENT_SPLIT * 100).toFixed(0)}% agent split`}
+              sub={`Your net GCI after team split (${(AGENT_SPLIT * 100).toFixed(0)}%) — this is your number`}
               highlight
             />
             <LockedField

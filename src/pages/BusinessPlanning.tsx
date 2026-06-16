@@ -257,6 +257,9 @@ const BusinessPlanning = () => {
 
   // ─── Compose metrics ───
   const [metrics, setMetrics] = useState<ActiveMetrics | null>(null);
+  // ─── Goals state (declared early so split_percent is available when composing metrics) ───
+  const [goals, setGoals] = useState<GoalInputs>(defaultGoals);
+  const [goalsId, setGoalsId] = useState<string | null>(null);
   useEffect(() => {
     if (!dealMetrics || !suppMetrics) return;
     const now = new Date();
@@ -303,12 +306,9 @@ const BusinessPlanning = () => {
       avgGciPerLease: dealMetrics.lease_count_closed > 0
         ? Math.round(dealMetrics.gci_leases_closed / dealMetrics.lease_count_closed)
         : 0,
+      splitPercent: goals.split_percent > 0 ? goals.split_percent : 70,
     });
-  }, [dealMetrics, suppMetrics, fubActiveListings.length]);
-
-  // ─── Goals state (shared between Strategy & Action) ───
-  const [goals, setGoals] = useState<GoalInputs>(defaultGoals);
-  const [goalsId, setGoalsId] = useState<string | null>(null);
+  }, [dealMetrics, suppMetrics, fubActiveListings.length, goals.split_percent]);
 
   const fetchGoals = useCallback(async () => {
     if (!uid) return;

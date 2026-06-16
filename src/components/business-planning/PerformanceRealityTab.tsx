@@ -209,13 +209,20 @@ export function PerformanceRealityTab({
 }: Props) {
   const rangeLabel = dateRange === 'ytd' ? 'YTD' : dateRange === 'custom' ? `${customStart} → ${customEnd}` : dateRange.toUpperCase();
 
+  // ── Agent split — every GCI figure shown to the agent reflects their net after the team split ──
+  const splitPct = metrics?.splitPercent && metrics.splitPercent > 0 ? metrics.splitPercent : (goals.split_percent > 0 ? goals.split_percent : 70);
+  const splitFactor = splitPct / 100;
+  const net = (v: number) => Math.round(v * splitFactor);
+  const NET_LABEL = `Your net GCI after team split (${splitPct}%)`;
+
   // ── Pipeline Deficit Analysis with Q(n-1) carryover ──
   const qTargetGCI = goals.gci_target > 0
     ? goals.gci_target
     : (metrics?.targetGCI && metrics.targetGCI > 0 ? Math.round(metrics.targetGCI / 4) : 0);
+  // avg GCI/deal — net of agent split so pipeline math is apples-to-apples with the net target
   const avgGCIPerDeal = metrics?.avgCommission && metrics.avgCommission > 0
-    ? metrics.avgCommission
-    : (goals.avg_commission > 0 ? goals.avg_commission : 0);
+    ? net(metrics.avgCommission)
+    : (goals.avg_commission > 0 ? net(goals.avg_commission) : 0);
 
   const hasTarget = qTargetGCI > 0 && avgGCIPerDeal > 0;
   const q2BaseGoal = hasTarget ? Math.ceil(qTargetGCI / avgGCIPerDeal) : 0;
@@ -235,12 +242,13 @@ export function PerformanceRealityTab({
   const prevQ = quarter > 1 ? quarter - 1 : 4;
 
   // ── Forward-looking outlook: pending + conditional vs annual goal ──
-  const annualGoal = metrics?.targetGCI || 0;
-  const ytdClosedGci = metrics?.ytdGCI || 0;
-  const q1Gci = pipelineGapData.q1ClosedGci || 0;
-  const q2Gci = pipelineGapData.q2ClosedGci || 0;
-  const firmPendingGci = pipelineGapData.firmPendingGci || 0;
-  const conditionalGci = pipelineGapData.conditionalGci || 0;
+  // All GCI figures below are net of agent split (what the agent actually takes home as GCI).
+  const annualGoal = net(metrics?.targetGCI || 0);
+  const ytdClosedGci = net(metrics?.ytdGCI || 0);
+  const q1Gci = net(pipelineGapData.q1ClosedGci || 0);
+  const q2Gci = net(pipelineGapData.q2ClosedGci || 0);
+  const firmPendingGci = net(pipelineGapData.firmPendingGci || 0);
+  const conditionalGci = net(pipelineGapData.conditionalGci || 0);
   const q1Units = pipelineGapData.q1ClosedUnits || 0;
   const q2Units = pipelineGapData.q2ClosedUnits || 0;
   const firmPendingUnits = pipelineGapData.firmPendingUnits || 0;
@@ -280,9 +288,10 @@ export function PerformanceRealityTab({
   const confirmedSalesCount = salesClosed + salesPending + salesConditional;
   const inFlightSalesCount = salesPending + salesConditional;
   const usingConfirmedSaleAvg = confirmedSalesCount > 0 && (metrics?.avgGciPerSale || 0) > 0;
-  const avgGciPerSale = usingConfirmedSaleAvg ? metrics!.avgGciPerSale : TEAM_AVG_GCI_FALLBACK;
-  const avgGciPerClosedSale = metrics?.avgGciPerClosedSale || 0;
-  const avgGciPerInFlightSale = metrics?.avgGciPerPendingSale || 0;
+  // Net averages — agent-facing figures always reflect their cut, not the team's gross
+  const avgGciPerSale = usingConfirmedSaleAvg ? net(metrics!.avgGciPerSale) : net(TEAM_AVG_GCI_FALLBACK);
+  const avgGciPerClosedSale = net(metrics?.avgGciPerClosedSale || 0);
+  const avgGciPerInFlightSale = net(metrics?.avgGciPerPendingSale || 0);
   const saleAverageLooksLow = usingConfirmedSaleAvg && avgGciPerSale < 5000;
   const q3SalesNeeded = avgGciPerSale > 0 ? Math.ceil(adjustedQ3Target / avgGciPerSale) : 0;
   const q3ClosingsNeeded = q3SalesNeeded;
@@ -494,17 +503,21 @@ export function PerformanceRealityTab({
                 <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Q3 Pipeline Requirement</p>
 
                 <div className="rounded-lg border border-border bg-background p-5 space-y-3">
-                  <Step label="Your Q3 GCI target" value={formatCurrency(adjustedQ3Target)} muted />
+                  <Step label="Your Q3 GCI target" value={formatCurrency(adjustedQ3Target)} sub={NET_LABEL} muted />
                   <div className="border-t border-dashed border-border pt-3">
                     <Step
                       label="÷ Average GCI per sale"
                       value={formatCurrency(avgGciPerSale)}
+                      sub={NET_LABEL}
                       muted
                     />
                     <div className="mt-3 space-y-2 rounded-md border border-border/70 bg-muted/30 p-3">
                       <Step label="Closed sales avg" value={avgGciPerClosedSale > 0 ? formatCurrency(avgGciPerClosedSale) : '—'} sub={`${formatNumber(salesClosed)} ${salesClosed === 1 ? 'deal' : 'deals'}`} muted />
                       <Step label="Pending sales avg" value={avgGciPerInFlightSale > 0 ? formatCurrency(avgGciPerInFlightSale) : '—'} sub={`${formatNumber(inFlightSalesCount)} pending/conditional ${inFlightSalesCount === 1 ? 'deal' : 'deals'}`} muted />
                       <Step label="Blended average" value={formatCurrency(avgGciPerSale)} sub="Used for this pipeline math" bold />
+                      <p className="text-[11px] text-muted-foreground italic pt-1 border-t border-border/40">
+                        Closed sales avg {avgGciPerClosedSale > 0 ? formatCurrency(avgGciPerClosedSale) : '—'} · Pending sales avg {avgGciPerInFlightSale > 0 ? formatCurrency(avgGciPerInFlightSale) : '—'} · Blended {formatCurrency(avgGciPerSale)} — all figures reflect your net after split ({splitPct}%).
+                      </p>
                     </div>
                     <div className="mt-3">
                       <Step
