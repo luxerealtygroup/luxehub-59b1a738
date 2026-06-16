@@ -551,7 +551,7 @@ const TeamGoals = () => {
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Target className="h-4 w-4 text-gold" />
-              <span className="text-sm font-medium">Deals</span>
+              <span className="text-sm font-medium">Sales</span>
             </div>
             <div className="flex justify-between text-sm text-muted-foreground">
               <span>{actuals?.closedDeals || 0} closed + {actuals?.pendingDeals || 0} pending / {goals?.annual_deals_goal || 0}</span>
