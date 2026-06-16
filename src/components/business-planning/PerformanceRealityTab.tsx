@@ -314,15 +314,15 @@ export function PerformanceRealityTab({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <StatCard
                 label="Projected Year-End GCI"
-                value={formatCurrency(metrics.projectedYearEndGCI)}
-                sub={metrics.targetGCI > 0 ? `Target: ${formatCurrency(metrics.targetGCI)}` : undefined}
+                value={formatCurrency(projectedGci)}
+                sub={`YTD closed + pending + conditional${metrics.targetGCI > 0 ? ` · Target: ${formatCurrency(metrics.targetGCI)}` : ''}`}
               />
               {metrics.targetGCI > 0 && (
                 <StatCard
                   label="Gap to Target"
-                  value={metrics.gapToTarget > 0 ? formatCurrency(metrics.gapToTarget) : 'On Track'}
-                  danger={metrics.gapToTarget > 0}
-                  sub={metrics.gapToTarget > 0 ? 'Shortfall at current pace' : 'Projected to meet or exceed'}
+                  value={projectedGci < metrics.targetGCI ? formatCurrency(metrics.targetGCI - projectedGci) : 'On Track'}
+                  danger={projectedGci < metrics.targetGCI}
+                  sub={projectedGci < metrics.targetGCI ? 'Shortfall vs pipeline projection' : 'Projected to meet or exceed'}
                 />
               )}
             </div>
