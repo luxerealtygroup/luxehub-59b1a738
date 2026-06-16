@@ -258,9 +258,15 @@ export function PerformanceRealityTab({
   const projectedH1Actual = ytdClosedGci + firmPendingGci + conditionalAt99;
   const midyearGap = expectedMidyear - projectedH1Actual; // positive = behind
   const isBehind = midyearGap > 0;
-  const rawQ3Need = Math.max(0, annualGoal - projectedH1Actual);
+  const remainingGoal = Math.max(0, annualGoal - projectedH1Actual);
   const h1Carryover = isBehind ? midyearGap : 0;
-  const adjustedQ3Target = rawQ3Need + h1Carryover;
+  // Q3/Q4 split of remaining goal — Q3 historically outperforms Q4
+  const Q3_SHARE = 0.60;
+  const Q4_SHARE = 0.40;
+  const q3ShareOfRemaining = remainingGoal * Q3_SHARE;
+  const q4ShareOfRemaining = remainingGoal * Q4_SHARE;
+  const q3CarryoverShare = h1Carryover * Q3_SHARE;
+  const adjustedQ3Target = q3ShareOfRemaining + q3CarryoverShare;
   const originalQ3Goal = annualGoal > 0 ? annualGoal / 4 : 0;
   const surplus = !isBehind ? Math.abs(midyearGap) : 0;
   // Progress bar geometry
@@ -428,34 +434,43 @@ export function PerformanceRealityTab({
                 <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Q3 Adjusted Target</p>
 
                 <div className="rounded-lg border border-border bg-background p-5 space-y-3">
-                  <Step label="Annual GCI Goal" value={formatCurrency(annualGoal)} muted />
-                  <Step label="− What you're on track to earn Jan–Jun" value={`− ${formatCurrency(projectedH1Actual)}`} muted />
-                  <div className="border-t border-dashed border-border pt-3">
-                    <Step label="= What Q3 needs to cover" value={formatCurrency(rawQ3Need)} />
-                  </div>
-                  <Step
-                    label="+ Extra added because you're behind pace"
-                    value={`+ ${formatCurrency(h1Carryover)}`}
-                    muted={!isBehind}
-                    amber={isBehind}
-                  />
-                  <div className="border-t-2 border-foreground/20 pt-4 flex items-baseline justify-between gap-4">
-                    <p className="text-sm font-bold uppercase tracking-wider text-foreground">Adjusted Q3 Target</p>
-                    <p className={`text-3xl font-bold tabular-nums ${isBehind ? 'text-foreground' : 'text-green-600'}`}>
-                      {formatCurrency(adjustedQ3Target)}
-                    </p>
-                  </div>
-                </div>
+                   <Step label="Annual GCI Goal" value={formatCurrency(annualGoal)} muted />
+                   <Step label="− What you're on track to earn Jan–Jun" value={`− ${formatCurrency(projectedH1Actual)}`} muted />
+                   <div className="border-t border-dashed border-border pt-3">
+                     <Step label="= What's left to earn Jul–Dec" value={formatCurrency(remainingGoal)} />
+                   </div>
+                   <Step label="Q3 share (60% of remaining)" value={formatCurrency(q3ShareOfRemaining)} muted />
+                   <Step
+                     label="+ Extra added because you're behind pace"
+                     sub={isBehind ? "60% of the H1 gap — Q4 carries the other 40%" : undefined}
+                     value={`+ ${formatCurrency(q3CarryoverShare)}`}
+                     muted={!isBehind}
+                     amber={isBehind}
+                   />
+                   <div className="border-t-2 border-foreground/20 pt-4 flex items-baseline justify-between gap-4">
+                     <p className="text-sm font-bold uppercase tracking-wider text-foreground">Adjusted Q3 Target</p>
+                     <p className={`text-3xl font-bold tabular-nums ${isBehind ? 'text-foreground' : 'text-green-600'}`}>
+                       {formatCurrency(adjustedQ3Target)}
+                     </p>
+                   </div>
+                   <div className="border-t border-dashed border-border pt-3 flex items-baseline justify-between gap-4">
+                     <p className="text-[12px] text-muted-foreground">Q4 target (projected) — Q4 planning opens October 1.</p>
+                     <p className="text-sm font-semibold text-muted-foreground tabular-nums">{formatCurrency(q4ShareOfRemaining)}</p>
+                   </div>
+                 </div>
 
-                {isBehind ? (
-                  <p className="text-[12px] text-muted-foreground">
-                    Your original Q3 goal was <span className="font-semibold text-foreground">{formatCurrency(originalQ3Goal)}</span>. Because you're behind midyear pace, an extra <span className="font-semibold text-foreground">{formatCurrency(h1Carryover)}</span> has been added to make up the difference.
-                  </p>
-                ) : (
-                  <p className="text-[12px] text-muted-foreground">
-                    You banked <span className="font-semibold text-green-600">{formatCurrency(surplus)}</span> in H1. Your Q3 target is <span className="font-semibold text-foreground">{formatCurrency(adjustedQ3Target)}</span> — but don't coast.
-                  </p>
-                )}
+                 {isBehind ? (
+                   <p className="text-[12px] text-muted-foreground">
+                     Your original Q3 goal was <span className="font-semibold text-foreground">{formatCurrency(originalQ3Goal)}</span>. The remaining gap from H1 has been split across Q3 and Q4 based on how agents on this team typically produce. Q3 carries 60%, Q4 carries 40%.
+                   </p>
+                 ) : (
+                   <p className="text-[12px] text-muted-foreground">
+                     You banked <span className="font-semibold text-green-600">{formatCurrency(surplus)}</span> in H1. Your Q3 target is <span className="font-semibold text-foreground">{formatCurrency(adjustedQ3Target)}</span> — but don't coast.
+                   </p>
+                 )}
+                 <p className="text-[11px] text-muted-foreground italic">
+                   Q3/Q4 split based on typical team production patterns — Q3 historically outperforms Q4.
+                 </p>
               </div>
 
               <Separator />
