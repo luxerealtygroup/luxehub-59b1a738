@@ -39,8 +39,7 @@ interface Props {
 /* ── Locked display field ── */
 const LockedField = ({ label, value, sub, highlight }: { label: string; value: string; sub?: string; highlight?: boolean }) => (
   <div className={`rounded-lg border p-3 ${highlight ? 'border-gold/30 bg-gold/5' : 'border-border bg-muted/30'}`}>
-    <div className="flex items-center gap-1.5 mb-1">
-      <Lock className="h-3 w-3 text-muted-foreground" />
+    <div className="mb-1">
       <span className="text-xs text-muted-foreground uppercase tracking-wider">{label}</span>
     </div>
     <p className={`text-lg font-bold ${highlight ? 'text-gold' : 'text-foreground'}`}>{value}</p>
