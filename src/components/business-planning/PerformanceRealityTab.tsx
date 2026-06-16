@@ -248,10 +248,10 @@ export function PerformanceRealityTab({
             <CardContent className="space-y-4">
               {/* Quarterly historical context */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <StatCard label="Q1 GCI" value={formatCurrency(q1Gci)} sub="Closed" />
-                <StatCard label="Q2 GCI" value={formatCurrency(q2Gci)} sub="Closed" />
-                <StatCard label="Pending GCI" value={formatCurrency(firmPendingGci)} sub="Under contract / pending" />
-                <StatCard label="Conditional GCI" value={formatCurrency(conditionalGci)} sub="Offer / conditional" />
+                <StatCard label="Q1 GCI" value={formatCurrency(q1Gci)} sub={`${q1Units} closed`} />
+                <StatCard label="Q2 GCI" value={formatCurrency(q2Gci)} sub={`${q2Units} closed`} />
+                <StatCard label="Pending GCI" value={formatCurrency(firmPendingGci)} sub={`${firmPendingUnits} under contract / pending`} />
+                <StatCard label="Conditional GCI" value={formatCurrency(conditionalGci)} sub={`${conditionalUnits} offer / conditional`} />
               </div>
               {/* Projected vs goal */}
               <Separator />
@@ -259,7 +259,7 @@ export function PerformanceRealityTab({
                 <StatCard
                   label="Projected Total GCI"
                   value={formatCurrency(projectedGci)}
-                  sub="YTD closed + pending + conditional"
+                  sub={`${projectedUnits} deals — YTD closed + pending + conditional`}
                 />
                 <StatCard label="Annual Goal" value={formatCurrency(annualGoal)} sub={`${projectedPct}% projected`} />
                 <StatCard
