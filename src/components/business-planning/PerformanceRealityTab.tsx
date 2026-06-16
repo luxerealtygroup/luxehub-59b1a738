@@ -272,28 +272,14 @@ export function PerformanceRealityTab({
   // Progress bar geometry
   const midyearTickPct = annualGoal > 0 ? 50 : 0;
   const actualPct = annualGoal > 0 ? Math.max(0, Math.min(100, (projectedH1Actual / annualGoal) * 100)) : 0;
-  // ── Q3 Pipeline requirement — sale vs lease honest math ──
+  // ── Q3 Pipeline requirement — sales only (leases are bonus income, not planned production) ──
   const TEAM_AVG_GCI_FALLBACK = 15000;
   const MIN_DEALS_FOR_PERSONAL_AVG = 3;
   const salesClosed = metrics?.salesCountClosed || 0;
-  const leasesClosed = metrics?.leaseCountClosed || 0;
-  const gciSales = (metrics as any)?.avgGciPerSale ? metrics!.avgGciPerSale * salesClosed : 0;
-  const gciLeases = (metrics as any)?.avgGciPerLease ? metrics!.avgGciPerLease * leasesClosed : 0;
-  const totalSplitGci = gciSales + gciLeases;
-  // Personal vs team-average sale GCI
   const usingPersonalSaleAvg = salesClosed >= MIN_DEALS_FOR_PERSONAL_AVG && (metrics?.avgGciPerSale || 0) > 0;
   const avgGciPerSale = usingPersonalSaleAvg ? metrics!.avgGciPerSale : TEAM_AVG_GCI_FALLBACK;
-  const usingPersonalLeaseAvg = leasesClosed >= MIN_DEALS_FOR_PERSONAL_AVG && (metrics?.avgGciPerLease || 0) > 0;
-  const avgGciPerLease = usingPersonalLeaseAvg ? metrics!.avgGciPerLease : 0;
-  const hasLeaseMix = leasesClosed > 0 && avgGciPerLease > 0 && totalSplitGci > 0;
-  // Split Q3 GCI target the same way agent historically earns it (by GCI share)
-  const saleGciShare = hasLeaseMix && totalSplitGci > 0 ? gciSales / totalSplitGci : 1;
-  const leaseGciShare = hasLeaseMix ? 1 - saleGciShare : 0;
-  const q3SalesGciTarget = adjustedQ3Target * saleGciShare;
-  const q3LeasesGciTarget = adjustedQ3Target * leaseGciShare;
-  const q3SalesNeeded = avgGciPerSale > 0 ? Math.ceil(q3SalesGciTarget / avgGciPerSale) : 0;
-  const q3LeasesNeeded = hasLeaseMix && avgGciPerLease > 0 ? Math.ceil(q3LeasesGciTarget / avgGciPerLease) : 0;
-  const q3ClosingsNeeded = q3SalesNeeded + q3LeasesNeeded;
+  const q3SalesNeeded = avgGciPerSale > 0 ? Math.ceil(adjustedQ3Target / avgGciPerSale) : 0;
+  const q3ClosingsNeeded = q3SalesNeeded;
   const q3PipelineRequired = q3ClosingsNeeded > 0 ? Math.ceil(q3ClosingsNeeded / 0.30) : 0;
   const q3CurrentPipeline = currentPipelineDeals;
   const q3PipelineGap = Math.max(0, q3PipelineRequired - q3CurrentPipeline);
@@ -505,23 +491,20 @@ export function PerformanceRealityTab({
                   <Step label="Your Q3 GCI target" value={formatCurrency(adjustedQ3Target)} muted />
                   <div className="border-t border-dashed border-border pt-3">
                     <Step
-                      label="Sales needed in Q3"
-                      sub={`avg ${formatCurrency(avgGciPerSale)} per sale`}
-                      value={`${formatNumber(q3SalesNeeded)} ${q3SalesNeeded === 1 ? 'sale' : 'sales'}`}
+                      label="÷ Average GCI per sale"
+                      value={formatCurrency(avgGciPerSale)}
+                      muted
                     />
-                    {hasLeaseMix && (
-                      <div className="mt-3">
-                        <Step
-                          label="Leases needed in Q3"
-                          sub={`avg ${formatCurrency(avgGciPerLease)} per lease`}
-                          value={`${formatNumber(q3LeasesNeeded)} ${q3LeasesNeeded === 1 ? 'lease' : 'leases'}`}
-                        />
-                      </div>
-                    )}
+                    <div className="mt-3">
+                      <Step
+                        label="= Sales you need to close"
+                        value={`${formatNumber(q3SalesNeeded)} ${q3SalesNeeded === 1 ? 'sale' : 'sales'}`}
+                      />
+                    </div>
                     <p className="text-[11px] text-muted-foreground mt-2 italic">
                       {usingPersonalSaleAvg
-                        ? `Based on your ${formatNumber(salesClosed)} closed ${salesClosed === 1 ? 'sale' : 'sales'} this year${hasLeaseMix ? ` and ${formatNumber(leasesClosed)} ${leasesClosed === 1 ? 'lease' : 'leases'}` : ''}.`
-                        : `Based on team average (not enough personal data yet — need ${MIN_DEALS_FOR_PERSONAL_AVG}+ closed sales).`}
+                        ? `Based on your ${formatNumber(salesClosed)} closed ${salesClosed === 1 ? 'sale' : 'sales'} this year. Leases are not included in your sales average or your goal — they're gravy.`
+                        : `Based on team average (not enough personal data yet — need ${MIN_DEALS_FOR_PERSONAL_AVG}+ closed sales). Leases are not included in your sales average or your goal — they're gravy.`}
                     </p>
                   </div>
 
@@ -529,13 +512,13 @@ export function PerformanceRealityTab({
                     <div className="rounded-md border border-amber-500/60 bg-amber-500/10 p-3 flex gap-2">
                       <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
                       <p className="text-[12px] text-foreground leading-snug">
-                        This number looks high — it may mean your Q3 GCI target needs to be reviewed with Kristen, or your average deal size is being pulled down by leases. Leases are counted as ⅓ of a deal and significantly reduce your average.
+                        This number looks high — it may be worth reviewing your Q3 GCI target with Kristen.
                       </p>
                     </div>
                   )}
 
                   <div className="border-t border-dashed border-border pt-3">
-                    <Step label="Total deals to close in Q3" value={`${formatNumber(q3ClosingsNeeded)} deals`} bold />
+                    <Step label="Sales to close in Q3" value={`${formatNumber(q3ClosingsNeeded)} ${q3ClosingsNeeded === 1 ? 'sale' : 'sales'}`} bold />
                   </div>
                   <Step label="÷ Your close rate (3 in 10)" sub="7 of 10 usually fall through" value="" muted />
                   <div className="border-t border-dashed border-border pt-3">
