@@ -503,17 +503,21 @@ export function PerformanceRealityTab({
                 <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Q3 Pipeline Requirement</p>
 
                 <div className="rounded-lg border border-border bg-background p-5 space-y-3">
-                  <Step label="Your Q3 GCI target" value={formatCurrency(adjustedQ3Target)} muted />
+                  <Step label="Your Q3 GCI target" value={formatCurrency(adjustedQ3Target)} sub={NET_LABEL} muted />
                   <div className="border-t border-dashed border-border pt-3">
                     <Step
                       label="÷ Average GCI per sale"
                       value={formatCurrency(avgGciPerSale)}
+                      sub={NET_LABEL}
                       muted
                     />
                     <div className="mt-3 space-y-2 rounded-md border border-border/70 bg-muted/30 p-3">
                       <Step label="Closed sales avg" value={avgGciPerClosedSale > 0 ? formatCurrency(avgGciPerClosedSale) : '—'} sub={`${formatNumber(salesClosed)} ${salesClosed === 1 ? 'deal' : 'deals'}`} muted />
                       <Step label="Pending sales avg" value={avgGciPerInFlightSale > 0 ? formatCurrency(avgGciPerInFlightSale) : '—'} sub={`${formatNumber(inFlightSalesCount)} pending/conditional ${inFlightSalesCount === 1 ? 'deal' : 'deals'}`} muted />
                       <Step label="Blended average" value={formatCurrency(avgGciPerSale)} sub="Used for this pipeline math" bold />
+                      <p className="text-[11px] text-muted-foreground italic pt-1 border-t border-border/40">
+                        Closed sales avg {avgGciPerClosedSale > 0 ? formatCurrency(avgGciPerClosedSale) : '—'} · Pending sales avg {avgGciPerInFlightSale > 0 ? formatCurrency(avgGciPerInFlightSale) : '—'} · Blended {formatCurrency(avgGciPerSale)} — all figures reflect your net after split ({splitPct}%).
+                      </p>
                     </div>
                     <div className="mt-3">
                       <Step
