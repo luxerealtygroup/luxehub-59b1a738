@@ -492,6 +492,11 @@ export function StrategyGoalsTab({
             </div>
           </>
         )}
+
+        <Separator />
+        <p className="text-[11px] text-muted-foreground italic text-center pt-1">
+          All figures synced from Performance Reality calculations.
+        </p>
       </CardContent>
     </Card>
   );
