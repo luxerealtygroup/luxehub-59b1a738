@@ -51,6 +51,8 @@ export interface ActiveMetrics {
   avgGciPerClosedSale: number;
   avgGciPerPendingSale: number;
   avgGciPerLease: number;
+  /** Agent's split percentage on file (e.g. 70 = 70% to agent). Used to net GCI displays. */
+  splitPercent: number;
 }
 
 export interface GoalInputs {
