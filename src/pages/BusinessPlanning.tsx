@@ -126,7 +126,7 @@ const BusinessPlanning = () => {
   // Pending/conditional deals projected to close in prev quarter still count toward its goal
   const prevQPendingDeals = allDeals.filter(d => {
     const c = classifyStage(d.stageName);
-    if (c === 'closed' || c === 'lost') return false;
+    if (c === 'closed' || c === 'other') return false;
     if (!isDealOwnedByAgent(d, effectiveFubUserId)) return false;
     const cd = getCloseDate(d);
     return cd && cd >= prevQRange.start && cd <= prevQRange.end;
