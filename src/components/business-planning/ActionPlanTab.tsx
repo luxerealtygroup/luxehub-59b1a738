@@ -88,6 +88,14 @@ export function ActionPlanTab({ metrics, mode, goals, quarter, uid, isViewingAsA
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
+          {ratesOver100 && (
+            <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3">
+              <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+              <p className="text-sm text-foreground">
+                One or more conversion rates exceed 100% — the math below may be off. Review your rates with Kristen.
+              </p>
+            </div>
+          )}
           {goals.gci_target <= 0 ? (
             <p className="text-sm text-muted-foreground">Set a GCI target in Q{quarter} Strategy & Goals to auto-calculate weekly targets.</p>
           ) : (
@@ -214,6 +222,16 @@ export function ActionPlanTab({ metrics, mode, goals, quarter, uid, isViewingAsA
               )}
             </>
           )}
+
+          {/* Bottom floor action card — always visible */}
+          <div className="rounded-lg border-2 border-gold/50 bg-gold/5 p-4">
+            <p className="text-sm font-semibold text-foreground">
+              This week: have {formatNumber(FLOOR.conversations)} conversations, add {formatNumber(FLOOR.pipelineAdds)} new {FLOOR.pipelineAdds === 1 ? 'person' : 'people'} to your pipeline, and book {formatNumber(FLOOR.appointments)} {FLOOR.appointments === 1 ? 'appointment' : 'appointments'}.
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              That's the floor — hit it every week.
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>
