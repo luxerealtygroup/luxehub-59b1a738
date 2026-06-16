@@ -329,7 +329,7 @@ export function PerformanceRealityTab({
               {/* ── Section 1: Annual Snapshot ── */}
               <div className="space-y-4">
                 <div className="flex items-baseline justify-between">
-                  <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Annual Snapshot</p>
+                  <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Midyear Scorecard — GCI + Activity</p>
                   <p className="text-[11px] text-muted-foreground">Halfway through {currentYear}</p>
                 </div>
 
@@ -383,6 +383,42 @@ export function PerformanceRealityTab({
                     ? `You are ${formatCurrency(Math.abs(midyearGap))} behind midyear pace. That gap rolls into Q3.`
                     : `You are ${formatCurrency(Math.abs(midyearGap))} ahead of midyear pace — Q3 is about maintaining momentum.`}
                 </p>
+
+                {/* ── Activity Pace sub-section ── */}
+                {activityComputed.length > 0 && (
+                  <div className="pt-4 space-y-3">
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">Activity Pace</p>
+                    <div className="space-y-2">
+                      {activityComputed.map(a => {
+                        const dot = a.status === 'green' ? 'bg-green-500' : a.status === 'amber' ? 'bg-amber-500' : 'bg-red-500';
+                        const fill = a.status === 'green' ? 'bg-green-500' : a.status === 'amber' ? 'bg-amber-500' : 'bg-red-500';
+                        return (
+                          <div key={a.key} className="grid grid-cols-[110px_1fr_auto_auto] items-center gap-3 text-[12px]">
+                            <span className="text-muted-foreground">{a.label}</span>
+                            <div className="h-1.5 bg-muted rounded-full overflow-hidden relative">
+                              <div className={`h-full ${fill} transition-all`} style={{ width: `${a.fillPct}%` }} />
+                              <div className="absolute top-[-2px] h-[10px] w-0.5 bg-foreground/60" style={{ left: '100%', transform: 'translateX(-1px)' }} />
+                            </div>
+                            <span className="tabular-nums text-foreground whitespace-nowrap">
+                              {formatNumber(a.actual)} of {formatNumber(a.expected)}
+                            </span>
+                            <span className="tabular-nums text-muted-foreground whitespace-nowrap flex items-center gap-2">
+                              {a.weeklyActual.toFixed(1)}/wk vs {a.weeklyTarget}/wk
+                              <span className={`inline-block h-2 w-2 rounded-full ${dot}`} aria-label={a.status} />
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {worstActivity && worstActivity.shortfallPct > 0 && (
+                      <div className="rounded-md border border-border bg-muted/40 px-4 py-3">
+                        <p className="text-[12px] text-foreground leading-relaxed">
+                          Your biggest activity gap is <span className="font-semibold">{worstActivity.label.toLowerCase()}</span>. At your current pace, you will finish the year with <span className="font-semibold tabular-nums">{formatNumber(worstActivity.projectedAnnual)}</span> — <span className="font-semibold tabular-nums">{formatNumber(Math.max(0, worstActivity.requiredAnnual - worstActivity.projectedAnnual))}</span> short of what the math requires to hit your GCI goal.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <Separator />
