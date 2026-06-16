@@ -176,6 +176,33 @@ function ManualPerformanceForm({ uid, onSaved }: { uid: string | null; onSaved: 
 // ── Default fallout rate ──
 const DEFAULT_FALLOUT_RATE = 0.70;
 
+function Step({
+  label, value, sub, bold, muted, amber, danger, success,
+}: {
+  label: string; value: string; sub?: string;
+  bold?: boolean; muted?: boolean; amber?: boolean; danger?: boolean; success?: boolean;
+}) {
+  const valueColor = danger
+    ? 'text-destructive'
+    : success
+      ? 'text-green-600'
+      : amber
+        ? 'text-amber-600'
+        : 'text-foreground';
+  const labelColor = muted ? 'text-muted-foreground' : 'text-foreground';
+  return (
+    <div className="flex items-baseline justify-between gap-4">
+      <div className="min-w-0">
+        <p className={`text-sm ${bold ? 'font-bold' : 'font-medium'} ${labelColor}`}>{label}</p>
+        {sub && <p className="text-[11px] text-muted-foreground mt-0.5">{sub}</p>}
+      </div>
+      <p className={`text-base ${bold ? 'font-bold' : 'font-semibold'} ${valueColor} tabular-nums whitespace-nowrap`}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
 export function PerformanceRealityTab({
   metrics, mode, dateRange, customStart, customEnd,
   isAdmin, debugInfo, activeListingDebug, goals, effectiveRates, uid, quarter, pipelineGapData, onManualMetrics,
