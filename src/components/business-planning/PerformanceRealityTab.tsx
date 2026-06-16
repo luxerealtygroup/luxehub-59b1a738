@@ -339,11 +339,11 @@ export function PerformanceRealityTab({
                     <p className="text-xl font-bold text-foreground tabular-nums">{formatCurrency(annualGoal)}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Expected at Midyear</p>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Where you should be by now</p>
                     <p className="text-xl font-bold text-foreground tabular-nums">{formatCurrency(expectedMidyear)}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Projected Actual</p>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">On track to earn Jan–Jun</p>
                     <p className={`text-xl font-bold tabular-nums ${isBehind ? 'text-amber-600' : 'text-green-600'}`}>
                       {formatCurrency(projectedH1Actual)}
                     </p>
@@ -429,12 +429,12 @@ export function PerformanceRealityTab({
 
                 <div className="rounded-lg border border-border bg-background p-5 space-y-3">
                   <Step label="Annual GCI Goal" value={formatCurrency(annualGoal)} muted />
-                  <Step label="− Projected H1 Actual" value={`− ${formatCurrency(projectedH1Actual)}`} muted />
+                  <Step label="− What you're on track to earn Jan–Jun" value={`− ${formatCurrency(projectedH1Actual)}`} muted />
                   <div className="border-t border-dashed border-border pt-3">
-                    <Step label="= Raw Q3 Need" value={formatCurrency(rawQ3Need)} />
+                    <Step label="= What Q3 needs to cover" value={formatCurrency(rawQ3Need)} />
                   </div>
                   <Step
-                    label="+ H1 Gap Carryover"
+                    label="+ Extra added because you're behind pace"
                     value={`+ ${formatCurrency(h1Carryover)}`}
                     muted={!isBehind}
                     amber={isBehind}
@@ -449,7 +449,7 @@ export function PerformanceRealityTab({
 
                 {isBehind ? (
                   <p className="text-[12px] text-muted-foreground">
-                    This replaces your original Q3 goal of <span className="font-semibold text-foreground">{formatCurrency(originalQ3Goal)}</span>. The gap from H1 has been added.
+                    Your original Q3 goal was <span className="font-semibold text-foreground">{formatCurrency(originalQ3Goal)}</span>. Because you're behind midyear pace, an extra <span className="font-semibold text-foreground">{formatCurrency(h1Carryover)}</span> has been added to make up the difference.
                   </p>
                 ) : (
                   <p className="text-[12px] text-muted-foreground">
@@ -465,20 +465,20 @@ export function PerformanceRealityTab({
                 <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Q3 Pipeline Requirement</p>
 
                 <div className="rounded-lg border border-border bg-background p-5 space-y-3">
-                  <Step label="Adjusted Q3 Target (GCI)" value={formatCurrency(adjustedQ3Target)} muted />
-                  <Step label="÷ Average GCI per deal" value={formatCurrency(q3AvgGci)} muted />
+                  <Step label="Your Q3 revenue target" value={formatCurrency(adjustedQ3Target)} muted />
+                  <Step label="÷ Average commission per deal" value={formatCurrency(q3AvgGci)} muted />
                   <div className="border-t border-dashed border-border pt-3">
-                    <Step label="= Closings needed in Q3" value={`${q3ClosingsNeeded} deals`} />
+                    <Step label="Deals you need to close in Q3" value={`${q3ClosingsNeeded} deals`} />
                   </div>
-                  <Step label="÷ 30% conversion rate" sub="70% fallout assumed" value="" muted />
+                  <Step label="÷ Your close rate (3 in 10)" sub="7 of 10 usually fall through" value="" muted />
                   <div className="border-t border-dashed border-border pt-3">
-                    <Step label="= Pipeline contacts required" value={`${formatNumber(q3PipelineRequired)} contacts`} />
+                    <Step label="New people you need to talk to" value={`${formatNumber(q3PipelineRequired)} people`} />
                   </div>
-                  <Step label="− Current Q3 pipeline" value={`− ${formatNumber(q3CurrentPipeline)} contacts`} muted />
+                  <Step label="− Already in your pipeline" value={`− ${formatNumber(q3CurrentPipeline)} people`} muted />
                   <div className="border-t-2 border-foreground/20 pt-4">
                     <Step
-                      label="Pipeline gap"
-                      value={`${formatNumber(q3PipelineGap)} contacts still needed`}
+                      label="Still need to find"
+                      value={`${formatNumber(q3PipelineGap)} more people to reach out to`}
                       bold
                       amber={q3PipelineGap > 0}
                       success={q3PipelineGap === 0}
@@ -492,17 +492,17 @@ export function PerformanceRealityTab({
                       Weekly Action — Next 13 Weeks
                     </p>
                     <p className="text-lg font-bold text-foreground leading-snug">
-                      Add <span className="text-2xl text-amber-700 dark:text-amber-500">{weeklyNewContacts}</span> new pipeline contacts per week —
-                      on top of your existing 3/week non-negotiable.
+                      Add <span className="text-2xl text-amber-700 dark:text-amber-500">{weeklyNewContacts}</span> new people to your pipeline every week —
+                      on top of the 3/week baseline.
                     </p>
                   </div>
                 ) : (
                   <div className="rounded-lg border-2 border-green-600 bg-green-500/10 p-5">
                     <p className="text-[10px] uppercase tracking-[0.15em] text-green-700 dark:text-green-500 font-bold mb-2">
-                      Pipeline Sufficient
+                      You're All Set
                     </p>
                     <p className="text-base font-bold text-foreground leading-snug">
-                      Your current pipeline is enough to hit your adjusted Q3 target if you execute. Stay consistent.
+                      Your pipeline is deep enough to hit your Q3 target. Focus on execution and keep moving.
                     </p>
                   </div>
                 )}
