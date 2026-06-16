@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency, formatNumber } from '@/lib/utils';
-import { TrendingUp, Save, Loader2 } from 'lucide-react';
+import { TrendingUp, Save, Loader2, ShieldCheck, Rocket, AlertTriangle } from 'lucide-react';
 import { ActiveMetrics, GoalInputs, currentYear } from './types';
 import { StatCard } from './shared';
 
@@ -38,6 +38,22 @@ export function ActionPlanTab({ metrics, mode, goals, quarter, uid, isViewingAsA
   const reqWeeklyDials = weekly(requiredDials);
   const reqWeeklyContacts = weekly(requiredContacts);
   const reqWeeklyAppts = weekly(requiredAppts);
+
+  // Team non-negotiable floor — committed minimums every agent owes the team
+  const FLOOR = {
+    conversations: 10, // conversations / week
+    pipelineAdds: 3,   // new pipeline contacts / week
+    appointments: 1,   // appointments / week
+  } as const;
+
+  // Display caps for stretch numbers — anything above this signals a lead-source issue
+  const DIAL_CAP = 20;
+  const CONTACT_CAP = 15;
+  const dialsOverCap = reqWeeklyDials > DIAL_CAP;
+  const contactsOverCap = reqWeeklyContacts > CONTACT_CAP;
+  const anyOverCap = dialsOverCap || contactsOverCap;
+  const displayDials = dialsOverCap ? `${DIAL_CAP}+` : formatNumber(reqWeeklyDials);
+  const displayContacts = contactsOverCap ? `${CONTACT_CAP}+` : formatNumber(reqWeeklyContacts);
 
   const projections = metrics && goals.gci_target > 0 ? (() => {
     const dialGap = reqWeeklyDials - metrics.weeklyAvgDials;
@@ -72,11 +88,88 @@ export function ActionPlanTab({ metrics, mode, goals, quarter, uid, isViewingAsA
             <p className="text-sm text-muted-foreground">Set a GCI target in Q{quarter} Strategy & Goals to auto-calculate weekly targets.</p>
           ) : (
             <>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <StatCard label="Weekly Dials Target" value={formatNumber(reqWeeklyDials)} />
-                <StatCard label="Weekly Contacts Target" value={formatNumber(reqWeeklyContacts)} />
-                <StatCard label="Weekly Appts Target" value={formatNumber(reqWeeklyAppts)} />
-                <StatCard label="Weekly Closings Target" value={formatNumber(weekly(requiredClosings))} />
+              {/* Tier 1 — Non-Negotiable Floor */}
+              <div className="rounded-lg border-2 border-gold/50 bg-gold/5 p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <ShieldCheck className="h-5 w-5 text-gold" />
+                  <h3 className="text-base font-bold">Non-Negotiable Weekly Floor</h3>
+                </div>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Team-committed minimums. Hit these every week, no exceptions.
+                </p>
+                <div className="grid grid-cols-3 gap-3">
+                  <StatCard label="Conversations / week" value={formatNumber(FLOOR.conversations)} />
+                  <StatCard label="Pipeline adds / week" value={formatNumber(FLOOR.pipelineAdds)} />
+                  <StatCard label="Appointments / week" value={formatNumber(FLOOR.appointments)} />
+                </div>
+              </div>
+
+              {/* Tier 2 — Stretch (what closes the gap faster) */}
+              <div className="rounded-lg border border-border bg-card p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Rocket className="h-5 w-5 text-gold" />
+                  <h3 className="text-base font-bold">What it would take to close your gap faster</h3>
+                </div>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Stretch target — calculated from your Q{quarter} pipeline math. Not a requirement.
+                </p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <StatCard label="Weekly Dials (stretch)" value={displayDials} />
+                  <StatCard label="Weekly Contacts (stretch)" value={displayContacts} />
+                  <StatCard label="Weekly Appts (stretch)" value={formatNumber(reqWeeklyAppts)} />
+                  <StatCard label="Weekly Closings (stretch)" value={formatNumber(weekly(requiredClosings))} />
+                </div>
+                {anyOverCap && (
+                  <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3">
+                    <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+                    <p className="text-sm text-foreground">
+                      This number is high — talk to Kristen about your lead source mix in your Tuesday session.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Two-tier Required Activity Breakdown */}
+              <div className="rounded-lg border border-border overflow-hidden">
+                <div className="px-4 py-2 bg-muted/40 border-b border-border">
+                  <h3 className="text-sm font-bold">Required Activity Breakdown</h3>
+                </div>
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/20 text-xs uppercase tracking-wider text-muted-foreground">
+                    <tr>
+                      <th className="text-left px-4 py-2 font-semibold">Activity</th>
+                      <th className="text-right px-4 py-2 font-semibold">Non-Negotiable Floor</th>
+                      <th className="text-right px-4 py-2 font-semibold">Stretch (gap-close)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-t border-border">
+                      <td className="px-4 py-2">Dials / week</td>
+                      <td className="px-4 py-2 text-right text-muted-foreground">—</td>
+                      <td className="px-4 py-2 text-right font-semibold">{displayDials}</td>
+                    </tr>
+                    <tr className="border-t border-border">
+                      <td className="px-4 py-2">Conversations / week</td>
+                      <td className="px-4 py-2 text-right font-semibold">{formatNumber(FLOOR.conversations)}</td>
+                      <td className="px-4 py-2 text-right font-semibold">{displayContacts}</td>
+                    </tr>
+                    <tr className="border-t border-border">
+                      <td className="px-4 py-2">Pipeline adds / week</td>
+                      <td className="px-4 py-2 text-right font-semibold">{formatNumber(FLOOR.pipelineAdds)}</td>
+                      <td className="px-4 py-2 text-right text-muted-foreground">—</td>
+                    </tr>
+                    <tr className="border-t border-border">
+                      <td className="px-4 py-2">Appointments / week</td>
+                      <td className="px-4 py-2 text-right font-semibold">{formatNumber(FLOOR.appointments)}</td>
+                      <td className="px-4 py-2 text-right font-semibold">{formatNumber(reqWeeklyAppts)}</td>
+                    </tr>
+                    <tr className="border-t border-border">
+                      <td className="px-4 py-2">Closings / week</td>
+                      <td className="px-4 py-2 text-right text-muted-foreground">—</td>
+                      <td className="px-4 py-2 text-right font-semibold">{formatNumber(weekly(requiredClosings))}</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
 
               {/* Gap analysis (active only) */}
