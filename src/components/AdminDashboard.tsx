@@ -948,7 +948,7 @@ const AdminDashboard = () => {
             </div>
             <p className="text-3xl font-bold text-purple-500">{stats?.totalPipelineClients || 0}</p>
             <p className="text-xs text-muted-foreground mt-1">
-              {stats?.closedDeals || 0} closed / {stats?.activeDeals || 0} active deals
+              {stats?.closedDeals || 0} closed / {stats?.activeDeals || 0} active
             </p>
           </CardContent>
         </Card>
@@ -998,7 +998,7 @@ const AdminDashboard = () => {
                 </div>
                 <div className="text-center p-4 rounded-lg bg-green-500/10">
                   <p className="text-3xl font-bold text-green-500">{teamPipelineSummary.totalDealsGoal}</p>
-                  <p className="text-sm text-muted-foreground">Team Deals Goal</p>
+                  <p className="text-sm text-muted-foreground">Team Sales Goal</p>
                 </div>
                 <div className="text-center p-4 rounded-lg bg-blue-500/10">
                   <p className="text-3xl font-bold text-blue-500">{formatCurrency(teamPipelineSummary.totalGciGoal)}</p>
@@ -1217,8 +1217,8 @@ const AdminDashboard = () => {
 
                   {/* Grouped Transaction Tables */}
                   {([
-                    { key: 'closed', label: 'Closed Deals', color: 'green', icon: '✅' },
-                    { key: 'pending', label: 'Pending Deals', color: 'amber', icon: '⏳' },
+                    { key: 'closed', label: 'Closed Sales', color: 'green', icon: '✅' },
+                    { key: 'pending', label: 'Pending Sales', color: 'amber', icon: '⏳' },
                     { key: 'conditional', label: 'Conditional (Offer)', color: 'orange', icon: '📝' },
                   ] as const).map(({ key, label, color, icon }) => {
                     const group = filteredTransactions.filter(t => t.status === key);
@@ -1370,7 +1370,7 @@ const AdminDashboard = () => {
                       </Avatar>
                       <div className="flex-1">
                         <p className="font-semibold text-foreground">{agent.name}</p>
-                        <p className="text-sm text-muted-foreground">{formatWeightedDeals(agent.dealCount)} deals</p>
+                        <p className="text-sm text-muted-foreground">{Math.round(agent.dealCount)} sales</p>
                       </div>
                       <div className="text-right">
                         <p className="text-lg font-bold text-green-500">
@@ -1419,11 +1419,11 @@ const AdminDashboard = () => {
                       <p className="font-semibold text-gold">${agent.pendingGci.toLocaleString()}</p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground">Closed Deals</p>
+                      <p className="text-muted-foreground">Closed Sales</p>
                       <p className="font-semibold">{formatWeightedDeals(agent.closedDeals)}</p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground">Active Deals</p>
+                      <p className="text-muted-foreground">Pipeline Clients</p>
                       <p className="font-semibold">{formatWeightedDeals(agent.activeDeals)}</p>
                     </div>
                   </div>

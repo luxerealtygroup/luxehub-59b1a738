@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Loader2, TrendingUp } from 'lucide-react';
+import { CalendarIcon, Loader2, TrendingUp, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, startOfYear } from 'date-fns';
 
@@ -211,10 +211,31 @@ const ConversionReport = () => {
     { label: 'Dials → Appt Set', num: 'appointments_set', den: 'dials' },
     { label: 'Dials → Pipeline', num: 'pipeline_additions', den: 'dials' },
     { label: 'Appt Held → Contract', num: 'contracts_signed', den: 'appointments_held' },
-    { label: 'Appt Held → Firm Deal', num: 'firm_deals', den: 'appointments_held' },
-    { label: 'Database → Firm Deal', num: 'firm_deals', den: 'database_size' },
+    { label: 'Appt Held → Firm Sale', num: 'firm_deals', den: 'appointments_held' },
+    { label: 'Database → Firm Sale', num: 'firm_deals', den: 'database_size' },
     { label: 'Database → Contract', num: 'contracts_signed', den: 'database_size' },
   ] as const;
+
+  // Compute conversion rates that exceed 100% (data error) within the current scope
+  const scopeTotals: AgentTotals = !actingAsAdmin
+    ? selfTotals
+    : selectedAgent === 'all'
+      ? teamTotals
+      : (agentTotals.get(selectedAgent) || {
+          contacts_made: 0, dials: 0, doors_knocked: 0, appointments_set: 0,
+          appointments_held: 0, pipeline_additions: 0, contracts_signed: 0,
+          firm_deals: 0, database_size: 0,
+        });
+  const exceededRates: { label: string; value: string }[] = conversionMetrics
+    .map(m => {
+      const num = scopeTotals[m.num as keyof AgentTotals];
+      const den = scopeTotals[m.den as keyof AgentTotals];
+      if (den > 0 && num / den > 1) {
+        return { label: m.label as string, value: ((num / den) * 100).toFixed(1) + '%' };
+      }
+      return null;
+    })
+    .filter(Boolean) as { label: string; value: string }[];
 
   if (loading) {
     return (
@@ -278,6 +299,25 @@ const ConversionReport = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Data-error banner: any conversion rate > 100% */}
+      {exceededRates.length > 0 && (
+        <Card className="border-amber-500/40 bg-amber-500/10">
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-amber-500 mt-0.5 shrink-0" />
+              <div className="text-sm">
+                <p className="font-semibold text-amber-600 dark:text-amber-400">
+                  ⚠️ One or more conversion rates exceed 100% — this is a data error. Review in your next Kristen session.
+                </p>
+                <p className="text-muted-foreground mt-1">
+                  {exceededRates.map(r => `${r.label} (${r.value})`).join(', ')}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Agent view: only personal conversion metrics */}
       {!actingAsAdmin && (
