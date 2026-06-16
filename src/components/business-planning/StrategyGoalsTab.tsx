@@ -401,7 +401,7 @@ export function StrategyGoalsTab({
                   <span>Metric</span><span className="text-center">Monthly</span><span className="text-center">Weekly</span><span className="text-center">Daily</span>
                 </div>
                 <BreakdownRow label="Pending" monthly={monthly(requiredClosings)} weekly={weekly(requiredClosings)} daily={daily(requiredClosings)} />
-                <BreakdownRow label="Pipeline Additions" monthly={monthly(requiredPipelineAdditions)} weekly={weekly(requiredPipelineAdditions)} daily={daily(requiredPipelineAdditions)} />
+                <BreakdownRow label="Pipeline Additions" monthly={Math.max(Math.ceil(requiredPipelineAdditions / monthsInQ), 1)} weekly={Math.max(Math.ceil(requiredPipelineAdditions / weeksInQ), 3)} daily={Math.max(Math.ceil(requiredPipelineAdditions / daysInQ), 1)} />
                 <BreakdownRow label="Listings" monthly={monthly(requiredListings)} weekly={weekly(requiredListings)} daily={daily(requiredListings)} />
                 <BreakdownRow label="CMAs" monthly={monthly(requiredCMAs)} weekly={weekly(requiredCMAs)} daily={daily(requiredCMAs)} />
                 <BreakdownRow label="Appointments" monthly={monthly(requiredAppts)} weekly={weekly(requiredAppts)} daily={daily(requiredAppts)} />

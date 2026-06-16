@@ -190,7 +190,7 @@ export function ActionPlanTab({ metrics, mode, goals, quarter, uid, isViewingAsA
                   <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mt-4">Current vs Required</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {[
-                      { label: 'Dial Increase / Week', value: projections.dialGap, current: metrics!.weeklyAvgDials, required: reqWeeklyDials },
+                      { label: 'Dial Increase / Week', value: projections.dialGap, current: metrics!.weeklyAvgDials, required: reqWeeklyDials, requiredDisplay: displayDials },
                       { label: 'Contact Increase / Week', value: projections.contactGap, current: metrics!.weeklyAvgContacts, required: reqWeeklyContacts },
                       { label: 'Appt Increase / Week', value: projections.apptGap, current: metrics!.weeklyAvgAppts, required: reqWeeklyAppts },
                     ].map(p => (
@@ -200,7 +200,7 @@ export function ActionPlanTab({ metrics, mode, goals, quarter, uid, isViewingAsA
                           {p.value > 0 ? `+${formatNumber(p.value)}` : 'On Pace'}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          Current: {formatNumber(p.current)} → Required: {formatNumber(p.required)}
+                          Current: {formatNumber(p.current)} → Required: {(p as any).requiredDisplay ?? formatNumber(p.required)}
                         </p>
                       </div>
                     ))}
