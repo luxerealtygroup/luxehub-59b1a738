@@ -92,12 +92,6 @@ export function AIReflectionSummary({ uid }: Props) {
                 <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               </Button>
             )}
-            {!reflection && !loading && (
-              <Button size="sm" onClick={() => generate(false)} disabled={loading}>
-                <Brain className="h-4 w-4 mr-1" />
-                Generate
-              </Button>
-            )}
           </div>
         </div>
       </CardHeader>
@@ -120,9 +114,20 @@ export function AIReflectionSummary({ uid }: Props) {
         )}
 
         {!reflection && !loading && !error && (
-          <div className="text-center py-6 text-muted-foreground">
-            <Brain className="h-8 w-8 mx-auto mb-2 opacity-40" />
-            <p className="text-sm">Click "Generate" to analyze your YTD 4-1-1 activity data with AI.</p>
+          <div className="py-4 flex flex-col items-center text-center gap-4">
+            <p className="text-sm text-foreground leading-relaxed max-w-md">
+              Get a straight-talk summary of your H1 performance — what the numbers say,
+              where you left money on the table, and what Q3 needs from you.
+            </p>
+            <Button
+              size="lg"
+              onClick={() => generate(false)}
+              disabled={loading}
+              className="text-base font-semibold px-8 py-6 shadow-lg"
+            >
+              <Brain className="h-5 w-5 mr-2" />
+              Generate My Reflection
+            </Button>
           </div>
         )}
 
