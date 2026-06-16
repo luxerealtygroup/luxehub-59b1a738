@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Loader2, TrendingUp } from 'lucide-react';
+import { CalendarIcon, Loader2, TrendingUp, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, startOfYear } from 'date-fns';
 
@@ -211,8 +211,8 @@ const ConversionReport = () => {
     { label: 'Dials → Appt Set', num: 'appointments_set', den: 'dials' },
     { label: 'Dials → Pipeline', num: 'pipeline_additions', den: 'dials' },
     { label: 'Appt Held → Contract', num: 'contracts_signed', den: 'appointments_held' },
-    { label: 'Appt Held → Firm Deal', num: 'firm_deals', den: 'appointments_held' },
-    { label: 'Database → Firm Deal', num: 'firm_deals', den: 'database_size' },
+    { label: 'Appt Held → Firm Sale', num: 'firm_deals', den: 'appointments_held' },
+    { label: 'Database → Firm Sale', num: 'firm_deals', den: 'database_size' },
     { label: 'Database → Contract', num: 'contracts_signed', den: 'database_size' },
   ] as const;
 
