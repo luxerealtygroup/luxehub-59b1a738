@@ -218,29 +218,8 @@ export function PerformanceRealityTab({
   const net = (v: number) => Math.round(v * splitFactor);
   const NET_LABEL = q3Requirements.netLabel;
 
-  // ── Pipeline Deficit Analysis with Q(n-1) carryover ──
-  const qTargetGCI = goals.gci_target > 0
-    ? goals.gci_target
-    : (metrics?.targetGCI && metrics.targetGCI > 0 ? Math.round(metrics.targetGCI / 4) : 0);
-  // avg GCI/deal — net of agent split so pipeline math is apples-to-apples with the net target
-  const avgGCIPerDeal = metrics?.avgCommission && metrics.avgCommission > 0
-    ? net(metrics.avgCommission)
-    : (goals.avg_commission > 0 ? net(goals.avg_commission) : 0);
-
-  const hasTarget = qTargetGCI > 0 && avgGCIPerDeal > 0;
-  const q2BaseGoal = hasTarget ? Math.ceil(qTargetGCI / avgGCIPerDeal) : 0;
-
-  // Carryover: shortfall from previous quarter
-  const prevQGap = Math.max(0, pipelineGapData.prevQRequiredClosings - pipelineGapData.prevQActualClosings);
-  const adjustedClosingsGoal = q2BaseGoal + prevQGap;
-
-  const falloutRate = DEFAULT_FALLOUT_RATE;
-  const conversionFactor = 1 - falloutRate; // 0.30
-  const requiredPipelineDeals = hasTarget ? Math.ceil(adjustedClosingsGoal / conversionFactor) : 0;
-  const currentPipelineDeals = pipelineGapData.pipelineTotal;
-  const pipelineDeficit = hasTarget ? Math.max(0, requiredPipelineDeals - currentPipelineDeals) : null;
-  const pipelineSurplus = hasTarget ? Math.max(0, currentPipelineDeals - requiredPipelineDeals) : 0;
   const missingDateCount = pipelineGapData.missingDateCount;
+  const q3PipelineSurplus = Math.max(0, q3Requirements.q3CurrentPipeline - q3Requirements.q3PipelineRequired);
 
   const prevQ = quarter > 1 ? quarter - 1 : 4;
 
