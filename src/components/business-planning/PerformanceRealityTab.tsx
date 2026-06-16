@@ -274,6 +274,36 @@ export function PerformanceRealityTab({
   const q3PipelineGap = Math.max(0, q3PipelineRequired - q3CurrentPipeline);
   const weeklyNewContacts = q3PipelineGap > 0 ? Math.ceil(q3PipelineGap / 13) : 0;
 
+  // ── Activity Pace (Section 1b) ──
+  const now = new Date();
+  const yearStart = new Date(currentYear, 0, 1);
+  const weeksElapsed = Math.max(1, Math.floor((now.getTime() - yearStart.getTime()) / (1000 * 60 * 60 * 24 * 7)));
+  const totalWeeksInYear = 52;
+  type ActivityRow = {
+    key: string; label: string; weeklyTarget: number; actual: number;
+  };
+  const activityRows: ActivityRow[] = metrics ? [
+    { key: 'conversations', label: 'Conversations',  weeklyTarget: 10, actual: metrics.totalContacts },
+    { key: 'pipeline',      label: 'Pipeline Adds',  weeklyTarget: 3,  actual: metrics.totalPipelineAdditions },
+    { key: 'appts',         label: 'Appointments',   weeklyTarget: 1,  actual: metrics.totalAppts },
+    { key: 'listings',      label: 'Listings Taken', weeklyTarget: 0.5, actual: metrics.totalListings },
+    { key: 'offers',        label: 'Offers Written', weeklyTarget: 0.5, actual: metrics.totalContracts },
+  ] : [];
+  const activityComputed = activityRows.map(r => {
+    const expected = Math.round(r.weeklyTarget * weeksElapsed);
+    const pace = expected > 0 ? r.actual / expected : 1;
+    const status: 'green' | 'amber' | 'red' = pace >= 1 ? 'green' : pace >= 0.8 ? 'amber' : 'red';
+    const fillPct = expected > 0 ? Math.min(100, Math.round((r.actual / expected) * 100)) : 0;
+    const weeklyActual = r.actual / weeksElapsed;
+    const projectedAnnual = Math.round(weeklyActual * totalWeeksInYear);
+    const requiredAnnual = Math.round(r.weeklyTarget * totalWeeksInYear);
+    const shortfallPct = expected > 0 ? Math.max(0, 1 - pace) : 0;
+    return { ...r, expected, pace, status, fillPct, weeklyActual, projectedAnnual, requiredAnnual, shortfallPct };
+  });
+  const worstActivity = activityComputed.length
+    ? activityComputed.reduce((a, b) => (b.shortfallPct > a.shortfallPct ? b : a))
+    : null;
+
   // Manual metrics state for planning mode display
   const [manualData, setManualData] = useState<ManualPerformance | null>(null);
 
