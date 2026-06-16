@@ -29,7 +29,18 @@ const BusinessPlanning = () => {
   const { metadata: dealMetadataMap } = useDealMetadata();
 
   const [mode, setMode] = useState<'active' | 'planning'>(hasFUB ? 'active' : 'planning');
-  const [quarter, setQuarter] = useState(2);
+  // Default to the quarter being PLANNED: current quarter, or next quarter if we're
+  // in the final 3 weeks of the current one (forward-looking planning).
+  const getPlanningQuarter = () => {
+    const now = new Date();
+    const m = now.getMonth(); // 0-11
+    const d = now.getDate();
+    const currentQ = Math.floor(m / 3) + 1; // 1-4
+    const lastMonthOfQ = currentQ * 3 - 1; // 0-indexed: Q1->2, Q2->5, Q3->8, Q4->11
+    const inFinalStretch = m === lastMonthOfQ && d >= 10;
+    return inFinalStretch ? (currentQ === 4 ? 1 : currentQ + 1) : currentQ;
+  };
+  const [quarter, setQuarter] = useState(getPlanningQuarter());
   const [dateRange, setDateRange] = useState<'ytd' | 'q1' | 'q2' | 'q3' | 'q4' | 'custom'>('ytd');
   const [customStart, setCustomStart] = useState(`${currentYear}-01-01`);
   const [customEnd, setCustomEnd] = useState(`${currentYear}-12-31`);
