@@ -153,6 +153,7 @@ const BusinessPlanning = () => {
     pipelineDebug: pipelineMetrics.debug,
     prevQActualClosings: prevQClosedDeals.length,
     prevQRequiredClosings: prevQGoalClosings,
+    prevQActualGci: Math.round(prevQClosedDeals.reduce((s, d: any) => s + (Number(d.commissionValue) || 0), 0)),
   };
 
   // ─── Supplemental metrics (411, CMA, production goals) ───
@@ -373,7 +374,8 @@ const BusinessPlanning = () => {
         </TabsContent>
 
         <TabsContent value="reflection" className="mt-6">
-          <ReflectionTab uid={uid} quarter={quarter} isViewingAsAgent={isViewingAsAgent} />
+          {/* Reflection is always about the JUST-ENDED quarter (the one prior to planning) */}
+          <ReflectionTab uid={uid} quarter={quarter > 1 ? quarter - 1 : 4} isViewingAsAgent={isViewingAsAgent} />
         </TabsContent>
 
         <TabsContent value="strategy" className="mt-6">
