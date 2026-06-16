@@ -274,10 +274,16 @@ export function PerformanceRealityTab({
   const actualPct = annualGoal > 0 ? Math.max(0, Math.min(100, (projectedH1Actual / annualGoal) * 100)) : 0;
   // ── Q3 Pipeline requirement — sales only (leases are bonus income, not planned production) ──
   const TEAM_AVG_GCI_FALLBACK = 15000;
-  const MIN_DEALS_FOR_PERSONAL_AVG = 3;
   const salesClosed = metrics?.salesCountClosed || 0;
-  const usingPersonalSaleAvg = salesClosed >= MIN_DEALS_FOR_PERSONAL_AVG && (metrics?.avgGciPerSale || 0) > 0;
-  const avgGciPerSale = usingPersonalSaleAvg ? metrics!.avgGciPerSale : TEAM_AVG_GCI_FALLBACK;
+  const salesPending = metrics?.salesCountPending || 0;
+  const salesConditional = metrics?.salesCountConditional || 0;
+  const confirmedSalesCount = salesClosed + salesPending + salesConditional;
+  const inFlightSalesCount = salesPending + salesConditional;
+  const usingConfirmedSaleAvg = confirmedSalesCount > 0 && (metrics?.avgGciPerSale || 0) > 0;
+  const avgGciPerSale = usingConfirmedSaleAvg ? metrics!.avgGciPerSale : TEAM_AVG_GCI_FALLBACK;
+  const avgGciPerClosedSale = metrics?.avgGciPerClosedSale || 0;
+  const avgGciPerInFlightSale = metrics?.avgGciPerPendingSale || 0;
+  const saleAverageLooksLow = usingConfirmedSaleAvg && avgGciPerSale < 5000;
   const q3SalesNeeded = avgGciPerSale > 0 ? Math.ceil(adjustedQ3Target / avgGciPerSale) : 0;
   const q3ClosingsNeeded = q3SalesNeeded;
   const q3PipelineRequired = q3ClosingsNeeded > 0 ? Math.ceil(q3ClosingsNeeded / 0.30) : 0;
