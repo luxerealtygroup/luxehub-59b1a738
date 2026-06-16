@@ -439,7 +439,7 @@ export function PerformanceRealityTab({
                    <Step label="Q3 share (60% of remaining)" value={formatCurrency(q3ShareOfRemaining)} muted />
                    <Step
                      label="+ Extra added because you're behind pace"
-                     sub={isBehind ? "60% of the H1 gap — Q4 carries the other 40%" : undefined}
+                     sub={isBehind ? "60% of the Jan-Jun gap — Q4 carries the other 40%" : undefined}
                      value={`+ ${formatCurrency(q3CarryoverShare)}`}
                      muted={!isBehind}
                      amber={isBehind}
