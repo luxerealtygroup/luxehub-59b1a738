@@ -240,7 +240,7 @@ export function PerformanceRealityTab({
   const projectedUnits = (metrics?.ytdClosedDeals || 0) + firmPendingUnits + conditionalUnits;
   const projectedVsGoal = annualGoal > 0 ? projectedGci - annualGoal : 0;
   const projectedPct = annualGoal > 0 ? Math.min(100, Math.round((projectedGci / annualGoal) * 100)) : 0;
-  const weeksToCloseDeficit = pipelineDeficit && pipelineDeficit > 0 ? Math.ceil(pipelineDeficit / 3) : 0;
+  
 
   // ── Mid-Year Review math + Q3 pipeline requirement (sourced from canonical q3Requirements) ──
   const expectedMidyear = q3Requirements.expectedMidyearNet;
