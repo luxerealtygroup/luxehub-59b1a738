@@ -218,6 +218,7 @@ const BusinessPlanning = () => {
     weeklyAvgDials: number; weeklyAvgContacts: number; weeklyAvgAppts: number; weeklyAvgCMAs: number;
     totalAppts: number; totalContracts: number; totalContacts: number; totalDials: number; weeksOfData: number;
     targetGCI: number;
+    totalPipelineAdditions: number;
   } | null>(null);
   const [suppLoading, setSuppLoading] = useState(true);
 
@@ -239,6 +240,7 @@ const BusinessPlanning = () => {
     const totalContacts = agg.contacts_made;
     const totalAppts = agg.appointments_held;
     const totalContracts = agg.contracts_signed;
+    const totalPipelineAdditions = agg.pipeline_additions;
     const weeksOfData = Math.max(w411.length, 1);
     const targetGCI = safe(goalsRes.data?.annual_gci_goal);
     setSuppMetrics({
@@ -248,6 +250,7 @@ const BusinessPlanning = () => {
       weeklyAvgDials: Math.round(totalDials / weeksOfData), weeklyAvgContacts: Math.round(totalContacts / weeksOfData),
       weeklyAvgAppts: Math.round(totalAppts / weeksOfData), weeklyAvgCMAs: Math.round(totalCMAs / weeksOfData),
       totalAppts, totalContracts, totalContacts, totalDials, weeksOfData, targetGCI,
+      totalPipelineAdditions,
     });
     setSuppLoading(false);
   }, [uid]);
@@ -274,6 +277,7 @@ const BusinessPlanning = () => {
       totalAppts: suppMetrics.totalAppts, totalContracts: suppMetrics.totalContracts,
       totalContacts: suppMetrics.totalContacts, totalDials: suppMetrics.totalDials,
       weeksOfData: suppMetrics.weeksOfData,
+      totalPipelineAdditions: suppMetrics.totalPipelineAdditions,
       weightedClosed: dealMetrics.weighted_closed,
       weightedPending: dealMetrics.weighted_pending,
       weightedDebugClosed: dealMetrics.weighted_debug_closed,
