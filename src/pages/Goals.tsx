@@ -586,7 +586,7 @@ const Goals = () => {
                 <div className="flex justify-between text-sm">
                   <div>
                     <span className="text-3xl font-bold text-foreground">{actualMetrics.deals_closed}</span>
-                    <span className="text-muted-foreground ml-2">/ {totalDealsGoal.toFixed(1)} goal</span>
+                    <span className="text-muted-foreground ml-2">/ {Math.round(totalDealsGoal).toLocaleString()} goal</span>
                   </div>
                   <div className="text-right">
                     <p className="text-amber-400 font-medium">+{actualMetrics.deals_pending} pending</p>
@@ -595,7 +595,7 @@ const Goals = () => {
                 </div>
                 <div className="text-xs text-muted-foreground">
                   {totalDealsGoal - actualMetrics.deals_closed > 0 
-                    ? `${(totalDealsGoal - actualMetrics.deals_closed).toFixed(1)} more deals to reach your goal`
+                    ? `${Math.round(totalDealsGoal - actualMetrics.deals_closed).toLocaleString()} more deals to reach your goal`
                     : '🎉 Goal achieved!'}
                 </div>
               </CardContent>
@@ -706,7 +706,7 @@ const Goals = () => {
                           <div className="flex items-center gap-1">
                             <Home className="h-3 w-3 text-gold" />
                             <span className="text-xs text-muted-foreground">Deals:</span>
-                            <span className="text-xs font-medium text-gold">{(monthlyGoals[index]?.deals || 0).toFixed(1)}</span>
+                            <span className="text-xs font-medium text-gold">{Math.round(monthlyGoals[index]?.deals || 0).toLocaleString()}</span>
                           </div>
                           <div className="flex items-center gap-1">
                             <DollarSign className="h-3 w-3 text-green-400" />
@@ -816,7 +816,7 @@ const Goals = () => {
                 </div>
               )}
               <p className="text-xs text-muted-foreground mt-4 text-center">
-                Total: {monthlyGoals.reduce((sum, m) => sum + m.deals, 0).toFixed(1)} deals / {formatCurrency(Math.round(monthlyGoals.reduce((sum, m) => sum + m.gci, 0)))} GCI
+                Total: {Math.round(monthlyGoals.reduce((sum, m) => sum + m.deals, 0)).toLocaleString()} deals / {formatCurrency(Math.round(monthlyGoals.reduce((sum, m) => sum + m.gci, 0)))} GCI
               </p>
             </CardContent>
           </Card>

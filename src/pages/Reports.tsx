@@ -518,7 +518,7 @@ const Reports = () => {
                           <span className="text-muted-foreground">/</span>
                           <span className="text-lg font-bold text-foreground">{pipelineNeeded}</span>
                         </div>
-                        <p className="text-xs text-muted-foreground">for {quarterDeals.toFixed(1)} deals</p>
+                        <p className="text-xs text-muted-foreground">for {Math.round(quarterDeals).toLocaleString()} deals</p>
                       </div>
                     );
                   })}
@@ -756,7 +756,7 @@ const Reports = () => {
                   return (
                     <div key={month} className="p-2 rounded-lg bg-background/50 border border-primary/10 text-center">
                       <p className="text-xs font-medium text-foreground mb-1">{month}</p>
-                      <p className="text-sm font-bold text-gold">{deals.toFixed(1)}</p>
+                      <p className="text-sm font-bold text-gold">{Math.round(deals).toLocaleString()}</p>
                       <p className="text-xs text-green-400">${Math.round(gci / 1000)}k</p>
                     </div>
                   );
