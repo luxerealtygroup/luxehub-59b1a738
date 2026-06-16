@@ -19,7 +19,7 @@ import { ReflectionTab } from '@/components/business-planning/ReflectionTab';
 import { StrategyGoalsTab } from '@/components/business-planning/StrategyGoalsTab';
 import { ActionPlanTab } from '@/components/business-planning/ActionPlanTab';
 import { ActiveMetrics, GoalInputs, defaultGoals, currentYear, safe, pct } from '@/components/business-planning/types';
-import { PlanningDataPrompt } from '@/components/business-planning/PlanningDataPrompt';
+
 
 const BusinessPlanning = () => {
   const { user } = useAuth();
@@ -315,6 +315,10 @@ const BusinessPlanning = () => {
         // Auto-derive quarterly GCI target from annual target
         const annualTarget = metrics.targetGCI || 0;
         const autoQGci = annualTarget > 0 ? Math.round(annualTarget / 4) : g.gci_target;
+        // Auto-derive average sale price from FUB closed-deal volume
+        const autoAvgSalePrice = (dealMetrics && dealMetrics.deals_closed > 0 && dealMetrics.sales_volume_closed > 0)
+          ? Math.round(dealMetrics.sales_volume_closed / dealMetrics.deals_closed)
+          : g.avg_sale_price;
         return {
           ...g,
           contact_to_appt_rate: metrics.contactToApptPct || g.contact_to_appt_rate,
@@ -323,10 +327,11 @@ const BusinessPlanning = () => {
           dials_to_appt_rate: metrics.dialsToApptPct || g.dials_to_appt_rate,
           avg_commission: avgComm,
           gci_target: autoQGci,
+          avg_sale_price: autoAvgSalePrice,
         };
       });
     }
-  }, [mode, metrics]);
+  }, [mode, metrics, dealMetrics]);
 
   // ─── Bootstrap ───
   useEffect(() => { fetchSupplemental(); fetchGoals(); }, [fetchSupplemental, fetchGoals]);
@@ -355,15 +360,6 @@ const BusinessPlanning = () => {
 
   return (
     <div className="space-y-6 max-w-6xl">
-      {user?.id && (
-        <PlanningDataPrompt
-          userId={user.id}
-          year={currentYear}
-          quarter={quarter}
-          disabled={isViewingAsAgent}
-          onComplete={() => { fetchGoals(); }}
-        />
-      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
