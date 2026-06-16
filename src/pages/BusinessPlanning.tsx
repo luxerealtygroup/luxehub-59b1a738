@@ -115,24 +115,24 @@ const BusinessPlanning = () => {
     dateEnd: combinedQEnd,
   });
 
-  // ─── Q(n-1) carryover: closed + still-pending deals dated in prev quarter ───
+  // ─── YTD carryover through end of prev quarter: closed + in-flight pending ───
   const getCloseDate = (d: any) => d.closedDate || d.closeDate || d.projectedCloseDate || null;
-  const prevQClosedDeals = allDeals.filter(d => {
+  const ytdStart = `${currentYear}-01-01`;
+  // All YTD-through-prevQ closings the agent owns
+  const ytdClosedDeals = allDeals.filter(d => {
     if (classifyStage(d.stageName) !== 'closed') return false;
     if (!isDealOwnedByAgent(d, effectiveFubUserId)) return false;
     const cd = getCloseDate(d);
-    return cd && cd >= prevQRange.start && cd <= prevQRange.end;
+    return cd && cd >= ytdStart && cd <= prevQRange.end;
   });
-  // In-flight pending/conditional deals credit toward the prev quarter's goal.
-  // Include pending deals with no close date OR a close date on/after prev quarter start
-  // (covers deals extended past Q2 — they were Q2 pipeline work).
-  const prevQPendingDeals = allDeals.filter(d => {
+  // In-flight pending/conditional deals — work already in motion that credits YTD
+  const ytdPendingDeals = allDeals.filter(d => {
     if (classifyStage(d.stageName) !== 'pending') return false;
     if (!isDealOwnedByAgent(d, effectiveFubUserId)) return false;
     const cd = getCloseDate(d);
-    return !cd || cd >= prevQRange.start;
+    return !cd || cd >= ytdStart;
   });
-  const prevQActualOrPendingCount = prevQClosedDeals.length + prevQPendingDeals.length;
+  const prevQActualOrPendingCount = ytdClosedDeals.length + ytdPendingDeals.length;
 
   // ── Quarter-by-quarter closed GCI + units (for outlook card) ──
   const sumGci = (deals: any[]) => Math.round(deals.reduce((s, d) => s + (Number(d.commissionValue) || 0), 0));
@@ -169,22 +169,23 @@ const BusinessPlanning = () => {
   const firmPendingUnits = firmPendingDeals.length;
   const conditionalUnits = conditionalDeals.length;
 
+  // Required closings YTD through end of prev quarter = annual goal × (prevQ / 4)
   const [prevQGoalClosings, setPrevQGoalClosings] = useState(0);
   useEffect(() => {
     if (!uid) return;
-    // Derive quarterly deal goal from Goals tab (agent_goals annual deals_closed ÷ 4)
+    // Derive cumulative YTD-through-prevQ deal goal from annual deals_closed
     supabase.from('agent_goals').select('target_value')
       .eq('user_id', uid).eq('period', 'yearly').eq('goal_type', 'deals_closed').maybeSingle()
       .then(({ data }) => {
         if (data && safe(data.target_value) > 0) {
-          setPrevQGoalClosings(Math.ceil(safe(data.target_value) / 4));
+          setPrevQGoalClosings(Math.ceil(safe(data.target_value) * (prevQ / 4)));
         } else {
           // Fallback: try planning_assumptions
           supabase.from('planning_assumptions').select('gci_target, avg_commission')
             .eq('user_id', uid).eq('year', currentYear).eq('quarter', prevQ).maybeSingle()
             .then(({ data: pa }) => {
               if (pa && safe(pa.avg_commission) > 0 && safe(pa.gci_target) > 0) {
-                setPrevQGoalClosings(Math.ceil(safe(pa.gci_target) / safe(pa.avg_commission)));
+                setPrevQGoalClosings(Math.ceil((safe(pa.gci_target) / safe(pa.avg_commission)) * prevQ));
               } else {
                 setPrevQGoalClosings(0);
               }
