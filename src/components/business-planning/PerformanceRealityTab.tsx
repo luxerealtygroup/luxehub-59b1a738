@@ -346,7 +346,7 @@ export function PerformanceRealityTab({
                   <div className="rounded-lg border border-border bg-card p-4 space-y-2 font-mono text-sm">
                     {prevQGap > 0 && (
                       <div className="flex items-center justify-between text-amber-600">
-                        <span>Q{prevQ} Deal Gap (carryover)</span>
+                        <span>YTD Deal Gap through Q{prevQ} (carryover)</span>
                         <span className="font-bold">+{prevQGap} deals</span>
                       </div>
                     )}
