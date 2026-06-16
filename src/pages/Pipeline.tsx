@@ -365,7 +365,7 @@ const Pipeline = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground font-display">Pipeline</h1>
-          <p className="text-muted-foreground">Manage your active clients and deals</p>
+          <p className="text-muted-foreground">Manage your active clients and pipeline</p>
         </div>
         {!isReadOnly && (
         <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
@@ -504,7 +504,7 @@ const Pipeline = () => {
                 </div>
                 <p className="text-xs text-muted-foreground mb-3">{quarter.label}</p>
                 <div className="space-y-2">
-                  <div className="flex justify-between items-center"><span className="text-sm text-muted-foreground">Deals</span><span className="font-medium text-foreground">{quarter.dealCount}</span></div>
+                 <div className="flex justify-between items-center"><span className="text-sm text-muted-foreground">Clients</span><span className="font-medium text-foreground">{quarter.dealCount}</span></div>
                   <div className="flex justify-between items-center"><span className="text-sm text-muted-foreground">Projected GCI</span><span className="text-green-500 font-medium">{formatCurrency(quarter.projectedGci)}</span></div>
                 </div>
               </div>
