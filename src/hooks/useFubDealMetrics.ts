@@ -292,14 +292,17 @@ export function useFubDealMetrics({
       (sum, d: any) => sum + Number(d.price || 0),
       0
     );
+    const weightedDebugClosed = buildWeightedDebug(closedDealsArr, dealMetadataMap);
+    const salesCountClosed = closedDealsArr.length > 0 ? weightedDebugClosed.saleCount : dealsClosed;
     setMetrics({
       deals_closed: dealsClosed, deals_pending: dealsPending,
       gci_earned: gciEarned, gci_pending: gciPending,
       sales_volume_closed: salesVolumeClosed,
       weighted_closed: Math.round(weightedClosed * 100) / 100,
       weighted_pending: Math.round(weightedPending * 100) / 100,
-      weighted_debug_closed: buildWeightedDebug(closedDealsArr, dealMetadataMap),
+      weighted_debug_closed: weightedDebugClosed,
       weighted_debug_pending: buildWeightedDebug(pendingDealsArr, dealMetadataMap),
+      sales_count_closed: salesCountClosed,
     });
     setDebugInfo(debug);
     setLoading(false);
