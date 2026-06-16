@@ -123,6 +123,20 @@ export function StrategyGoalsTab({
   const weekly = (v: number) => Math.ceil(v / weeksInQ);
   const daily = (v: number) => Math.ceil(v / daysInQ);
 
+  // ── Conversion rate sanity check ──
+  const allRates = [
+    { name: 'Contact → Appointment', val: effectiveRates.contactToAppt },
+    { name: 'Appointment → Contract', val: effectiveRates.apptToContract },
+    { name: 'CMA → Listing', val: effectiveRates.cmaToListing },
+    { name: 'Dials → Appointment', val: effectiveRates.dialsToAppt },
+    { name: 'Contact → Appointment (override)', val: goals.contact_to_appt_rate },
+    { name: 'Appointment → Contract (override)', val: goals.appt_to_contract_rate },
+    { name: 'CMA → Listing (override)', val: goals.cma_to_listing_rate },
+    { name: 'Dials → Appointment (override)', val: goals.dials_to_appt_rate },
+  ];
+  const impossibleRates = allRates.filter(r => r.val > 100);
+  const hasImpossibleRate = impossibleRates.length > 0;
+
   const saveGoals = async () => {
     if (!uid || isViewingAsAgent) return;
     setSaving(true);
