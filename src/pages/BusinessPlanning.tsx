@@ -122,7 +122,7 @@ const BusinessPlanning = () => {
     return cd && cd >= prevQRange.start && cd <= prevQRange.end;
   });
 
-  // ── Quarter-by-quarter closed GCI (for outlook card) ──
+  // ── Quarter-by-quarter closed GCI + units (for outlook card) ──
   const sumGci = (deals: any[]) => Math.round(deals.reduce((s, d) => s + (Number(d.commissionValue) || 0), 0));
   const closedByQuarter = (q: number) => {
     const r = getQDateRange(q);
@@ -133,8 +133,12 @@ const BusinessPlanning = () => {
       return cd && cd >= r.start && cd <= r.end;
     });
   };
-  const q1ClosedGci = sumGci(closedByQuarter(1));
-  const q2ClosedGci = sumGci(closedByQuarter(2));
+  const q1Closed = closedByQuarter(1);
+  const q2Closed = closedByQuarter(2);
+  const q1ClosedGci = sumGci(q1Closed);
+  const q2ClosedGci = sumGci(q2Closed);
+  const q1ClosedUnits = q1Closed.length;
+  const q2ClosedUnits = q2Closed.length;
 
   // Separate firm pending vs conditional (current snapshot, all dates)
   const isConditionalStage = (s: string) => {
@@ -146,8 +150,12 @@ const BusinessPlanning = () => {
     return (x.includes('pending') || x.includes('under contract')) && !isConditionalStage(s);
   };
   const ownedDeals = allDeals.filter(d => isDealOwnedByAgent(d, effectiveFubUserId));
-  const firmPendingGci = sumGci(ownedDeals.filter(d => isFirmPendingStage(d.stageName)));
-  const conditionalGci = sumGci(ownedDeals.filter(d => isConditionalStage(d.stageName)));
+  const firmPendingDeals = ownedDeals.filter(d => isFirmPendingStage(d.stageName));
+  const conditionalDeals = ownedDeals.filter(d => isConditionalStage(d.stageName));
+  const firmPendingGci = sumGci(firmPendingDeals);
+  const conditionalGci = sumGci(conditionalDeals);
+  const firmPendingUnits = firmPendingDeals.length;
+  const conditionalUnits = conditionalDeals.length;
 
   const [prevQGoalClosings, setPrevQGoalClosings] = useState(0);
   useEffect(() => {
