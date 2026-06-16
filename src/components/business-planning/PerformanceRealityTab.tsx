@@ -382,6 +382,7 @@ export function PerformanceRealityTab({
             </div>
           </CardContent>
         </Card>
+        </>
       ) : (
         <Card className="border-border">
           <CardHeader className="pb-3">
