@@ -321,7 +321,7 @@ export function PerformanceRealityTab({
 
       {mode === 'active' && metrics ? (
         <>
-        {annualGoal > 0 && avgGCIPerDeal > 0 && (
+        {annualGoal > 0 && q3Requirements.avgGciPerSaleNet > 0 && (
           <Card className="border-2 border-foreground/20 bg-muted/30 shadow-sm">
             <CardHeader className="pb-4">
               <CardTitle className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground">
