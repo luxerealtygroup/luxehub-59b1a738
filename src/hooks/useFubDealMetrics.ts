@@ -255,7 +255,7 @@ export function useFubDealMetrics({
         debug.dealsInClosedStagesAndDateRange = closedInYear.length;
 
         dealsClosed = closedInYear.length;
-        gciEarned = closedInYear.reduce((sum, d) => sum + Number(d.agentCommission || 0), 0);
+        gciEarned = closedInYear.reduce((sum, d) => sum + getDealGci(d), 0);
         closedDealsArr = closedInYear;
 
         // (d) PENDING = pending stage, NOT in closed stages, any date
@@ -264,7 +264,7 @@ export function useFubDealMetrics({
           return stage === 'pending';
         });
         dealsPending = pendingDeals.length;
-        gciPending = pendingDeals.reduce((sum, d) => sum + Number(d.agentCommission || 0), 0);
+        gciPending = pendingDeals.reduce((sum, d) => sum + getDealGci(d), 0);
         pendingDealsArr = pendingDeals;
 
         setAllDeals(agentDeals);
