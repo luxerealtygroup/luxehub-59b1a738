@@ -300,9 +300,38 @@ export function StrategyGoalsTab({
         {/* ── Q-Strategy Calculated Fields (locked) ── */}
         <Separator />
         <div>
+          {hasImpossibleRate && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 mb-3 flex items-start gap-2 text-amber-800">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+              <p className="text-xs font-medium">
+                One or more conversion rates exceed 100% ({impossibleRates.map(r => r.name).join(', ')}).
+                The data may be incorrect — please review your inputs.
+              </p>
+            </div>
+          )}
           <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3">
             Q{quarter} Strategy — Auto-Calculated
           </h3>
+
+          {/* Dominant KPIs */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div className="rounded-lg border-2 border-gold/40 bg-gold/5 p-5">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Adjusted Pending Needed</p>
+              <p className="text-3xl font-bold text-foreground tabular-nums">{strategy.adjustedClosings}</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {strategy.prevQGap > 0 ? `+${strategy.prevQGap} from Q${quarter > 1 ? quarter - 1 : 4} gap` : 'No carryover'}
+              </p>
+            </div>
+            <div className={`rounded-lg border-2 p-5 ${pipelineGap > 0 ? 'border-gold/40 bg-gold/5' : 'border-green-300/40 bg-green-50/50'}`}>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Pipeline Gap</p>
+              <p className={`text-3xl font-bold tabular-nums ${pipelineGap > 0 ? 'text-foreground' : 'text-green-700'}`}>{pipelineGap}</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {pipelineGap > 0 ? `Need ${pipelineGap} more additions` : 'On track'}
+              </p>
+            </div>
+          </div>
+
+          {/* Supporting calculations */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <LockedField
               label={`Q${quarter > 1 ? quarter - 1 : 4} Gap (Deals)`}
@@ -316,12 +345,6 @@ export function StrategyGoalsTab({
               sub="Before carryover"
             />
             <LockedField
-              label="Adjusted Pending Needed"
-              value={String(strategy.adjustedClosings)}
-              sub={strategy.prevQGap > 0 ? `+${strategy.prevQGap} from Q${quarter > 1 ? quarter - 1 : 4} gap` : 'No carryover'}
-              highlight
-            />
-            <LockedField
               label="Avg GCI/Deal (Gross)"
               value={formatCurrency(Math.round(strategy.avgGciPerDeal))}
             />
@@ -330,25 +353,20 @@ export function StrategyGoalsTab({
               value={formatCurrency(Math.round(strategy.agentNetPerDeal))}
             />
             <LockedField
-              label={`Q${quarter} Gross GCI Target`}
+              label={`Q${quarter} GCI Target`}
               value={formatCurrency(Math.round(strategy.qGciGross))}
               highlight
             />
             <LockedField
-              label={`Q${quarter} Net Income Target`}
+              label="Your Estimated Take-Home"
               value={formatCurrency(Math.round(strategy.qIncomeNet))}
+              sub={`At ${(AGENT_SPLIT * 100).toFixed(0)}% agent split`}
               highlight
             />
             <LockedField
               label="Pipeline Needed"
               value={String(pipelineNeeded)}
               sub={`${currentPipeline} current · 70% fallout rate`}
-            />
-            <LockedField
-              label="Pipeline Gap"
-              value={String(pipelineGap)}
-              sub={pipelineGap > 0 ? `Need ${pipelineGap} more additions` : 'On track'}
-              highlight={pipelineGap > 0}
             />
           </div>
         </div>
