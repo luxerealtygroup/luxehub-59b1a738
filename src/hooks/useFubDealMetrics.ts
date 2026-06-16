@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
 import { sumWeightedDeals, buildWeightedDebug, WeightedDebugInfo, DealMetadataMap } from '@/lib/utils/dealWeight';
+import { inferDealCategory } from '@/lib/utils/dealWeight';
 
 // ── Single source of truth for stage classification ──────────────────────
 export const CLOSED_STAGES = ['closed', 'won', 'sold', 'settled', 'completed'];
@@ -91,6 +92,12 @@ export interface DealMetrics {
   weighted_debug_pending: WeightedDebugInfo | null;
   /** Number of closed deals that are actual sales (excludes leases) */
   sales_count_closed: number;
+  /** Number of closed deals that are leases */
+  lease_count_closed: number;
+  /** GCI earned from sales only (excludes leases) */
+  gci_sales_closed: number;
+  /** GCI earned from leases only */
+  gci_leases_closed: number;
 }
 
 export interface DebugInfo {
@@ -137,7 +144,7 @@ export function useFubDealMetrics({
     deals_closed: 0, deals_pending: 0, gci_earned: 0, gci_pending: 0,
     sales_volume_closed: 0,
     weighted_closed: 0, weighted_pending: 0, weighted_debug_closed: null, weighted_debug_pending: null,
-    sales_count_closed: 0,
+    sales_count_closed: 0, lease_count_closed: 0, gci_sales_closed: 0, gci_leases_closed: 0,
   });
   const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -294,6 +301,21 @@ export function useFubDealMetrics({
     );
     const weightedDebugClosed = buildWeightedDebug(closedDealsArr, dealMetadataMap);
     const salesCountClosed = closedDealsArr.length > 0 ? weightedDebugClosed.saleCount : dealsClosed;
+    // Split GCI by sale vs lease
+    let gciSalesClosed = 0;
+    let gciLeasesClosed = 0;
+    let leaseCountClosed = 0;
+    if (closedDealsArr.length > 0) {
+      for (const d of closedDealsArr) {
+        const cat = inferDealCategory(d, dealMetadataMap).category;
+        const gci = Number((d as any).agentCommission || 0);
+        if (cat === 'lease') { gciLeasesClosed += gci; leaseCountClosed++; }
+        else { gciSalesClosed += gci; }
+      }
+    } else {
+      // Local/manual fallback: treat everything as sales
+      gciSalesClosed = gciEarned;
+    }
     setMetrics({
       deals_closed: dealsClosed, deals_pending: dealsPending,
       gci_earned: gciEarned, gci_pending: gciPending,
@@ -303,6 +325,9 @@ export function useFubDealMetrics({
       weighted_debug_closed: weightedDebugClosed,
       weighted_debug_pending: buildWeightedDebug(pendingDealsArr, dealMetadataMap),
       sales_count_closed: salesCountClosed,
+      lease_count_closed: leaseCountClosed,
+      gci_sales_closed: Math.round(gciSalesClosed),
+      gci_leases_closed: Math.round(gciLeasesClosed),
     });
     setDebugInfo(debug);
     setLoading(false);
