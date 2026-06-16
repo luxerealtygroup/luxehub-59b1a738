@@ -39,6 +39,14 @@ export interface PipelineGapData {
   firmPendingGci?: number;
   /** Conditional GCI (offer / conditional stages) */
   conditionalGci?: number;
+  /** Q1 closed deal count */
+  q1ClosedUnits?: number;
+  /** Q2 closed deal count */
+  q2ClosedUnits?: number;
+  /** Firm pending deal count */
+  firmPendingUnits?: number;
+  /** Conditional deal count */
+  conditionalUnits?: number;
 }
 
 interface ManualPerformance {
