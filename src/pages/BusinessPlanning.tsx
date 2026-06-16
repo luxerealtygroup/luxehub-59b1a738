@@ -19,6 +19,7 @@ import { ReflectionTab } from '@/components/business-planning/ReflectionTab';
 import { StrategyGoalsTab } from '@/components/business-planning/StrategyGoalsTab';
 import { ActionPlanTab } from '@/components/business-planning/ActionPlanTab';
 import { ActiveMetrics, GoalInputs, defaultGoals, currentYear, safe, pct } from '@/components/business-planning/types';
+import { PlanningDataPrompt } from '@/components/business-planning/PlanningDataPrompt';
 
 const BusinessPlanning = () => {
   const { user } = useAuth();
@@ -283,6 +284,15 @@ const BusinessPlanning = () => {
 
   return (
     <div className="space-y-6 max-w-6xl">
+      {user?.id && (
+        <PlanningDataPrompt
+          userId={user.id}
+          year={currentYear}
+          quarter={quarter}
+          disabled={isViewingAsAgent}
+          onComplete={() => { fetchGoals(); }}
+        />
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
