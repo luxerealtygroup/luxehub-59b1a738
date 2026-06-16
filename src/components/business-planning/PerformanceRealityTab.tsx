@@ -13,6 +13,7 @@ import { formatCurrency, formatNumber } from '@/lib/utils';
 import { DebugMetricsPanel } from '@/components/DebugMetricsPanel';
 import { DebugInfo } from '@/hooks/useFubDealMetrics';
 import { ActiveMetrics, ActiveListingDebug, GoalInputs, currentYear, safe } from './types';
+import { Q3Requirements } from './q3Requirements';
 import { StatCard } from './shared';
 import { toast } from 'sonner';
 import { formatWeightedDeals } from '@/lib/utils/dealWeight';
@@ -79,6 +80,8 @@ interface Props {
   uid: string | null;
   quarter: number;
   pipelineGapData: PipelineGapData;
+  /** Canonical Q-Pipeline Requirements — single source of truth, shared with StrategyGoalsTab */
+  q3Requirements: Q3Requirements;
   onManualMetrics?: (m: ManualPerformance) => void;
 }
 
@@ -205,15 +208,15 @@ function Step({
 
 export function PerformanceRealityTab({
   metrics, mode, dateRange, customStart, customEnd,
-  isAdmin, debugInfo, activeListingDebug, goals, effectiveRates, uid, quarter, pipelineGapData, onManualMetrics,
+  isAdmin, debugInfo, activeListingDebug, goals, effectiveRates, uid, quarter, pipelineGapData, q3Requirements, onManualMetrics,
 }: Props) {
   const rangeLabel = dateRange === 'ytd' ? 'YTD' : dateRange === 'custom' ? `${customStart} → ${customEnd}` : dateRange.toUpperCase();
 
-  // ── Agent split — every GCI figure shown to the agent reflects their net after the team split ──
-  const splitPct = metrics?.splitPercent && metrics.splitPercent > 0 ? metrics.splitPercent : (goals.split_percent > 0 ? goals.split_percent : 70);
-  const splitFactor = splitPct / 100;
+  // ── Canonical agent-net values — sourced from q3Requirements (shared with Strategy tab) ──
+  const splitPct = q3Requirements.splitPct;
+  const splitFactor = q3Requirements.splitFactor;
   const net = (v: number) => Math.round(v * splitFactor);
-  const NET_LABEL = `Your net GCI after team split (${splitPct}%)`;
+  const NET_LABEL = q3Requirements.netLabel;
 
   // ── Pipeline Deficit Analysis with Q(n-1) carryover ──
   const qTargetGCI = goals.gci_target > 0
