@@ -503,7 +503,7 @@ export function PerformanceRealityTab({
                     />
                     <div className="mt-3 space-y-2 rounded-md border border-border/70 bg-muted/30 p-3">
                       <Step label="Closed sales avg" value={avgGciPerClosedSale > 0 ? formatCurrency(avgGciPerClosedSale) : '—'} sub={`${formatNumber(salesClosed)} ${salesClosed === 1 ? 'deal' : 'deals'}`} muted />
-                      <Step label="Pending + conditional sales avg" value={avgGciPerInFlightSale > 0 ? formatCurrency(avgGciPerInFlightSale) : '—'} sub={`${formatNumber(inFlightSalesCount)} ${inFlightSalesCount === 1 ? 'deal' : 'deals'}`} muted />
+                      <Step label="Pending sales avg" value={avgGciPerInFlightSale > 0 ? formatCurrency(avgGciPerInFlightSale) : '—'} sub={`${formatNumber(inFlightSalesCount)} pending/conditional ${inFlightSalesCount === 1 ? 'deal' : 'deals'}`} muted />
                       <Step label="Blended average" value={formatCurrency(avgGciPerSale)} sub="Used for this pipeline math" bold />
                     </div>
                     <div className="mt-3">
