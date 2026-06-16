@@ -263,7 +263,7 @@ const BusinessPlanning = () => {
     const monthsPassed = now.getMonth() + (now.getDate() / 30);
     const ytdGCI = Math.round(dealMetrics.gci_earned);
     const projected = monthsPassed > 0 ? Math.round((ytdGCI / monthsPassed) * 12) : 0;
-    const avgComm = dealMetrics.deals_closed > 0 ? Math.round(ytdGCI / dealMetrics.deals_closed) : 15000;
+    const avgComm = dealMetrics.sales_count_closed > 0 ? Math.round(ytdGCI / dealMetrics.sales_count_closed) : 15000;
     setMetrics({
       ytdClosedDeals: dealMetrics.deals_closed, ytdGCI, pendingGCI: Math.round(dealMetrics.gci_pending),
       activeListings: fubActiveListings.length, cmaToListingPct: suppMetrics.cmaToListingPct,
