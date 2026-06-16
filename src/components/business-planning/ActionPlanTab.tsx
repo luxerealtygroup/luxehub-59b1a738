@@ -226,7 +226,7 @@ export function ActionPlanTab({ metrics, mode, goals, quarter, uid, isViewingAsA
           {/* Bottom floor action card — always visible */}
           <div className="rounded-lg border-2 border-gold/50 bg-gold/5 p-4">
             <p className="text-sm font-semibold text-foreground">
-              This week: have {formatNumber(FLOOR.conversations)} conversations, add {formatNumber(FLOOR.pipelineAdds)} new {FLOOR.pipelineAdds === 1 ? 'person' : 'people'} to your pipeline, and book {formatNumber(FLOOR.appointments)} {FLOOR.appointments === 1 ? 'appointment' : 'appointments'}.
+              This week: have {formatNumber(FLOOR.conversations)} conversations, add {formatNumber(FLOOR.pipelineAdds)} new people to your pipeline, and book {formatNumber(FLOOR.appointments)} appointment.
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               That's the floor — hit it every week.
