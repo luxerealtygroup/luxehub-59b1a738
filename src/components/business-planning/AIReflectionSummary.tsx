@@ -116,7 +116,7 @@ export function AIReflectionSummary({ uid }: Props) {
         {!reflection && !loading && !error && (
           <div className="py-4 flex flex-col items-center text-center gap-4">
             <p className="text-sm text-foreground leading-relaxed max-w-md">
-              Get a straight-talk summary of your H1 performance — what the numbers say,
+              Get a straight-talk summary of your Jan-Jun performance — what the numbers say,
               where you left money on the table, and what Q3 needs from you.
             </p>
             <Button

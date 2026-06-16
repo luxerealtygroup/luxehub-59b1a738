@@ -698,7 +698,13 @@ export function PerformanceRealityTab({
               </CollapsibleContent>
             </Collapsible>
 
-            {/* Hero numbers: Projected Year-End GCI + Gap */}
+            {/* Hero numbers: Projected Year-End GCI + Gap
+             * NET-vs-NET: annualGoal is q3Requirements.annualGoalNet and projectedGci
+             * is computed from net YTD/pending/conditional values above, so this card
+             * compares apples-to-apples (agent net after team split).
+             * NOTE: If another dashboard surface pulls projectedGci/targetGCI from a
+             * different hook (e.g. raw metrics.targetGCI gross), those need to be routed
+             * through q3Requirements.annualGoalNet too — separate backend concern. */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="rounded-lg border-2 border-gold/40 bg-gold/5 p-6 min-h-[160px] flex flex-col justify-center">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground mb-2">
