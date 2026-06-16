@@ -272,13 +272,35 @@ export function PerformanceRealityTab({
   // Progress bar geometry
   const midyearTickPct = annualGoal > 0 ? 50 : 0;
   const actualPct = annualGoal > 0 ? Math.max(0, Math.min(100, (projectedH1Actual / annualGoal) * 100)) : 0;
-  // Q3 Pipeline requirement
-  const q3AvgGci = avgGCIPerDeal > 0 ? avgGCIPerDeal : 0;
-  const q3ClosingsNeeded = q3AvgGci > 0 ? Math.ceil(adjustedQ3Target / q3AvgGci) : 0;
+  // ── Q3 Pipeline requirement — sale vs lease honest math ──
+  const TEAM_AVG_GCI_FALLBACK = 15000;
+  const MIN_DEALS_FOR_PERSONAL_AVG = 3;
+  const salesClosed = metrics?.salesCountClosed || 0;
+  const leasesClosed = metrics?.leaseCountClosed || 0;
+  const gciSales = (metrics as any)?.avgGciPerSale ? metrics!.avgGciPerSale * salesClosed : 0;
+  const gciLeases = (metrics as any)?.avgGciPerLease ? metrics!.avgGciPerLease * leasesClosed : 0;
+  const totalSplitGci = gciSales + gciLeases;
+  // Personal vs team-average sale GCI
+  const usingPersonalSaleAvg = salesClosed >= MIN_DEALS_FOR_PERSONAL_AVG && (metrics?.avgGciPerSale || 0) > 0;
+  const avgGciPerSale = usingPersonalSaleAvg ? metrics!.avgGciPerSale : TEAM_AVG_GCI_FALLBACK;
+  const usingPersonalLeaseAvg = leasesClosed >= MIN_DEALS_FOR_PERSONAL_AVG && (metrics?.avgGciPerLease || 0) > 0;
+  const avgGciPerLease = usingPersonalLeaseAvg ? metrics!.avgGciPerLease : 0;
+  const hasLeaseMix = leasesClosed > 0 && avgGciPerLease > 0 && totalSplitGci > 0;
+  // Split Q3 GCI target the same way agent historically earns it (by GCI share)
+  const saleGciShare = hasLeaseMix && totalSplitGci > 0 ? gciSales / totalSplitGci : 1;
+  const leaseGciShare = hasLeaseMix ? 1 - saleGciShare : 0;
+  const q3SalesGciTarget = adjustedQ3Target * saleGciShare;
+  const q3LeasesGciTarget = adjustedQ3Target * leaseGciShare;
+  const q3SalesNeeded = avgGciPerSale > 0 ? Math.ceil(q3SalesGciTarget / avgGciPerSale) : 0;
+  const q3LeasesNeeded = hasLeaseMix && avgGciPerLease > 0 ? Math.ceil(q3LeasesGciTarget / avgGciPerLease) : 0;
+  const q3ClosingsNeeded = q3SalesNeeded + q3LeasesNeeded;
   const q3PipelineRequired = q3ClosingsNeeded > 0 ? Math.ceil(q3ClosingsNeeded / 0.30) : 0;
   const q3CurrentPipeline = currentPipelineDeals;
   const q3PipelineGap = Math.max(0, q3PipelineRequired - q3CurrentPipeline);
   const weeklyNewContacts = q3PipelineGap > 0 ? Math.ceil(q3PipelineGap / 13) : 0;
+  // Sense-check: Q3 deals needed should not exceed full-year deal goal
+  const annualDealGoal = avgGciPerSale > 0 && annualGoal > 0 ? Math.ceil(annualGoal / avgGciPerSale) : 0;
+  const q3DealCountUnreasonable = annualDealGoal > 0 && q3ClosingsNeeded > annualDealGoal;
 
   // ── Activity Pace (Section 1b) ──
   const now = new Date();
