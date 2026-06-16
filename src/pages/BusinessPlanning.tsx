@@ -115,7 +115,7 @@ const BusinessPlanning = () => {
     dateEnd: combinedQEnd,
   });
 
-  // ─── Q(n-1) carryover: actual closings from FUB vs goal ───
+  // ─── Q(n-1) carryover: closed + still-pending deals dated in prev quarter ───
   const getCloseDate = (d: any) => d.closedDate || d.closeDate || d.projectedCloseDate || null;
   const prevQClosedDeals = allDeals.filter(d => {
     if (classifyStage(d.stageName) !== 'closed') return false;
@@ -123,6 +123,14 @@ const BusinessPlanning = () => {
     const cd = getCloseDate(d);
     return cd && cd >= prevQRange.start && cd <= prevQRange.end;
   });
+  // Pending/conditional deals projected to close in prev quarter still count toward its goal
+  const prevQPendingDeals = allDeals.filter(d => {
+    if (classifyStage(d.stageName) !== 'pending') return false;
+    if (!isDealOwnedByAgent(d, effectiveFubUserId)) return false;
+    const cd = getCloseDate(d);
+    return cd && cd >= prevQRange.start && cd <= prevQRange.end;
+  });
+  const prevQActualOrPendingCount = prevQClosedDeals.length + prevQPendingDeals.length;
 
   // ── Quarter-by-quarter closed GCI + units (for outlook card) ──
   const sumGci = (deals: any[]) => Math.round(deals.reduce((s, d) => s + (Number(d.commissionValue) || 0), 0));
@@ -188,7 +196,7 @@ const BusinessPlanning = () => {
     pipelineTotalAll: pipelineMetrics.totalClients,
     missingDateCount: pipelineMetrics.missingDateCount,
     pipelineDebug: pipelineMetrics.debug,
-    prevQActualClosings: prevQClosedDeals.length,
+    prevQActualClosings: prevQActualOrPendingCount,
     prevQRequiredClosings: prevQGoalClosings,
     q1ClosedGci,
     q2ClosedGci,
