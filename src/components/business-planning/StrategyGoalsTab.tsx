@@ -341,8 +341,8 @@ export function StrategyGoalsTab({
 
         {/* ── Conversion Rates (read-only from Performance) ── */}
         <div className="rounded-lg border border-border bg-muted/30 p-3">
-          <p className="text-xs text-muted-foreground mb-2 font-medium flex items-center gap-1.5">
-            <Lock className="h-3 w-3" /> Conversion Rates (from Performance)
+          <p className="text-xs text-muted-foreground mb-2 font-medium">
+            Conversion Rates (from Performance)
           </p>
           <div className="flex flex-wrap gap-4 text-xs">
             <span>Contact → Appt: <strong>{effectiveRates.contactToAppt}%</strong></span>
