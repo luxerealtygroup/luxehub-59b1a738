@@ -494,6 +494,15 @@ const Dashboard = () => {
         </CardContent>
       </Card>
 
+      {/* My 2026 Closings Calendar — agent-scoped */}
+      {hasEffectiveFUB && calendarFubUserId != null && (
+        <ClosingsCalendar
+          year={2026}
+          agentFubUserId={calendarFubUserId}
+          title={isViewingAsAgent ? `${viewingAgentName ?? 'Agent'} — 2026 Closings` : 'My 2026 Closings'}
+        />
+      )}
+
       {/* Daily Motivation Quote */}
       <Card className="border-gold/10 bg-gradient-to-br from-card to-gold/5">
         <CardHeader className="pb-2">
