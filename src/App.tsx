@@ -27,7 +27,7 @@ import CommercialResources from "./pages/resources/Commercial";
 import LandlordsResources from "./pages/resources/Landlords";
 import NewslettersResources from "./pages/resources/Newsletters";
 import TenantsResources from "./pages/resources/Tenants";
-import MyOpenHouseResources from "./pages/resources/MyOpenHouse";
+import MyOpenHouse from "./pages/MyOpenHouse";
 import Submissions from "./pages/Submissions";
 import CMABoss from "./pages/CMABoss";
 import BusinessPlanning from "./pages/BusinessPlanning";
@@ -84,7 +84,8 @@ const App = () => (
               <Route path="resources/landlords" element={<RoleGuard><LandlordsResources /></RoleGuard>} />
               <Route path="resources/newsletters" element={<RoleGuard><NewslettersResources /></RoleGuard>} />
               <Route path="resources/tenants" element={<RoleGuard><TenantsResources /></RoleGuard>} />
-              <Route path="resources/myopenhouse" element={<RoleGuard><MyOpenHouseResources /></RoleGuard>} />
+              <Route path="resources/myopenhouse" element={<RoleGuard><MyOpenHouse /></RoleGuard>} />
+              <Route path="my-open-house" element={<RoleGuard><MyOpenHouse /></RoleGuard>} />
               <Route path="cma-boss" element={<RoleGuard><CMABoss /></RoleGuard>} />
               <Route path="business-planning" element={<BusinessPlanning />} />
               <Route path="settings" element={<AccountSettings />} />
