@@ -147,15 +147,15 @@ export function ClosingsCalendar({ year, agentNameByFubId }: Props) {
                               d.status === 'forecast'
                                 ? 'border border-dashed border-primary/40 bg-transparent text-muted-foreground hover:bg-primary/5'
                                 : d.category === 'lease'
-                                  ? 'bg-muted text-foreground hover:bg-muted/80'
-                                  : 'bg-primary/15 text-primary hover:bg-primary/25'
+                                  ? 'bg-success/20 text-success border border-success/30 hover:bg-success/30'
+                                  : 'bg-primary/20 text-primary border border-primary/30 hover:bg-primary/30'
                             }`}
                             title={`${d.agentName} · ${d.address} · ${shortGci(d.gci)}${d.status === 'forecast' ? ' (forecast)' : ''}`}
                           >
-                            <span className="block truncate">
-                              {firstName(d.agentName)} · {shortGci(d.gci)}
+                            <span className="block truncate font-medium">{firstName(d.agentName)}</span>
+                            <span className="block truncate text-[9px] opacity-75">
+                              {d.address} · {shortGci(d.gci)}
                             </span>
-                            <span className="block truncate text-[9px] opacity-75">{d.address}</span>
                           </button>
                         </PopoverTrigger>
                         <PopoverContent className="w-72 text-sm space-y-1">
