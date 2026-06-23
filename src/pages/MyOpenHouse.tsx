@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   DoorOpen, Plus, ChevronLeft, Loader2, Pencil, Search, Save, Trash2,
-  CheckCircle2, AlertTriangle, Users, FileDown, Mail, RefreshCcw,
+  CheckCircle2, AlertTriangle, Users, FileDown, Mail, RefreshCcw, Upload, Download,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -370,8 +370,11 @@ function OpenHouseDetail({
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <Button variant="outline" size="sm" onClick={() => toast.info('Curb Hero sync coming soon!')}>
-          <RefreshCcw className="h-4 w-4 mr-1" /> Sync Curb Hero
+        <Button variant="outline" size="sm" onClick={() => toast.info('Import from FUB coming soon!')}>
+          <Download className="h-4 w-4 mr-1" /> Import from FUB
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => toast.info('Curb Hero CSV upload coming soon!')}>
+          <Upload className="h-4 w-4 mr-1" /> Upload Curb Hero CSV
         </Button>
         <Dialog open={showAdd} onOpenChange={setShowAdd}>
           <DialogTrigger asChild>
