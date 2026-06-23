@@ -1238,6 +1238,66 @@ export type Database = {
         }
         Relationships: []
       }
+      fub_deal_events: {
+        Row: {
+          created_at: string
+          deal_data: Json
+          event_type: string
+          fub_deal_id: number
+          id: string
+          received_at: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          deal_data?: Json
+          event_type: string
+          fub_deal_id: number
+          id?: string
+          received_at?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          deal_data?: Json
+          event_type?: string
+          fub_deal_id?: number
+          id?: string
+          received_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      fub_person_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          fub_person_id: number
+          id: string
+          person_data: Json
+          received_at: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          fub_person_id: number
+          id?: string
+          person_data?: Json
+          received_at?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          fub_person_id?: number
+          id?: string
+          person_data?: Json
+          received_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       fub_webhook_events: {
         Row: {
           event_type: string
