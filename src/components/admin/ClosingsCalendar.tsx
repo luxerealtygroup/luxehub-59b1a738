@@ -70,11 +70,14 @@ export function ClosingsCalendar({ year, agentNameByFubId }: Props) {
   );
 
   const totals = useMemo(() => {
-    const sales = monthDeals.filter(d => d.category === 'sale').length;
-    const leases = monthDeals.filter(d => d.category === 'lease').length;
-    const gci = monthDeals.reduce((s, d) => s + d.gci, 0);
-    const weighted = sumWeightedDeals(monthDeals as any[], dealMetadataMap as any);
-    return { sales, leases, gci, weighted, count: monthDeals.length };
+    // Totals reflect ACTUAL closings only (status === 'closed'), not forecast deals.
+    const closedOnly = monthDeals.filter(d => d.status === 'closed');
+    const sales = closedOnly.filter(d => d.category === 'sale').length;
+    const leases = closedOnly.filter(d => d.category === 'lease').length;
+    const gci = closedOnly.reduce((s, d) => s + d.gci, 0);
+    const weighted = sumWeightedDeals(closedOnly as any[], dealMetadataMap as any);
+    const forecastCount = monthDeals.length - closedOnly.length;
+    return { sales, leases, gci, weighted, count: closedOnly.length, forecastCount };
   }, [monthDeals, dealMetadataMap]);
 
   // Build cells: leading blanks + day cells
@@ -140,24 +143,35 @@ export function ClosingsCalendar({ year, agentNameByFubId }: Props) {
                         <PopoverTrigger asChild>
                           <button
                             type="button"
-                            className={`text-left text-[10px] px-1.5 py-0.5 rounded truncate transition-colors ${
-                              d.category === 'lease'
-                                ? 'bg-muted text-muted-foreground hover:bg-muted/80'
-                                : 'bg-primary/15 text-primary hover:bg-primary/25'
+                            className={`text-left text-[10px] leading-tight px-1.5 py-1 rounded truncate transition-colors block w-full ${
+                              d.status === 'forecast'
+                                ? 'border border-dashed border-primary/40 bg-transparent text-muted-foreground hover:bg-primary/5'
+                                : d.category === 'lease'
+                                  ? 'bg-muted text-foreground hover:bg-muted/80'
+                                  : 'bg-primary/15 text-primary hover:bg-primary/25'
                             }`}
-                            title={`${d.agentName} · ${d.name}`}
+                            title={`${d.agentName} · ${d.address} · ${shortGci(d.gci)}${d.status === 'forecast' ? ' (forecast)' : ''}`}
                           >
-                            {firstName(d.agentName)} · {shortGci(d.gci)}
+                            <span className="block truncate">
+                              {firstName(d.agentName)} · {shortGci(d.gci)}
+                            </span>
+                            <span className="block truncate text-[9px] opacity-75">{d.address}</span>
                           </button>
                         </PopoverTrigger>
                         <PopoverContent className="w-72 text-sm space-y-1">
-                          <div className="font-semibold">{d.name}</div>
-                          <div className="text-muted-foreground text-xs">{d.pipelineName} · {d.stageName}</div>
+                          <div className="font-semibold">{d.address}</div>
+                          <div className="text-muted-foreground text-xs">
+                            {d.pipelineName} · {d.stageName}
+                            {d.status === 'forecast' && <span className="ml-1 text-primary">· Forecast</span>}
+                          </div>
                           <div className="flex justify-between"><span>Agent</span><span>{d.agentName}</span></div>
                           <div className="flex justify-between"><span>Type</span><span className="capitalize">{d.category}</span></div>
                           <div className="flex justify-between"><span>Price</span><span>{formatCurrency(d.price)}</span></div>
                           <div className="flex justify-between"><span>GCI</span><span>{formatCurrency(d.gci)}</span></div>
-                          <div className="flex justify-between"><span>Close date</span><span>{d.date}</span></div>
+                          <div className="flex justify-between">
+                            <span>{d.status === 'closed' ? 'Closed' : 'Projected close'}</span>
+                            <span>{d.date}</span>
+                          </div>
                           <div className="flex justify-between text-xs text-muted-foreground">
                             <span>Source</span><span>{d.dateSource}</span>
                           </div>
@@ -175,8 +189,8 @@ export function ClosingsCalendar({ year, agentNameByFubId }: Props) {
                           <div className="font-semibold">{c.ymd} — {dayDeals.length} closings</div>
                           {dayDeals.map(d => (
                             <div key={d.id} className="border-t border-border pt-1.5">
-                              <div className="font-medium">{d.agentName}</div>
-                              <div className="text-xs text-muted-foreground">{d.name}</div>
+                              <div className="font-medium">{d.agentName} {d.status === 'forecast' && <span className="text-primary text-[10px]">(forecast)</span>}</div>
+                              <div className="text-xs text-muted-foreground">{d.address}</div>
                               <div className="text-xs">{formatCurrency(d.gci)} · {d.category}</div>
                             </div>
                           ))}
@@ -190,8 +204,15 @@ export function ClosingsCalendar({ year, agentNameByFubId }: Props) {
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
               <div className="bg-muted/40 rounded-md p-3">
-                <div className="text-xs text-muted-foreground">Closings</div>
-                <div className="text-lg font-semibold">{totals.count}</div>
+                <div className="text-xs text-muted-foreground">Closings (actual)</div>
+                <div className="text-lg font-semibold">
+                  {totals.count}
+                  {totals.forecastCount > 0 && (
+                    <span className="text-xs font-normal text-muted-foreground ml-1">
+                      +{totals.forecastCount} forecast
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="bg-muted/40 rounded-md p-3">
                 <div className="text-xs text-muted-foreground">Weighted Units</div>
