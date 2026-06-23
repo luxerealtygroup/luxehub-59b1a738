@@ -29,6 +29,7 @@ import ConversionReport from './ConversionReport';
 
 import { CreateAgentDialog } from './CreateAgentDialog';
 import { SyncClaudeProfilesButton } from './SyncClaudeProfilesButton';
+import ClosingsCalendar from './admin/ClosingsCalendar';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
