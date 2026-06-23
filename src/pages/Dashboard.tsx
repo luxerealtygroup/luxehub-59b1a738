@@ -61,7 +61,7 @@ const stageDefinitions: Record<number, { description: string }> = {
 
 const stageOrder = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const currentYear = 2026;
+const currentYear = new Date().getFullYear();
 
 // Circular Progress Ring Component
 const ProgressRing = ({ progress, size = 120, strokeWidth = 8, color = "hsl(var(--gold))" }: { 
