@@ -14,6 +14,8 @@ import { useToast } from '@/hooks/use-toast';
 import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
 import { formatCurrency } from '@/lib/utils';
 import { ManualModeBadge } from '@/components/ManualModeBadge';
+import { getDealWeight, formatWeightedDeals, inferDealCategory } from '@/lib/utils/dealWeight';
+import { useDealMetadata } from '@/hooks/useDealMetadata';
 
 interface FUBDealDisplay {
   id: number;
@@ -25,6 +27,10 @@ interface FUBDealDisplay {
   createdAt: string;
   status: string;
   source: string;
+  pipelineName?: string;
+  name?: string;
+  isLease: boolean;
+  weight: number;
 }
 
 const Commissions = () => {
@@ -37,6 +43,7 @@ const Commissions = () => {
   const [fubDealsDisplay, setFUBDealsDisplay] = useState<FUBDealDisplay[]>([]);
   const [loading, setLoading] = useState(true);
   const [fubLoading, setFubLoading] = useState(false);
+  const { metadataMap } = useDealMetadata();
 
   // Fetch ALL FUB deals (paginated) – scoped to effective agent when in agent view
   const loadAllFUBDeals = async () => {
@@ -94,22 +101,36 @@ const Commissions = () => {
 
   useEffect(() => {
     const displayDeals = fubDeals
-      .map((deal) => ({
-        id: deal.id,
-        clientName: deal.people?.[0]?.name || deal.name || 'Unknown Client',
-        propertyAddress: [deal.propertyStreet, deal.propertyCity, deal.propertyState]
-          .filter(Boolean)
-          .join(', ') || 'Address TBD',
-        stageName: deal.stageName || 'Unknown Stage',
-        dealValue: deal.price || 0,
-        grossCommission: deal.agentCommission || 0,
-        createdAt: deal.createdAt || '',
-        status: deal.stageName || 'Unknown',
-        source: 'fub',
-      }));
+      .map((deal: any) => {
+        const dealForWeight = {
+          id: deal.id,
+          name: deal.name,
+          pipelineName: deal.pipelineName,
+          stageName: deal.stageName,
+        };
+        const { category } = inferDealCategory(dealForWeight, metadataMap);
+        const weight = getDealWeight(dealForWeight, metadataMap);
+        return {
+          id: deal.id,
+          clientName: deal.people?.[0]?.name || deal.name || 'Unknown Client',
+          propertyAddress: [deal.propertyStreet, deal.propertyCity, deal.propertyState]
+            .filter(Boolean)
+            .join(', ') || 'Address TBD',
+          stageName: deal.stageName || 'Unknown Stage',
+          dealValue: deal.price || 0,
+          grossCommission: deal.agentCommission || 0,
+          createdAt: deal.createdAt || '',
+          status: deal.stageName || 'Unknown',
+          source: 'fub',
+          pipelineName: deal.pipelineName,
+          name: deal.name,
+          isLease: category === 'lease',
+          weight,
+        };
+      });
 
     setFUBDealsDisplay(displayDeals);
-  }, [fubDeals]);
+  }, [fubDeals, metadataMap]);
 
   const refreshFUBDeals = () => loadAllFUBDeals();
 
@@ -144,6 +165,29 @@ const Commissions = () => {
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     })
     .reduce((sum, deal) => sum + deal.grossCommission, 0);
+
+  // Group deals by status for the transactions table
+  const groupedDeals: Record<'closed' | 'pending' | 'conditional' | 'other', FUBDealDisplay[]> = {
+    closed: [],
+    pending: [],
+    conditional: [],
+    other: [],
+  };
+  for (const d of fubDealsDisplay) {
+    groupedDeals[classifyStage(d.status)].push(d);
+  }
+
+  const groupMeta: Array<{
+    key: 'closed' | 'pending' | 'conditional' | 'other';
+    label: string;
+    rowClass: string;
+    badgeClass: string;
+  }> = [
+    { key: 'closed',      label: 'Closed',      rowClass: 'bg-green-500/5',  badgeClass: 'border-green-500/30 text-green-400' },
+    { key: 'pending',     label: 'Pending',     rowClass: 'bg-amber-500/5',  badgeClass: 'border-amber-500/30 text-amber-400' },
+    { key: 'conditional', label: 'Conditional', rowClass: 'bg-orange-500/5', badgeClass: 'border-orange-500/30 text-orange-400' },
+    { key: 'other',       label: 'Other',       rowClass: 'bg-muted/30',     badgeClass: 'border-muted-foreground/30 text-muted-foreground' },
+  ];
 
   return (
     <div className="container py-10">
