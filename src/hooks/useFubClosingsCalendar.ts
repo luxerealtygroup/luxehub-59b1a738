@@ -32,9 +32,11 @@ const getGci = (d: any): number => Number(d.commissionValue ?? d.agentCommission
 interface Options {
   year: number;
   dealMetadataMap?: DealMetadataMap;
+  /** Optional map of FUB user id → display name for unassigned/fallback resolution. */
+  agentNameByFubId?: Map<number, string>;
 }
 
-export function useFubClosingsCalendar({ year, dealMetadataMap }: Options) {
+export function useFubClosingsCalendar({ year, dealMetadataMap, agentNameByFubId }: Options) {
   const [deals, setDeals] = useState<ClosingEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -42,15 +44,13 @@ export function useFubClosingsCalendar({ year, dealMetadataMap }: Options) {
     setLoading(true);
     const start = `${year}-01-01`;
     const end = `${year}-12-31`;
-    const pageSize = 100;
-    const maxPages = 10;
     const collected: FUBDeal[] = [];
     try {
-      for (let page = 0; page < maxPages; page++) {
-        const resp = await followUpBossApi.getDeals(pageSize, page * pageSize);
-        if (!resp.success || !resp.data?.deals) break;
+      // Edge function paginates server-side and returns the full set in one call.
+      // Doing additional client-side pagination here causes duplicates.
+      const resp = await followUpBossApi.getDeals(100, 0);
+      if (resp.success && resp.data?.deals) {
         collected.push(...resp.data.deals);
-        if (resp.data.deals.length < pageSize) break;
       }
     } catch (err) {
       console.error('useFubClosingsCalendar fetch error:', err);
@@ -62,15 +62,26 @@ export function useFubClosingsCalendar({ year, dealMetadataMap }: Options) {
       const { date, source } = resolveCloseDate(d);
       if (!date || !source) continue;
       if (date < start || date > end) continue;
-      const user = Array.isArray(d.users) && d.users.length > 0 ? d.users[0] : null;
+      // Prefer the user whose id matches assignedUserId; fall back to users[0].
+      const assignedId: number | null = d.assignedUserId ?? d.userId ?? null;
+      const usersArr: any[] = Array.isArray(d.users) ? d.users : [];
+      const user =
+        usersArr.find(u => assignedId != null && u?.id === assignedId) ||
+        usersArr[0] ||
+        null;
+      const fubUserId: number | null = user?.id ?? assignedId ?? null;
+      const resolvedName =
+        user?.name ||
+        (fubUserId != null ? agentNameByFubId?.get(fubUserId) : undefined) ||
+        (fubUserId != null ? `Agent #${fubUserId}` : 'Unassigned');
       const category = inferDealCategory(d, dealMetadataMap).category;
       entries.push({
         id: d.id,
         name: d.name || '(unnamed deal)',
         date,
         dateSource: source,
-        agentFubUserId: user?.id ?? d.assignedUserId ?? d.userId ?? null,
-        agentName: user?.name || 'Unassigned',
+        agentFubUserId: fubUserId,
+        agentName: resolvedName,
         stageName: d.stageName || '',
         pipelineName: d.pipelineName || '',
         price: Number(d.price || 0),
@@ -81,7 +92,7 @@ export function useFubClosingsCalendar({ year, dealMetadataMap }: Options) {
     }
     setDeals(entries);
     setLoading(false);
-  }, [year, dealMetadataMap]);
+  }, [year, dealMetadataMap, agentNameByFubId]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
