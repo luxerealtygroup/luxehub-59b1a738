@@ -378,15 +378,23 @@ const Dashboard = () => {
     ? {
         ...stats,
         closedDeals: fubMetrics.deals_closed,
-        activeDeals: fubMetrics.deals_pending,
+        activeDeals: fubMetrics.sales_count_pending,
         totalDeals: fubMetrics.deals_closed + fubMetrics.deals_pending,
         totalCommissions: fubMetrics.gci_earned,
         pendingCommissions: fubMetrics.gci_pending,
       }
     : stats;
 
+  // FUB-only weighted/breakdown numbers. Fall back to displayStats when no FUB.
+  const weightedClosed = useFubStats ? fubMetrics.weighted_closed : displayStats.closedDeals;
+  const salesCountClosed = useFubStats ? fubMetrics.sales_count_closed : displayStats.closedDeals;
+  const leaseCountClosed = useFubStats ? fubMetrics.lease_count_closed : 0;
+  const conditionalCount = useFubStats ? fubMetrics.sales_count_conditional : 0;
+  const conditionalGci = useFubStats ? fubMetrics.gci_sales_conditional : 0;
+
   // Calculate progress percentages
-  const dealsProgress = displayStats.dealsGoal > 0 ? (displayStats.closedDeals / displayStats.dealsGoal) * 100 : 0;
+  // Sales Goal uses weighted units (sales = 1.0, leases = 0.33).
+  const dealsProgress = displayStats.dealsGoal > 0 ? (weightedClosed / displayStats.dealsGoal) * 100 : 0;
   const gciProgress = displayStats.gciGoal > 0 ? (displayStats.totalCommissions / displayStats.gciGoal) * 100 : 0;
 
   // Motivational message based on progress
