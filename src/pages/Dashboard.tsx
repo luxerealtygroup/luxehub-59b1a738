@@ -4,6 +4,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useHasFUB } from '@/hooks/useHasFUB';
 import { useViewAsAgent } from '@/hooks/useViewAsAgent';
 import { useFubDealMetrics } from '@/hooks/useFubDealMetrics';
+import { useDealMetadata } from '@/hooks/useDealMetadata';
+import { formatWeightedDeals } from '@/lib/utils/dealWeight';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Building2, Phone, DollarSign, Target, Users, Search, Loader2, TrendingUp, Flame, Award, ArrowUp, CheckCircle, Clock, FileText, Briefcase, Calendar, Info } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
