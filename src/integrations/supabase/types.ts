@@ -1418,6 +1418,113 @@ export type Database = {
         }
         Relationships: []
       }
+      open_house_attendees: {
+        Row: {
+          condition_feedback: string | null
+          created_at: string
+          fub_contact_id: number | null
+          fub_linked: boolean
+          full_name: string | null
+          home_to_sell: string | null
+          id: string
+          initials: string | null
+          interest_level: string | null
+          notes: string | null
+          open_house_id: string
+          pre_approved: string | null
+          price_feedback: string | null
+          source: string | null
+          updated_at: string
+          working_with_realtor: string | null
+        }
+        Insert: {
+          condition_feedback?: string | null
+          created_at?: string
+          fub_contact_id?: number | null
+          fub_linked?: boolean
+          full_name?: string | null
+          home_to_sell?: string | null
+          id?: string
+          initials?: string | null
+          interest_level?: string | null
+          notes?: string | null
+          open_house_id: string
+          pre_approved?: string | null
+          price_feedback?: string | null
+          source?: string | null
+          updated_at?: string
+          working_with_realtor?: string | null
+        }
+        Update: {
+          condition_feedback?: string | null
+          created_at?: string
+          fub_contact_id?: number | null
+          fub_linked?: boolean
+          full_name?: string | null
+          home_to_sell?: string | null
+          id?: string
+          initials?: string | null
+          interest_level?: string | null
+          notes?: string | null
+          open_house_id?: string
+          pre_approved?: string | null
+          price_feedback?: string | null
+          source?: string | null
+          updated_at?: string
+          working_with_realtor?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "open_house_attendees_open_house_id_fkey"
+            columns: ["open_house_id"]
+            isOneToOne: false
+            referencedRelation: "open_houses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      open_houses: {
+        Row: {
+          address: string
+          agent_id: string
+          city: string | null
+          created_at: string
+          end_time: string | null
+          event_date: string
+          id: string
+          mls_number: string | null
+          notes: string | null
+          start_time: string | null
+          updated_at: string
+        }
+        Insert: {
+          address: string
+          agent_id: string
+          city?: string | null
+          created_at?: string
+          end_time?: string | null
+          event_date: string
+          id?: string
+          mls_number?: string | null
+          notes?: string | null
+          start_time?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string
+          agent_id?: string
+          city?: string | null
+          created_at?: string
+          end_time?: string | null
+          event_date?: string
+          id?: string
+          mls_number?: string | null
+          notes?: string | null
+          start_time?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       pipeline_clients: {
         Row: {
           client_name: string
