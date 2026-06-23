@@ -4,6 +4,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useHasFUB } from '@/hooks/useHasFUB';
 import { useViewAsAgent } from '@/hooks/useViewAsAgent';
 import { useFubDealMetrics } from '@/hooks/useFubDealMetrics';
+import { useDealMetadata } from '@/hooks/useDealMetadata';
+import { formatWeightedDeals } from '@/lib/utils/dealWeight';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Building2, Phone, DollarSign, Target, Users, Search, Loader2, TrendingUp, Flame, Award, ArrowUp, CheckCircle, Clock, FileText, Briefcase, Calendar, Info } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -132,11 +134,14 @@ const Dashboard = () => {
 
   // Pull FUB-backed metrics so that stats reflect the source of truth.
   // This also powers correctly impersonated views (View as Agent).
+  // Load deal_metadata so manual sale/lease overrides drive weighting.
+  const { metadata: dealMetadataMap } = useDealMetadata();
   const { metrics: fubMetrics, loading: fubMetricsLoading } = useFubDealMetrics({
     userId: dataUserId,
     fubUserId: effectiveFubUserId,
     year: currentYear,
     hasFUB: hasEffectiveFUB,
+    dealMetadataMap,
   });
   
   // Add client dialog state
@@ -373,15 +378,23 @@ const Dashboard = () => {
     ? {
         ...stats,
         closedDeals: fubMetrics.deals_closed,
-        activeDeals: fubMetrics.deals_pending,
+        activeDeals: fubMetrics.sales_count_pending,
         totalDeals: fubMetrics.deals_closed + fubMetrics.deals_pending,
         totalCommissions: fubMetrics.gci_earned,
         pendingCommissions: fubMetrics.gci_pending,
       }
     : stats;
 
+  // FUB-only weighted/breakdown numbers. Fall back to displayStats when no FUB.
+  const weightedClosed = useFubStats ? fubMetrics.weighted_closed : displayStats.closedDeals;
+  const salesCountClosed = useFubStats ? fubMetrics.sales_count_closed : displayStats.closedDeals;
+  const leaseCountClosed = useFubStats ? fubMetrics.lease_count_closed : 0;
+  const conditionalCount = useFubStats ? fubMetrics.sales_count_conditional : 0;
+  const conditionalGci = useFubStats ? fubMetrics.gci_sales_conditional : 0;
+
   // Calculate progress percentages
-  const dealsProgress = displayStats.dealsGoal > 0 ? (displayStats.closedDeals / displayStats.dealsGoal) * 100 : 0;
+  // Sales Goal uses weighted units (sales = 1.0, leases = 0.33).
+  const dealsProgress = displayStats.dealsGoal > 0 ? (weightedClosed / displayStats.dealsGoal) * 100 : 0;
   const gciProgress = displayStats.gciGoal > 0 ? (displayStats.totalCommissions / displayStats.gciGoal) * 100 : 0;
 
   // Motivational message based on progress
@@ -481,7 +494,7 @@ const Dashboard = () => {
             <div className="text-center">
               <ProgressRing progress={dealsProgress} size={typeof window !== 'undefined' && window.innerWidth < 768 ? 84 : 120} strokeWidth={7} color={dealsProgress >= 100 ? "hsl(142 71% 45%)" : "hsl(var(--gold))"} />
               <p className="mt-2 md:mt-3 text-xs md:text-sm font-medium text-foreground">Sales Goal</p>
-              <p className="text-[10px] md:text-xs text-muted-foreground">{displayStats.closedDeals} / {displayStats.dealsGoal}</p>
+              <p className="text-[10px] md:text-xs text-muted-foreground">{formatWeightedDeals(weightedClosed)} / {displayStats.dealsGoal}</p>
             </div>
             <div className="text-center">
               <ProgressRing progress={gciProgress} size={typeof window !== 'undefined' && window.innerWidth < 768 ? 84 : 120} strokeWidth={7} color={gciProgress >= 100 ? "hsl(142 71% 45%)" : "hsl(var(--gold))"} />
@@ -635,8 +648,12 @@ const Dashboard = () => {
                 <h3 className="text-sm font-medium text-muted-foreground">Closed Sales</h3>
               </div>
             </div>
-            <p className="text-3xl font-bold text-foreground">{displayStats.closedDeals}</p>
-            <p className="text-xs text-muted-foreground mt-1">of {displayStats.dealsGoal} goal</p>
+            <p className="text-3xl font-bold text-foreground">{formatWeightedDeals(weightedClosed)}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {salesCountClosed} sale{salesCountClosed === 1 ? '' : 's'}
+              {leaseCountClosed > 0 ? ` + ${leaseCountClosed} lease${leaseCountClosed === 1 ? '' : 's'}` : ''}
+              {' · of '}{displayStats.dealsGoal} goal
+            </p>
             <Progress value={dealsProgress} className="h-2 mt-3" />
             <p className="text-xs text-green-500 mt-1">{Math.round(dealsProgress)}% complete</p>
           </CardContent>
@@ -647,14 +664,14 @@ const Dashboard = () => {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Building2 className="h-5 w-5 text-amber-500" />
-                <h3 className="text-sm font-medium text-muted-foreground">Pipeline Clients</h3>
+                <h3 className="text-sm font-medium text-muted-foreground">Pending Sales</h3>
               </div>
             </div>
             <p className="text-3xl font-bold text-foreground">{displayStats.activeDeals}</p>
-            <p className="text-xs text-muted-foreground mt-1">in pipeline</p>
+            <p className="text-xs text-muted-foreground mt-1">firm pending</p>
             <div className="mt-3 flex items-center gap-2">
               <Badge variant="outline" className="border-amber-500/30 text-amber-500 bg-amber-500/10 text-xs">
-                {displayStats.totalDeals} in pipeline
+                {conditionalCount} conditional
               </Badge>
             </div>
           </CardContent>
