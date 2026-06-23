@@ -246,15 +246,25 @@ function OpenHouseFormDialog({
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .not('full_name', 'is', null);
-      const list: AgentOption[] = ((data as any[]) || []).map((p) => ({
-        id: p.id,
-        full_name: p.full_name ?? '',
-        email: '',
-      }));
+      const { data: rpcData, error: rpcErr } = await (supabase as any).rpc('get_team_agents');
+      let list: AgentOption[] = [];
+      if (!rpcErr && Array.isArray(rpcData)) {
+        list = rpcData.map((p: any) => ({
+          id: p.id,
+          full_name: p.full_name ?? '',
+          email: p.email ?? '',
+        }));
+      } else {
+        const { data } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .not('full_name', 'is', null);
+        list = ((data as any[]) || []).map((p) => ({
+          id: p.id,
+          full_name: p.full_name ?? '',
+          email: '',
+        }));
+      }
       setAgents(list);
       if (user) {
         const mine = list.find((a) => a.id === user.id);
