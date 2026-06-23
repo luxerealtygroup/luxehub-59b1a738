@@ -107,6 +107,7 @@ const Commissions = () => {
           name: deal.name,
           pipelineName: deal.pipelineName,
           stageName: deal.stageName,
+          price: deal.price,
         };
         const { category } = inferDealCategory(dealForWeight, metadataMap);
         const weight = getDealWeight(dealForWeight, metadataMap);
