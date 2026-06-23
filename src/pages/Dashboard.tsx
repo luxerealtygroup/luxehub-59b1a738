@@ -664,14 +664,14 @@ const Dashboard = () => {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Building2 className="h-5 w-5 text-amber-500" />
-                <h3 className="text-sm font-medium text-muted-foreground">Pipeline Clients</h3>
+                <h3 className="text-sm font-medium text-muted-foreground">Pending Sales</h3>
               </div>
             </div>
             <p className="text-3xl font-bold text-foreground">{displayStats.activeDeals}</p>
-            <p className="text-xs text-muted-foreground mt-1">in pipeline</p>
+            <p className="text-xs text-muted-foreground mt-1">firm pending</p>
             <div className="mt-3 flex items-center gap-2">
               <Badge variant="outline" className="border-amber-500/30 text-amber-500 bg-amber-500/10 text-xs">
-                {displayStats.totalDeals} in pipeline
+                {conditionalCount} conditional
               </Badge>
             </div>
           </CardContent>
