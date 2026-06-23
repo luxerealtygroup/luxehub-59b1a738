@@ -1238,6 +1238,33 @@ export type Database = {
         }
         Relationships: []
       }
+      fub_webhook_events: {
+        Row: {
+          event_type: string
+          id: string
+          payload: Json
+          received_at: string
+          resource_ids: Json | null
+          signature_valid: boolean
+        }
+        Insert: {
+          event_type: string
+          id?: string
+          payload: Json
+          received_at?: string
+          resource_ids?: Json | null
+          signature_valid?: boolean
+        }
+        Update: {
+          event_type?: string
+          id?: string
+          payload?: Json
+          received_at?: string
+          resource_ids?: Json | null
+          signature_valid?: boolean
+        }
+        Relationships: []
+      }
       important_documents: {
         Row: {
           category: string | null
