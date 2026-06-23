@@ -166,6 +166,7 @@ export function ClosingsCalendar({ year, agentNameByFubId }: Props) {
                           </div>
                           <div className="flex justify-between"><span>Agent</span><span>{d.agentName}</span></div>
                           <div className="flex justify-between"><span>Type</span><span className="capitalize">{d.category}</span></div>
+                          <div className="flex justify-between"><span>Status</span><span>{d.stageName}</span></div>
                           <div className="flex justify-between"><span>Price</span><span>{formatCurrency(d.price)}</span></div>
                           <div className="flex justify-between"><span>GCI</span><span>{formatCurrency(d.gci)}</span></div>
                           <div className="flex justify-between">
