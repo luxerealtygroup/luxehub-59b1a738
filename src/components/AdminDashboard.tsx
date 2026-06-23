@@ -281,7 +281,11 @@ const AdminDashboard = () => {
           const cat = dealMetadata.get(d.id)?.deal_category;
           if (cat) return cat === 'lease';
           const hay = `${d.stageName || ''} ${d.name || ''}`.toLowerCase();
-          return /lease|tenant|landlord|rental/.test(hay);
+          if (/lease|tenant|landlord|rental/.test(hay)) return true;
+          // Price-based heuristic — sub-$10k "sales" are leases
+          const price = (d as any).price;
+          if (typeof price === 'number' && price > 0 && price < 10000) return true;
+          return false;
         };
         const sumGciBy = (arr: FUBDeal[], lease: boolean) =>
           arr.filter(d => isLease(d) === lease).reduce((s, d) => s + (d.commissionValue || 0), 0);
