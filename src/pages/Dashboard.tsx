@@ -134,11 +134,14 @@ const Dashboard = () => {
 
   // Pull FUB-backed metrics so that stats reflect the source of truth.
   // This also powers correctly impersonated views (View as Agent).
+  // Load deal_metadata so manual sale/lease overrides drive weighting.
+  const { metadata: dealMetadataMap } = useDealMetadata();
   const { metrics: fubMetrics, loading: fubMetricsLoading } = useFubDealMetrics({
     userId: dataUserId,
     fubUserId: effectiveFubUserId,
     year: currentYear,
     hasFUB: hasEffectiveFUB,
+    dealMetadataMap,
   });
   
   // Add client dialog state
