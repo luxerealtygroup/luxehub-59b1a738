@@ -4,10 +4,12 @@ import { classifyStage } from '@/hooks/useFubDealMetrics';
 import { inferDealCategory, DealMetadataMap } from '@/lib/utils/dealWeight';
 
 export type ClosingDateSource = 'closedDate' | 'closeDate' | 'projectedCloseDate';
+export type ClosingStatus = 'closed' | 'forecast';
 
 export interface ClosingEntry {
   id: number;
   name: string;
+  address: string;
   date: string; // YYYY-MM-DD
   dateSource: ClosingDateSource;
   agentFubUserId: number | null;
@@ -17,6 +19,7 @@ export interface ClosingEntry {
   price: number;
   gci: number;
   category: 'sale' | 'lease';
+  status: ClosingStatus;
   raw: FUBDeal;
 }
 
@@ -28,6 +31,16 @@ function resolveCloseDate(deal: any): { date: string | null; source: ClosingDate
 }
 
 const getGci = (d: any): number => Number(d.commissionValue ?? d.agentCommission ?? 0) || 0;
+
+function getAddress(d: any): string {
+  // Prefer FUB custom address fields when present, otherwise fall back to deal name.
+  const street = d.customClarityNOWAddress || d.propertyStreet || '';
+  const city = d.customClarityNOWCity || d.propertyCity || '';
+  if (street && city) return `${street}, ${city}`;
+  if (street) return street;
+  if (city) return city;
+  return d.name || '(no address)';
+}
 
 interface Options {
   year: number;
@@ -58,10 +71,11 @@ export function useFubClosingsCalendar({ year, dealMetadataMap, agentNameByFubId
 
     const entries: ClosingEntry[] = [];
     for (const d of collected as any[]) {
-      if (classifyStage(d.stageName) !== 'closed') continue;
       const { date, source } = resolveCloseDate(d);
       if (!date || !source) continue;
       if (date < start || date > end) continue;
+      const stageClass = classifyStage(d.stageName);
+      // Include closed (actuals) + forecast stages (pending/offer/listed/other with a date).
       // Prefer the user whose id matches assignedUserId; fall back to users[0].
       const assignedId: number | null = d.assignedUserId ?? d.userId ?? null;
       const usersArr: any[] = Array.isArray(d.users) ? d.users : [];
@@ -78,6 +92,7 @@ export function useFubClosingsCalendar({ year, dealMetadataMap, agentNameByFubId
       entries.push({
         id: d.id,
         name: d.name || '(unnamed deal)',
+        address: getAddress(d),
         date,
         dateSource: source,
         agentFubUserId: fubUserId,
@@ -87,6 +102,7 @@ export function useFubClosingsCalendar({ year, dealMetadataMap, agentNameByFubId
         price: Number(d.price || 0),
         gci: getGci(d),
         category,
+        status: stageClass === 'closed' ? 'closed' : 'forecast',
         raw: d,
       });
     }
