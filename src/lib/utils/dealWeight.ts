@@ -73,12 +73,12 @@ export function inferDealCategory(deal: {
     return { category: 'lease', source: 'inferred' };
   }
 
-  // 5. Price-based heuristic — any deal under $10,000 is a lease.
+  // 5. Price-based heuristic — any deal under $4,000 is a lease.
   //    Real estate sales never close below this threshold; lease prices
   //    (monthly rent) routinely fall under it. This catches FUB deals
   //    that lack any "lease" keyword in their pipeline/name/stage.
   const price = typeof deal.price === 'number' ? deal.price : null;
-  if (price !== null && price > 0 && price < 10000) {
+  if (price !== null && price > 0 && price < 4000) {
     return { category: 'lease', source: 'inferred' };
   }
 

@@ -282,9 +282,9 @@ const AdminDashboard = () => {
           if (cat) return cat === 'lease';
           const hay = `${d.stageName || ''} ${d.name || ''}`.toLowerCase();
           if (/lease|tenant|landlord|rental/.test(hay)) return true;
-          // Price-based heuristic — sub-$10k "sales" are leases
+          // Price-based heuristic — sub-$4k "sales" are leases
           const price = (d as any).price;
-          if (typeof price === 'number' && price > 0 && price < 10000) return true;
+          if (typeof price === 'number' && price > 0 && price < 4000) return true;
           return false;
         };
         const sumGciBy = (arr: FUBDeal[], lease: boolean) =>
