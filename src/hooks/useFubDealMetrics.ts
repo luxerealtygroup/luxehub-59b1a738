@@ -16,7 +16,7 @@ export const classifyStage = (stageName: string): 'closed' | 'pending' | 'other'
   return 'other';
 };
 
-const isConditionalStage = (stageName: string): boolean => {
+export const isConditionalStage = (stageName: string): boolean => {
   const s = (stageName || '').toLowerCase();
   return s.includes('conditional') || s.includes('offer');
 };

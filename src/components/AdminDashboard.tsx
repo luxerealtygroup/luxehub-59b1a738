@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { followUpBossApi, FUBDeal, FUBDealUser } from '@/lib/api/followUpBoss';
 import { useDealMetadata } from '@/hooks/useDealMetadata';
 import { sumWeightedDeals, getDealWeight, formatWeightedDeals } from '@/lib/utils/dealWeight';
+import { classifyStage, isConditionalStage } from '@/hooks/useFubDealMetrics';
 import { DealTypeDropdown } from '@/components/DealTypeDropdown';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -231,32 +232,11 @@ const AdminDashboard = () => {
         const deals = collectedFubDeals;
         fubDealsAll = deals;
         
-        // Closed deals = status is "Won" or similar closed status
-        const closedDeals = deals.filter((d: FUBDeal) => 
-          d.status?.toLowerCase() === 'won' || 
-          d.stageName?.toLowerCase().includes('closed') ||
-          d.stageName?.toLowerCase().includes('won')
-        );
-        
-        // Pending deals = only deals with stage "Pending" (under contract awaiting close)
-        const pendingDeals = deals.filter((d: FUBDeal) => 
-          d.stageName?.toLowerCase() === 'pending'
-        );
-        
-        // Conditional deals = deals with stage "Offer" (conditional/offer stage)
-        const conditionalDeals = deals.filter((d: FUBDeal) => 
-          d.stageName?.toLowerCase() === 'offer'
-        );
-        
-        // Active deals = everything else that's not closed/won/lost/pending/offer
-        const activeDeals = deals.filter((d: FUBDeal) => 
-          d.status?.toLowerCase() !== 'won' && 
-          d.status?.toLowerCase() !== 'lost' &&
-          !d.stageName?.toLowerCase().includes('closed') &&
-          !d.stageName?.toLowerCase().includes('won') &&
-          d.stageName?.toLowerCase() !== 'pending' &&
-          d.stageName?.toLowerCase() !== 'offer'
-        );
+        // Use shared stage definitions (same as per-agent metrics)
+        const closedDeals = deals.filter((d: FUBDeal) => classifyStage(d.stageName) === 'closed');
+        const pendingDeals = deals.filter((d: FUBDeal) => classifyStage(d.stageName) === 'pending' && !isConditionalStage(d.stageName));
+        const conditionalDeals = deals.filter((d: FUBDeal) => classifyStage(d.stageName) === 'pending' && isConditionalStage(d.stageName));
+        const activeDeals = deals.filter((d: FUBDeal) => classifyStage(d.stageName) === 'other');
 
         // Total GCI = full commission value from closed deals (no splits)
         const totalGci = closedDeals.reduce((sum: number, d: FUBDeal) => 
