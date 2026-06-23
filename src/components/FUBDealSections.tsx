@@ -10,7 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Home, Clock, Sparkles, ExternalLink, Loader2 } from 'lucide-react';
+import { RefreshCw, Home, Clock, Sparkles, ExternalLink, Loader2, AlertTriangle } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { format, parseISO } from 'date-fns';
 import { formatCurrency } from '@/lib/utils';
 
@@ -19,6 +20,19 @@ interface AgentOption {
   full_name: string;
   fub_user_id: number | null;
 }
+
+/**
+ * Heuristic: a deal name that has no digits (no street number / unit) and no
+ * structured property address is probably missing its address in FUB.
+ * e.g. "Esther" → flagged; "78 Esther Ave" → not flagged.
+ */
+const hasIncompleteAddress = (deal: FUBDeal): boolean => {
+  const hasStructured = Boolean(deal.propertyStreet || deal.propertyCity);
+  if (hasStructured) return false;
+  const name = (deal.name || '').trim();
+  if (!name) return true;
+  return !/\d/.test(name);
+};
 
 const classifyDealSection = (deal: FUBDeal): 'active_listing' | 'coming_soon' | 'buyer_under_contract' | 'other' => {
   const pipeline = (deal.pipelineName || '').toLowerCase();
@@ -65,10 +79,32 @@ const DealTable = ({ deals, emptyMessage }: { deals: FUBDeal[]; emptyMessage: st
             const displayName = address || deal.name || 'Unnamed Deal';
             const clientName = deal.people?.[0]?.name || '—';
             const agentName = deal.users?.[0]?.name || '—';
+            const incomplete = hasIncompleteAddress(deal);
 
             return (
               <TableRow key={deal.id}>
-                <TableCell className="font-medium max-w-[200px] truncate">{displayName}</TableCell>
+                <TableCell className="font-medium max-w-[220px]">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="truncate">{displayName}</span>
+                    {incomplete && (
+                      <TooltipProvider delayDuration={150}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <AlertTriangle
+                              className="h-3.5 w-3.5 text-amber-400 flex-shrink-0"
+                              aria-label="Incomplete address"
+                            />
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-xs">
+                            This deal's name in Follow Up Boss appears to be missing a street
+                            number / full address. Update the deal name in FUB for a clearer
+                            label here.
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                  </div>
+                </TableCell>
                 <TableCell>{clientName}</TableCell>
                 <TableCell className="text-muted-foreground text-sm">{agentName}</TableCell>
                 <TableCell>
