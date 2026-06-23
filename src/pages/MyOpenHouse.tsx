@@ -248,12 +248,12 @@ function OpenHouseFormDialog({
     (async () => {
       const { data } = await supabase
         .from('profiles')
-        .select('id, full_name, email' as any)
+        .select('id, full_name')
         .not('full_name', 'is', null);
       const list: AgentOption[] = ((data as any[]) || []).map((p) => ({
         id: p.id,
         full_name: p.full_name ?? '',
-        email: p.email ?? '',
+        email: '',
       }));
       setAgents(list);
       if (user) {
