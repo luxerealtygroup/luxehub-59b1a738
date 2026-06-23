@@ -5,7 +5,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { useAuth } from '@/hooks/useAuth';
 import { followUpBossApi, FUBDeal, FUBDealUser } from '@/lib/api/followUpBoss';
 import { useDealMetadata } from '@/hooks/useDealMetadata';
-import { sumWeightedDeals, getDealWeight, formatWeightedDeals } from '@/lib/utils/dealWeight';
+import { sumWeightedDeals, getDealWeight, formatWeightedDeals, inferDealCategory } from '@/lib/utils/dealWeight';
 import { classifyStage, isConditionalStage } from '@/hooks/useFubDealMetrics';
 import { DealTypeDropdown } from '@/components/DealTypeDropdown';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
