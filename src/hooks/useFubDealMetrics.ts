@@ -16,7 +16,9 @@ export const classifyStage = (stageName: string): 'closed' | 'pending' | 'other'
   return 'other';
 };
 
-const isConditionalStage = (stageName: string): boolean => {
+export const getDealGci = (deal: any): number => Number(deal.commissionValue ?? deal.agentCommission ?? 0) || 0;
+
+// ── Deal-side inference ──────────────────────────────────────────────────
   const s = (stageName || '').toLowerCase();
   return s.includes('conditional') || s.includes('offer');
 };
