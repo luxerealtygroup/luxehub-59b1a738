@@ -258,28 +258,51 @@ const Commissions = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  fubDealsDisplay.map((deal) => (
-                    <TableRow key={deal.id}>
-                      <TableCell className="font-medium">{deal.clientName}</TableCell>
-                      <TableCell className="max-w-[200px] truncate">{deal.propertyAddress}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={
-                          classifyStage(deal.status) === 'closed'
-                            ? 'border-green-500/30 text-green-400'
-                            : classifyStage(deal.status) === 'pending'
-                            ? 'border-amber-500/30 text-amber-400'
-                            : 'border-orange-500/30 text-orange-400'
-                        }>
-                          {deal.stageName}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">{formatCurrency(deal.dealValue)}</TableCell>
-                      <TableCell className="text-right font-bold text-gold">{formatCurrency(deal.grossCommission)}</TableCell>
-                      <TableCell>
-                        {deal.createdAt ? format(parseISO(deal.createdAt), 'MMM d, yyyy') : '-'}
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  groupMeta.map(({ key, label, rowClass, badgeClass }) => {
+                    const deals = groupedDeals[key];
+                    if (deals.length === 0) return null;
+                    const subtotalGci = deals.reduce((s, d) => s + d.grossCommission, 0);
+                    const subtotalPrice = deals.reduce((s, d) => s + d.dealValue, 0);
+                    const weighted = deals.reduce((s, d) => s + d.weight, 0);
+                    const leases = deals.filter((d) => d.isLease).length;
+                    return (
+                      <Fragment key={key}>
+                        <TableRow className={rowClass}>
+                          <TableCell colSpan={6} className="font-semibold text-foreground py-2">
+                            {label} — {deals.length} {deals.length === 1 ? 'deal' : 'deals'}
+                            {' · '}
+                            <span className="text-muted-foreground font-normal">
+                              {formatWeightedDeals(weighted)} weighted{leases > 0 ? ` (${leases} lease${leases === 1 ? '' : 's'})` : ''}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                        {deals.map((deal) => (
+                          <TableRow key={deal.id}>
+                            <TableCell className="font-medium">{deal.clientName}</TableCell>
+                            <TableCell className="max-w-[200px] truncate">{deal.propertyAddress}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className={badgeClass}>
+                                {deal.stageName}{deal.isLease ? ' · Lease' : ''}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">{formatCurrency(deal.dealValue)}</TableCell>
+                            <TableCell className="text-right font-bold text-gold">{formatCurrency(deal.grossCommission)}</TableCell>
+                            <TableCell>
+                              {deal.createdAt ? format(parseISO(deal.createdAt), 'MMM d, yyyy') : '-'}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow className={`${rowClass} border-t`}>
+                          <TableCell colSpan={3} className="text-right text-sm text-muted-foreground italic">
+                            {label} subtotal
+                          </TableCell>
+                          <TableCell className="text-right text-sm">{formatCurrency(subtotalPrice)}</TableCell>
+                          <TableCell className="text-right font-bold text-gold">{formatCurrency(subtotalGci)}</TableCell>
+                          <TableCell />
+                        </TableRow>
+                      </Fragment>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
