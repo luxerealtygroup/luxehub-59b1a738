@@ -328,8 +328,10 @@ export function useFubDealMetrics({
     let gciLeasesClosed = 0;
     let leaseCountClosed = 0;
     let salesCountPending = 0;
+    let leaseCountPending = 0;
     let salesCountConditional = 0;
     let gciSalesPending = 0;
+    let gciLeasesPending = 0;
     let gciSalesConditional = 0;
     if (closedDealsArr.length > 0) {
       for (const d of closedDealsArr) {
