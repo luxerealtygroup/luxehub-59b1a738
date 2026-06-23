@@ -499,7 +499,7 @@ function AttendeeCard({
   const [fubSearching, setFubSearching] = useState(false);
   const [fubSearched, setFubSearched] = useState(false);
 
-  useEffect(() => { setForm(attendee); }, [attendee.id, attendee.updated_at as unknown as string]);
+  useEffect(() => { setForm(attendee); }, [attendee.id]);
 
   const remove = async () => {
     if (!confirm(`Remove ${attendee.initials}?`)) return;
