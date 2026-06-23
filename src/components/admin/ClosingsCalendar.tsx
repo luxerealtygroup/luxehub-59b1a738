@@ -107,7 +107,7 @@ export function ClosingsCalendar({ year, agentNameByFubId, agentFubUserId, title
       <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0">
         <CardTitle className="flex items-center gap-2 font-display">
           <CalendarDays className="h-5 w-5 text-primary" />
-          {year} Closings Calendar
+          {title ?? `${year} Closings Calendar`}
         </CardTitle>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" onClick={prevMonth} disabled={selectedMonth === 0}>
