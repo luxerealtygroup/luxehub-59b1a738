@@ -164,7 +164,8 @@ export function useFubDealMetrics({
     sales_volume_closed: 0,
     weighted_closed: 0, weighted_pending: 0, weighted_debug_closed: null, weighted_debug_pending: null,
     sales_count_closed: 0, lease_count_closed: 0, gci_sales_closed: 0, gci_leases_closed: 0,
-    sales_count_pending: 0, sales_count_conditional: 0, gci_sales_pending: 0, gci_sales_conditional: 0,
+    sales_count_pending: 0, lease_count_pending: 0, sales_count_conditional: 0,
+    gci_sales_pending: 0, gci_leases_pending: 0, gci_sales_conditional: 0,
   });
   const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
   const [loading, setLoading] = useState(true);
