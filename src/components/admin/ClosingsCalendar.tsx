@@ -12,6 +12,10 @@ interface Props {
   year: number;
   /** Optional FUB user id → display name map for resolving unassigned/numeric users. */
   agentNameByFubId?: Map<number, string>;
+  /** When set, restrict the calendar to deals assigned to this FUB user id (agent view). */
+  agentFubUserId?: number | null;
+  /** Optional title override (e.g. "My 2026 Closings"). */
+  title?: string;
 }
 
 const MONTH_NAMES = [
@@ -34,7 +38,7 @@ function firstName(full: string): string {
   return (full || '').trim().split(/\s+/)[0] || 'Agent';
 }
 
-export function ClosingsCalendar({ year, agentNameByFubId }: Props) {
+export function ClosingsCalendar({ year, agentNameByFubId, agentFubUserId, title }: Props) {
   const { metadata } = useDealMetadata();
   // Adapter: useDealMetadata returns DealMetadataRow; dealWeight expects a smaller shape.
   const dealMetadataMap = useMemo(() => {
@@ -45,7 +49,11 @@ export function ClosingsCalendar({ year, agentNameByFubId }: Props) {
     return m;
   }, [metadata]);
 
-  const { deals, loading } = useFubClosingsCalendar({ year, dealMetadataMap, agentNameByFubId });
+  const { deals: allDeals, loading } = useFubClosingsCalendar({ year, dealMetadataMap, agentNameByFubId });
+  const deals = useMemo(
+    () => (agentFubUserId == null ? allDeals : allDeals.filter(d => d.agentFubUserId === agentFubUserId)),
+    [allDeals, agentFubUserId],
+  );
 
   const today = new Date();
   const defaultMonth = today.getFullYear() === year ? today.getMonth() : 0;
