@@ -1422,56 +1422,56 @@ export type Database = {
         Row: {
           condition_feedback: string | null
           created_at: string
-          fub_contact_id: number | null
+          fub_contact_id: string | null
           fub_linked: boolean
           full_name: string | null
-          home_to_sell: string | null
+          home_to_sell: boolean
           id: string
-          initials: string | null
+          initials: string
           interest_level: string | null
           notes: string | null
           open_house_id: string
-          pre_approved: string | null
+          pre_approved: boolean
           price_feedback: string | null
-          source: string | null
+          source: string
           updated_at: string
-          working_with_realtor: string | null
+          working_with_realtor: boolean
         }
         Insert: {
           condition_feedback?: string | null
           created_at?: string
-          fub_contact_id?: number | null
+          fub_contact_id?: string | null
           fub_linked?: boolean
           full_name?: string | null
-          home_to_sell?: string | null
+          home_to_sell?: boolean
           id?: string
-          initials?: string | null
+          initials: string
           interest_level?: string | null
           notes?: string | null
           open_house_id: string
-          pre_approved?: string | null
+          pre_approved?: boolean
           price_feedback?: string | null
-          source?: string | null
+          source?: string
           updated_at?: string
-          working_with_realtor?: string | null
+          working_with_realtor?: boolean
         }
         Update: {
           condition_feedback?: string | null
           created_at?: string
-          fub_contact_id?: number | null
+          fub_contact_id?: string | null
           fub_linked?: boolean
           full_name?: string | null
-          home_to_sell?: string | null
+          home_to_sell?: boolean
           id?: string
-          initials?: string | null
+          initials?: string
           interest_level?: string | null
           notes?: string | null
           open_house_id?: string
-          pre_approved?: string | null
+          pre_approved?: boolean
           price_feedback?: string | null
-          source?: string | null
+          source?: string
           updated_at?: string
-          working_with_realtor?: string | null
+          working_with_realtor?: boolean
         }
         Relationships: [
           {
@@ -1485,43 +1485,40 @@ export type Database = {
       }
       open_houses: {
         Row: {
-          address: string
-          agent_id: string
-          city: string | null
+          client_email: string | null
+          client_name: string | null
           created_at: string
-          end_time: string | null
-          event_date: string
           id: string
-          mls_number: string | null
-          notes: string | null
-          start_time: string | null
+          listing_agent_email: string | null
+          listing_agent_name: string | null
+          open_house_date: string
+          property_address: string
           updated_at: string
+          user_id: string
         }
         Insert: {
-          address: string
-          agent_id: string
-          city?: string | null
+          client_email?: string | null
+          client_name?: string | null
           created_at?: string
-          end_time?: string | null
-          event_date: string
           id?: string
-          mls_number?: string | null
-          notes?: string | null
-          start_time?: string | null
+          listing_agent_email?: string | null
+          listing_agent_name?: string | null
+          open_house_date: string
+          property_address: string
           updated_at?: string
+          user_id: string
         }
         Update: {
-          address?: string
-          agent_id?: string
-          city?: string | null
+          client_email?: string | null
+          client_name?: string | null
           created_at?: string
-          end_time?: string | null
-          event_date?: string
           id?: string
-          mls_number?: string | null
-          notes?: string | null
-          start_time?: string | null
+          listing_agent_email?: string | null
+          listing_agent_name?: string | null
+          open_house_date?: string
+          property_address?: string
           updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
