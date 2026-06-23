@@ -100,12 +100,11 @@ serve(async (req) => {
       }
 
       case 'get_deals': {
-        // Paginate through all deals unless caller explicitly opts out
-        // (params.all === false) or asks for a specific offset slice.
-        const explicitOffset = typeof params?.offset === 'number';
-        const shouldPaginate = params?.all !== false && !explicitOffset;
+        // Paginate by default. Caller can opt out with `all: false`, in which
+        // case the original limit/offset semantics are preserved.
+        const shouldPaginate = params?.all !== false;
         const pageSize = Math.min(Number(params?.limit) || 100, 100);
-        const startOffset = explicitOffset ? Number(params.offset) : 0;
+        const startOffset = Number(params?.offset) || 0;
         const SAFETY_CAP = 10_000;
 
         const allDeals: unknown[] = [];
