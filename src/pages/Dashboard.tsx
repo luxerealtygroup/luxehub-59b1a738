@@ -15,6 +15,7 @@ import { ManualModeBadge } from '@/components/ManualModeBadge';
 import { ManualProductionEntry, ManualProductionData } from '@/components/ManualProductionEntry';
 import GoogleCalendarWidget from '@/components/GoogleCalendarWidget';
 import FUBSmartLists from '@/components/FUBSmartLists';
+import ClosingsCalendar from '@/components/admin/ClosingsCalendar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -131,6 +132,23 @@ const Dashboard = () => {
   const [fubLoading, setFubLoading] = useState(false);
   const [fubError, setFubError] = useState<string | null>(null);
   const [manualProduction, setManualProduction] = useState<ManualProductionData | null>(null);
+  const [ownFubUserId, setOwnFubUserId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!user) { setOwnFubUserId(null); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('fub_user_id')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (!cancelled) setOwnFubUserId(data?.fub_user_id ?? null);
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
+
+  const calendarFubUserId = isViewingAsAgent ? effectiveFubUserId : ownFubUserId;
 
   // Pull FUB-backed metrics so that stats reflect the source of truth.
   // This also powers correctly impersonated views (View as Agent).
@@ -475,6 +493,15 @@ const Dashboard = () => {
           </a>
         </CardContent>
       </Card>
+
+      {/* My 2026 Closings Calendar — agent-scoped */}
+      {hasEffectiveFUB && calendarFubUserId != null && (
+        <ClosingsCalendar
+          year={2026}
+          agentFubUserId={calendarFubUserId}
+          title={isViewingAsAgent ? `${viewingAgentName ?? 'Agent'} — 2026 Closings` : 'My 2026 Closings'}
+        />
+      )}
 
       {/* Daily Motivation Quote */}
       <Card className="border-gold/10 bg-gradient-to-br from-card to-gold/5">
