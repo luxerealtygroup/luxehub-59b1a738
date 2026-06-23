@@ -851,3 +851,294 @@ function ReportField({ label, value, sub }: { label: string; value: string; sub?
     </div>
   );
 }
+// ============================================================================
+// Import from FUB dialog
+// ============================================================================
+
+type FubResult = { id: string; name: string; email: string | null; phone: string | null };
+
+function initialsFrom(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  const first = parts[0]?.[0] || '';
+  const last = parts.length > 1 ? parts[parts.length - 1][0] : '';
+  return (first + last).toUpperCase() || '?';
+}
+
+function ImportFromFubDialog({
+  openHouse, onClose, onImported,
+}: {
+  openHouse: OpenHouse;
+  onClose: () => void;
+  onImported: () => void;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [results, setResults] = useState<FubResult[]>([]);
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [importing, setImporting] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase.functions.invoke('fub-search-contacts', {
+          body: { query: openHouse.open_house_date },
+        });
+        if (cancelled) return;
+        if (error) {
+          toast.error('FUB search failed', { description: error.message });
+          setResults([]);
+        } else {
+          setResults((data?.results || []) as FubResult[]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [openHouse.open_house_date]);
+
+  const selectedIds = Object.keys(selected).filter(k => selected[k]);
+
+  const handleImport = async () => {
+    if (selectedIds.length === 0) return;
+    setImporting(true);
+    const rows = results
+      .filter(r => selected[r.id])
+      .map(r => ({
+        open_house_id: openHouse.id,
+        full_name: r.name,
+        initials: initialsFrom(r.name),
+        fub_contact_id: r.id,
+        fub_linked: true,
+        source: 'curb_hero' as const,
+      }));
+    const { error } = await supabase.from('open_house_attendees').insert(rows);
+    setImporting(false);
+    if (error) {
+      toast.error('Import failed', { description: error.message });
+      return;
+    }
+    toast.success(`${rows.length} attendees imported from Follow Up Boss`);
+    onImported();
+  };
+
+  return (
+    <DialogContent className="max-w-2xl">
+      <DialogHeader>
+        <DialogTitle>Import Attendees from Follow Up Boss</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+        {loading ? (
+          <div className="flex items-center justify-center py-10 text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin mr-2" /> Searching FUB…
+          </div>
+        ) : results.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-6 text-center">
+            No FUB contacts found created on this date. Try searching manually on the attendee cards.
+          </p>
+        ) : (
+          <div className="divide-y">
+            {results.map(r => (
+              <label key={r.id} className="flex items-center gap-3 py-2 cursor-pointer">
+                <Checkbox
+                  checked={!!selected[r.id]}
+                  onCheckedChange={(v) => setSelected(s => ({ ...s, [r.id]: !!v }))}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium truncate">{r.name}</div>
+                  <div className="text-xs text-muted-foreground truncate">
+                    {r.email || '—'}{r.phone ? ` · ${r.phone}` : ''}
+                  </div>
+                </div>
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+      <DialogFooter>
+        <Button variant="outline" onClick={onClose}>Cancel</Button>
+        <Button onClick={handleImport} disabled={importing || selectedIds.length === 0}>
+          {importing && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+          Import Selected{selectedIds.length > 0 ? ` (${selectedIds.length})` : ''}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
+
+// ============================================================================
+// Upload Curb Hero CSV dialog
+// ============================================================================
+
+type CsvContact = { firstName: string; lastName: string; email: string; phone: string };
+
+function parseCsv(text: string): CsvContact[] {
+  // Lightweight CSV parser supporting quoted values.
+  const rows: string[][] = [];
+  let cur: string[] = [];
+  let field = '';
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else inQuotes = false;
+      } else field += ch;
+    } else {
+      if (ch === '"') inQuotes = true;
+      else if (ch === ',') { cur.push(field); field = ''; }
+      else if (ch === '\n' || ch === '\r') {
+        if (field !== '' || cur.length > 0) { cur.push(field); rows.push(cur); cur = []; field = ''; }
+        if (ch === '\r' && text[i + 1] === '\n') i++;
+      } else field += ch;
+    }
+  }
+  if (field !== '' || cur.length > 0) { cur.push(field); rows.push(cur); }
+  if (rows.length === 0) return [];
+
+  const header = rows[0].map(h => h.trim().toLowerCase());
+  const findIdx = (...keys: string[]) =>
+    header.findIndex(h => keys.includes(h.replace(/[_\s-]+/g, ' ').trim()));
+  const iFirst = findIdx('first name', 'firstname', 'first');
+  const iLast = findIdx('last name', 'lastname', 'last');
+  const iEmail = findIdx('email', 'email address');
+  const iPhone = findIdx('phone', 'phone number', 'mobile');
+
+  const out: CsvContact[] = [];
+  for (let r = 1; r < rows.length; r++) {
+    const row = rows[r];
+    if (row.every(c => !c?.trim())) continue;
+    const firstName = (iFirst >= 0 ? row[iFirst] : '')?.trim() || '';
+    const lastName = (iLast >= 0 ? row[iLast] : '')?.trim() || '';
+    const email = (iEmail >= 0 ? row[iEmail] : '')?.trim() || '';
+    const phone = (iPhone >= 0 ? row[iPhone] : '')?.trim() || '';
+    if (!firstName && !lastName && !email) continue;
+    out.push({ firstName, lastName, email, phone });
+  }
+  return out;
+}
+
+function UploadCurbHeroCsvDialog({
+  openHouse, onClose, onImported,
+}: {
+  openHouse: OpenHouse;
+  onClose: () => void;
+  onImported: () => void;
+}) {
+  const [contacts, setContacts] = useState<CsvContact[]>([]);
+  const [importing, setImporting] = useState(false);
+  const [fileName, setFileName] = useState<string>('');
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFileName(file.name);
+    try {
+      const text = await file.text();
+      const parsed = parseCsv(text);
+      if (parsed.length === 0) toast.error('No contacts found in CSV');
+      setContacts(parsed);
+    } catch (err) {
+      toast.error('Failed to read CSV', { description: (err as Error).message });
+    }
+  };
+
+  const handleImport = async () => {
+    if (contacts.length === 0) return;
+    setImporting(true);
+    const rows = contacts.map(c => {
+      const full = [c.firstName, c.lastName].filter(Boolean).join(' ').trim();
+      const initials = ((c.firstName?.[0] || '') + (c.lastName?.[0] || '')).toUpperCase() || '?';
+      return {
+        open_house_id: openHouse.id,
+        full_name: full || c.email || 'Unknown',
+        initials,
+        source: 'curb_hero' as const,
+        fub_linked: false,
+      };
+    });
+    const { data: inserted, error } = await supabase
+      .from('open_house_attendees')
+      .insert(rows)
+      .select('id, full_name');
+    if (error) {
+      setImporting(false);
+      toast.error('Import failed', { description: error.message });
+      return;
+    }
+
+    // Auto-link via FUB search
+    let linked = 0;
+    await Promise.all((inserted || []).map(async (att: any) => {
+      if (!att.full_name) return;
+      try {
+        const { data, error: searchErr } = await supabase.functions.invoke('fub-search-contacts', {
+          body: { query: att.full_name },
+        });
+        if (searchErr) return;
+        const results = (data?.results || []) as FubResult[];
+        if (results.length === 1) {
+          const { error: updErr } = await supabase
+            .from('open_house_attendees')
+            .update({ fub_contact_id: results[0].id, fub_linked: true })
+            .eq('id', att.id);
+          if (!updErr) linked++;
+        }
+      } catch {
+        // ignore individual failures
+      }
+    }));
+
+    setImporting(false);
+    toast.success(`${rows.length} attendees imported. ${linked} linked to FUB automatically.`);
+    onImported();
+  };
+
+  return (
+    <DialogContent className="max-w-2xl">
+      <DialogHeader>
+        <DialogTitle>Upload Curb Hero CSV</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-4">
+        <div>
+          <Label className="text-xs">CSV file</Label>
+          <Input type="file" accept=".csv,text/csv" onChange={handleFile} className="mt-1" />
+          {fileName && <p className="text-xs text-muted-foreground mt-1">{fileName}</p>}
+        </div>
+        {contacts.length > 0 && (
+          <div className="max-h-[40vh] overflow-y-auto border rounded-md">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>First</TableHead>
+                  <TableHead>Last</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Phone</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {contacts.map((c, i) => (
+                  <TableRow key={i}>
+                    <TableCell>{c.firstName}</TableCell>
+                    <TableCell>{c.lastName}</TableCell>
+                    <TableCell className="text-xs">{c.email}</TableCell>
+                    <TableCell className="text-xs">{c.phone}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+      <DialogFooter>
+        <Button variant="outline" onClick={onClose}>Cancel</Button>
+        <Button onClick={handleImport} disabled={importing || contacts.length === 0}>
+          {importing && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+          Import {contacts.length} Contact{contacts.length === 1 ? '' : 's'}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
