@@ -404,7 +404,7 @@ const Dashboard = () => {
   // Calculate progress percentages
   // Sales Goal uses weighted units (sales = 1.0, leases = 0.33).
   const dealsProgress = displayStats.dealsGoal > 0 ? (weightedClosed / displayStats.dealsGoal) * 100 : 0;
-  const gciProgress = displayStats.gciGoal > 0 ? (displayStats.totalCommissions / displayStats.gciGoal) * 100 : 0;
+  const gciProgress = displayStats.gciGoal > 0 ? (closedGci / displayStats.gciGoal) * 100 : 0;
 
   // Motivational message based on progress
   const getMotivationalMessage = () => {
