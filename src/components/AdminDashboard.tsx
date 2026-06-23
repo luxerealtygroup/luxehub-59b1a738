@@ -213,11 +213,22 @@ const AdminDashboard = () => {
       setLoading(true);
       setLoadError(null);
 
-      // Fetch FUB deals for company-wide stats
-      const fubResponse = await followUpBossApi.getDeals(200, 0);
+      // Fetch ALL FUB deals for company-wide stats — paginated loop so we
+      // never silently truncate at the first page once the team passes 100.
+      // Mirrors the pattern in useFubDealMetrics.ts.
+      const pageSize = 100;
+      const maxPages = 10;
+      const collectedFubDeals: FUBDeal[] = [];
+      for (let page = 0; page < maxPages; page++) {
+        const offset = page * pageSize;
+        const pageResp = await followUpBossApi.getDeals(pageSize, offset);
+        if (!pageResp.success || !pageResp.data?.deals) break;
+        collectedFubDeals.push(...pageResp.data.deals);
+        if (pageResp.data.deals.length < pageSize) break;
+      }
       let fubDealsAll: FUBDeal[] = [];
-      if (fubResponse.success && fubResponse.data?.deals) {
-        const deals = fubResponse.data.deals;
+      if (collectedFubDeals.length > 0) {
+        const deals = collectedFubDeals;
         fubDealsAll = deals;
         
         // Closed deals = status is "Won" or similar closed status
