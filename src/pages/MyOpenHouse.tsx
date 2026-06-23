@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   DoorOpen, Plus, ChevronLeft, Loader2, Pencil, Search, Save, Trash2,
   CheckCircle2, AlertTriangle, Users, FileDown, Mail, RefreshCcw, Upload, Download,
@@ -673,7 +673,90 @@ function AddAttendeeDialog({
   onSaved: () => void;
 }) {
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ initials: '', full_name: '', source: 'manual' as Source });
+  const [form, setForm] = useState({
+    initials: '',
+    full_name: '',
+    source: 'manual' as Source,
+    fub_contact_id: null as string | null,
+    fub_linked: false,
+  });
+
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<FubResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) {
+      setResults([]);
+      setDropdownOpen(false);
+      setHasSearched(false);
+      return;
+    }
+    let cancelled = false;
+    setSearching(true);
+    const t = setTimeout(async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('fub-search-contacts', {
+          body: { query: q },
+        });
+        if (cancelled) return;
+        if (error) {
+          setResults([]);
+        } else {
+          const arr: FubResult[] = (data as any)?.results || [];
+          setResults(arr);
+          setDropdownOpen(true);
+          setHasSearched(true);
+        }
+      } finally {
+        if (!cancelled) setSearching(false);
+      }
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [query]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const selectContact = (contact: FubResult) => {
+    setForm(f => ({
+      ...f,
+      full_name: contact.name,
+      initials: initialsFrom(contact.name),
+      fub_contact_id: contact.id,
+      fub_linked: true,
+    }));
+    setQuery('');
+    setResults([]);
+    setDropdownOpen(false);
+  };
+
+  const clearContact = () => {
+    setForm(f => ({
+      ...f,
+      full_name: '',
+      initials: '',
+      fub_contact_id: null,
+      fub_linked: false,
+    }));
+    setQuery('');
+    setResults([]);
+    setDropdownOpen(false);
+  };
 
   const save = async () => {
     if (!form.initials.trim()) {
@@ -686,6 +769,8 @@ function AddAttendeeDialog({
       initials: form.initials.trim().slice(0, 3).toUpperCase(),
       full_name: form.full_name.trim() || null,
       source: form.source,
+      fub_contact_id: form.fub_contact_id,
+      fub_linked: form.fub_linked,
     });
     setSaving(false);
     if (error) {
@@ -700,10 +785,74 @@ function AddAttendeeDialog({
       <DialogHeader><DialogTitle>Add attendee</DialogTitle></DialogHeader>
       <div className="space-y-3">
         <Field label="Initials * (max 3)">
-          <Input value={form.initials} onChange={e => setForm({ ...form, initials: e.target.value.slice(0, 3) })} maxLength={3} placeholder="JD" className="uppercase" />
+          <Input
+            value={form.initials}
+            onChange={e => setForm({ ...form, initials: e.target.value.slice(0, 3) })}
+            maxLength={3}
+            placeholder="JD"
+            className="uppercase"
+          />
         </Field>
         <Field label="Full name">
-          <Input value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} />
+          {form.fub_linked && form.full_name ? (
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="flex items-center gap-2 w-fit px-3 py-1.5">
+                <span>{form.full_name}</span>
+                <button
+                  type="button"
+                  onClick={clearContact}
+                  className="opacity-70 hover:opacity-100"
+                  aria-label="Clear contact"
+                >
+                  ×
+                </button>
+              </Badge>
+            </div>
+          ) : (
+            <div ref={containerRef} className="relative">
+              <Input
+                placeholder="Search FUB contacts or type a name…"
+                value={query || form.full_name}
+                onChange={e => {
+                  const v = e.target.value;
+                  setQuery(v);
+                  setForm(f => ({ ...f, full_name: v, fub_contact_id: null, fub_linked: false }));
+                  setDropdownOpen(true);
+                }}
+                onFocus={() => results.length > 0 && setDropdownOpen(true)}
+              />
+              {searching && (
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+              )}
+              {dropdownOpen && results.length > 0 && (
+                <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md max-h-64 overflow-auto">
+                  {results.map(r => (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => selectContact(r)}
+                      className="w-full text-left px-3 py-2 hover:bg-accent text-sm border-b border-border last:border-0"
+                    >
+                      <div className="font-medium">{r.name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {r.email && <span>{r.email}</span>}
+                        {r.email && r.phone && <span> · </span>}
+                        {r.phone && <span>{r.phone}</span>}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {dropdownOpen && results.length === 0 && !searching && query.trim().length >= 2 && hasSearched && (
+                <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md p-4 text-center">
+                  <p className="text-sm font-medium">No matching contact found</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Please add or update the contact in Follow Up Boss, then return here to select them.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </Field>
         <Field label="Source">
           <Select value={form.source} onValueChange={v => setForm({ ...form, source: v as Source })}>
