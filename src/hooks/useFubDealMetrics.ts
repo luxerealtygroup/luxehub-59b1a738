@@ -379,8 +379,10 @@ export function useFubDealMetrics({
       gci_sales_closed: Math.round(gciSalesClosed),
       gci_leases_closed: Math.round(gciLeasesClosed),
       sales_count_pending: salesCountPending,
+      lease_count_pending: leaseCountPending,
       sales_count_conditional: salesCountConditional,
       gci_sales_pending: Math.round(gciSalesPending),
+      gci_leases_pending: Math.round(gciLeasesPending),
       gci_sales_conditional: Math.round(gciSalesConditional),
     });
     setDebugInfo(debug);
