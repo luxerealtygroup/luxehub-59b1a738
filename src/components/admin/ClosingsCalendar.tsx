@@ -147,15 +147,15 @@ export function ClosingsCalendar({ year, agentNameByFubId }: Props) {
                               d.status === 'forecast'
                                 ? 'border border-dashed border-primary/40 bg-transparent text-muted-foreground hover:bg-primary/5'
                                 : d.category === 'lease'
-                                  ? 'bg-muted text-foreground hover:bg-muted/80'
-                                  : 'bg-primary/15 text-primary hover:bg-primary/25'
+                                  ? 'bg-success/20 text-success border border-success/30 hover:bg-success/30'
+                                  : 'bg-primary/20 text-primary border border-primary/30 hover:bg-primary/30'
                             }`}
                             title={`${d.agentName} · ${d.address} · ${shortGci(d.gci)}${d.status === 'forecast' ? ' (forecast)' : ''}`}
                           >
-                            <span className="block truncate">
-                              {firstName(d.agentName)} · {shortGci(d.gci)}
+                            <span className="block truncate font-medium">{firstName(d.agentName)}</span>
+                            <span className="block truncate text-[9px] opacity-75">
+                              {d.address} · {shortGci(d.gci)}
                             </span>
-                            <span className="block truncate text-[9px] opacity-75">{d.address}</span>
                           </button>
                         </PopoverTrigger>
                         <PopoverContent className="w-72 text-sm space-y-1">
@@ -166,6 +166,7 @@ export function ClosingsCalendar({ year, agentNameByFubId }: Props) {
                           </div>
                           <div className="flex justify-between"><span>Agent</span><span>{d.agentName}</span></div>
                           <div className="flex justify-between"><span>Type</span><span className="capitalize">{d.category}</span></div>
+                          <div className="flex justify-between"><span>Status</span><span>{d.stageName}</span></div>
                           <div className="flex justify-between"><span>Price</span><span>{formatCurrency(d.price)}</span></div>
                           <div className="flex justify-between"><span>GCI</span><span>{formatCurrency(d.gci)}</span></div>
                           <div className="flex justify-between">
@@ -191,7 +192,7 @@ export function ClosingsCalendar({ year, agentNameByFubId }: Props) {
                             <div key={d.id} className="border-t border-border pt-1.5">
                               <div className="font-medium">{d.agentName} {d.status === 'forecast' && <span className="text-primary text-[10px]">(forecast)</span>}</div>
                               <div className="text-xs text-muted-foreground">{d.address}</div>
-                              <div className="text-xs">{formatCurrency(d.gci)} · {d.category}</div>
+                              <div className="text-xs">{formatCurrency(d.gci)} · {d.category} · {d.stageName}</div>
                             </div>
                           ))}
                         </PopoverContent>
