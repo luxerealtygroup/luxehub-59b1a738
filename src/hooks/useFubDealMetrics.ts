@@ -214,17 +214,13 @@ export function useFubDealMetrics({
     if (targetFubUserId) {
       debug.source = 'fub';
       try {
-        // Fetch all deal pages
-        const pageSize = 100;
-        const maxPages = 10;
         const collected: FUBDeal[] = [];
-
-        for (let page = 0; page < maxPages; page++) {
-          const offset = page * pageSize;
-          const response = await followUpBossApi.getDeals(pageSize, offset);
-          if (!response.success || !response.data?.deals) break;
+        // The edge function paginates server-side and returns the full deal set
+        // in a single response. Looping client-side here re-requests overlapping
+        // pages and produces duplicate deals (inflating counts and GCI).
+        const response = await followUpBossApi.getDeals(100, 0);
+        if (response.success && response.data?.deals) {
           collected.push(...response.data.deals);
-          if (response.data.deals.length < pageSize) break;
         }
 
         // Filter to this agent's deals

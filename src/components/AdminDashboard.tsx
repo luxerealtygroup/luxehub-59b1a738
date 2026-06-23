@@ -946,7 +946,10 @@ const AdminDashboard = () => {
       </div>
 
       {/* 2026 Closings Calendar */}
-      <ClosingsCalendar year={2026} />
+      <ClosingsCalendar
+        year={2026}
+        agentNameByFubId={new Map(fubAgents.map(a => [a.id, a.name]))}
+      />
 
       {/* Main Dashboard Sections */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">

@@ -10,6 +10,8 @@ import { formatWeightedDeals, sumWeightedDeals } from '@/lib/utils/dealWeight';
 
 interface Props {
   year: number;
+  /** Optional FUB user id → display name map for resolving unassigned/numeric users. */
+  agentNameByFubId?: Map<number, string>;
 }
 
 const MONTH_NAMES = [
@@ -32,7 +34,7 @@ function firstName(full: string): string {
   return (full || '').trim().split(/\s+/)[0] || 'Agent';
 }
 
-export function ClosingsCalendar({ year }: Props) {
+export function ClosingsCalendar({ year, agentNameByFubId }: Props) {
   const { metadata } = useDealMetadata();
   // Adapter: useDealMetadata returns DealMetadataRow; dealWeight expects a smaller shape.
   const dealMetadataMap = useMemo(() => {
@@ -43,7 +45,7 @@ export function ClosingsCalendar({ year }: Props) {
     return m;
   }, [metadata]);
 
-  const { deals, loading } = useFubClosingsCalendar({ year, dealMetadataMap });
+  const { deals, loading } = useFubClosingsCalendar({ year, dealMetadataMap, agentNameByFubId });
 
   const today = new Date();
   const defaultMonth = today.getFullYear() === year ? today.getMonth() : 0;
