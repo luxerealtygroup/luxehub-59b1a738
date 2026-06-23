@@ -107,10 +107,14 @@ export interface DealMetrics {
   gci_leases_closed: number;
   /** Number of pending sales, excluding leases and conditional/offer stages */
   sales_count_pending: number;
+  /** Number of pending leases */
+  lease_count_pending: number;
   /** Number of conditional/offer sales, excluding leases */
   sales_count_conditional: number;
   /** Pending sales GCI, excluding leases and conditional/offer stages */
   gci_sales_pending: number;
+  /** Pending leases GCI */
+  gci_leases_pending: number;
   /** Conditional/offer sales GCI, excluding leases */
   gci_sales_conditional: number;
 }
