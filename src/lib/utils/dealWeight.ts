@@ -46,6 +46,7 @@ export function inferDealCategory(deal: {
   pipelineName?: string | null;
   name?: string | null;
   stageName?: string | null;
+  price?: number | null;
   [key: string]: any;
 }, metadataMap?: DealMetadataMap): DealCategoryResult {
   // 1. Check deal_metadata table first (highest priority)
@@ -72,7 +73,16 @@ export function inferDealCategory(deal: {
     return { category: 'lease', source: 'inferred' };
   }
 
-  // 5. Default to sale
+  // 5. Price-based heuristic — any deal under $10,000 is a lease.
+  //    Real estate sales never close below this threshold; lease prices
+  //    (monthly rent) routinely fall under it. This catches FUB deals
+  //    that lack any "lease" keyword in their pipeline/name/stage.
+  const price = typeof deal.price === 'number' ? deal.price : null;
+  if (price !== null && price > 0 && price < 10000) {
+    return { category: 'lease', source: 'inferred' };
+  }
+
+  // 6. Default to sale
   return { category: 'sale', source: 'manual' };
 }
 
