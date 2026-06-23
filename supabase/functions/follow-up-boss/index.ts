@@ -100,12 +100,65 @@ serve(async (req) => {
       }
 
       case 'get_deals': {
-        const dealParams = new URLSearchParams();
-        if (params?.limit) dealParams.append('limit', params.limit.toString());
-        if (params?.offset) dealParams.append('offset', params.offset.toString());
-        if (params?.stage) dealParams.append('stage', params.stage);
-        endpoint = `/deals?${dealParams.toString()}`;
-        break;
+        // Paginate by default. Caller can opt out with `all: false`, in which
+        // case the original limit/offset semantics are preserved.
+        const shouldPaginate = params?.all !== false;
+        const pageSize = Math.min(Number(params?.limit) || 100, 100);
+        const startOffset = Number(params?.offset) || 0;
+        const SAFETY_CAP = 10_000;
+
+        const allDeals: unknown[] = [];
+        let offset = startOffset;
+        let total = 0;
+
+        while (true) {
+          const dp = new URLSearchParams();
+          dp.append('limit', pageSize.toString());
+          dp.append('offset', offset.toString());
+          if (params?.stage) dp.append('stage', params.stage);
+          const url = `${FUB_BASE_URL}/deals?${dp.toString()}`;
+          console.log('Calling FUB endpoint:', url, `(page offset=${offset})`);
+          const r = await fetch(url, {
+            method: 'GET',
+            headers: {
+              'Authorization': authHeader,
+              'Content-Type': 'application/json',
+              'X-System': 'Lovable Real Estate Hub',
+              'X-System-Key': 'lovable-hub',
+            },
+          });
+          const j = await r.json();
+          if (!r.ok) {
+            console.error('FUB API error (get_deals page):', r.status, j);
+            return new Response(
+              JSON.stringify({ success: false, error: j?.message || `API error: ${r.status}` }),
+              { status: r.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          const pageDeals = Array.isArray(j?.deals) ? j.deals : [];
+          allDeals.push(...pageDeals);
+          total = Number(j?._metadata?.total ?? allDeals.length);
+          offset += pageDeals.length;
+          if (!shouldPaginate) break;
+          if (pageDeals.length < pageSize) break;
+          if (allDeals.length >= total) break;
+          if (allDeals.length >= SAFETY_CAP) {
+            console.warn(`get_deals SAFETY_CAP (${SAFETY_CAP}) reached`);
+            break;
+          }
+        }
+
+        console.log(`FUB get_deals returned ${allDeals.length} deals (total reported=${total})`);
+        return new Response(
+          JSON.stringify({
+            success: true,
+            data: {
+              deals: allDeals,
+              _metadata: { collection: 'deals', total: allDeals.length, offset: startOffset, limit: allDeals.length },
+            },
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
       case 'get_notes': {
