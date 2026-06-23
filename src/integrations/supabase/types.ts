@@ -1722,6 +1722,7 @@ export type Database = {
           access_expires_at: string | null
           avatar_url: string | null
           created_at: string
+          email: string | null
           fub_account: string
           fub_user_id: number | null
           full_name: string | null
@@ -1733,6 +1734,7 @@ export type Database = {
           access_expires_at?: string | null
           avatar_url?: string | null
           created_at?: string
+          email?: string | null
           fub_account?: string
           fub_user_id?: number | null
           full_name?: string | null
@@ -1744,6 +1746,7 @@ export type Database = {
           access_expires_at?: string | null
           avatar_url?: string | null
           created_at?: string
+          email?: string | null
           fub_account?: string
           fub_user_id?: number | null
           full_name?: string | null
