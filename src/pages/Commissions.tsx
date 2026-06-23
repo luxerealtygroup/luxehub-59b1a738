@@ -43,7 +43,7 @@ const Commissions = () => {
   const [fubDealsDisplay, setFUBDealsDisplay] = useState<FUBDealDisplay[]>([]);
   const [loading, setLoading] = useState(true);
   const [fubLoading, setFubLoading] = useState(false);
-  const { metadataMap } = useDealMetadata();
+  const { metadata: metadataMap } = useDealMetadata();
 
   // Fetch ALL FUB deals (paginated) – scoped to effective agent when in agent view
   const loadAllFUBDeals = async () => {
