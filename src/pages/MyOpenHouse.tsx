@@ -328,6 +328,8 @@ function OpenHouseDetail({
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [showFubImport, setShowFubImport] = useState(false);
+  const [showCsvImport, setShowCsvImport] = useState(false);
 
   const loadAttendees = async () => {
     setLoading(true);
@@ -371,12 +373,34 @@ function OpenHouseDetail({
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <Button variant="outline" size="sm" onClick={() => toast.info('Import from FUB coming soon!')}>
-          <Download className="h-4 w-4 mr-1" /> Import from FUB
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => toast.info('Curb Hero CSV upload coming soon!')}>
-          <Upload className="h-4 w-4 mr-1" /> Upload Curb Hero CSV
-        </Button>
+        <Dialog open={showFubImport} onOpenChange={setShowFubImport}>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm">
+              <Download className="h-4 w-4 mr-1" /> Import from FUB
+            </Button>
+          </DialogTrigger>
+          {showFubImport && (
+            <ImportFromFubDialog
+              openHouse={openHouse}
+              onClose={() => setShowFubImport(false)}
+              onImported={() => { setShowFubImport(false); loadAttendees(); }}
+            />
+          )}
+        </Dialog>
+        <Dialog open={showCsvImport} onOpenChange={setShowCsvImport}>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm">
+              <Upload className="h-4 w-4 mr-1" /> Upload Curb Hero CSV
+            </Button>
+          </DialogTrigger>
+          {showCsvImport && (
+            <UploadCurbHeroCsvDialog
+              openHouse={openHouse}
+              onClose={() => setShowCsvImport(false)}
+              onImported={() => { setShowCsvImport(false); loadAttendees(); }}
+            />
+          )}
+        </Dialog>
         <Dialog open={showAdd} onOpenChange={setShowAdd}>
           <DialogTrigger asChild>
             <Button size="sm"><Plus className="h-4 w-4 mr-1" /> Add Attendee</Button>
