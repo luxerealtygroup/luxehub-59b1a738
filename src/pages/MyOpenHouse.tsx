@@ -238,6 +238,129 @@ function OpenHouseFormDialog({
     client_email: initial?.client_email || '',
   });
 
+  // Team agents for the listing-agent dropdown
+  type AgentOption = { id: string; full_name: string; email: string };
+  const [agents, setAgents] = useState<AgentOption[]>([]);
+  const [myProfile, setMyProfile] = useState<AgentOption | null>(null);
+  const [listingAgentChoice, setListingAgentChoice] = useState<string>('__custom__');
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, full_name, email' as any)
+        .not('full_name', 'is', null);
+      const list: AgentOption[] = ((data as any[]) || []).map((p) => ({
+        id: p.id,
+        full_name: p.full_name ?? '',
+        email: p.email ?? '',
+      }));
+      setAgents(list);
+      if (user) {
+        const mine = list.find((a) => a.id === user.id);
+        const me: AgentOption = mine ?? {
+          id: user.id,
+          full_name: (user.user_metadata as any)?.full_name || user.email || 'Me',
+          email: user.email || '',
+        };
+        // Prefer auth email when profile email is missing
+        if (!me.email && user.email) me.email = user.email;
+        setMyProfile(me);
+      }
+      // Pre-select existing on edit
+      if (initial?.listing_agent_name) {
+        const match = list.find(
+          (a) => a.full_name.trim().toLowerCase() === (initial.listing_agent_name || '').trim().toLowerCase()
+        );
+        if (match) setListingAgentChoice(match.id);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  const onListingAgentSelect = (value: string) => {
+    setListingAgentChoice(value);
+    if (value === '__me__' && myProfile) {
+      setForm((f) => ({
+        ...f,
+        listing_agent_name: myProfile.full_name,
+        listing_agent_email: myProfile.email,
+      }));
+    } else if (value === '__custom__') {
+      // leave fields as-is for manual editing
+    } else {
+      const a = agents.find((x) => x.id === value);
+      if (a) {
+        setForm((f) => ({
+          ...f,
+          listing_agent_name: a.full_name,
+          listing_agent_email: a.email,
+        }));
+      }
+    }
+  };
+
+  // FUB client typeahead
+  const [clientQuery, setClientQuery] = useState('');
+  const [clientResults, setClientResults] = useState<Array<{ id: any; name: string; email: string }>>([]);
+  const [clientSearching, setClientSearching] = useState(false);
+  const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
+  const [clientLocked, setClientLocked] = useState<boolean>(!!initial?.client_name);
+
+  useEffect(() => {
+    if (clientLocked) return;
+    const q = clientQuery.trim();
+    if (q.length < 2) {
+      setClientResults([]);
+      return;
+    }
+    let cancelled = false;
+    setClientSearching(true);
+    const t = setTimeout(async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('fub-search-contacts', {
+          body: { query: q },
+        });
+        if (cancelled) return;
+        if (error) {
+          setClientResults([]);
+        } else {
+          const arr: any[] = (data as any)?.contacts || (data as any)?.people || (data as any) || [];
+          const mapped = (Array.isArray(arr) ? arr : []).map((c: any) => ({
+            id: c.id,
+            name: c.name || [c.firstName, c.lastName].filter(Boolean).join(' ') || '(no name)',
+            email:
+              c.email ||
+              (Array.isArray(c.emails) && c.emails[0]?.value) ||
+              '',
+          }));
+          setClientResults(mapped);
+          setClientDropdownOpen(true);
+        }
+      } finally {
+        if (!cancelled) setClientSearching(false);
+      }
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [clientQuery, clientLocked]);
+
+  const selectClient = (c: { name: string; email: string }) => {
+    setForm((f) => ({ ...f, client_name: c.name, client_email: c.email }));
+    setClientLocked(true);
+    setClientDropdownOpen(false);
+    setClientQuery('');
+  };
+
+  const clearClient = () => {
+    setForm((f) => ({ ...f, client_name: '', client_email: '' }));
+    setClientLocked(false);
+    setClientQuery('');
+    setClientResults([]);
+  };
+
   const save = async () => {
     if (!form.property_address.trim() || !form.open_house_date) {
       toast.error('Property address and date are required');
@@ -278,20 +401,114 @@ function OpenHouseFormDialog({
         <Field label="Date *">
           <Input type="date" value={form.open_house_date} onChange={e => setForm({ ...form, open_house_date: e.target.value })} />
         </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Listing agent name">
-            <Input value={form.listing_agent_name} onChange={e => setForm({ ...form, listing_agent_name: e.target.value })} />
-          </Field>
-          <Field label="Listing agent email">
-            <Input type="email" value={form.listing_agent_email} onChange={e => setForm({ ...form, listing_agent_email: e.target.value })} />
-          </Field>
-          <Field label="Client name">
-            <Input value={form.client_name} onChange={e => setForm({ ...form, client_name: e.target.value })} />
-          </Field>
-          <Field label="Client email">
-            <Input type="email" value={form.client_email} onChange={e => setForm({ ...form, client_email: e.target.value })} />
-          </Field>
-        </div>
+        <Field label="Listing agent">
+          <Select value={listingAgentChoice} onValueChange={onListingAgentSelect}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select listing agent" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__me__">I am the listing agent</SelectItem>
+              <SelectItem value="__custom__">Enter manually…</SelectItem>
+              {agents.map((a) => (
+                <SelectItem key={a.id} value={a.id}>
+                  {a.full_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {listingAgentChoice === '__custom__' && (
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <Input
+                placeholder="Name"
+                value={form.listing_agent_name}
+                onChange={(e) => setForm({ ...form, listing_agent_name: e.target.value })}
+              />
+              <Input
+                type="email"
+                placeholder="Email"
+                value={form.listing_agent_email}
+                onChange={(e) => setForm({ ...form, listing_agent_email: e.target.value })}
+              />
+            </div>
+          )}
+          {listingAgentChoice !== '__custom__' && (form.listing_agent_name || form.listing_agent_email) && (
+            <div className="text-xs text-muted-foreground mt-1">
+              {form.listing_agent_name}
+              {form.listing_agent_email ? ` · ${form.listing_agent_email}` : ''}
+            </div>
+          )}
+        </Field>
+        <Field label="Client">
+          {clientLocked && form.client_name ? (
+            <Badge variant="secondary" className="flex items-center gap-2 w-fit px-3 py-1.5">
+              <span>
+                {form.client_name}
+                {form.client_email ? ` · ${form.client_email}` : ''}
+              </span>
+              <button
+                type="button"
+                onClick={clearClient}
+                className="opacity-70 hover:opacity-100"
+                aria-label="Clear client"
+              >
+                ×
+              </button>
+            </Badge>
+          ) : (
+            <div className="relative">
+              <Input
+                placeholder="Search FUB contacts or type a name…"
+                value={clientQuery || form.client_name}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setClientQuery(v);
+                  setForm((f) => ({ ...f, client_name: v }));
+                  setClientDropdownOpen(true);
+                }}
+                onFocus={() => clientResults.length > 0 && setClientDropdownOpen(true)}
+              />
+              {clientDropdownOpen && (clientSearching || clientResults.length > 0) && (
+                <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md max-h-64 overflow-auto">
+                  {clientSearching && (
+                    <div className="px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Searching…
+                    </div>
+                  )}
+                  {!clientSearching && clientResults.length === 0 && (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">No matches</div>
+                  )}
+                  {clientResults.map((c, i) => (
+                    <button
+                      type="button"
+                      key={`${c.id}-${i}`}
+                      onClick={() => selectClient(c)}
+                      className="w-full text-left px-3 py-2 hover:bg-accent text-sm"
+                    >
+                      <div className="font-medium">{c.name}</div>
+                      {c.email && <div className="text-xs text-muted-foreground">{c.email}</div>}
+                    </button>
+                  ))}
+                  <div className="border-t px-3 py-1.5 text-right">
+                    <button
+                      type="button"
+                      onClick={() => setClientDropdownOpen(false)}
+                      className="text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              )}
+              <Input
+                type="email"
+                placeholder="Client email"
+                className="mt-2"
+                value={form.client_email}
+                onChange={(e) => setForm({ ...form, client_email: e.target.value })}
+              />
+            </div>
+          )}
+        </Field>
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={onClose}>Cancel</Button>
