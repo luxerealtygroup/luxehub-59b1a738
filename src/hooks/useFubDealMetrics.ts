@@ -347,8 +347,12 @@ export function useFubDealMetrics({
     if (pendingDealsArr.length > 0) {
       for (const d of pendingDealsArr) {
         const cat = inferDealCategory(d, dealMetadataMap).category;
-        if (cat === 'lease') continue;
         const gci = getDealGci(d);
+        if (cat === 'lease') {
+          leaseCountPending++;
+          gciLeasesPending += gci;
+          continue;
+        }
         if (isConditionalStage((d as any).stageName)) {
           salesCountConditional++;
           gciSalesConditional += gci;
