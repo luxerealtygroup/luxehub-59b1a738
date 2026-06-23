@@ -648,8 +648,12 @@ const Dashboard = () => {
                 <h3 className="text-sm font-medium text-muted-foreground">Closed Sales</h3>
               </div>
             </div>
-            <p className="text-3xl font-bold text-foreground">{displayStats.closedDeals}</p>
-            <p className="text-xs text-muted-foreground mt-1">of {displayStats.dealsGoal} goal</p>
+            <p className="text-3xl font-bold text-foreground">{formatWeightedDeals(weightedClosed)}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {salesCountClosed} sale{salesCountClosed === 1 ? '' : 's'}
+              {leaseCountClosed > 0 ? ` + ${leaseCountClosed} lease${leaseCountClosed === 1 ? '' : 's'}` : ''}
+              {' · of '}{displayStats.dealsGoal} goal
+            </p>
             <Progress value={dealsProgress} className="h-2 mt-3" />
             <p className="text-xs text-green-500 mt-1">{Math.round(dealsProgress)}% complete</p>
           </CardContent>
