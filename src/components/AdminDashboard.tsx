@@ -945,6 +945,9 @@ const AdminDashboard = () => {
         </Card>
       </div>
 
+      {/* 2026 Closings Calendar */}
+      <ClosingsCalendar year={2026} />
+
       {/* Main Dashboard Sections */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="bg-card border border-border h-auto p-1 flex-wrap">
