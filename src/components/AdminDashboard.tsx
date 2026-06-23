@@ -268,16 +268,11 @@ const AdminDashboard = () => {
           sum + (d.teamCommission || 0), 0
         );
 
-        const isLease = (d: FUBDeal) => {
-          const cat = dealMetadata.get(d.id)?.deal_category;
-          if (cat) return cat === 'lease';
-          const hay = `${d.stageName || ''} ${d.name || ''}`.toLowerCase();
-          if (/lease|tenant|landlord|rental/.test(hay)) return true;
-          // Price-based heuristic — sub-$4k "sales" are leases
-          const price = (d as any).price;
-          if (typeof price === 'number' && price > 0 && price < 4000) return true;
-          return false;
-        };
+        // Use the shared deal-category inference (same as per-agent metrics
+        // via useFubDealMetrics → inferDealCategory) so sale/lease splits are
+        // consistent everywhere in the app.
+        const isLease = (d: FUBDeal) =>
+          inferDealCategory(d, dealMetadata).category === 'lease';
         const sumGciBy = (arr: FUBDeal[], lease: boolean) =>
           arr.filter(d => isLease(d) === lease).reduce((s, d) => s + (d.commissionValue || 0), 0);
         const sumUnitsBy = (arr: FUBDeal[], lease: boolean) =>
