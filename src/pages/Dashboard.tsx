@@ -377,11 +377,11 @@ const Dashboard = () => {
   const displayStats = useFubStats
     ? {
         ...stats,
-        closedDeals: fubMetrics.deals_closed,
-        activeDeals: fubMetrics.sales_count_pending,
-        totalDeals: fubMetrics.deals_closed + fubMetrics.deals_pending,
-        totalCommissions: fubMetrics.gci_earned,
-        pendingCommissions: fubMetrics.gci_pending,
+        closedDeals: fubMetrics.weighted_closed,
+        activeDeals: fubMetrics.weighted_pending,
+        totalDeals: fubMetrics.weighted_closed + fubMetrics.weighted_pending,
+        totalCommissions: fubMetrics.gci_sales_closed + fubMetrics.gci_leases_closed,
+        pendingCommissions: fubMetrics.gci_sales_pending + fubMetrics.gci_leases_pending,
       }
     : stats;
 
@@ -389,8 +389,17 @@ const Dashboard = () => {
   const weightedClosed = useFubStats ? fubMetrics.weighted_closed : displayStats.closedDeals;
   const salesCountClosed = useFubStats ? fubMetrics.sales_count_closed : displayStats.closedDeals;
   const leaseCountClosed = useFubStats ? fubMetrics.lease_count_closed : 0;
+  const weightedPending = useFubStats ? fubMetrics.weighted_pending : displayStats.activeDeals;
+  const salesCountPending = useFubStats ? fubMetrics.sales_count_pending : displayStats.activeDeals;
+  const leaseCountPending = useFubStats ? fubMetrics.lease_count_pending : 0;
   const conditionalCount = useFubStats ? fubMetrics.sales_count_conditional : 0;
   const conditionalGci = useFubStats ? fubMetrics.gci_sales_conditional : 0;
+  const closedGci = useFubStats
+    ? fubMetrics.gci_sales_closed + fubMetrics.gci_leases_closed
+    : displayStats.totalCommissions;
+  const pendingGci = useFubStats
+    ? fubMetrics.gci_sales_pending + fubMetrics.gci_leases_pending
+    : displayStats.pendingCommissions;
 
   // Calculate progress percentages
   // Sales Goal uses weighted units (sales = 1.0, leases = 0.33).
