@@ -29,6 +29,7 @@ import ConversionReport from './ConversionReport';
 
 import { CreateAgentDialog } from './CreateAgentDialog';
 import { SyncClaudeProfilesButton } from './SyncClaudeProfilesButton';
+import ClosingsCalendar from './admin/ClosingsCalendar';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
@@ -943,6 +944,9 @@ const AdminDashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* 2026 Closings Calendar */}
+      <ClosingsCalendar year={2026} />
 
       {/* Main Dashboard Sections */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
