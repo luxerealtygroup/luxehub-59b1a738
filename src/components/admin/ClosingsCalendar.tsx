@@ -192,7 +192,7 @@ export function ClosingsCalendar({ year, agentNameByFubId }: Props) {
                             <div key={d.id} className="border-t border-border pt-1.5">
                               <div className="font-medium">{d.agentName} {d.status === 'forecast' && <span className="text-primary text-[10px]">(forecast)</span>}</div>
                               <div className="text-xs text-muted-foreground">{d.address}</div>
-                              <div className="text-xs">{formatCurrency(d.gci)} · {d.category}</div>
+                              <div className="text-xs">{formatCurrency(d.gci)} · {d.category} · {d.stageName}</div>
                             </div>
                           ))}
                         </PopoverContent>
