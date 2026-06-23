@@ -61,7 +61,7 @@ const stageDefinitions: Record<number, { description: string }> = {
 
 const stageOrder = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const currentYear = 2026;
+const currentYear = new Date().getFullYear();
 
 // Circular Progress Ring Component
 const ProgressRing = ({ progress, size = 120, strokeWidth = 8, color = "hsl(var(--gold))" }: { 
@@ -377,11 +377,11 @@ const Dashboard = () => {
   const displayStats = useFubStats
     ? {
         ...stats,
-        closedDeals: fubMetrics.deals_closed,
-        activeDeals: fubMetrics.sales_count_pending,
-        totalDeals: fubMetrics.deals_closed + fubMetrics.deals_pending,
-        totalCommissions: fubMetrics.gci_earned,
-        pendingCommissions: fubMetrics.gci_pending,
+        closedDeals: fubMetrics.weighted_closed,
+        activeDeals: fubMetrics.weighted_pending,
+        totalDeals: fubMetrics.weighted_closed + fubMetrics.weighted_pending,
+        totalCommissions: fubMetrics.gci_sales_closed + fubMetrics.gci_leases_closed,
+        pendingCommissions: fubMetrics.gci_sales_pending + fubMetrics.gci_leases_pending,
       }
     : stats;
 
@@ -389,13 +389,22 @@ const Dashboard = () => {
   const weightedClosed = useFubStats ? fubMetrics.weighted_closed : displayStats.closedDeals;
   const salesCountClosed = useFubStats ? fubMetrics.sales_count_closed : displayStats.closedDeals;
   const leaseCountClosed = useFubStats ? fubMetrics.lease_count_closed : 0;
+  const weightedPending = useFubStats ? fubMetrics.weighted_pending : displayStats.activeDeals;
+  const salesCountPending = useFubStats ? fubMetrics.sales_count_pending : displayStats.activeDeals;
+  const leaseCountPending = useFubStats ? fubMetrics.lease_count_pending : 0;
   const conditionalCount = useFubStats ? fubMetrics.sales_count_conditional : 0;
   const conditionalGci = useFubStats ? fubMetrics.gci_sales_conditional : 0;
+  const closedGci = useFubStats
+    ? fubMetrics.gci_sales_closed + fubMetrics.gci_leases_closed
+    : displayStats.totalCommissions;
+  const pendingGci = useFubStats
+    ? fubMetrics.gci_sales_pending + fubMetrics.gci_leases_pending
+    : displayStats.pendingCommissions;
 
   // Calculate progress percentages
   // Sales Goal uses weighted units (sales = 1.0, leases = 0.33).
   const dealsProgress = displayStats.dealsGoal > 0 ? (weightedClosed / displayStats.dealsGoal) * 100 : 0;
-  const gciProgress = displayStats.gciGoal > 0 ? (displayStats.totalCommissions / displayStats.gciGoal) * 100 : 0;
+  const gciProgress = displayStats.gciGoal > 0 ? (closedGci / displayStats.gciGoal) * 100 : 0;
 
   // Motivational message based on progress
   const getMotivationalMessage = () => {
@@ -638,75 +647,85 @@ const Dashboard = () => {
         )}
       </div>
 
-      {/* Deals Progress - Closed vs Active */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Metric Cards - 6 clean cards, 2x3 grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* 1. Closed Deals */}
         <Card className="border-green-500/20 bg-gradient-to-br from-card via-card to-green-500/5 overflow-hidden">
           <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="h-5 w-5 text-green-500" />
-                <h3 className="text-sm font-medium text-muted-foreground">Closed Sales</h3>
-              </div>
+            <div className="flex items-center gap-2 mb-3">
+              <CheckCircle className="h-5 w-5 text-green-500" />
+              <h3 className="text-sm font-medium text-muted-foreground">Closed Deals</h3>
             </div>
-            <p className="text-3xl font-bold text-foreground">{formatWeightedDeals(weightedClosed)}</p>
+            <p className="text-3xl font-bold text-foreground">{weightedClosed.toFixed(1)} units</p>
             <p className="text-xs text-muted-foreground mt-1">
-              {salesCountClosed} sale{salesCountClosed === 1 ? '' : 's'}
-              {leaseCountClosed > 0 ? ` + ${leaseCountClosed} lease${leaseCountClosed === 1 ? '' : 's'}` : ''}
-              {' · of '}{displayStats.dealsGoal} goal
+              {salesCountClosed} sales + {leaseCountClosed} leases
             </p>
             <Progress value={dealsProgress} className="h-2 mt-3" />
-            <p className="text-xs text-green-500 mt-1">{Math.round(dealsProgress)}% complete</p>
+            <p className="text-xs text-green-500 mt-1">{Math.round(dealsProgress)}% of goal</p>
           </CardContent>
         </Card>
 
-        <Card className="border-amber-500/20 bg-gradient-to-br from-card via-card to-amber-500/5 overflow-hidden">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Building2 className="h-5 w-5 text-amber-500" />
-                <h3 className="text-sm font-medium text-muted-foreground">Pending Sales</h3>
-              </div>
-            </div>
-            <p className="text-3xl font-bold text-foreground">{displayStats.activeDeals}</p>
-            <p className="text-xs text-muted-foreground mt-1">firm pending</p>
-            <div className="mt-3 flex items-center gap-2">
-              <Badge variant="outline" className="border-amber-500/30 text-amber-500 bg-amber-500/10 text-xs">
-                {conditionalCount} conditional
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
-
+        {/* 2. Closed GCI */}
         <Card className="border-green-500/20 bg-gradient-to-br from-card via-card to-green-500/5 overflow-hidden">
           <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5 text-green-500" />
-                <h3 className="text-sm font-medium text-muted-foreground">Earned GCI (Net)</h3>
-              </div>
+            <div className="flex items-center gap-2 mb-3">
+              <DollarSign className="h-5 w-5 text-green-500" />
+              <h3 className="text-sm font-medium text-muted-foreground">Closed GCI</h3>
             </div>
-            <p className="text-3xl font-bold text-foreground">{formatCurrency(displayStats.totalCommissions)}</p>
+            <p className="text-3xl font-bold text-foreground">{formatCurrency(closedGci)}</p>
             <p className="text-xs text-muted-foreground mt-1">of {formatCurrency(displayStats.gciGoal)} goal</p>
             <Progress value={gciProgress} className="h-2 mt-3" />
-            <p className="text-xs text-green-500 mt-1">{Math.round(gciProgress)}% complete</p>
+            <p className="text-xs text-green-500 mt-1">{Math.round(gciProgress)}% of goal</p>
           </CardContent>
         </Card>
 
-        <Card className="border-gold/20 bg-gradient-to-br from-card via-card to-gold/5 overflow-hidden">
+        {/* 3. Pending Deals */}
+        <Card className="border-amber-500/20 bg-gradient-to-br from-card via-card to-amber-500/5 overflow-hidden">
           <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Clock className="h-5 w-5 text-gold" />
-                <h3 className="text-sm font-medium text-muted-foreground">Pending GCI</h3>
-              </div>
+            <div className="flex items-center gap-2 mb-3">
+              <Clock className="h-5 w-5 text-amber-500" />
+              <h3 className="text-sm font-medium text-muted-foreground">Pending Deals</h3>
             </div>
-            <p className="text-3xl font-bold text-gold">{formatCurrency(displayStats.pendingCommissions)}</p>
+            <p className="text-3xl font-bold text-foreground">{weightedPending.toFixed(1)} units</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {salesCountPending} sales + {leaseCountPending} leases
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* 4. Pending GCI */}
+        <Card className="border-amber-500/20 bg-gradient-to-br from-card via-card to-amber-500/5 overflow-hidden">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <DollarSign className="h-5 w-5 text-amber-500" />
+              <h3 className="text-sm font-medium text-muted-foreground">Pending GCI</h3>
+            </div>
+            <p className="text-3xl font-bold text-foreground">{formatCurrency(pendingGci)}</p>
             <p className="text-xs text-muted-foreground mt-1">awaiting close</p>
-            <div className="mt-3 flex items-center gap-2">
-              <Badge variant="outline" className="border-gold/30 text-gold bg-gold/10 text-xs">
-                {formatCurrency(displayStats.totalCommissions + displayStats.pendingCommissions)} total
-              </Badge>
+          </CardContent>
+        </Card>
+
+        {/* 5. Conditional Deals */}
+        <Card className="border-purple-500/20 bg-gradient-to-br from-card via-card to-purple-500/5 overflow-hidden">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <FileText className="h-5 w-5 text-purple-500" />
+              <h3 className="text-sm font-medium text-muted-foreground">Conditional Deals</h3>
             </div>
+            <p className="text-3xl font-bold text-foreground">{conditionalCount}</p>
+            <p className="text-xs text-muted-foreground mt-1">{formatCurrency(conditionalGci)} conditional GCI</p>
+          </CardContent>
+        </Card>
+
+        {/* 6. Conditional GCI */}
+        <Card className="border-purple-500/20 bg-gradient-to-br from-card via-card to-purple-500/5 overflow-hidden">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <DollarSign className="h-5 w-5 text-purple-500" />
+              <h3 className="text-sm font-medium text-muted-foreground">Conditional GCI</h3>
+            </div>
+            <p className="text-3xl font-bold text-foreground">{formatCurrency(conditionalGci)}</p>
+            <p className="text-xs text-muted-foreground mt-1">offer / conditional stage</p>
           </CardContent>
         </Card>
       </div>

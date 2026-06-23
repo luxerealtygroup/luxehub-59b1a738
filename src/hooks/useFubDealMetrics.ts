@@ -107,10 +107,14 @@ export interface DealMetrics {
   gci_leases_closed: number;
   /** Number of pending sales, excluding leases and conditional/offer stages */
   sales_count_pending: number;
+  /** Number of pending leases */
+  lease_count_pending: number;
   /** Number of conditional/offer sales, excluding leases */
   sales_count_conditional: number;
   /** Pending sales GCI, excluding leases and conditional/offer stages */
   gci_sales_pending: number;
+  /** Pending leases GCI */
+  gci_leases_pending: number;
   /** Conditional/offer sales GCI, excluding leases */
   gci_sales_conditional: number;
 }
@@ -160,7 +164,8 @@ export function useFubDealMetrics({
     sales_volume_closed: 0,
     weighted_closed: 0, weighted_pending: 0, weighted_debug_closed: null, weighted_debug_pending: null,
     sales_count_closed: 0, lease_count_closed: 0, gci_sales_closed: 0, gci_leases_closed: 0,
-    sales_count_pending: 0, sales_count_conditional: 0, gci_sales_pending: 0, gci_sales_conditional: 0,
+    sales_count_pending: 0, lease_count_pending: 0, sales_count_conditional: 0,
+    gci_sales_pending: 0, gci_leases_pending: 0, gci_sales_conditional: 0,
   });
   const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -323,8 +328,10 @@ export function useFubDealMetrics({
     let gciLeasesClosed = 0;
     let leaseCountClosed = 0;
     let salesCountPending = 0;
+    let leaseCountPending = 0;
     let salesCountConditional = 0;
     let gciSalesPending = 0;
+    let gciLeasesPending = 0;
     let gciSalesConditional = 0;
     if (closedDealsArr.length > 0) {
       for (const d of closedDealsArr) {
@@ -340,8 +347,12 @@ export function useFubDealMetrics({
     if (pendingDealsArr.length > 0) {
       for (const d of pendingDealsArr) {
         const cat = inferDealCategory(d, dealMetadataMap).category;
-        if (cat === 'lease') continue;
         const gci = getDealGci(d);
+        if (cat === 'lease') {
+          leaseCountPending++;
+          gciLeasesPending += gci;
+          continue;
+        }
         if (isConditionalStage((d as any).stageName)) {
           salesCountConditional++;
           gciSalesConditional += gci;
@@ -368,8 +379,10 @@ export function useFubDealMetrics({
       gci_sales_closed: Math.round(gciSalesClosed),
       gci_leases_closed: Math.round(gciLeasesClosed),
       sales_count_pending: salesCountPending,
+      lease_count_pending: leaseCountPending,
       sales_count_conditional: salesCountConditional,
       gci_sales_pending: Math.round(gciSalesPending),
+      gci_leases_pending: Math.round(gciLeasesPending),
       gci_sales_conditional: Math.round(gciSalesConditional),
     });
     setDebugInfo(debug);
