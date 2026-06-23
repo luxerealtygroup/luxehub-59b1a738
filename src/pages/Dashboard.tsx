@@ -494,7 +494,7 @@ const Dashboard = () => {
             <div className="text-center">
               <ProgressRing progress={dealsProgress} size={typeof window !== 'undefined' && window.innerWidth < 768 ? 84 : 120} strokeWidth={7} color={dealsProgress >= 100 ? "hsl(142 71% 45%)" : "hsl(var(--gold))"} />
               <p className="mt-2 md:mt-3 text-xs md:text-sm font-medium text-foreground">Sales Goal</p>
-              <p className="text-[10px] md:text-xs text-muted-foreground">{displayStats.closedDeals} / {displayStats.dealsGoal}</p>
+              <p className="text-[10px] md:text-xs text-muted-foreground">{formatWeightedDeals(weightedClosed)} / {displayStats.dealsGoal}</p>
             </div>
             <div className="text-center">
               <ProgressRing progress={gciProgress} size={typeof window !== 'undefined' && window.innerWidth < 768 ? 84 : 120} strokeWidth={7} color={gciProgress >= 100 ? "hsl(142 71% 45%)" : "hsl(var(--gold))"} />
