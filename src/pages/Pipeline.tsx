@@ -56,6 +56,7 @@ interface PipelineClient {
   created_at: string;
   last_contact?: string;
   fub_person_id?: number;
+  property_address?: string;
 }
 
 interface NewClient {
@@ -71,6 +72,7 @@ interface NewClient {
   split_percent: number;
   expected_pending_date: string;
   fub_person_id?: number;
+  property_address: string;
 }
 
 const stageLabels: { [key: number]: string } = {
@@ -111,6 +113,7 @@ const Pipeline = () => {
     commission_percent: 0,
     split_percent: 0,
     expected_pending_date: '',
+    property_address: '',
   });
 
   // ── Activity Requirements Engine data ──
@@ -265,6 +268,7 @@ const Pipeline = () => {
       projected_sale_amount: newClient.projected_sale_amount,
       projected_gci: gci,
       expected_pending_date: newClient.expected_pending_date || null,
+      property_address: newClient.client_type === 'seller' ? (newClient.property_address || null) : null,
     });
 
     if (error) {
@@ -274,7 +278,7 @@ const Pipeline = () => {
 
     toast({ title: 'Success', description: 'Client added to pipeline' });
     setAddDialogOpen(false);
-    setNewClient({ client_name: '', client_type: 'buyer', stage: 1, source: '', phone: '', email: '', notes: '', projected_sale_amount: 0, commission_percent: 0, split_percent: 0, expected_pending_date: '' });
+    setNewClient({ client_name: '', client_type: 'buyer', stage: 1, source: '', phone: '', email: '', notes: '', projected_sale_amount: 0, commission_percent: 0, split_percent: 0, expected_pending_date: '', property_address: '' });
     fetchClients();
   };
 
@@ -294,6 +298,7 @@ const Pipeline = () => {
         projected_sale_amount: editingClient.projected_sale_amount,
         projected_gci: editingClient.projected_gci,
         expected_pending_date: editingClient.expected_pending_date || null,
+        property_address: editingClient.client_type === 'seller' ? (editingClient.property_address || null) : null,
       })
       .eq('id', editingClient.id);
 
