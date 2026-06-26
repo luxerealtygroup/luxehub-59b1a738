@@ -58,6 +58,7 @@ interface BuyerFormProps {
     condition_due_financing?: string;
     condition_due_status?: string;
     condition_due_home_inspection?: string;
+    client_occupation?: string;
     attachment_urls?: Array<{ url: string; name: string }>;
   }) => void;
 }
@@ -196,6 +197,7 @@ export function BuyerForm({ agents, onSuccess }: BuyerFormProps) {
         condition_due_financing: data.condition_due_financing,
         condition_due_status: data.condition_due_status,
         condition_due_home_inspection: data.condition_due_home_inspection,
+        client_occupation: data.client_occupation,
         attachment_urls: attachmentUrls,
       });
     } catch (error: any) {

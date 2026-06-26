@@ -272,6 +272,7 @@ export function SubmissionsTab() {
       condition_due_home_inspection: formData.condition_due_home_inspection,
       condition_due_other: formData.condition_due_other,
       occupancy: formData.occupancy,
+      client_occupation: formData.client_occupation,
       notes: formData.notes,
     };
 
