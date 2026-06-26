@@ -698,6 +698,9 @@ const Pipeline = () => {
                     <Badge variant={client.client_type === 'buyer' ? 'default' : 'secondary'}>{client.client_type}</Badge>
                     <Badge variant="outline">{stageLabels[client.stage]}</Badge>
                   </div>
+                  {client.client_type === 'seller' && client.property_address && (
+                    <p className="text-xs text-muted-foreground">{client.property_address}</p>
+                  )}
                   {client.source && <p className="text-xs text-muted-foreground">Source: {client.source}</p>}
                 </div>
                 <div className="flex gap-2">
