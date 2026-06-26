@@ -56,6 +56,7 @@ interface PipelineClient {
   created_at: string;
   last_contact?: string;
   fub_person_id?: number;
+  property_address?: string;
 }
 
 interface NewClient {
@@ -71,6 +72,7 @@ interface NewClient {
   split_percent: number;
   expected_pending_date: string;
   fub_person_id?: number;
+  property_address: string;
 }
 
 const stageLabels: { [key: number]: string } = {
@@ -111,6 +113,7 @@ const Pipeline = () => {
     commission_percent: 0,
     split_percent: 0,
     expected_pending_date: '',
+    property_address: '',
   });
 
   // ── Activity Requirements Engine data ──
@@ -265,6 +268,7 @@ const Pipeline = () => {
       projected_sale_amount: newClient.projected_sale_amount,
       projected_gci: gci,
       expected_pending_date: newClient.expected_pending_date || null,
+      property_address: newClient.client_type === 'seller' ? (newClient.property_address || null) : null,
     });
 
     if (error) {
@@ -274,7 +278,7 @@ const Pipeline = () => {
 
     toast({ title: 'Success', description: 'Client added to pipeline' });
     setAddDialogOpen(false);
-    setNewClient({ client_name: '', client_type: 'buyer', stage: 1, source: '', phone: '', email: '', notes: '', projected_sale_amount: 0, commission_percent: 0, split_percent: 0, expected_pending_date: '' });
+    setNewClient({ client_name: '', client_type: 'buyer', stage: 1, source: '', phone: '', email: '', notes: '', projected_sale_amount: 0, commission_percent: 0, split_percent: 0, expected_pending_date: '', property_address: '' });
     fetchClients();
   };
 
@@ -294,6 +298,7 @@ const Pipeline = () => {
         projected_sale_amount: editingClient.projected_sale_amount,
         projected_gci: editingClient.projected_gci,
         expected_pending_date: editingClient.expected_pending_date || null,
+        property_address: editingClient.client_type === 'seller' ? (editingClient.property_address || null) : null,
       })
       .eq('id', editingClient.id);
 
@@ -401,6 +406,13 @@ const Pipeline = () => {
                 <div><Label>Phone</Label><Input value={newClient.phone} onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })} placeholder="(555) 123-4567" /></div>
                 <div><Label>Email</Label><Input value={newClient.email} onChange={(e) => setNewClient({ ...newClient, email: e.target.value })} placeholder="john@example.com" /></div>
               </div>
+
+              {newClient.client_type === 'seller' && (
+                <div>
+                  <Label>Property Address</Label>
+                  <Input value={newClient.property_address} onChange={(e) => setNewClient({ ...newClient, property_address: e.target.value })} placeholder="123 Main St, City" />
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -570,7 +582,12 @@ const Pipeline = () => {
                         <tbody>
                           {m.clients.map((c) => (
                             <tr key={c.id} className="border-t border-border/50 hover:bg-muted/30">
-                              <td className="px-3 py-2 font-medium text-foreground">{c.client_name}</td>
+                              <td className="px-3 py-2 font-medium text-foreground">
+                                <div>{c.client_name}</div>
+                                {c.client_type === 'seller' && c.property_address && (
+                                  <div className="text-xs text-muted-foreground font-normal">{c.property_address}</div>
+                                )}
+                              </td>
                               <td className="px-3 py-2"><Badge variant={c.client_type === 'buyer' ? 'default' : 'secondary'} className="text-xs">{c.client_type}</Badge></td>
                               <td className="px-3 py-2 text-muted-foreground">{stageLabels[c.stage]}</td>
                               <td className="px-3 py-2 text-right text-foreground">{formatCurrency(c.projected_sale_amount)}</td>
@@ -604,7 +621,12 @@ const Pipeline = () => {
                         <tbody>
                           {unassigned.map((c) => (
                             <tr key={c.id} className="border-t border-border/50 hover:bg-muted/30">
-                              <td className="px-3 py-2 font-medium text-foreground">{c.client_name}</td>
+                              <td className="px-3 py-2 font-medium text-foreground">
+                                <div>{c.client_name}</div>
+                                {c.client_type === 'seller' && c.property_address && (
+                                  <div className="text-xs text-muted-foreground font-normal">{c.property_address}</div>
+                                )}
+                              </td>
                               <td className="px-3 py-2"><Badge variant={c.client_type === 'buyer' ? 'default' : 'secondary'} className="text-xs">{c.client_type}</Badge></td>
                               <td className="px-3 py-2 text-muted-foreground">{stageLabels[c.stage]}</td>
                               <td className="px-3 py-2 text-right text-foreground">{formatCurrency(c.projected_sale_amount)}</td>
@@ -686,6 +708,9 @@ const Pipeline = () => {
                     <Badge variant={client.client_type === 'buyer' ? 'default' : 'secondary'}>{client.client_type}</Badge>
                     <Badge variant="outline">{stageLabels[client.stage]}</Badge>
                   </div>
+                  {client.client_type === 'seller' && client.property_address && (
+                    <p className="text-xs text-muted-foreground">{client.property_address}</p>
+                  )}
                   {client.source && <p className="text-xs text-muted-foreground">Source: {client.source}</p>}
                 </div>
                 <div className="flex gap-2">
@@ -753,6 +778,12 @@ const Pipeline = () => {
                 <div><Label>Phone</Label><Input value={editingClient.phone || ''} onChange={(e) => setEditingClient({ ...editingClient, phone: e.target.value })} /></div>
                 <div><Label>Email</Label><Input value={editingClient.email || ''} onChange={(e) => setEditingClient({ ...editingClient, email: e.target.value })} /></div>
               </div>
+              {editingClient.client_type === 'seller' && (
+                <div>
+                  <Label>Property Address</Label>
+                  <Input value={editingClient.property_address || ''} onChange={(e) => setEditingClient({ ...editingClient, property_address: e.target.value })} placeholder="123 Main St, City" />
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Stage *</Label>
