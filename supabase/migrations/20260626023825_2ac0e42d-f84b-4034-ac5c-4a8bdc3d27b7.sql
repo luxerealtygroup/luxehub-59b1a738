@@ -1,0 +1,1 @@
+ALTER TABLE public.pipeline_clients ADD COLUMN IF NOT EXISTS property_address text;

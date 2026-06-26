@@ -1535,6 +1535,7 @@ export type Database = {
           phone: string | null
           projected_gci: number | null
           projected_sale_amount: number | null
+          property_address: string | null
           property_interest: string | null
           source: string | null
           stage: number
@@ -1554,6 +1555,7 @@ export type Database = {
           phone?: string | null
           projected_gci?: number | null
           projected_sale_amount?: number | null
+          property_address?: string | null
           property_interest?: string | null
           source?: string | null
           stage?: number
@@ -1573,6 +1575,7 @@ export type Database = {
           phone?: string | null
           projected_gci?: number | null
           projected_sale_amount?: number | null
+          property_address?: string | null
           property_interest?: string | null
           source?: string | null
           stage?: number
