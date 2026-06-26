@@ -582,7 +582,12 @@ const Pipeline = () => {
                         <tbody>
                           {m.clients.map((c) => (
                             <tr key={c.id} className="border-t border-border/50 hover:bg-muted/30">
-                              <td className="px-3 py-2 font-medium text-foreground">{c.client_name}</td>
+                              <td className="px-3 py-2 font-medium text-foreground">
+                                <div>{c.client_name}</div>
+                                {c.client_type === 'seller' && c.property_address && (
+                                  <div className="text-xs text-muted-foreground font-normal">{c.property_address}</div>
+                                )}
+                              </td>
                               <td className="px-3 py-2"><Badge variant={c.client_type === 'buyer' ? 'default' : 'secondary'} className="text-xs">{c.client_type}</Badge></td>
                               <td className="px-3 py-2 text-muted-foreground">{stageLabels[c.stage]}</td>
                               <td className="px-3 py-2 text-right text-foreground">{formatCurrency(c.projected_sale_amount)}</td>
