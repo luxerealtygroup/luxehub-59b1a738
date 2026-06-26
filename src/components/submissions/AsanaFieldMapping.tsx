@@ -87,6 +87,7 @@ const FORM_FIELDS: Record<string, Array<{ key: string; label: string }>> = {
     { key: 'condition_due_home_inspection', label: 'Condition Due - Home Inspection' },
     { key: 'condition_due_other', label: 'Condition Due - Other' },
     { key: 'occupancy', label: 'Occupancy' },
+    { key: 'client_occupation', label: 'Client Occupation' },
     { key: 'notes', label: 'Notes' },
   ],
 };
