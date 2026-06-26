@@ -407,6 +407,13 @@ const Pipeline = () => {
                 <div><Label>Email</Label><Input value={newClient.email} onChange={(e) => setNewClient({ ...newClient, email: e.target.value })} placeholder="john@example.com" /></div>
               </div>
 
+              {newClient.client_type === 'seller' && (
+                <div>
+                  <Label>Property Address</Label>
+                  <Input value={newClient.property_address} onChange={(e) => setNewClient({ ...newClient, property_address: e.target.value })} placeholder="123 Main St, City" />
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Stage *</Label>
@@ -758,6 +765,12 @@ const Pipeline = () => {
                 <div><Label>Phone</Label><Input value={editingClient.phone || ''} onChange={(e) => setEditingClient({ ...editingClient, phone: e.target.value })} /></div>
                 <div><Label>Email</Label><Input value={editingClient.email || ''} onChange={(e) => setEditingClient({ ...editingClient, email: e.target.value })} /></div>
               </div>
+              {editingClient.client_type === 'seller' && (
+                <div>
+                  <Label>Property Address</Label>
+                  <Input value={editingClient.property_address || ''} onChange={(e) => setEditingClient({ ...editingClient, property_address: e.target.value })} placeholder="123 Main St, City" />
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Stage *</Label>
