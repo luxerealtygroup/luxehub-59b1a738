@@ -159,16 +159,64 @@ export default function MyOpenHouse() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1">Track open houses, attendees, and feedback.</p>
         </div>
-        <Dialog open={showCreate} onOpenChange={setShowCreate}>
-          <DialogTrigger asChild>
-            <Button><Plus className="h-4 w-4 mr-1" /> New Open House</Button>
-          </DialogTrigger>
-          <OpenHouseFormDialog
-            onClose={() => setShowCreate(false)}
-            onSaved={() => { setShowCreate(false); loadHouses(); }}
-          />
-        </Dialog>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={() => setShowHelp(true)}>
+            <HelpCircle className="h-4 w-4 mr-1" /> Help
+          </Button>
+          <Dialog open={showCreate} onOpenChange={setShowCreate}>
+            <DialogTrigger asChild>
+              <Button><Plus className="h-4 w-4 mr-1" /> New Open House</Button>
+            </DialogTrigger>
+            <OpenHouseFormDialog
+              onClose={() => setShowCreate(false)}
+              onSaved={() => { setShowCreate(false); loadHouses(); }}
+            />
+          </Dialog>
+        </div>
       </div>
+
+      <Dialog open={showHelp} onOpenChange={setShowHelp}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Help & FAQ</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-sm">
+            <div>
+              <h4 className="font-semibold">Why am I being sent to an external site?</h4>
+              <p className="text-muted-foreground mt-1">
+                If clicking this page sends you to <em>myopenhouse.ca</em> instead of staying inside the app,
+                your phone or browser saved an old shortcut. The app no longer uses that external page.
+              </p>
+            </div>
+            <div>
+              <h4 className="font-semibold">iPhone / iPad (Safari)</h4>
+              <ol className="list-decimal list-inside text-muted-foreground mt-1 space-y-1">
+                <li>Press and hold the home-screen icon until it wiggles.</li>
+                <li>Tap the <strong>×</strong> to delete the shortcut.</li>
+                <li>Open Safari, go to the app, tap <strong>Share → Add to Home Screen</strong>.</li>
+              </ol>
+            </div>
+            <div>
+              <h4 className="font-semibold">Android (Chrome)</h4>
+              <ol className="list-decimal list-inside text-muted-foreground mt-1 space-y-1">
+                <li>Press and hold the home-screen icon.</li>
+                <li>Drag it to <strong>Remove</strong> or <strong>Uninstall</strong>.</li>
+                <li>Open Chrome, go to the app, tap <strong>⋮ → Add to Home Screen</strong>.</li>
+              </ol>
+            </div>
+            <div>
+              <h4 className="font-semibold">Clear browser autocomplete</h4>
+              <p className="text-muted-foreground mt-1">
+                If typing the site name still suggests the old URL, clear your browser history
+                for <em>myopenhouse.ca</em> or remove it from your bookmarks.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowHelp(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {loading ? (
         <div className="flex items-center justify-center py-20 text-muted-foreground">
