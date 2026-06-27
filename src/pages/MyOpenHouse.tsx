@@ -98,6 +98,7 @@ export default function MyOpenHouse() {
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   const loadHouses = async () => {
     setLoading(true);
