@@ -84,7 +84,8 @@ const App = () => (
               <Route path="resources/landlords" element={<RoleGuard><LandlordsResources /></RoleGuard>} />
               <Route path="resources/newsletters" element={<RoleGuard><NewslettersResources /></RoleGuard>} />
               <Route path="resources/tenants" element={<RoleGuard><TenantsResources /></RoleGuard>} />
-              <Route path="resources/myopenhouse" element={<RoleGuard><MyOpenHouse /></RoleGuard>} />
+              <Route path="resources/open-house-tracker" element={<RoleGuard><MyOpenHouse /></RoleGuard>} />
+              <Route path="resources/myopenhouse" element={<Navigate to="/dashboard/resources/open-house-tracker" replace />} />
               <Route path="my-open-house" element={<RoleGuard><MyOpenHouse /></RoleGuard>} />
               <Route path="cma-boss" element={<RoleGuard><CMABoss /></RoleGuard>} />
               <Route path="business-planning" element={<BusinessPlanning />} />
