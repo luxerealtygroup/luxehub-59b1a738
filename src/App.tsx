@@ -2,7 +2,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useEffect } from "react";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import RoleGuard from "@/components/RoleGuard";
@@ -43,6 +44,36 @@ import ClientDashboard from "./pages/client-portal/ClientDashboard";
 
 const queryClient = new QueryClient();
 
+const OPEN_HOUSE_TRACKER_PATH = "/dashboard/resources/open-house-tracker";
+
+function OpenHouseNavigationGuard() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const handleClick = (event: MouseEvent) => {
+      if (!(event.target instanceof Element)) return;
+
+      const anchor = event.target.closest<HTMLAnchorElement>("a[href]");
+      if (!anchor) return;
+
+      const href = anchor.href.toLowerCase();
+      const isBlockedOpenHouseUrl =
+        href.includes("myopenhouse.ca") || href.includes("/resources/myopenhouse");
+
+      if (!isBlockedOpenHouseUrl) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      navigate(OPEN_HOUSE_TRACKER_PATH);
+    };
+
+    window.addEventListener("click", handleClick, true);
+    return () => window.removeEventListener("click", handleClick, true);
+  }, [navigate]);
+
+  return null;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
@@ -50,6 +81,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <OpenHouseNavigationGuard />
           <Routes>
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<Login />} />
