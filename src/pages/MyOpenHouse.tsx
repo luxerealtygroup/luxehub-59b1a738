@@ -154,7 +154,7 @@ export default function MyOpenHouse() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-semibold text-foreground flex items-center gap-2">
-            <DoorOpen className="h-6 w-6 text-gold" /> MyOpenHouse
+            <DoorOpen className="h-6 w-6 text-gold" /> Open House Tracker
           </h1>
           <p className="text-sm text-muted-foreground mt-1">Track open houses, attendees, and feedback.</p>
         </div>
