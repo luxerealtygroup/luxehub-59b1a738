@@ -25,6 +25,7 @@ import {
   DoorOpen
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -122,6 +123,8 @@ export function AppSidebar() {
   const { signOut, user } = useAuth();
   const { isAdmin, isOwner, isPlanningAccess, isAgent } = useUserRole();
   const { state } = useSidebar();
+  const navigate = useNavigate();
+  const location = useLocation();
   const collapsed = state === 'collapsed';
 
   const isPlanningOnly = isPlanningAccess && !isAgent;
@@ -238,14 +241,29 @@ export function AppSidebar() {
                               {agentResourcesItems.map((sub) => (
                                 <SidebarMenuItem key={sub.title}>
                                   <SidebarMenuButton asChild>
-                                    <NavLink
-                                      to={sub.url}
-                                      className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:bg-blue-500/10 hover:text-blue-500 transition-colors border-l-2 border-transparent text-sm"
-                                      activeClassName="bg-blue-500/15 text-blue-500 font-medium border-l-2 !border-blue-500"
-                                    >
-                                      <sub.icon className="h-4 w-4 shrink-0" />
-                                      <span>{sub.title}</span>
-                                    </NavLink>
+                                    {sub.url === '/dashboard/resources/open-house-tracker' ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => navigate('/dashboard/resources/open-house-tracker')}
+                                        className={`flex w-full items-center gap-3 px-3 py-2 rounded-lg text-left hover:bg-blue-500/10 hover:text-blue-500 transition-colors border-l-2 text-sm ${
+                                          location.pathname === '/dashboard/resources/open-house-tracker'
+                                            ? 'bg-blue-500/15 text-blue-500 font-medium border-l-2 !border-blue-500'
+                                            : 'text-muted-foreground border-transparent'
+                                        }`}
+                                      >
+                                        <sub.icon className="h-4 w-4 shrink-0" />
+                                        <span>{sub.title}</span>
+                                      </button>
+                                    ) : (
+                                      <NavLink
+                                        to={sub.url}
+                                        className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:bg-blue-500/10 hover:text-blue-500 transition-colors border-l-2 border-transparent text-sm"
+                                        activeClassName="bg-blue-500/15 text-blue-500 font-medium border-l-2 !border-blue-500"
+                                      >
+                                        <sub.icon className="h-4 w-4 shrink-0" />
+                                        <span>{sub.title}</span>
+                                      </NavLink>
+                                    )}
                                   </SidebarMenuButton>
                                 </SidebarMenuItem>
                               ))}
