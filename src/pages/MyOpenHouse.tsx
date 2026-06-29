@@ -937,6 +937,7 @@ function AttendeeCard({
   attendee: Attendee;
   onChanged: () => void;
 }) {
+  const { user } = useAuth();
   const [form, setForm] = useState<Attendee>(attendee);
   const [saving, setSaving] = useState(false);
   const [fubQuery, setFubQuery] = useState('');
