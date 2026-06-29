@@ -1,6 +1,6 @@
 import * as React from 'npm:react@18.3.1'
 import {
-  Body, Container, Head, Heading, Hr, Html, Preview, Row, Column,
+  Body, Container, Head, Heading, Html, Preview, Row, Column,
   Section, Text,
 } from 'npm:@react-email/components@0.0.22'
 import type { TemplateEntry } from './registry.ts'
@@ -20,6 +20,7 @@ interface Props {
   notes?: string
 }
 
+// Styled to mirror the in-app PDF: white page, Helvetica, dark slate table header.
 const Email = ({
   propertyAddress = 'Property',
   openHouseDate = '',
@@ -31,50 +32,47 @@ const Email = ({
 }: Props) => (
   <Html lang="en" dir="ltr">
     <Head />
-    <Preview>New open house feedback — {propertyAddress}</Preview>
+    <Preview>Open House Report — {propertyAddress}</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Section style={header}>
-          <Heading style={h1}>Open House Feedback</Heading>
-          <Text style={subhead}>{propertyAddress}</Text>
-          {openHouseDate && <Text style={meta}>{openHouseDate}</Text>}
-        </Section>
+        <Heading style={h1}>Open House Report</Heading>
+        <Text style={addressText}>{propertyAddress}</Text>
+        {openHouseDate && <Text style={dateText}>{openHouseDate}</Text>}
 
-        <Section style={card}>
-          <Row>
-            <Column>
-              <Text style={labelStyle}>Attendee</Text>
-              <Text style={valueStyle}>{attendeeName}</Text>
-            </Column>
-            {listingAgentName && (
-              <Column>
-                <Text style={labelStyle}>Listing Agent</Text>
-                <Text style={valueStyle}>{listingAgentName}</Text>
-              </Column>
-            )}
-          </Row>
-
-          <Hr style={hr} />
-
-          {rows.map((r, i) => (
-            <Row key={i} style={{ marginBottom: 8 }}>
-              <Column style={{ width: '40%' }}>
-                <Text style={labelStyle}>{r.label}</Text>
-              </Column>
-              <Column>
-                <Text style={valueStyle}>{r.value}</Text>
-              </Column>
+        <Section style={metaBlock}>
+          {listingAgentName && (
+            <Row style={metaRow}>
+              <Column style={metaKeyCol}><Text style={metaKey}>Listing Agent:</Text></Column>
+              <Column><Text style={metaVal}>{listingAgentName}</Text></Column>
             </Row>
-          ))}
-
-          {notes && (
-            <>
-              <Hr style={hr} />
-              <Text style={labelStyle}>Notes</Text>
-              <Text style={valueStyle}>{notes}</Text>
-            </>
           )}
+          <Row style={metaRow}>
+            <Column style={metaKeyCol}><Text style={metaKey}>Attendee:</Text></Column>
+            <Column><Text style={metaVal}>{attendeeName}</Text></Column>
+          </Row>
         </Section>
+
+        {rows.length > 0 && (
+          <Section style={{ marginTop: 12 }}>
+            <Row style={tableHeadRow}>
+              <Column style={tableHeadCellLeft}><Text style={tableHeadText}>Field</Text></Column>
+              <Column style={tableHeadCell}><Text style={tableHeadText}>Response</Text></Column>
+            </Row>
+            {rows.map((r, i) => (
+              <Row key={i} style={i % 2 === 0 ? tableRow : tableRowAlt}>
+                <Column style={tableCellLeft}><Text style={tableCellText}>{r.label}</Text></Column>
+                <Column style={tableCell}><Text style={tableCellText}>{r.value}</Text></Column>
+              </Row>
+            ))}
+          </Section>
+        )}
+
+        {notes && (
+          <Section style={notesSection}>
+            <Text style={notesLabel}>Notes</Text>
+            <Text style={notesText}>{notes}</Text>
+          </Section>
+        )}
 
         {submittedBy && (
           <Text style={footer}>Submitted by {submittedBy}</Text>
@@ -86,7 +84,7 @@ const Email = ({
 
 export const template = {
   component: Email,
-  subject: (d: Props) => `Open House Feedback — ${d?.propertyAddress || 'Property'}`,
+  subject: (d: Props) => `Open House Report — ${d?.propertyAddress || 'Property'}`,
   displayName: 'Open House Feedback',
   previewData: {
     propertyAddress: '123 Main St, Toronto',
@@ -107,13 +105,25 @@ export const template = {
 } satisfies TemplateEntry
 
 const main = { backgroundColor: '#ffffff', fontFamily: 'Helvetica, Arial, sans-serif' }
-const container = { padding: '32px 24px', maxWidth: '600px' }
-const header = { borderBottom: '3px solid #b8860b', paddingBottom: '16px', marginBottom: '24px' }
-const h1 = { color: '#0f172a', fontSize: '24px', fontWeight: 700, margin: '0 0 8px 0' }
-const subhead = { color: '#0f172a', fontSize: '16px', fontWeight: 600, margin: '0' }
-const meta = { color: '#64748b', fontSize: '13px', margin: '4px 0 0 0' }
-const card = { backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '20px' }
-const labelStyle = { color: '#64748b', fontSize: '11px', textTransform: 'uppercase' as const, letterSpacing: '0.5px', margin: '0 0 2px 0', fontWeight: 600 }
-const valueStyle = { color: '#0f172a', fontSize: '14px', margin: '0 0 4px 0' }
-const hr = { borderColor: '#e2e8f0', margin: '16px 0' }
-const footer = { color: '#94a3b8', fontSize: '12px', marginTop: '24px', textAlign: 'center' as const }
+const container = { padding: '40px', maxWidth: '600px' }
+const h1 = { color: '#000000', fontSize: '22px', fontWeight: 700, margin: '0 0 12px 0' }
+const addressText = { color: '#000000', fontSize: '13px', margin: '0 0 4px 0' }
+const dateText = { color: '#787878', fontSize: '13px', margin: '0 0 20px 0' }
+const metaBlock = { marginBottom: '8px' }
+const metaRow = { marginBottom: '2px' }
+const metaKeyCol = { width: '110px', verticalAlign: 'top' as const }
+const metaKey = { color: '#000000', fontSize: '12px', fontWeight: 700, margin: '0 0 4px 0' }
+const metaVal = { color: '#000000', fontSize: '12px', margin: '0 0 4px 0' }
+const tableHeadRow = { backgroundColor: '#1e293b' }
+const tableHeadCellLeft = { padding: '6px 8px', width: '40%' }
+const tableHeadCell = { padding: '6px 8px' }
+const tableHeadText = { color: '#ffffff', fontSize: '11px', fontWeight: 700, margin: '0' }
+const tableRow = { backgroundColor: '#ffffff' }
+const tableRowAlt = { backgroundColor: '#f5f5f5' }
+const tableCellLeft = { padding: '6px 8px', width: '40%', borderBottom: '1px solid #e5e7eb' }
+const tableCell = { padding: '6px 8px', borderBottom: '1px solid #e5e7eb' }
+const tableCellText = { color: '#000000', fontSize: '11px', margin: '0' }
+const notesSection = { marginTop: '16px' }
+const notesLabel = { color: '#000000', fontSize: '12px', fontWeight: 700, margin: '0 0 4px 0' }
+const notesText = { color: '#000000', fontSize: '12px', margin: '0', whiteSpace: 'pre-wrap' as const }
+const footer = { color: '#787878', fontSize: '11px', marginTop: '24px' }
