@@ -24,6 +24,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 type OpenHouse = {
   id: string;
@@ -1192,6 +1194,74 @@ function ReportSection({ openHouse, attendees }: { openHouse: OpenHouse; attende
   const avgInterestLabel = !withInterest.length ? '—'
     : avgInterestRaw >= 2.5 ? 'High' : avgInterestRaw >= 1.5 ? 'Medium' : 'Low';
 
+  const downloadPdf = () => {
+    try {
+      const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+      const margin = 40;
+      let y = margin;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(18);
+      doc.text('Open House Report', margin, y);
+      y += 22;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(11);
+      doc.text(openHouse.property_address, margin, y);
+      y += 14;
+      doc.setTextColor(120);
+      doc.text(formatDate(openHouse.open_house_date), margin, y);
+      doc.setTextColor(0);
+      y += 20;
+
+      const meta: [string, string][] = [
+        ['Listing Agent', `${openHouse.listing_agent_name || '—'}${openHouse.listing_agent_email ? ` (${openHouse.listing_agent_email})` : ''}`],
+        ['Client', `${openHouse.client_name || '—'}${openHouse.client_email ? ` (${openHouse.client_email})` : ''}`],
+        ['Attendees', `${total} (${preApproved} pre-approved)`],
+        ['Avg Interest', `${avgInterestLabel} — ${fubLinked}/${total} in FUB`],
+      ];
+      meta.forEach(([k, v]) => {
+        doc.setFont('helvetica', 'bold');
+        doc.text(`${k}:`, margin, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(v, margin + 90, y);
+        y += 14;
+      });
+      y += 6;
+
+      if (attendees.length > 0) {
+        autoTable(doc, {
+          startY: y,
+          head: [['Initials', 'Interest', 'Price', 'Condition', 'Pre-Appr', 'Realtor', 'To Sell', 'Notes']],
+          body: attendees.map(a => [
+            a.initials,
+            a.interest_level ? INTEREST_LABEL[a.interest_level] : '—',
+            a.price_feedback ? PRICE_LABEL[a.price_feedback] : '—',
+            a.condition_feedback ? CONDITION_LABEL[a.condition_feedback] : '—',
+            a.pre_approved ? 'Yes' : '—',
+            a.working_with_realtor ? 'Yes' : '—',
+            a.home_to_sell ? 'Yes' : '—',
+            a.notes || '—',
+          ]),
+          styles: { fontSize: 9, cellPadding: 4 },
+          headStyles: { fillColor: [30, 41, 59] },
+          columnStyles: { 7: { cellWidth: 140 } },
+          margin: { left: margin, right: margin },
+        });
+      } else {
+        doc.setTextColor(120);
+        doc.text('No attendees recorded.', margin, y);
+      }
+
+      const safeAddr = openHouse.property_address.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase();
+      doc.save(`open-house-${safeAddr}-${openHouse.open_house_date}.pdf`);
+      toast.success('PDF downloaded');
+    } catch (err: any) {
+      console.error('PDF generation failed', err);
+      toast.error('PDF download failed', { description: err?.message });
+    }
+  };
+
   return (
     <Card className="p-5 space-y-4">
       <div className="flex items-start justify-between gap-4">
@@ -1208,7 +1278,7 @@ function ReportSection({ openHouse, attendees }: { openHouse: OpenHouse; attende
           >
             <Mail className="h-4 w-4 mr-1" /> Send to Listing Agent
           </Button>
-          <Button variant="outline" size="sm" onClick={() => toast.info('PDF download coming soon')}>
+          <Button variant="outline" size="sm" onClick={downloadPdf}>
             <FileDown className="h-4 w-4 mr-1" /> Download PDF
           </Button>
         </div>
