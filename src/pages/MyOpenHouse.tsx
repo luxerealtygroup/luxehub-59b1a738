@@ -1230,6 +1230,48 @@ function ReportSection({ openHouse, attendees }: { openHouse: OpenHouse; attende
   const avgInterestLabel = !withInterest.length ? '—'
     : avgInterestRaw >= 2.5 ? 'High' : avgInterestRaw >= 1.5 ? 'Medium' : 'Low';
 
+  const sendToListingAgent = async () => {
+    if (!openHouse.listing_agent_email) return;
+    const rows = [
+      { label: 'Total Attendees', value: String(total) },
+      { label: 'Pre-approved', value: String(preApproved) },
+      { label: 'In Follow Up Boss', value: `${fubLinked}/${total}` },
+      { label: 'Avg Interest', value: avgInterestLabel },
+    ];
+    const notesLines = attendees.map(a => {
+      const parts = [
+        a.initials,
+        a.interest_level ? `Interest: ${INTEREST_LABEL[a.interest_level]}` : null,
+        a.price_feedback ? `Price: ${PRICE_LABEL[a.price_feedback]}` : null,
+        a.condition_feedback ? `Condition: ${CONDITION_LABEL[a.condition_feedback]}` : null,
+        a.pre_approved ? 'Pre-approved' : null,
+        a.notes ? `"${a.notes}"` : null,
+      ].filter(Boolean);
+      return `• ${parts.join(' · ')}`;
+    }).join('\n');
+
+    const { error } = await supabase.functions.invoke('send-transactional-email', {
+      body: {
+        templateName: 'open-house-feedback',
+        recipientEmail: openHouse.listing_agent_email,
+        idempotencyKey: `oh-report-${openHouse.id}-${Date.now()}`,
+        templateData: {
+          propertyAddress: openHouse.property_address,
+          openHouseDate: formatDate(openHouse.open_house_date),
+          attendeeName: `${total} attendee${total === 1 ? '' : 's'}`,
+          listingAgentName: openHouse.listing_agent_name || '',
+          rows,
+          notes: notesLines || 'No attendees recorded.',
+        },
+      },
+    });
+    if (error) {
+      toast.error('Email failed', { description: error.message });
+    } else {
+      toast.success(`Report emailed to ${openHouse.listing_agent_email}`);
+    }
+  };
+
   const downloadPdf = () => {
     try {
       const doc = new jsPDF({ unit: 'pt', format: 'letter' });
@@ -1309,7 +1351,7 @@ function ReportSection({ openHouse, attendees }: { openHouse: OpenHouse; attende
           <Button
             variant="outline"
             size="sm"
-            onClick={() => toast.success(`Email sent to ${openHouse.listing_agent_email || 'listing agent'}`)}
+            onClick={sendToListingAgent}
             disabled={!openHouse.listing_agent_email}
           >
             <Mail className="h-4 w-4 mr-1" /> Send to Listing Agent
