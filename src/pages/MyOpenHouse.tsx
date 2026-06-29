@@ -1025,6 +1025,41 @@ function AttendeeCard({
     } else {
       toast.success('Attendee saved');
     }
+
+    // Email feedback to info@luxerealtygroup.ca (and listing agent if present)
+    const yn = (b: boolean) => b ? 'Yes' : 'No';
+    const emailRows = [
+      { label: 'Interest Level', value: form.interest_level ? INTEREST_LABEL[form.interest_level] : '—' },
+      { label: 'Price Feedback', value: form.price_feedback ? PRICE_LABEL[form.price_feedback] : '—' },
+      { label: 'Condition', value: form.condition_feedback ? CONDITION_LABEL[form.condition_feedback] : '—' },
+      { label: 'Pre-approved', value: yn(form.pre_approved) },
+      { label: 'Working with Realtor', value: yn(form.working_with_realtor) },
+      { label: 'Home to Sell', value: yn(form.home_to_sell) },
+    ];
+    const templateData = {
+      propertyAddress: openHouse.property_address,
+      openHouseDate: formatDate(openHouse.open_house_date),
+      attendeeName: form.full_name?.trim() || attendee.initials,
+      listingAgentName: openHouse.listing_agent_name || '',
+      submittedBy: user?.email || '',
+      rows: emailRows,
+      notes: form.notes?.trim() || '',
+    };
+    const recipients = ['info@luxerealtygroup.ca'];
+    if (openHouse.listing_agent_email) recipients.push(openHouse.listing_agent_email);
+    for (const recipient of recipients) {
+      void supabase.functions.invoke('send-transactional-email', {
+        body: {
+          templateName: 'open-house-feedback',
+          recipientEmail: recipient,
+          idempotencyKey: `oh-feedback-${attendee.id}-${recipient}`,
+          templateData,
+        },
+      }).then(({ error: mailErr }) => {
+        if (mailErr) console.warn('Feedback email failed', recipient, mailErr);
+      });
+    }
+
     setSaving(false);
     onChanged();
   };
