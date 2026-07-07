@@ -878,7 +878,7 @@ const AdminDashboard = () => {
       )}
 
       {/* Company-wide Stats from FUB */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 xl:grid-cols-6 gap-4">
         <Card className="border-green-500/20 bg-gradient-to-br from-card to-green-500/5">
           <CardContent className="p-5">
             <div className="flex items-center gap-2 mb-2">
@@ -934,6 +934,23 @@ const AdminDashboard = () => {
             <p className="text-xs text-muted-foreground mt-1">
               {formatCurrency(fubStats?.companyRevenueEarned)} earned / {formatCurrency(fubStats?.companyRevenuePending)} pending / {formatCurrency(fubStats?.companyRevenueConditional)} conditional
             </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-amber-500/20 bg-gradient-to-br from-card to-amber-500/5">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2 mb-2">
+              <TrendingUp className="h-5 w-5 text-amber-500" />
+              <span className="text-sm text-muted-foreground">Sales Volume</span>
+            </div>
+            <p className="text-3xl font-bold text-amber-500">
+              {formatCurrency((fubStats?.closedVolume || 0) + (fubStats?.pendingVolume || 0) + (fubStats?.conditionalVolume || 0))}
+            </p>
+            <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+              <p>{formatCurrency(fubStats?.closedVolume)} closed</p>
+              <p>{formatCurrency(fubStats?.pendingVolume)} pending</p>
+              <p>{formatCurrency(fubStats?.conditionalVolume)} conditional</p>
+            </div>
           </CardContent>
         </Card>
 
