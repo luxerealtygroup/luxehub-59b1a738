@@ -94,6 +94,9 @@ interface FUBStats {
   leaseClosedUnits: number;
   leasePendingUnits: number;
   leaseConditionalUnits: number;
+  closedVolume: number;
+  pendingVolume: number;
+  conditionalVolume: number;
 }
 
 interface FUBAgentStats {
