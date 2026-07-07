@@ -304,6 +304,9 @@ const AdminDashboard = () => {
           leaseClosedUnits: sumUnitsBy(closedDeals, true),
           leasePendingUnits: sumUnitsBy(pendingDeals, true),
           leaseConditionalUnits: sumUnitsBy(conditionalDeals, true),
+          closedVolume: closedDeals.reduce((s, d) => s + (d.price || 0), 0),
+          pendingVolume: pendingDeals.reduce((s, d) => s + (d.price || 0), 0),
+          conditionalVolume: conditionalDeals.reduce((s, d) => s + (d.price || 0), 0),
         });
 
         // Build company transactions list from all relevant deals
