@@ -4,24 +4,36 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { CheckSquare, Clock, AlertCircle } from 'lucide-react';
+import { CheckSquare, Clock, AlertCircle, Plus, Loader2 } from 'lucide-react';
 import { format, isPast, isToday } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 
 interface Task {
   id: string;
   title: string;
-  description: string | null;
+  description?: string | null;
+  notes?: string | null;
   due_date: string | null;
   completed_at: string | null;
+  status?: string | null;
 }
 
 interface ClientTaskListProps {
   clientAccountId: string;
+  /** When true, shows an "Add task" button so agents can create tasks for the client. */
+  canManage?: boolean;
 }
 
-export function ClientTaskList({ clientAccountId }: ClientTaskListProps) {
+export function ClientTaskList({ clientAccountId, canManage = false }: ClientTaskListProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ title: '', due_date: '', notes: '' });
   const { toast } = useToast();
 
   useEffect(() => {
@@ -42,10 +54,12 @@ export function ClientTaskList({ clientAccountId }: ClientTaskListProps) {
   };
 
   const toggleTask = async (taskId: string, currentlyCompleted: boolean) => {
+    const nowIso = new Date().toISOString();
     const { error } = await supabase
       .from('client_tasks')
-      .update({ 
-        completed_at: currentlyCompleted ? null : new Date().toISOString() 
+      .update({
+        completed_at: currentlyCompleted ? null : nowIso,
+        status: currentlyCompleted ? 'pending' : 'complete',
       })
       .eq('id', taskId);
 
@@ -60,7 +74,7 @@ export function ClientTaskList({ clientAccountId }: ClientTaskListProps) {
 
     setTasks(tasks.map(task => 
       task.id === taskId 
-        ? { ...task, completed_at: currentlyCompleted ? null : new Date().toISOString() }
+        ? { ...task, completed_at: currentlyCompleted ? null : nowIso, status: currentlyCompleted ? 'pending' : 'complete' }
         : task
     ));
 
@@ -70,6 +84,34 @@ export function ClientTaskList({ clientAccountId }: ClientTaskListProps) {
         description: 'Great job checking that off your list.',
       });
     }
+  };
+
+  const createTask = async () => {
+    if (!form.title.trim()) return;
+    setSaving(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setSaving(false); return; }
+    const { data, error } = await supabase
+      .from('client_tasks')
+      .insert({
+        client_account_id: clientAccountId,
+        title: form.title.trim(),
+        due_date: form.due_date || null,
+        notes: form.notes.trim() || null,
+        description: form.notes.trim() || null,
+        status: 'pending',
+        assigned_by: user.id,
+      })
+      .select()
+      .single();
+    setSaving(false);
+    if (error) {
+      toast({ title: 'Could not create task', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setTasks([data as Task, ...tasks]);
+    setForm({ title: '', due_date: '', notes: '' });
+    setDialogOpen(false);
   };
 
   const getDueDateStatus = (dueDate: string | null, isCompleted: boolean) => {
@@ -108,18 +150,52 @@ export function ClientTaskList({ clientAccountId }: ClientTaskListProps) {
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <CheckSquare className="h-5 w-5 text-primary" />
-          Your Tasks
+          {canManage ? 'Client Tasks' : 'Your Tasks'}
           {pendingTasks.length > 0 && (
             <Badge variant="secondary" className="ml-auto">
               {pendingTasks.length} pending
             </Badge>
+          )}
+          {canManage && (
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" variant="outline" className="ml-2 gap-1">
+                  <Plus className="h-3 w-3" /> Add
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Create task for client</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3 py-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="task-title">Title</Label>
+                    <Input id="task-title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Sign inspection waiver" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="task-due">Due date</Label>
+                    <Input id="task-due" type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="task-notes">Notes (optional)</Label>
+                    <Textarea id="task-notes" rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button onClick={createTask} disabled={saving || !form.title.trim()}>
+                    {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    Create task
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           )}
         </CardTitle>
       </CardHeader>
       <CardContent>
         {tasks.length === 0 ? (
           <p className="text-muted-foreground text-center py-4">
-            No tasks assigned yet. Your agent will add tasks here when needed.
+            {canManage ? 'No tasks yet. Create one to guide your client through next steps.' : 'No tasks assigned yet. Your agent will add tasks here when needed.'}
           </p>
         ) : (
           <div className="space-y-4">
@@ -146,8 +222,8 @@ export function ClientTaskList({ clientAccountId }: ClientTaskListProps) {
                       />
                       <div className="flex-1 min-w-0">
                         <p className="font-medium">{task.title}</p>
-                        {task.description && (
-                          <p className="text-sm text-muted-foreground mt-0.5">{task.description}</p>
+                        {(task.notes || task.description) && (
+                          <p className="text-sm text-muted-foreground mt-0.5 whitespace-pre-wrap">{task.notes || task.description}</p>
                         )}
                         {task.due_date && (
                           <div className="flex items-center gap-1 mt-1">
