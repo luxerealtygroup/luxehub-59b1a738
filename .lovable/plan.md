@@ -1,65 +1,63 @@
-# Google Drive OAuth — 403 Diagnosis
+# Portal Documents & Photos
 
-No code changes proposed. This is an investigation report.
+Add manual upload of documents and photos to each client portal, scoped to the client's portal record (client_accounts.id). Admins upload/delete; agents view; clients view/download.
 
-## What I verified in the code
+## Permissions
+- **Admin** (`owner`/`admin` via `has_role`): upload, delete, view
+- **Agent** (`agent`): view only
+- **Client** (`client_accounts.user_id = auth.uid()`): view/download only
 
-**Frontend** (`src/components/GoogleDriveConnect.tsx`)
-- Sends `redirect_uri = ${window.location.origin}/agent/google-drive/callback`
-- On preview that resolves to:
-  `https://id-preview--4a480d64-1066-455f-b5ff-2462d98492dc.lovable.app/agent/google-drive/callback`
+## Database (one migration)
 
-**Edge function** (`supabase/functions/google-drive-files/index.ts`)
-- Reads `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` from Lovable Cloud secrets (both confirmed present)
-- Builds a standard `https://accounts.google.com/o/oauth2/v2/auth?...` URL with:
-  - `client_id` = the secret
-  - `redirect_uri` = value passed from browser (unmodified)
-  - `scope` = `drive.readonly openid email`
-  - `access_type=offline`, `prompt=consent`, `state=<user.id>`
+**Storage buckets** (private, created via `supabase--storage_create_bucket`):
+- `portal-documents`
+- `portal-photos`
 
-The wiring itself is correct. The 403 is happening on **Google's side** before the user ever sees a consent screen, which narrows it to one of three provider-side causes.
+**Tables** (public schema, with GRANTs + RLS):
 
-## Most likely root cause (in order)
+`portal_documents`
+- id, portal_id (FK client_accounts), file_name, file_path (storage key), file_type, file_size, uploaded_by (auth.users), created_at
 
-### 1. OAuth consent screen "User type = Internal" + non-Workspace account
-This is the #1 cause of a bare Google 403 "you do not have access to this page" **before** login/consent. If the OAuth client's consent screen is configured as **Internal**, only Google Workspace users in the *same* organization as the Cloud project can proceed. A personal `@gmail.com` (or a Workspace user from a different domain) is blocked with exactly this page.
+`portal_photos`
+- id, portal_id (FK client_accounts), file_path, caption, category (enum: 'property'|'milestone'), uploaded_by, created_at
 
-**Check:** Google Cloud Console → APIs & Services → OAuth consent screen → **User type**. If it says *Internal*, either
-- switch it to *External* (then add test users while in Testing mode, or Publish), OR
-- only sign in with a Workspace account inside the owning org.
+**RLS policies** on both tables:
+- SELECT: admin OR agent (`is_team_member`) OR owning client (`portal_id` matches a `client_accounts` row where `user_id = auth.uid()`)
+- INSERT/DELETE: `has_role(auth.uid(),'admin') OR has_role(auth.uid(),'owner')`
 
-### 2. Testing mode with no test users added
-If User type is *External* and Publishing status is *Testing*, Google shows an "access blocked / app not verified" screen — but for some accounts (particularly when the Drive scope is treated as sensitive/restricted and no test users exist) it can degrade to the same 403.
+**Storage RLS** on `storage.objects` for both buckets:
+- SELECT: same three-role rule (path prefix = `<portal_id>/...`)
+- INSERT/DELETE: admin/owner only
 
-**Check:** OAuth consent screen → **Test users**. Add the exact Google account you're testing with. Or click **Publish app** to move out of Testing.
+Files stored under `<portal_id>/documents/<uuid>_<name>` and `<portal_id>/photos/<category>/<uuid>_<name>`.
 
-### 3. Wrong OAuth client type
-`GOOGLE_CLIENT_ID` is reused from the Calendar integration. If that client was created as anything other than **Web application** (e.g., iOS, Android, TVs and Limited Input, Desktop), the `/o/oauth2/v2/auth` endpoint with a browser `redirect_uri` returns 403 immediately.
+## Frontend
 
-**Check:** Google Cloud Console → Credentials → open the client → **Application type** must be *Web application*.
+**Admin/agent side — extend `AgentPortalDialog.tsx`:**
+- Add two new tabs after Tasks: **Documents** and **Photos**
+- Reuse existing `FileUpload` styling
+- Show upload UI only when `isAdmin`; agents see the read-only list
+- Documents: list with file icon, name, date, preview (PDF/image modal) or download (signed URL)
+- Photos: gallery grid split "Property Photos" / "Milestone Photos"; category selector on upload
+- Delete button visible to admin only
 
-### 4. Cloud project / OAuth client disabled or deleted
-If the project that owns `GOOGLE_CLIENT_ID` was suspended, billing-disabled, or the credential was deleted, Google returns the same generic 403.
+**Client side — extend `ClientDashboard` + `ClientSidebar`:**
+- Existing `DriveDocuments` tab continues to work; add new `PortalDocuments` component that lists rows from `portal_documents` for their active portal (scoped by selected transaction / active `client_accounts` row)
+- New `Photos` sidebar item between Documents and Messages → `PortalPhotos` gallery component
+- Empty states: "Your agent will add your documents here soon." / "Your agent will add photos here soon."
 
-**Check:** Credentials page shows the client is present and enabled; project has no suspension banner.
+**New components:**
+- `src/components/portal/PortalDocumentsPanel.tsx` (admin/agent view, upload when admin)
+- `src/components/portal/PortalPhotosPanel.tsx` (admin/agent view, upload when admin)
+- `src/pages/client-portal/components/PortalDocumentsView.tsx` (client read-only)
+- `src/pages/client-portal/components/PortalPhotosView.tsx` (client read-only)
 
-## Things that are NOT the cause
+Signed URLs (1h expiry) via `supabase.storage.from(bucket).createSignedUrl(path, 3600)` for previews and downloads.
 
-- **Redirect URI mismatch** — that produces a different, specific Google page ("Error 400: redirect_uri_mismatch") *after* you sign in, not a 403 before login. So the two callback URLs I asked you to add are still needed, but they are not what's triggering this particular error.
-- **Missing secret / edge function error** — those would surface as a toast in the app, not a Google-hosted 403 page.
-- **Scopes** — invalid scopes produce a Google error page with the offending scope named, not this generic 403.
+## Transaction scoping
+The portal today keys off `client_accounts.id` (one portal per client record). Documents/photos are stored per portal_id, which is the "currently selected transaction" the client sees. No schema change needed for multi-transaction — this matches the current single-portal-per-client model.
 
-## What to check, in order
-
-1. Open Google Cloud Console → **APIs & Services → OAuth consent screen**
-   - Confirm **User type**. If *Internal*, that is almost certainly the cause.
-   - If *External* + *Testing*, confirm your Google account is in **Test users**.
-2. **APIs & Services → Credentials** → open the OAuth client behind `GOOGLE_CLIENT_ID`
-   - Confirm **Application type = Web application**.
-   - Confirm both callback URLs are listed under **Authorized redirect URIs**:
-     - `https://luxehub.lovable.app/agent/google-drive/callback`
-     - `https://id-preview--4a480d64-1066-455f-b5ff-2462d98492dc.lovable.app/agent/google-drive/callback`
-3. **APIs & Services → Enabled APIs** → confirm **Google Drive API** is enabled on this Cloud project (Calendar being enabled does not imply Drive is).
-4. Retry the flow. If it now reaches consent, we're done. If a *different* error appears (redirect_uri_mismatch, invalid_scope, access_denied), share the exact message and I'll take the next step.
-
-Report back what you find in steps 1–3 and I'll advise on any code-side follow-up (there may be none).
+## Out of scope
+- No changes to Google Drive integration
+- No changes to FUB timeline or tasks
+- No email notifications on upload
