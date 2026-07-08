@@ -19,6 +19,9 @@ import { ExternalLink, LayoutDashboard, Loader2, Mail, Send } from 'lucide-react
 import { FUBTimeline } from '@/pages/client-portal/components/FUBTimeline';
 import { ClientTaskList } from '@/pages/client-portal/components/ClientTaskList';
 import { GoogleDriveConnect } from '@/components/GoogleDriveConnect';
+import { PortalDocumentsPanel } from '@/components/portal/PortalDocumentsPanel';
+import { PortalPhotosPanel } from '@/components/portal/PortalPhotosPanel';
+import { useUserRole } from '@/hooks/useUserRole';
 
 interface AgentPortalDialogProps {
   clientName?: string;
@@ -44,6 +47,7 @@ export function AgentPortalDialog({
   defaultType,
 }: AgentPortalDialogProps) {
   const { user } = useAuth();
+  const { isAdmin } = useUserRole();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -184,13 +188,19 @@ export function AgentPortalDialog({
           </div>
         ) : (
           <Tabs defaultValue={account ? 'timeline' : 'setup'} className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="setup">Setup</TabsTrigger>
               <TabsTrigger value="timeline" disabled={!account}>
                 Timeline
               </TabsTrigger>
               <TabsTrigger value="tasks" disabled={!account}>
                 Tasks
+              </TabsTrigger>
+              <TabsTrigger value="documents" disabled={!account}>
+                Documents
+              </TabsTrigger>
+              <TabsTrigger value="photos" disabled={!account}>
+                Photos
               </TabsTrigger>
             </TabsList>
 
@@ -282,6 +292,14 @@ export function AgentPortalDialog({
 
             <TabsContent value="tasks" className="pt-4">
               {account && <ClientTaskList clientAccountId={account.id} canManage />}
+            </TabsContent>
+
+            <TabsContent value="documents" className="pt-4">
+              {account && <PortalDocumentsPanel portalId={account.id} canManage={isAdmin} />}
+            </TabsContent>
+
+            <TabsContent value="photos" className="pt-4">
+              {account && <PortalPhotosPanel portalId={account.id} canManage={isAdmin} />}
             </TabsContent>
           </Tabs>
         )}
