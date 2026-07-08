@@ -271,8 +271,13 @@ const ClientDashboard = () => {
                   <FUBTimeline
                     fubPersonId={clientAccount.fub_person_id}
                     clientAccountId={clientAccount.id}
+                    fubDealId={selectedTransaction?.fub_deal_id ?? null}
+                    transactionId={selectedTransaction?.id ?? null}
                   />
-                  <ClientTaskList clientAccountId={clientAccount.id} />
+                  <ClientTaskList
+                    clientAccountId={clientAccount.id}
+                    transactionId={selectedTransaction?.id ?? null}
+                  />
                 </div>
               </div>
             ) : activeTransaction ? (
@@ -281,7 +286,10 @@ const ClientDashboard = () => {
                 <div className="space-y-6">
                   <TransactionTimeline transaction={activeTransaction} />
                   {clientAccount && (
-                    <ClientTaskList clientAccountId={clientAccount.id} />
+                    <ClientTaskList
+                      clientAccountId={clientAccount.id}
+                      transactionId={selectedTransaction?.id ?? null}
+                    />
                   )}
                 </div>
               </div>
@@ -407,13 +415,16 @@ const ClientDashboard = () => {
 
       case 'tasks':
         return clientAccount && (
-          <ClientTaskList clientAccountId={clientAccount.id} />
+          <ClientTaskList
+            clientAccountId={clientAccount.id}
+            transactionId={selectedTransaction?.id ?? null}
+          />
         );
 
       case 'documents':
         return (
           <div className="space-y-6">
-            {documents.length === 0 ? (
+            {scopedDocuments.length === 0 ? (
               <Card className="border-dashed">
                 <CardContent className="flex flex-col items-center justify-center py-16">
                   <FolderOpen className="h-16 w-16 text-muted-foreground/50 mb-4" />
@@ -425,7 +436,7 @@ const ClientDashboard = () => {
               </Card>
             ) : (
               <div className="space-y-8">
-                {Object.entries(groupedDocuments).map(([type, docs]) => (
+                {Object.entries(groupedScopedDocuments).map(([type, docs]) => (
                   <div key={type}>
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                       <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getDocumentTypeColor(type)}`}>
