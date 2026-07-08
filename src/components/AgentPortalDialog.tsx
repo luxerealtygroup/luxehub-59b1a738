@@ -19,6 +19,7 @@ import { Check, Copy, LayoutDashboard, Loader2, Mail } from 'lucide-react';
 import { FUBTimeline } from '@/pages/client-portal/components/FUBTimeline';
 import { ClientTaskList } from '@/pages/client-portal/components/ClientTaskList';
 import { FUBContactTypeahead } from '@/components/FUBContactTypeahead';
+import { SlackChannelPicker } from '@/components/SlackChannelPicker';
 import { PortalDocumentsPanel } from '@/components/portal/PortalDocumentsPanel';
 import { PortalPhotosPanel } from '@/components/portal/PortalPhotosPanel';
 import { PortalChatPanel } from '@/components/portal/PortalChatPanel';
@@ -277,8 +278,11 @@ export function AgentPortalDialog({
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label>Slack channel ID</Label>
-                  <Input value={form.slack_channel_id} onChange={(e) => setForm({ ...form, slack_channel_id: e.target.value })} placeholder="C0123456" />
+                  <Label>Slack channel</Label>
+                  <SlackChannelPicker
+                    value={form.slack_channel_id}
+                    onChange={(id) => setForm({ ...form, slack_channel_id: id })}
+                  />
                 </div>
               </div>
               <div className="flex flex-wrap gap-2 pt-2">
