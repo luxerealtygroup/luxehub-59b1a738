@@ -16,6 +16,8 @@ import { ClientSidebar } from './components/ClientSidebar';
 import { FUBTimeline } from './components/FUBTimeline';
 import { DriveDocuments } from './components/DriveDocuments';
 import { DrivePhotos } from './components/DrivePhotos';
+import { PortalDocumentsPanel } from '@/components/portal/PortalDocumentsPanel';
+import { PortalPhotosPanel } from '@/components/portal/PortalPhotosPanel';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ShoppingCart as ShoppingCartIcon, Tag as TagIcon } from 'lucide-react';
 
@@ -426,18 +428,14 @@ const ClientDashboard = () => {
         );
 
       case 'documents':
-        return (
-          <DriveDocuments
-            folderId={selectedTransaction?.drive_folder_id ?? clientAccount?.drive_folder_id ?? null}
-          />
-        );
+        return clientAccount ? (
+          <PortalDocumentsPanel portalId={clientAccount.id} canManage={false} />
+        ) : null;
 
       case 'photos':
-        return (
-          <DrivePhotos
-            folderId={selectedTransaction?.drive_folder_id ?? clientAccount?.drive_folder_id ?? null}
-          />
-        );
+        return clientAccount ? (
+          <PortalPhotosPanel portalId={clientAccount.id} canManage={false} />
+        ) : null;
 
       case 'messages':
         return clientAccount && (
