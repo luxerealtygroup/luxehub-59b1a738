@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Download, ImageIcon, Loader2, Trash2, Upload } from 'lucide-react';
+import { Download, ImageIcon, Loader2, Trash2, Upload, Home, Trophy } from 'lucide-react';
 
 type Category = 'property' | 'milestone';
 
@@ -24,7 +24,7 @@ interface Props {
 
 const BUCKET = 'portal-photos';
 
-function PhotoThumb({ path, onOpen }: { path: string; onOpen: (url: string) => void }) {
+function PhotoThumb({ path, caption, onOpen }: { path: string; caption?: string | null; onOpen: (url: string) => void }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     let mounted = true;
@@ -33,10 +33,16 @@ function PhotoThumb({ path, onOpen }: { path: string; onOpen: (url: string) => v
     });
     return () => { mounted = false; };
   }, [path]);
-  if (!url) return <div className="aspect-square rounded-lg bg-muted animate-pulse" />;
+  if (!url) return <div className="aspect-[4/3] rounded-xl bg-muted animate-pulse" />;
   return (
-    <button onClick={() => onOpen(url)} className="aspect-square overflow-hidden rounded-lg bg-muted group relative">
-      <img src={url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+    <button onClick={() => onOpen(url)} className="aspect-[4/3] overflow-hidden rounded-xl bg-muted group relative shadow-sm hover:shadow-luxe-hover transition-all">
+      <img src={url} alt={caption ?? ''} className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-500" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+      {caption && (
+        <div className="absolute inset-x-0 bottom-0 p-3 text-left translate-y-2 group-hover:translate-y-0 opacity-0 group-hover:opacity-100 transition-all duration-300">
+          <p className="text-white text-xs font-medium drop-shadow-md line-clamp-2">{caption}</p>
+        </div>
+      )}
     </button>
   );
 }
@@ -114,77 +120,107 @@ export function PortalPhotosPanel({ portalId, canManage }: Props) {
   const property = photos.filter((p) => p.category === 'property');
   const milestone = photos.filter((p) => p.category === 'milestone');
 
-  const Section = ({ title, list }: { title: string; list: PortalPhoto[] }) => (
-    <div className="space-y-2">
-      <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">{title}</h4>
+  const Section = ({ title, icon, list }: { title: string; icon: React.ReactNode; list: PortalPhoto[] }) => (
+    <section className="space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/20">
+          {icon}
+        </div>
+        <div>
+          <p className="eyebrow leading-none">Gallery</p>
+          <h3 className="font-display text-xl font-semibold tracking-tight mt-0.5">{title}</h3>
+        </div>
+        <div className="flex-1 h-px divider-hair ml-2" />
+        <span className="text-xs text-muted-foreground tabular-nums">{list.length}</span>
+      </div>
       {list.length === 0 ? (
-        <div className="text-xs text-muted-foreground py-4">No {title.toLowerCase()} yet.</div>
+        <div className="rounded-2xl border border-dashed border-border/70 py-10 text-center text-sm text-muted-foreground">
+          No {title.toLowerCase()} yet.
+        </div>
       ) : (
-        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {list.map((p) => (
-            <div key={p.id} className="space-y-1">
-              <PhotoThumb path={p.file_path} onOpen={setLightbox} />
-              {p.caption && <div className="text-xs text-muted-foreground truncate">{p.caption}</div>}
-              <div className="flex gap-1">
-                <Button size="sm" variant="ghost" className="h-6 px-1 flex-1" onClick={() => downloadPhoto(p)}>
-                  <Download className="h-3 w-3" />
+            <figure key={p.id} className="group relative">
+              <PhotoThumb path={p.file_path} caption={p.caption} onOpen={setLightbox} />
+              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full bg-background/95 hover:bg-background shadow-md" onClick={() => downloadPhoto(p)} title="Download">
+                  <Download className="h-3.5 w-3.5" />
                 </Button>
                 {canManage && (
-                  <Button size="sm" variant="ghost" className="h-6 px-1" onClick={() => del(p)}>
-                    <Trash2 className="h-3 w-3 text-destructive" />
+                  <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full bg-background/95 hover:bg-background shadow-md" onClick={() => del(p)} title="Delete">
+                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
                   </Button>
                 )}
               </div>
-            </div>
+            </figure>
           ))}
         </div>
       )}
-    </div>
+    </section>
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-8">
       {canManage && (
-        <div className="rounded-lg border p-3 space-y-2 bg-muted/20">
-          <div className="flex gap-2">
+        <div className="rounded-2xl border border-border/70 bg-card p-4 space-y-3 shadow-sm">
+          <div className="flex flex-col sm:flex-row gap-2">
             <Select value={category} onValueChange={(v) => setCategory(v as Category)}>
-              <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="sm:w-48 rounded-full"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="property">Property</SelectItem>
-                <SelectItem value="milestone">Milestone</SelectItem>
+                <SelectItem value="property">Property Photos</SelectItem>
+                <SelectItem value="milestone">Milestone Photos</SelectItem>
               </SelectContent>
             </Select>
-            <Input placeholder="Caption (optional)" value={caption} onChange={(e) => setCaption(e.target.value)} />
+            <Input placeholder="Caption (optional)" value={caption} onChange={(e) => setCaption(e.target.value)} className="rounded-full" />
           </div>
-          <div
+          <button
+            type="button"
             onClick={() => inputRef.current?.click()}
-            className="flex flex-col items-center justify-center h-20 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+            className="w-full flex flex-col items-center justify-center h-24 border-2 border-dashed border-primary/30 rounded-xl bg-primary/[0.03] hover:bg-primary/[0.06] hover:border-primary/50 transition-all group"
           >
-            {uploading ? <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /> : <Upload className="h-5 w-5 text-muted-foreground" />}
-            <span className="mt-1 text-xs text-muted-foreground">Click to upload {category} photos</span>
+            {uploading ? (
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            ) : (
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-primary/20 group-hover:scale-105 transition-transform">
+                <Upload className="h-4 w-4" />
+              </div>
+            )}
+            <span className="mt-1.5 text-xs font-medium text-foreground">
+              Upload {category} photos
+            </span>
             <input ref={inputRef} type="file" multiple accept="image/*" className="hidden" onChange={onUpload} />
-          </div>
+          </button>
         </div>
       )}
 
       {loading ? (
-        <div className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Loading…</div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+          {[1,2,3,4].map(i => <div key={i} className="aspect-[4/3] rounded-xl bg-muted animate-pulse" />)}
+        </div>
       ) : photos.length === 0 ? (
-        <div className="text-center py-8 text-sm text-muted-foreground flex flex-col items-center gap-2">
-          <ImageIcon className="h-10 w-10 text-muted-foreground/50" />
-          {canManage ? 'No photos yet. Upload the first photo above.' : 'Your agent will add photos here soon.'}
+        <div className="luxe-card p-12 flex flex-col items-center justify-center text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/20 mb-4">
+            <ImageIcon className="h-6 w-6" />
+          </div>
+          <h3 className="font-display text-lg font-semibold tracking-tight mb-1">
+            {canManage ? 'No photos yet' : 'Photos coming soon'}
+          </h3>
+          <p className="text-sm text-muted-foreground max-w-sm">
+            {canManage ? 'Upload the first photo above to share it with your client.' : 'Your agent will add photos here soon.'}
+          </p>
         </div>
       ) : (
-        <div className="space-y-4">
-          <Section title="Property Photos" list={property} />
-          <Section title="Milestone Photos" list={milestone} />
+        <div className="space-y-10">
+          <Section title="Property Photos" icon={<Home className="h-4 w-4" />} list={property} />
+          <Section title="Milestone Photos" icon={<Trophy className="h-4 w-4" />} list={milestone} />
         </div>
       )}
 
       <Dialog open={!!lightbox} onOpenChange={(o) => !o && setLightbox(null)}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader><DialogTitle>Photo</DialogTitle></DialogHeader>
-          {lightbox && <img src={lightbox} alt="" className="w-full h-auto max-h-[75vh] object-contain" />}
+        <DialogContent className="max-w-none w-screen h-screen sm:rounded-none p-0 border-0 bg-black/95 gap-0 flex items-center justify-center">
+          {lightbox && (
+            <img src={lightbox} alt="" className="max-w-full max-h-full object-contain animate-fade-in" />
+          )}
         </DialogContent>
       </Dialog>
     </div>

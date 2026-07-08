@@ -1,6 +1,6 @@
 import { 
   Home, 
-  Building2, 
+  Gem,
   FileText, 
   MessageCircle, 
   CheckSquare,
@@ -58,13 +58,15 @@ export function ClientSidebar({
     <Sidebar className="border-r border-primary/10 bg-sidebar">
       <SidebarHeader className="border-b border-primary/10 p-4">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center">
-            <Building2 className="h-6 w-6 text-primary-foreground" />
+          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary via-primary to-primary/80 flex items-center justify-center shadow-gold">
+            <Gem className="h-5 w-5 text-primary-foreground" />
           </div>
           {!collapsed && (
-            <div>
-              <h1 className="font-display text-lg font-semibold text-foreground">RealtyHub</h1>
-              <p className="text-xs text-muted-foreground">Client Portal</p>
+            <div className="min-w-0">
+              <h1 className="font-display text-lg font-semibold tracking-tight text-foreground leading-none">
+                LUXE<span className="text-primary">hub</span>
+              </h1>
+              <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mt-1">Client Portal</p>
             </div>
           )}
         </div>

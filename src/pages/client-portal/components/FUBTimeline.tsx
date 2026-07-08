@@ -2,11 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Calendar, CheckCircle2, Loader2, Plus } from 'lucide-react';
+import { Calendar, Check, Loader2, Plus, Circle } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface StageEntry {
@@ -171,12 +170,19 @@ export function FUBTimeline({
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg flex items-center gap-2">
-          <Calendar className="h-5 w-5 text-primary" />
-          Transaction Timeline
-        </CardTitle>
+    <Card className="luxe-card">
+      <CardHeader className="pb-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
+            <Calendar className="h-4 w-4" />
+          </div>
+          <div>
+            <p className="eyebrow leading-none">Progress</p>
+            <CardTitle className="font-display text-lg font-semibold tracking-tight mt-1">
+              Transaction Timeline
+            </CardTitle>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         {loading ? (
@@ -186,84 +192,146 @@ export function FUBTimeline({
         ) : error ? (
           <p className="text-sm text-destructive py-4">{error}</p>
         ) : stages.length === 0 ? (
-          <p className="text-muted-foreground text-center py-6">
-            No Follow Up Boss deal stages yet. Stages will appear here as your agent moves the transaction forward.
-          </p>
-        ) : (
-          <div className="relative">
-            <div className="absolute left-[9px] top-2 bottom-2 w-0.5 bg-border" />
-            <div className="space-y-6">
-              {stages.map((entry, i) => {
-                const isCurrent = entry.stage === currentStageName;
-                const stageNotes = notesByStage[entry.stage] || [];
-                return (
-                  <div key={entry.stage + i} className="relative flex gap-4">
-                    <div
-                      className={`relative z-10 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
-                        isCurrent ? 'bg-primary ring-4 ring-primary/20' : 'bg-green-500'
-                      }`}
-                    >
-                      {isCurrent ? (
-                        <div className="h-2 w-2 rounded-full bg-white animate-pulse" />
-                      ) : (
-                        <CheckCircle2 className="h-4 w-4 text-white" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="font-medium">{entry.stage}</p>
-                        {isCurrent && (
-                          <Badge variant="secondary" className="text-xs">
-                            Current
-                          </Badge>
-                        )}
-                      </div>
-                      {entry.reachedAt && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Reached {format(new Date(entry.reachedAt), 'MMM d, yyyy')}
-                        </p>
-                      )}
-                      {stageNotes.length > 0 && (
-                        <div className="mt-2 space-y-1">
-                          {stageNotes.map((n) => (
-                            <div key={n.id} className="rounded-md bg-muted/50 px-3 py-2 text-sm">
-                              <p className="whitespace-pre-wrap">{n.note}</p>
-                              <p className="text-[10px] text-muted-foreground mt-1">
-                                {format(new Date(n.created_at), 'MMM d, yyyy · h:mm a')}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {canAddNotes && (
-                        <div className="mt-2 space-y-2">
-                          <Textarea
-                            placeholder={`Add a note for "${entry.stage}"…`}
-                            value={draft[entry.stage] || ''}
-                            onChange={(e) => setDraft({ ...draft, [entry.stage]: e.target.value })}
-                            rows={2}
-                            className="text-sm"
-                          />
-                          <Button
-                            size="sm"
-                            onClick={() => addNote(entry.stage)}
-                            disabled={savingStage === entry.stage || !(draft[entry.stage] || '').trim()}
-                          >
-                            {savingStage === entry.stage ? (
-                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                            ) : (
-                              <Plus className="h-3 w-3 mr-1" />
-                            )}
-                            Add note
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+          <div className="text-center py-8">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-3">
+              <Calendar className="h-5 w-5 text-muted-foreground" />
             </div>
+            <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+              Stages will appear here as your agent moves your transaction forward.
+            </p>
           </div>
+        ) : (
+          (() => {
+            // Compute upcoming stages from the canonical order after the current stage
+            const currentCanonicalIdx = CANONICAL_STAGES.findIndex((s) =>
+              currentStageName?.toLowerCase().includes(s.toLowerCase()),
+            );
+            const reachedKeys = new Set(stages.map((s) => s.stage.toLowerCase()));
+            const upcoming =
+              currentCanonicalIdx >= 0
+                ? CANONICAL_STAGES.slice(currentCanonicalIdx + 1).filter(
+                    (s) => !reachedKeys.has(s.toLowerCase()),
+                  )
+                : [];
+            const total = stages.length + upcoming.length;
+
+            return (
+              <div className="relative pl-1">
+                <div className="absolute left-[13px] top-3 bottom-3 w-px bg-gradient-to-b from-primary/30 via-border to-border" />
+                <ol className="space-y-6">
+                  {stages.map((entry, i) => {
+                    const isCurrent = entry.stage === currentStageName;
+                    const isComplete = !isCurrent;
+                    const stageNotes = notesByStage[entry.stage] || [];
+                    return (
+                      <li key={entry.stage + i} className="relative flex gap-4">
+                        <div
+                          className={`relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ring-4 ${
+                            isCurrent
+                              ? 'bg-primary ring-primary/15 animate-soft-pulse'
+                              : 'bg-emerald-500 ring-emerald-500/15'
+                          }`}
+                        >
+                          {isCurrent ? (
+                            <div className="h-2 w-2 rounded-full bg-white" />
+                          ) : (
+                            <Check className="h-4 w-4 text-white" strokeWidth={3} />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0 pt-0.5">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <p
+                              className={`font-display text-base font-semibold tracking-tight ${
+                                isCurrent ? 'text-foreground' : 'text-foreground/90'
+                              }`}
+                            >
+                              {entry.stage}
+                            </p>
+                            {isCurrent ? (
+                              <span className="chip-gold">Current</span>
+                            ) : (
+                              <span className="chip-success">
+                                <Check className="h-3 w-3" /> Complete
+                              </span>
+                            )}
+                          </div>
+                          {entry.reachedAt && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {isCurrent ? 'Started' : 'Reached'}{' '}
+                              {format(new Date(entry.reachedAt), 'MMM d, yyyy')}
+                            </p>
+                          )}
+                          {stageNotes.length > 0 && (
+                            <div className="mt-3 space-y-1.5">
+                              {stageNotes.map((n) => (
+                                <div
+                                  key={n.id}
+                                  className="rounded-lg border border-border/60 bg-muted/40 px-3 py-2 text-sm"
+                                >
+                                  <p className="whitespace-pre-wrap">{n.note}</p>
+                                  <p className="text-[10px] text-muted-foreground mt-1">
+                                    {format(new Date(n.created_at), 'MMM d, yyyy · h:mm a')}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {canAddNotes && (
+                            <div className="mt-3 space-y-2">
+                              <Textarea
+                                placeholder={`Add a note for "${entry.stage}"…`}
+                                value={draft[entry.stage] || ''}
+                                onChange={(e) =>
+                                  setDraft({ ...draft, [entry.stage]: e.target.value })
+                                }
+                                rows={2}
+                                className="text-sm rounded-lg"
+                              />
+                              <Button
+                                size="sm"
+                                onClick={() => addNote(entry.stage)}
+                                disabled={
+                                  savingStage === entry.stage ||
+                                  !(draft[entry.stage] || '').trim()
+                                }
+                              >
+                                {savingStage === entry.stage ? (
+                                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                ) : (
+                                  <Plus className="h-3 w-3 mr-1" />
+                                )}
+                                Add note
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
+                  {upcoming.map((s) => (
+                    <li key={`upcoming-${s}`} className="relative flex gap-4 opacity-70">
+                      <div className="relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-background ring-4 ring-border/40 border border-border">
+                        <Circle className="h-2 w-2 text-muted-foreground" fill="currentColor" />
+                      </div>
+                      <div className="flex-1 min-w-0 pt-0.5">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <p className="font-display text-base font-medium tracking-tight text-muted-foreground">
+                            {s}
+                          </p>
+                          <span className="chip-muted">Upcoming</span>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+                {total > 0 && (
+                  <p className="mt-6 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                    {stages.length} of {total} stages complete
+                  </p>
+                )}
+              </div>
+            );
+          })()
         )}
       </CardContent>
     </Card>

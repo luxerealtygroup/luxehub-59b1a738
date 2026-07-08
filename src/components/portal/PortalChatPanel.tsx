@@ -124,54 +124,86 @@ export function PortalChatPanel({ portalId, viewerRole }: PortalChatPanelProps) 
   };
 
   const bubbleClass = (m: PortalMessage) => {
-    if (isMine(m)) return 'bg-primary text-primary-foreground';
-    if (m.sender_type === 'ops') return 'bg-amber-500/15 text-foreground border border-amber-500/30';
-    if (m.sender_type === 'agent') return 'bg-muted';
-    return 'bg-muted';
+    if (isMine(m)) return 'bg-primary text-primary-foreground shadow-sm';
+    if (m.sender_type === 'ops')
+      return 'bg-amber-500/10 text-foreground border border-amber-500/30 shadow-sm';
+    return 'bg-background text-foreground border border-border/70 shadow-sm';
+  };
+
+  const avatarClass = (m: PortalMessage) => {
+    if (m.sender_type === 'ops') return 'bg-amber-500/15 text-amber-700 ring-amber-500/30';
+    if (m.sender_type === 'agent') return 'bg-primary/10 text-primary ring-primary/25';
+    return 'bg-foreground/10 text-foreground ring-foreground/20';
   };
 
   return (
-    <Card className="flex flex-col h-[500px]">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-lg flex items-center gap-2">
-          <MessageCircle className="h-5 w-5 text-primary" />
-          Messages
-        </CardTitle>
+    <Card className="flex flex-col h-[calc(100vh-14rem)] min-h-[480px] max-h-[720px] luxe-card overflow-hidden">
+      <CardHeader className="pb-3 border-b border-border/60 bg-background/70">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
+            <MessageCircle className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <p className="eyebrow leading-none">Conversation</p>
+            <CardTitle className="font-display text-lg font-semibold tracking-tight mt-1">
+              Messages
+            </CardTitle>
+          </div>
+        </div>
       </CardHeader>
-      <CardContent className="flex-1 flex flex-col min-h-0 p-0">
+      <CardContent className="flex-1 flex flex-col min-h-0 p-0 bg-[hsl(38_30%_98%)]">
         {loading ? (
           <div className="flex-1 flex items-center justify-center text-muted-foreground">
             Loading messages…
           </div>
         ) : messages.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
-            <MessageCircle className="h-12 w-12 text-muted-foreground/50 mb-3" />
-            <p className="text-muted-foreground">No messages yet</p>
-            <p className="text-sm text-muted-foreground">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/20 mb-4">
+              <MessageCircle className="h-6 w-6" />
+            </div>
+            <h3 className="font-display text-lg font-semibold tracking-tight mb-1">Start the conversation</h3>
+            <p className="text-sm text-muted-foreground max-w-sm">
               {viewerRole === 'client'
                 ? 'Send a message to your agent or the Luxe Realty support team below.'
                 : 'Reply to this client — the message will also post to Slack for ops.'}
             </p>
           </div>
         ) : (
-          <ScrollArea className="flex-1 px-6" ref={scrollRef}>
-            <div className="space-y-3 py-4">
+          <ScrollArea className="flex-1 px-4 sm:px-6" ref={scrollRef}>
+            <div className="space-y-4 py-5">
               {messages.map((m) => {
                 const mine = isMine(m);
                 const h = headerFor(m);
                 return (
-                  <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[80%] rounded-lg px-4 py-2 ${bubbleClass(m)}`}>
+                  <div
+                    key={m.id}
+                    className={`flex items-end gap-2 animate-fade-in ${mine ? 'justify-end' : 'justify-start'}`}
+                  >
+                    {!mine && (
+                      <div
+                        className={`hidden sm:flex h-8 w-8 shrink-0 items-center justify-center rounded-full ring-2 ${avatarClass(m)}`}
+                      >
+                        {h.icon}
+                      </div>
+                    )}
+                    <div className={`max-w-[85%] sm:max-w-[70%] flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
                       {!mine && (
-                        <div className="flex items-center gap-1 mb-1 opacity-80">
-                          {h.icon}
-                          <span className="text-xs font-medium">{h.label}</span>
-                        </div>
+                        <span className="text-[11px] font-medium text-muted-foreground mb-1 ml-1">
+                          {h.label}
+                        </span>
                       )}
-                      <p className="text-sm whitespace-pre-wrap break-words">{m.message_body}</p>
+                      <div
+                        className={`rounded-2xl px-4 py-2.5 ${bubbleClass(m)} ${
+                          mine ? 'rounded-br-md' : 'rounded-bl-md'
+                        }`}
+                      >
+                        <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
+                          {m.message_body}
+                        </p>
+                      </div>
                       <p
-                        className={`text-[11px] mt-1 ${
-                          mine ? 'text-primary-foreground/70' : 'text-muted-foreground'
+                        className={`text-[10px] mt-1 tabular-nums ${
+                          mine ? 'text-muted-foreground mr-1' : 'text-muted-foreground ml-1'
                         }`}
                       >
                         {formatTime(m.created_at)}
@@ -184,14 +216,20 @@ export function PortalChatPanel({ portalId, viewerRole }: PortalChatPanelProps) 
           </ScrollArea>
         )}
 
-        <form onSubmit={send} className="p-4 border-t flex gap-2">
+        <form onSubmit={send} className="p-3 sm:p-4 border-t border-border/60 bg-background flex gap-2">
           <Input
             placeholder={viewerRole === 'client' ? 'Type a message…' : 'Reply to client…'}
             value={text}
             onChange={(e) => setText(e.target.value)}
             disabled={sending}
+            className="rounded-full h-11 px-4 border-border/70 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:border-primary transition-colors"
           />
-          <Button type="submit" size="icon" disabled={!text.trim() || sending}>
+          <Button
+            type="submit"
+            size="icon"
+            disabled={!text.trim() || sending}
+            className="h-11 w-11 rounded-full shadow-gold shrink-0"
+          >
             <Send className="h-4 w-4" />
           </Button>
         </form>
