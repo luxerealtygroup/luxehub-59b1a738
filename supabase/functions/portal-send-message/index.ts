@@ -1,0 +1,111 @@
+import { createClient } from 'npm:@supabase/supabase-js@2';
+import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+
+  try {
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return json({ error: 'Unauthorized' }, 401);
+    }
+
+    const userClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } },
+    );
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claims, error: claimsErr } = await userClient.auth.getClaims(token);
+    if (claimsErr || !claims?.claims) return json({ error: 'Unauthorized' }, 401);
+    const userId = claims.claims.sub as string;
+
+    const body = await req.json().catch(() => ({}));
+    const portalId = String(body.portal_id ?? '').trim();
+    const message = String(body.message ?? '').trim();
+    if (!portalId || !message) return json({ error: 'portal_id and message required' }, 400);
+    if (message.length > 4000) return json({ error: 'Message too long' }, 400);
+
+    const admin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    );
+
+    // Load portal + determine sender role
+    const { data: portal, error: portalErr } = await admin
+      .from('client_accounts')
+      .select('id, user_id, full_name, slack_channel_id')
+      .eq('id', portalId)
+      .maybeSingle();
+    if (portalErr || !portal) return json({ error: 'Portal not found' }, 404);
+
+    const isClient = portal.user_id === userId;
+    let senderType: 'client' | 'agent' = 'client';
+    let senderName = portal.full_name || 'Client';
+
+    if (!isClient) {
+      // Must be a team member (agent/admin/owner)
+      const { data: teamCheck } = await admin.rpc('is_team_member', { _user_id: userId });
+      if (!teamCheck) return json({ error: 'Forbidden' }, 403);
+      senderType = 'agent';
+      const { data: prof } = await admin
+        .from('profiles')
+        .select('full_name')
+        .eq('id', userId)
+        .maybeSingle();
+      senderName = prof?.full_name || 'Your Agent';
+    }
+
+    // Post to Slack first (so we can capture ts). If it fails, still save.
+    let slackTs: string | null = null;
+    const slackToken = Deno.env.get('SLACK_BOT_TOKEN');
+    if (slackToken && portal.slack_channel_id) {
+      try {
+        const emoji = senderType === 'client' ? '💬' : '🧑‍💼';
+        const text = `${emoji} *${senderName}*: ${message}`;
+        const resp = await fetch('https://slack.com/api/chat.postMessage', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${slackToken}`,
+            'Content-Type': 'application/json; charset=utf-8',
+          },
+          body: JSON.stringify({ channel: portal.slack_channel_id, text }),
+        });
+        const data = await resp.json();
+        if (data?.ok) slackTs = data.ts as string;
+        else console.error('Slack post failed:', data);
+      } catch (e) {
+        console.error('Slack post error:', e);
+      }
+    }
+
+    const { data: inserted, error: insErr } = await admin
+      .from('portal_messages')
+      .insert({
+        portal_id: portalId,
+        sender_type: senderType,
+        sender_name: senderName,
+        sender_user_id: userId,
+        message_body: message,
+        slack_ts: slackTs,
+      })
+      .select()
+      .single();
+    if (insErr) {
+      console.error('Insert failed:', insErr);
+      return json({ error: 'Failed to save message' }, 500);
+    }
+
+    return json({ ok: true, message: inserted });
+  } catch (e) {
+    console.error(e);
+    return json({ error: (e as Error).message }, 500);
+  }
+});
+
+function json(payload: unknown, status = 200) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
