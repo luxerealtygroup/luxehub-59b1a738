@@ -1,55 +1,65 @@
-## Extend Client Portal with FUB Timeline, Tasks, Invite Flow
+# Google Drive OAuth — 403 Diagnosis
 
-### Database changes (one migration)
-Extend `client_accounts`:
-- add `client_type` text ('buyer' | 'seller')
-- add `drive_folder_id` text, `slack_channel_id` text
+No code changes proposed. This is an investigation report.
 
-Extend `client_tasks`:
-- add `status` text default 'pending' (values: pending, complete) — keep existing `completed_at`
-- add `notes` text (alias for description use)
+## What I verified in the code
 
-Create `portal_timeline_notes`:
-- id uuid pk, client_account_id uuid fk → client_accounts, user_id uuid (agent), stage text, note text, created_at, updated_at
-- RLS: agent (invited_by) and owners manage; client can view their own
+**Frontend** (`src/components/GoogleDriveConnect.tsx`)
+- Sends `redirect_uri = ${window.location.origin}/agent/google-drive/callback`
+- On preview that resolves to:
+  `https://id-preview--4a480d64-1066-455f-b5ff-2462d98492dc.lovable.app/agent/google-drive/callback`
 
-Grants + RLS + timestamps triggers included.
+**Edge function** (`supabase/functions/google-drive-files/index.ts`)
+- Reads `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` from Lovable Cloud secrets (both confirmed present)
+- Builds a standard `https://accounts.google.com/o/oauth2/v2/auth?...` URL with:
+  - `client_id` = the secret
+  - `redirect_uri` = value passed from browser (unmodified)
+  - `scope` = `drive.readonly openid email`
+  - `access_type=offline`, `prompt=consent`, `state=<user.id>`
 
-No new `client_portals` table — `client_accounts` already covers user_id/client_email/fub_person_id/invited_by. Magic link comes from Supabase auth OTP so no token columns needed.
+The wiring itself is correct. The 403 is happening on **Google's side** before the user ever sees a consent screen, which narrows it to one of three provider-side causes.
 
-### FUB integration
-Reuse existing `FOLLOW_UP_BOSS_API_KEY` and existing `follow-up-boss` edge function. Add one new action `get_person_deals` (query `/v1/deals?personId=X`) returning deal stage + stageEnteredAt history. Frontend derives the actual FUB stage list dynamically per contact — no hardcoded 7 stages.
+## Most likely root cause (in order)
 
-### Client portal Overview
-Replace empty transaction area in `ClientDashboard.tsx` with a new `FUBTimeline` component:
-- Fetches FUB deals for `client_accounts.fub_person_id` via the new action
-- Renders vertical timeline of the actual FUB stages, dated, current stage highlighted
-- Shows any `portal_timeline_notes` under each stage
+### 1. OAuth consent screen "User type = Internal" + non-Workspace account
+This is the #1 cause of a bare Google 403 "you do not have access to this page" **before** login/consent. If the OAuth client's consent screen is configured as **Internal**, only Google Workspace users in the *same* organization as the Cloud project can proceed. A personal `@gmail.com` (or a Workspace user from a different domain) is blocked with exactly this page.
 
-### Agent side
-- `AgentPortalView` (new modal/drawer opened from a client row): shows the same timeline, lets agent add a note per stage, and manage tasks
-- Add **"Invite to Client Portal"** button on Pipeline rows and Deals — opens a new `ClientPortalInviteDialog`:
-  - Fields: client name, email, client_type (buyer/seller), FUB contact (typeahead reusing `FUBContactTypeahead`), Drive folder ID, Slack channel ID
-  - On submit: upsert `client_accounts` (invited_by = agent), then call `supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: /client-portal, shouldCreateUser: true, data: { full_name } } })` to send magic-link invitation
+**Check:** Google Cloud Console → APIs & Services → OAuth consent screen → **User type**. If it says *Internal*, either
+- switch it to *External* (then add test users while in Testing mode, or Publish), OR
+- only sign in with a Workspace account inside the owning org.
 
-### Tasks tab
-Extend the existing client task list:
-- Agent creates tasks with title, due_date, notes
-- Client toggles complete (sets status + completed_at)
-- Uses existing `client_tasks` table with new `status`/`notes` columns
+### 2. Testing mode with no test users added
+If User type is *External* and Publishing status is *Testing*, Google shows an "access blocked / app not verified" screen — but for some accounts (particularly when the Drive scope is treated as sensitive/restricted and no test users exist) it can degrade to the same 403.
 
-### Files touched (approx)
-- `supabase/migrations/<new>.sql`
-- `supabase/functions/follow-up-boss/index.ts` (+ `get_person_deals` action)
-- `src/lib/api/followUpBoss.ts` (+ `getPersonDeals`)
-- `src/pages/client-portal/components/FUBTimeline.tsx` (new)
-- `src/pages/client-portal/ClientDashboard.tsx` (wire timeline)
-- `src/pages/client-portal/components/ClientTaskList.tsx` (status toggle)
-- `src/components/ClientPortalInviteDialog.tsx` (new, replaces/augments existing `ClientInviteDialog`)
-- `src/components/FUBDealSections.tsx` and `src/components/PipelineReport.tsx` (add invite button)
-- `src/components/admin/AgentPortalView.tsx` (new agent-side timeline+notes+tasks panel)
+**Check:** OAuth consent screen → **Test users**. Add the exact Google account you're testing with. Or click **Publish app** to move out of Testing.
 
-### Notes
-- Uses Supabase magic link (`signInWithOtp`) — no custom token table needed
-- Reuses existing FUB API key; no new secret
-- Stage list comes from real FUB deal stages per contact
+### 3. Wrong OAuth client type
+`GOOGLE_CLIENT_ID` is reused from the Calendar integration. If that client was created as anything other than **Web application** (e.g., iOS, Android, TVs and Limited Input, Desktop), the `/o/oauth2/v2/auth` endpoint with a browser `redirect_uri` returns 403 immediately.
+
+**Check:** Google Cloud Console → Credentials → open the client → **Application type** must be *Web application*.
+
+### 4. Cloud project / OAuth client disabled or deleted
+If the project that owns `GOOGLE_CLIENT_ID` was suspended, billing-disabled, or the credential was deleted, Google returns the same generic 403.
+
+**Check:** Credentials page shows the client is present and enabled; project has no suspension banner.
+
+## Things that are NOT the cause
+
+- **Redirect URI mismatch** — that produces a different, specific Google page ("Error 400: redirect_uri_mismatch") *after* you sign in, not a 403 before login. So the two callback URLs I asked you to add are still needed, but they are not what's triggering this particular error.
+- **Missing secret / edge function error** — those would surface as a toast in the app, not a Google-hosted 403 page.
+- **Scopes** — invalid scopes produce a Google error page with the offending scope named, not this generic 403.
+
+## What to check, in order
+
+1. Open Google Cloud Console → **APIs & Services → OAuth consent screen**
+   - Confirm **User type**. If *Internal*, that is almost certainly the cause.
+   - If *External* + *Testing*, confirm your Google account is in **Test users**.
+2. **APIs & Services → Credentials** → open the OAuth client behind `GOOGLE_CLIENT_ID`
+   - Confirm **Application type = Web application**.
+   - Confirm both callback URLs are listed under **Authorized redirect URIs**:
+     - `https://luxehub.lovable.app/agent/google-drive/callback`
+     - `https://id-preview--4a480d64-1066-455f-b5ff-2462d98492dc.lovable.app/agent/google-drive/callback`
+3. **APIs & Services → Enabled APIs** → confirm **Google Drive API** is enabled on this Cloud project (Calendar being enabled does not imply Drive is).
+4. Retry the flow. If it now reaches consent, we're done. If a *different* error appears (redirect_uri_mismatch, invalid_scope, access_denied), share the exact message and I'll take the next step.
+
+Report back what you find in steps 1–3 and I'll advise on any code-side follow-up (there may be none).
