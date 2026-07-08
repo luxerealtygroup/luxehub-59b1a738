@@ -308,35 +308,44 @@ export type Database = {
       }
       client_accounts: {
         Row: {
+          client_type: string | null
           created_at: string
+          drive_folder_id: string | null
           email: string
           fub_person_id: number | null
           full_name: string | null
           id: string
           invited_by: string | null
           phone: string | null
+          slack_channel_id: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          client_type?: string | null
           created_at?: string
+          drive_folder_id?: string | null
           email: string
           fub_person_id?: number | null
           full_name?: string | null
           id?: string
           invited_by?: string | null
           phone?: string | null
+          slack_channel_id?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          client_type?: string | null
           created_at?: string
+          drive_folder_id?: string | null
           email?: string
           fub_person_id?: number | null
           full_name?: string | null
           id?: string
           invited_by?: string | null
           phone?: string | null
+          slack_channel_id?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -440,6 +449,8 @@ export type Database = {
           description: string | null
           due_date: string | null
           id: string
+          notes: string | null
+          status: string
           title: string
           transaction_id: string | null
           updated_at: string
@@ -452,6 +463,8 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          notes?: string | null
+          status?: string
           title: string
           transaction_id?: string | null
           updated_at?: string
@@ -464,6 +477,8 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          notes?: string | null
+          status?: string
           title?: string
           transaction_id?: string | null
           updated_at?: string
@@ -1767,6 +1782,44 @@ export type Database = {
           year?: number
         }
         Relationships: []
+      }
+      portal_timeline_notes: {
+        Row: {
+          client_account_id: string
+          created_at: string
+          id: string
+          note: string
+          stage: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          client_account_id: string
+          created_at?: string
+          id?: string
+          note: string
+          stage: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          client_account_id?: string
+          created_at?: string
+          id?: string
+          note?: string
+          stage?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_timeline_notes_client_account_id_fkey"
+            columns: ["client_account_id"]
+            isOneToOne: false
+            referencedRelation: "client_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       production_goals: {
         Row: {

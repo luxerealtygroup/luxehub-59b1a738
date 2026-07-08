@@ -13,6 +13,7 @@ import { ClientTaskList } from './components/ClientTaskList';
 import { ClientMessaging } from './components/ClientMessaging';
 import { PropertyDetails } from './components/PropertyDetails';
 import { ClientSidebar } from './components/ClientSidebar';
+import { FUBTimeline } from './components/FUBTimeline';
 
 interface ClientDocument {
   id: string;
@@ -213,7 +214,30 @@ const ClientDashboard = () => {
       case 'overview':
         return (
           <div className="space-y-6">
-            {activeTransaction ? (
+            {clientAccount?.fub_person_id ? (
+              <div className="grid gap-6 lg:grid-cols-2">
+                {activeTransaction ? (
+                  <PropertyDetails transaction={activeTransaction} />
+                ) : (
+                  <Card className="border-dashed">
+                    <CardContent className="flex flex-col items-center justify-center py-16">
+                      <Home className="h-16 w-16 text-muted-foreground/50 mb-4" />
+                      <h3 className="text-lg font-medium mb-2">Property details coming soon</h3>
+                      <p className="text-muted-foreground text-center max-w-md">
+                        Your agent will add property details here as your transaction progresses.
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+                <div className="space-y-6">
+                  <FUBTimeline
+                    fubPersonId={clientAccount.fub_person_id}
+                    clientAccountId={clientAccount.id}
+                  />
+                  <ClientTaskList clientAccountId={clientAccount.id} />
+                </div>
+              </div>
+            ) : activeTransaction ? (
               <div className="grid gap-6 lg:grid-cols-2">
                 <PropertyDetails transaction={activeTransaction} />
                 <div className="space-y-6">

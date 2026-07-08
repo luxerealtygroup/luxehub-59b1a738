@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { FUBClientSearch } from '@/components/FUBClientSearch';
+import { AgentPortalDialog } from '@/components/AgentPortalDialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -714,6 +715,12 @@ const Pipeline = () => {
                   {client.source && <p className="text-xs text-muted-foreground">Source: {client.source}</p>}
                 </div>
                 <div className="flex gap-2">
+                  <AgentPortalDialog
+                    clientName={client.client_name}
+                    clientEmail={client.email}
+                    fubPersonId={client.fub_person_id}
+                    defaultType={client.client_type === 'seller' || client.client_type === 'landlord' ? 'seller' : 'buyer'}
+                  />
                   {!isReadOnly && (
                     <>
                       <Button size="sm" variant="ghost" onClick={() => setEditingClient(client)}><Edit2 className="h-4 w-4" /></Button>

@@ -161,6 +161,15 @@ export const followUpBossApi = {
     return data;
   },
 
+  async getPersonDeals(personId: number): Promise<FUBResponse<{ deals: FUBDeal[] }>> {
+    const { data, error } = await supabase.functions.invoke('follow-up-boss', {
+      body: { action: 'get_person_deals', params: { personId } },
+      headers: await getFollowUpBossHeaders(),
+    });
+    if (error) return { success: false, error: error.message };
+    return data;
+  },
+
   async getDeals(limit = 50, offset = 0, stage?: string): Promise<FUBResponse<{ deals: FUBDeal[] }>> {
     const { data, error } = await supabase.functions.invoke('follow-up-boss', {
       body: { action: 'get_deals', params: { limit, offset, stage } },
