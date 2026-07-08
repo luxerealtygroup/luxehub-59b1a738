@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ExternalLink, LayoutDashboard, Loader2, Mail, Send } from 'lucide-react';
+import { ExternalLink, LayoutDashboard, Loader2, Send } from 'lucide-react';
 import { FUBTimeline } from '@/pages/client-portal/components/FUBTimeline';
 import { ClientTaskList } from '@/pages/client-portal/components/ClientTaskList';
 import { GoogleDriveConnect } from '@/components/GoogleDriveConnect';
