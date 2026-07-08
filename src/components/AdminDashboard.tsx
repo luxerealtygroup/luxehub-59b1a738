@@ -218,6 +218,30 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     if (roleLoading || !isAdmin) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('client_accounts')
+        .select('id,email,full_name,client_type,fub_person_id,user_id,invited_by');
+      if (cancelled || !data) return;
+      const map = new Map<number, { id: string; status: 'active' | 'invited'; email: string; full_name: string | null; client_type: string | null }>();
+      data.forEach((a: any) => {
+        if (!a.fub_person_id) return;
+        map.set(a.fub_person_id, {
+          id: a.id,
+          status: a.user_id === a.invited_by ? 'invited' : 'active',
+          email: a.email,
+          full_name: a.full_name,
+          client_type: a.client_type,
+        });
+      });
+      setPortalByFubId(map);
+    })();
+    return () => { cancelled = true; };
+  }, [roleLoading, isAdmin]);
+
+  useEffect(() => {
+    if (roleLoading || !isAdmin) return;
 
     const fetchCompanyData = async () => {
       setLoading(true);
