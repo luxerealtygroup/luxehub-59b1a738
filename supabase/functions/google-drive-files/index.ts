@@ -1,81 +1,94 @@
 // Google Drive files proxy for the client portal.
-// Uses a Google service account (GOOGLE_SERVICE_ACCOUNT_KEY) to list and
-// stream files from a client's Drive folder without exposing credentials.
+// Uses the *agent's* OAuth2 tokens (per-user), stored in
+// public.agent_google_drive_tokens, so each agent grants access to their
+// own Drive account. GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET (already used
+// for Google Calendar) are the OAuth client credentials.
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-type Action = 'list' | 'list_subfolder' | 'download';
+type Action =
+  | 'get_auth_url'
+  | 'exchange_code'
+  | 'disconnect'
+  | 'status'
+  | 'list'
+  | 'list_subfolder'
+  | 'download';
 
 interface Body {
   action: Action;
   folder_id?: string;
-  subfolder?: string; // e.g. "Photos/Property"
+  subfolder?: string;
   file_id?: string;
+  code?: string;
+  redirect_uri?: string;
 }
 
-const SCOPES = 'https://www.googleapis.com/auth/drive.readonly';
+const GOOGLE_CLIENT_ID = Deno.env.get('GOOGLE_CLIENT_ID')!;
+const GOOGLE_CLIENT_SECRET = Deno.env.get('GOOGLE_CLIENT_SECRET')!;
+const SCOPES = [
+  'https://www.googleapis.com/auth/drive.readonly',
+  'openid',
+  'email',
+].join(' ');
 
-function b64urlEncode(bytes: Uint8Array | string) {
-  const arr = typeof bytes === 'string' ? new TextEncoder().encode(bytes) : bytes;
-  let bin = '';
-  arr.forEach((b) => (bin += String.fromCharCode(b)));
-  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
-}
-
-function pemToPkcs8(pem: string): Uint8Array {
-  const body = pem
-    .replace(/-----BEGIN [^-]+-----/g, '')
-    .replace(/-----END [^-]+-----/g, '')
-    .replace(/\s+/g, '');
-  const raw = atob(body);
-  const out = new Uint8Array(raw.length);
-  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
-  return out;
-}
-
-let cachedToken: { token: string; exp: number } | null = null;
-
-async function getAccessToken(): Promise<string> {
-  const now = Math.floor(Date.now() / 1000);
-  if (cachedToken && cachedToken.exp - 60 > now) return cachedToken.token;
-
-  const raw = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_KEY');
-  if (!raw) throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY not configured');
-  const key = JSON.parse(raw) as { client_email: string; private_key: string };
-
-  const header = { alg: 'RS256', typ: 'JWT' };
-  const payload = {
-    iss: key.client_email,
-    scope: SCOPES,
-    aud: 'https://oauth2.googleapis.com/token',
-    exp: now + 3600,
-    iat: now,
-  };
-  const signingInput = `${b64urlEncode(JSON.stringify(header))}.${b64urlEncode(JSON.stringify(payload))}`;
-
-  const pk = await crypto.subtle.importKey(
-    'pkcs8',
-    pemToPkcs8(key.private_key.replace(/\\n/g, '\n')),
-    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-    false,
-    ['sign'],
+function admin() {
+  return createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
-  const sig = new Uint8Array(
-    await crypto.subtle.sign('RSASSA-PKCS1-v1_5', pk, new TextEncoder().encode(signingInput)),
+}
+
+async function getCallerUser(req: Request) {
+  const authHeader = req.headers.get('Authorization') ?? '';
+  const c = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_ANON_KEY')!,
+    { global: { headers: { Authorization: authHeader } } },
   );
-  const jwt = `${signingInput}.${b64urlEncode(sig)}`;
+  const { data } = await c.auth.getUser();
+  if (!data?.user) throw new Error('Unauthorized');
+  return data.user;
+}
+
+/**
+ * Return a valid access token for the agent identified by `agentUserId`,
+ * refreshing it via the stored refresh_token when close to expiry.
+ */
+async function getAgentAccessToken(agentUserId: string): Promise<string> {
+  const db = admin();
+  const { data: row, error } = await db
+    .from('agent_google_drive_tokens')
+    .select('*')
+    .eq('user_id', agentUserId)
+    .maybeSingle();
+  if (error) throw new Error(`Token lookup failed: ${error.message}`);
+  if (!row) throw new Error('Agent has not connected Google Drive yet');
+
+  const expiresAt = new Date(row.expires_at as string).getTime();
+  if (expiresAt - Date.now() > 60_000) return row.access_token as string;
+
+  if (!row.refresh_token) throw new Error('Agent Drive token expired and no refresh token');
 
   const resp = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion: jwt,
+      client_id: GOOGLE_CLIENT_ID,
+      client_secret: GOOGLE_CLIENT_SECRET,
+      refresh_token: row.refresh_token as string,
+      grant_type: 'refresh_token',
     }),
   });
-  if (!resp.ok) throw new Error(`Token exchange failed: ${resp.status} ${await resp.text()}`);
-  const json = (await resp.json()) as { access_token: string; expires_in: number };
-  cachedToken = { token: json.access_token, exp: now + json.expires_in };
+  const json = (await resp.json()) as { access_token?: string; expires_in?: number; error?: string };
+  if (!resp.ok || !json.access_token) {
+    throw new Error(`Refresh failed: ${json.error ?? resp.status}`);
+  }
+  const newExpiry = new Date(Date.now() + (json.expires_in ?? 3600) * 1000).toISOString();
+  await db
+    .from('agent_google_drive_tokens')
+    .update({ access_token: json.access_token, expires_at: newExpiry })
+    .eq('user_id', agentUserId);
   return json.access_token;
 }
 
@@ -119,54 +132,162 @@ async function findSubfolder(token: string, parentId: string, path: string): Pro
   return current;
 }
 
-async function verifyClientAccess(req: Request, folderId: string) {
-  // Ensure the caller is a signed-in client (or team member) linked to this folder.
-  const authHeader = req.headers.get('Authorization') ?? '';
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_ANON_KEY')!,
-    { global: { headers: { Authorization: authHeader } } },
-  );
-  const { data: userRes } = await supabase.auth.getUser();
-  if (!userRes?.user) throw new Error('Unauthorized');
-
-  const admin = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  );
-  const [acct, tx, role] = await Promise.all([
-    admin.from('client_accounts').select('id').eq('drive_folder_id', folderId).limit(1),
-    admin.from('client_transactions').select('id').eq('drive_folder_id', folderId).limit(1),
-    admin.rpc('is_team_member', { _user_id: userRes.user.id }),
+/**
+ * Resolve which agent owns the client portal folder, and confirm the caller
+ * (agent or the linked client) is allowed to read it. Returns the agent's
+ * user_id whose OAuth token should be used for Drive.
+ */
+async function resolveFolderAgent(callerUserId: string, folderId: string): Promise<string> {
+  const db = admin();
+  const [{ data: acctRows }, { data: txRows }, roleRes] = await Promise.all([
+    db
+      .from('client_accounts')
+      .select('id, user_id, invited_by')
+      .eq('drive_folder_id', folderId),
+    db
+      .from('client_transactions')
+      .select('id, client_account_id, agent_id')
+      .eq('drive_folder_id', folderId),
+    db.rpc('is_team_member', { _user_id: callerUserId }),
   ]);
-  if (role.data === true) return;
-  const acctRows = (acct.data ?? []) as Array<{ id: string }>;
-  const txRows = (tx.data ?? []) as Array<{ id: string }>;
-  if (!acctRows.length && !txRows.length) throw new Error('Folder not linked to any client portal');
-  // For clients, cross-check against client_accounts.user_id.
-  const { data: myAccount } = await admin
-    .from('client_accounts')
-    .select('id')
-    .eq('user_id', userRes.user.id)
-    .maybeSingle();
-  if (!myAccount) throw new Error('Forbidden');
-  const { data: myTx } = await admin
-    .from('client_transactions')
-    .select('id')
-    .eq('client_account_id', myAccount.id)
-    .eq('drive_folder_id', folderId)
-    .maybeSingle();
-  const acctMatch = acctRows.some((a) => a.id === myAccount.id);
-  if (!acctMatch && !myTx) throw new Error('Forbidden');
+  const accts = (acctRows ?? []) as Array<{ id: string; user_id: string | null; invited_by: string | null }>;
+  const txs = (txRows ?? []) as Array<{ id: string; client_account_id: string; agent_id: string | null }>;
+  if (!accts.length && !txs.length) throw new Error('Folder not linked to any client portal');
+
+  // Team members may read any folder tied to a client portal.
+  const isTeam = roleRes.data === true;
+
+  // Check if caller is the client on any account linked to this folder.
+  let clientMatch = accts.some((a) => a.user_id === callerUserId);
+  if (!clientMatch && txs.length) {
+    const { data: myAcct } = await db
+      .from('client_accounts')
+      .select('id')
+      .eq('user_id', callerUserId)
+      .maybeSingle();
+    if (myAcct) clientMatch = txs.some((t) => t.client_account_id === (myAcct as { id: string }).id);
+  }
+
+  if (!isTeam && !clientMatch) throw new Error('Forbidden');
+
+  // Pick agent to act on behalf of: transaction agent > account invited_by.
+  const agentId =
+    txs.find((t) => t.agent_id)?.agent_id ??
+    accts.find((a) => a.invited_by)?.invited_by ??
+    null;
+  if (!agentId) throw new Error('This client portal has no linked agent');
+  return agentId;
 }
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   try {
     const body = (await req.json()) as Body;
+    const user = await getCallerUser(req);
+
+    // --- Agent OAuth management -------------------------------------------------
+    if (body.action === 'get_auth_url') {
+      if (!body.redirect_uri) throw new Error('redirect_uri required');
+      const authUrl =
+        'https://accounts.google.com/o/oauth2/v2/auth?' +
+        new URLSearchParams({
+          client_id: GOOGLE_CLIENT_ID,
+          redirect_uri: body.redirect_uri,
+          response_type: 'code',
+          scope: SCOPES,
+          access_type: 'offline',
+          prompt: 'consent',
+          include_granted_scopes: 'true',
+          state: user.id,
+        }).toString();
+      return new Response(JSON.stringify({ auth_url: authUrl }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (body.action === 'exchange_code') {
+      if (!body.code || !body.redirect_uri) throw new Error('code and redirect_uri required');
+      const tokenResp = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          code: body.code,
+          client_id: GOOGLE_CLIENT_ID,
+          client_secret: GOOGLE_CLIENT_SECRET,
+          redirect_uri: body.redirect_uri,
+          grant_type: 'authorization_code',
+        }),
+      });
+      const tokens = (await tokenResp.json()) as {
+        access_token?: string;
+        refresh_token?: string;
+        expires_in?: number;
+        scope?: string;
+        error?: string;
+        error_description?: string;
+      };
+      if (!tokenResp.ok || !tokens.access_token) {
+        throw new Error(tokens.error_description || tokens.error || 'Token exchange failed');
+      }
+      // Look up Google email for display purposes.
+      let googleEmail: string | null = null;
+      try {
+        const uiResp = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+          headers: { Authorization: `Bearer ${tokens.access_token}` },
+        });
+        if (uiResp.ok) googleEmail = (await uiResp.json()).email ?? null;
+      } catch (_) {
+        // ignore
+      }
+      const expiresAt = new Date(Date.now() + (tokens.expires_in ?? 3600) * 1000).toISOString();
+      const db = admin();
+      // Preserve prior refresh_token when Google omits it on re-consent.
+      const { data: existing } = await db
+        .from('agent_google_drive_tokens')
+        .select('refresh_token')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      const refresh = tokens.refresh_token ?? (existing as { refresh_token: string | null } | null)?.refresh_token ?? null;
+      const { error: upErr } = await db
+        .from('agent_google_drive_tokens')
+        .upsert({
+          user_id: user.id,
+          access_token: tokens.access_token,
+          refresh_token: refresh,
+          expires_at: expiresAt,
+          scope: tokens.scope ?? null,
+          google_email: googleEmail,
+        });
+      if (upErr) throw new Error(`Save failed: ${upErr.message}`);
+      return new Response(JSON.stringify({ ok: true, google_email: googleEmail }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (body.action === 'status') {
+      const db = admin();
+      const { data } = await db
+        .from('agent_google_drive_tokens')
+        .select('google_email, scope, updated_at')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      return new Response(JSON.stringify({ connected: !!data, ...(data ?? {}) }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (body.action === 'disconnect') {
+      const db = admin();
+      await db.from('agent_google_drive_tokens').delete().eq('user_id', user.id);
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // --- Drive file operations --------------------------------------------------
     if (!body.folder_id) throw new Error('folder_id required');
-    await verifyClientAccess(req, body.folder_id);
-    const token = await getAccessToken();
+    const agentUserId = await resolveFolderAgent(user.id, body.folder_id);
+    const token = await getAgentAccessToken(agentUserId);
 
     if (body.action === 'list') {
       const files = await driveList(
@@ -197,7 +318,6 @@ Deno.serve(async (req) => {
 
     if (body.action === 'download') {
       if (!body.file_id) throw new Error('file_id required');
-      // Confirm the file is inside the authorized folder (or a subfolder of it).
       const meta = await fetch(
         `https://www.googleapis.com/drive/v3/files/${body.file_id}?fields=id,name,mimeType,parents&supportsAllDrives=true`,
         { headers: { Authorization: `Bearer ${token}` } },
@@ -221,7 +341,11 @@ Deno.serve(async (req) => {
     throw new Error('Unknown action');
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    const status = /unauthor|forbidden/i.test(message) ? 403 : 400;
+    const status = /unauthor/i.test(message)
+      ? 401
+      : /forbidden/i.test(message)
+        ? 403
+        : 400;
     console.error('google-drive-files error:', message);
     return new Response(JSON.stringify({ error: message }), {
       status,
