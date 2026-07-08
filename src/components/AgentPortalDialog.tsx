@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { LayoutDashboard, Loader2, Send } from 'lucide-react';
+import { Check, Copy, LayoutDashboard, Loader2, Mail } from 'lucide-react';
 import { FUBTimeline } from '@/pages/client-portal/components/FUBTimeline';
 import { ClientTaskList } from '@/pages/client-portal/components/ClientTaskList';
 import { FUBContactTypeahead } from '@/components/FUBContactTypeahead';
@@ -63,6 +63,7 @@ export function AgentPortalDialog({
   });
   const [saving, setSaving] = useState(false);
   const [sendingInvite, setSendingInvite] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const lookupKey = useMemo(
     () => (form.email || clientEmail || '').trim().toLowerCase(),
@@ -144,27 +145,51 @@ export function AgentPortalDialog({
     return saved;
   };
 
-  const sendMagicLink = async () => {
+  const buildInviteLink = (saved: ClientAccountRow) => {
+    const params = new URLSearchParams();
+    if (saved.email) params.set('email', saved.email);
+    if (saved.fub_person_id) params.set('fub_id', String(saved.fub_person_id));
+    if (user?.id) params.set('invited_by', user.id);
+    return `${window.location.origin}/client-portal/signup?${params.toString()}`;
+  };
+
+  const handleCopyLink = async () => {
+    const saved = account ?? (await saveAccount());
+    if (!saved) return;
+    const link = buildInviteLink(saved);
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      toast({ title: 'Invite link copied', description: 'Share it with your client to activate their portal.' });
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast({ title: 'Copy failed', description: link, variant: 'destructive' });
+    }
+  };
+
+  const sendSignupEmail = async () => {
     const saved = account ?? (await saveAccount());
     if (!saved) return;
     setSendingInvite(true);
-    const { error } = await supabase.auth.signInWithOtp({
-      email: saved.email,
-      options: {
-        shouldCreateUser: true,
-        emailRedirectTo: `${window.location.origin}/client-portal`,
-        data: { full_name: saved.full_name ?? undefined },
+    const inviteUrl = buildInviteLink(saved);
+    const { error } = await supabase.functions.invoke('send-transactional-email', {
+      body: {
+        templateName: 'client-portal-invite',
+        recipientEmail: saved.email,
+        idempotencyKey: `portal-invite-${saved.id}-${Date.now()}`,
+        templateData: {
+          clientName: saved.full_name || '',
+          agentName: user?.email?.split('@')[0] || 'Your agent',
+          inviteUrl,
+        },
       },
     });
     setSendingInvite(false);
     if (error) {
-      toast({ title: 'Magic link failed', description: error.message, variant: 'destructive' });
+      toast({ title: 'Send failed', description: error.message, variant: 'destructive' });
       return;
     }
-    toast({
-      title: 'Invitation sent',
-      description: `${saved.email} will receive a magic link to sign in to their portal.`,
-    });
+    toast({ title: 'Invitation sent', description: `${saved.email} will receive their portal signup email.` });
   };
 
   return (
@@ -261,9 +286,13 @@ export function AgentPortalDialog({
                   {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   {account ? 'Save changes' : 'Create portal'}
                 </Button>
-                <Button variant="secondary" onClick={sendMagicLink} disabled={sendingInvite || !form.email.trim()}>
-                  {sendingInvite ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-                  Send magic-link invitation
+                <Button variant="outline" onClick={handleCopyLink} disabled={!form.email.trim()}>
+                  {copied ? <Check className="h-4 w-4 mr-2 text-green-500" /> : <Copy className="h-4 w-4 mr-2" />}
+                  Copy invite link
+                </Button>
+                <Button variant="secondary" onClick={sendSignupEmail} disabled={sendingInvite || !form.email.trim()}>
+                  {sendingInvite ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Mail className="h-4 w-4 mr-2" />}
+                  Send signup email
                 </Button>
               </div>
             </TabsContent>
