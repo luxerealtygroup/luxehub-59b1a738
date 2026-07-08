@@ -2,9 +2,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { CheckSquare, Clock, AlertCircle, Plus, Loader2 } from 'lucide-react';
+import { CheckSquare, Clock, AlertCircle, Plus, Loader2, Check } from 'lucide-react';
 import { format, isPast, isToday } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -131,9 +130,9 @@ export function ClientTaskList({ clientAccountId, canManage = false, transaction
 
   if (loading) {
     return (
-      <Card>
+      <Card className="luxe-card">
         <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
+          <CardTitle className="text-lg flex items-center gap-2 font-display font-semibold tracking-tight">
             <CheckSquare className="h-5 w-5 text-primary" />
             Your Tasks
           </CardTitle>
@@ -141,7 +140,7 @@ export function ClientTaskList({ clientAccountId, canManage = false, transaction
         <CardContent>
           <div className="animate-pulse space-y-3">
             {[1, 2, 3].map(i => (
-              <div key={i} className="h-12 bg-muted rounded" />
+              <div key={i} className="h-14 bg-muted rounded-xl" />
             ))}
           </div>
         </CardContent>
@@ -150,20 +149,25 @@ export function ClientTaskList({ clientAccountId, canManage = false, transaction
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg flex items-center gap-2">
-          <CheckSquare className="h-5 w-5 text-primary" />
-          {canManage ? 'Client Tasks' : 'Your Tasks'}
+    <Card className="luxe-card">
+      <CardHeader className="pb-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
+            <CheckSquare className="h-4 w-4" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="eyebrow leading-none">Checklist</p>
+            <CardTitle className="font-display text-lg font-semibold tracking-tight mt-1">
+              {canManage ? 'Client Tasks' : 'Your Tasks'}
+            </CardTitle>
+          </div>
           {pendingTasks.length > 0 && (
-            <Badge variant="secondary" className="ml-auto">
-              {pendingTasks.length} pending
-            </Badge>
+            <span className="chip-gold">{pendingTasks.length} pending</span>
           )}
           {canManage && (
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
-                <Button size="sm" variant="outline" className="ml-2 gap-1">
+                <Button size="sm" variant="outline" className="ml-1 gap-1 rounded-full">
                   <Plus className="h-3 w-3" /> Add
                 </Button>
               </DialogTrigger>
@@ -194,54 +198,65 @@ export function ClientTaskList({ clientAccountId, canManage = false, transaction
               </DialogContent>
             </Dialog>
           )}
-        </CardTitle>
+        </div>
       </CardHeader>
       <CardContent>
         {tasks.length === 0 ? (
-          <p className="text-muted-foreground text-center py-4">
-            {canManage ? 'No tasks yet. Create one to guide your client through next steps.' : 'No tasks assigned yet. Your agent will add tasks here when needed.'}
-          </p>
+          <div className="text-center py-8">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 mb-3">
+              <Check className="h-5 w-5" strokeWidth={2.5} />
+            </div>
+            <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+              {canManage ? 'No tasks yet. Create one to guide your client through next steps.' : "You're all caught up — your agent will add tasks here when needed."}
+            </p>
+          </div>
         ) : (
           <div className="space-y-4">
             {/* Pending Tasks */}
             {pendingTasks.length > 0 && (
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 {pendingTasks.map(task => {
                   const status = getDueDateStatus(task.due_date, false);
                   return (
                     <div 
                       key={task.id} 
-                      className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${
+                      className={`group flex items-start gap-3 p-3.5 rounded-xl border transition-all duration-200 ${
                         status === 'overdue' 
-                          ? 'border-destructive/50 bg-destructive/5' 
+                          ? 'border-destructive/40 bg-destructive/5 hover:border-destructive/60' 
                           : status === 'today'
-                          ? 'border-primary/50 bg-primary/5'
-                          : 'border-border hover:bg-muted/50'
+                          ? 'border-primary/50 bg-primary/5 hover:border-primary/70'
+                          : 'border-border/70 bg-background hover:border-primary/30 hover:shadow-sm'
                       }`}
                     >
                       <Checkbox
                         checked={false}
                         onCheckedChange={() => toggleTask(task.id, false)}
-                        className="mt-0.5"
+                        className="mt-1 h-5 w-5 rounded-md border-2 border-muted-foreground/40 data-[state=checked]:border-primary data-[state=checked]:bg-primary transition-all"
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium">{task.title}</p>
+                        <p className="font-medium leading-snug">{task.title}</p>
                         {(task.notes || task.description) && (
-                          <p className="text-sm text-muted-foreground mt-0.5 whitespace-pre-wrap">{task.notes || task.description}</p>
+                          <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap leading-relaxed">
+                            {task.notes || task.description}
+                          </p>
                         )}
                         {task.due_date && (
-                          <div className="flex items-center gap-1 mt-1">
+                          <div className="mt-2">
                             {status === 'overdue' ? (
-                              <AlertCircle className="h-3 w-3 text-destructive" />
+                              <span className="chip-danger">
+                                <AlertCircle className="h-3 w-3" />
+                                Overdue · {format(new Date(task.due_date), 'MMM d')}
+                              </span>
+                            ) : status === 'today' ? (
+                              <span className="chip-gold">
+                                <Clock className="h-3 w-3" /> Due today
+                              </span>
                             ) : (
-                              <Clock className="h-3 w-3 text-muted-foreground" />
+                              <span className="chip-muted">
+                                <Clock className="h-3 w-3" />
+                                Due {format(new Date(task.due_date), 'MMM d')}
+                              </span>
                             )}
-                            <span className={`text-xs ${status === 'overdue' ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
-                              {status === 'overdue' && 'Overdue: '}
-                              {status === 'today' && 'Due today'}
-                              {status === 'upcoming' && `Due ${format(new Date(task.due_date), 'MMM d')}`}
-                              {status === 'overdue' && format(new Date(task.due_date), 'MMM d')}
-                            </span>
                           </div>
                         )}
                       </div>
@@ -253,22 +268,27 @@ export function ClientTaskList({ clientAccountId, canManage = false, transaction
 
             {/* Completed Tasks */}
             {completedTasks.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground font-medium">Completed</p>
+              <div className="space-y-2 pt-2">
+                <div className="flex items-center gap-2">
+                  <p className="eyebrow">Completed</p>
+                  <div className="flex-1 h-px bg-border/60" />
+                </div>
                 {completedTasks.map(task => (
-                  <div 
-                    key={task.id} 
-                    className="flex items-start gap-3 p-3 rounded-lg border border-border bg-muted/30"
+                  <div
+                    key={task.id}
+                    className="flex items-start gap-3 p-3 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.04]"
                   >
                     <Checkbox
                       checked={true}
                       onCheckedChange={() => toggleTask(task.id, true)}
-                      className="mt-0.5"
+                      className="mt-1 h-5 w-5 rounded-md border-2 border-emerald-500 bg-emerald-500 data-[state=checked]:bg-emerald-500"
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-muted-foreground line-through">{task.title}</p>
+                      <p className="font-medium text-muted-foreground line-through leading-snug">
+                        {task.title}
+                      </p>
                       {task.completed_at && (
-                        <p className="text-xs text-muted-foreground mt-1">
+                        <p className="text-xs text-emerald-700 mt-1">
                           Completed {format(new Date(task.completed_at), 'MMM d, yyyy')}
                         </p>
                       )}

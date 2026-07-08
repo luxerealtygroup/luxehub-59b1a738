@@ -155,6 +155,55 @@
     backdrop-filter: blur(12px);
     border: 1px solid hsl(0 0% 20% / 0.5);
   }
+
+  /* Luxury client portal utilities */
+  .surface-canvas {
+    background:
+      radial-gradient(1200px 600px at 100% -10%, hsl(var(--gold) / 0.05), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, hsl(var(--gold) / 0.04), transparent 55%),
+      hsl(38 30% 98%);
+  }
+  .shadow-luxe {
+    box-shadow: 0 1px 2px hsl(0 0% 0% / 0.04), 0 12px 40px -18px hsl(0 0% 0% / 0.14);
+  }
+  .shadow-luxe-hover {
+    box-shadow: 0 1px 2px hsl(0 0% 0% / 0.05), 0 20px 60px -20px hsl(43 74% 30% / 0.22);
+  }
+  .ring-luxe {
+    box-shadow: 0 0 0 1px hsl(0 0% 90%);
+  }
+  .divider-hair {
+    background: linear-gradient(90deg, transparent, hsl(var(--gold) / 0.4), transparent);
+  }
+  .eyebrow {
+    @apply text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground;
+  }
+  .chip-gold {
+    @apply inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary;
+  }
+  .chip-muted {
+    @apply inline-flex items-center gap-1 rounded-full border border-border bg-muted/60 px-2.5 py-0.5 text-xs font-medium text-muted-foreground;
+  }
+  .chip-success {
+    @apply inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-700;
+  }
+  .chip-danger {
+    @apply inline-flex items-center gap-1 rounded-full border border-destructive/30 bg-destructive/10 px-2.5 py-0.5 text-xs font-medium text-destructive;
+  }
+  .luxe-card {
+    @apply rounded-2xl border border-border/70 bg-card shadow-luxe transition-all duration-300 hover:-translate-y-0.5 hover:shadow-luxe-hover hover:border-primary/30;
+  }
+  @keyframes check-pop {
+    0% { transform: scale(0.6); opacity: 0; }
+    60% { transform: scale(1.15); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .animate-check-pop { animation: check-pop 260ms ease-out; }
+  @keyframes soft-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 hsl(var(--gold) / 0.5); }
+    50% { box-shadow: 0 0 0 8px hsl(var(--gold) / 0); }
+  }
+  .animate-soft-pulse { animation: soft-pulse 2.2s ease-in-out infinite; }
 }
 
 @layer components {

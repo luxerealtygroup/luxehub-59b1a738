@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Download, Eye, FileText, File, Image as ImageIcon, Loader2, Trash2, Upload } from 'lucide-react';
+import { Download, Eye, FileText, File, Image as ImageIcon, Loader2, Trash2, Upload, X } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface PortalDocument {
@@ -25,9 +25,13 @@ const BUCKET = 'portal-documents';
 function iconFor(type: string | null, name: string) {
   const t = (type || '').toLowerCase();
   const n = name.toLowerCase();
-  if (t.startsWith('image/') || /\.(png|jpe?g|gif|webp|heic)$/.test(n)) return <ImageIcon className="h-4 w-4 text-blue-500" />;
-  if (t === 'application/pdf' || n.endsWith('.pdf')) return <FileText className="h-4 w-4 text-red-500" />;
-  return <File className="h-4 w-4 text-muted-foreground" />;
+  if (t.startsWith('image/') || /\.(png|jpe?g|gif|webp|heic)$/.test(n)) {
+    return { icon: <ImageIcon className="h-5 w-5" />, tone: 'bg-sky-500/10 text-sky-600 ring-sky-500/20' };
+  }
+  if (t === 'application/pdf' || n.endsWith('.pdf')) {
+    return { icon: <FileText className="h-5 w-5" />, tone: 'bg-rose-500/10 text-rose-600 ring-rose-500/20' };
+  }
+  return { icon: <File className="h-5 w-5" />, tone: 'bg-primary/10 text-primary ring-primary/20' };
 }
 
 function fmtSize(bytes: number | null) {
@@ -118,57 +122,107 @@ export function PortalDocumentsPanel({ portalId, canManage }: Props) {
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {canManage && (
-        <div
+        <button
+          type="button"
           onClick={() => inputRef.current?.click()}
-          className="flex flex-col items-center justify-center h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+          className="w-full flex flex-col items-center justify-center h-28 border-2 border-dashed border-primary/30 rounded-2xl bg-primary/[0.03] hover:bg-primary/[0.06] hover:border-primary/50 transition-all group"
         >
-          {uploading ? <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /> : <Upload className="h-6 w-6 text-muted-foreground" />}
-          <span className="mt-1 text-sm text-muted-foreground">Click to upload documents</span>
+          {uploading ? (
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          ) : (
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-primary/20 group-hover:scale-105 transition-transform">
+              <Upload className="h-5 w-5" />
+            </div>
+          )}
+          <span className="mt-2 text-sm font-medium text-foreground">Upload documents</span>
+          <span className="text-xs text-muted-foreground">Drop files or click to browse</span>
           <input ref={inputRef} type="file" multiple className="hidden" onChange={onUpload} />
-        </div>
+        </button>
       )}
 
       {loading ? (
-        <div className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Loading…</div>
+        <div className="grid gap-2">
+          {[1,2,3].map(i => <div key={i} className="h-16 rounded-xl bg-muted/60 animate-pulse" />)}
+        </div>
       ) : docs.length === 0 ? (
-        <div className="text-center py-8 text-sm text-muted-foreground">
-          {canManage ? 'No documents yet. Upload the first file above.' : 'Your agent will add your documents here soon.'}
+        <div className="luxe-card p-12 flex flex-col items-center justify-center text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/20 mb-4">
+            <FileText className="h-6 w-6" />
+          </div>
+          <h3 className="font-display text-lg font-semibold tracking-tight mb-1">
+            {canManage ? 'No documents yet' : 'Documents coming soon'}
+          </h3>
+          <p className="text-sm text-muted-foreground max-w-sm">
+            {canManage ? 'Upload the first file above to share it with your client.' : 'Your agent will add your documents here soon.'}
+          </p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {docs.map((d) => (
-            <div key={d.id} className="flex items-center justify-between gap-2 rounded-lg border p-2 hover:bg-muted/30">
-              <div className="flex items-center gap-2 min-w-0">
-                {iconFor(d.file_type, d.file_name)}
-                <div className="min-w-0">
-                  <div className="text-sm font-medium truncate">{d.file_name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {format(new Date(d.created_at), 'MMM d, yyyy')}{d.file_size ? ` • ${fmtSize(d.file_size)}` : ''}
+        <div className="grid gap-3 sm:grid-cols-2">
+          {docs.map((d) => {
+            const { icon, tone } = iconFor(d.file_type, d.file_name);
+            return (
+              <div
+                key={d.id}
+                className="group flex items-center gap-3 rounded-2xl border border-border/70 bg-card p-4 shadow-sm hover:shadow-luxe-hover hover:border-primary/30 hover:-translate-y-0.5 transition-all"
+              >
+                <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ring-1 ${tone}`}>
+                  {icon}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <button
+                    onClick={() => openPreview(d)}
+                    className="text-sm font-medium text-foreground text-left truncate hover:text-primary transition-colors block w-full"
+                    title={d.file_name}
+                  >
+                    {d.file_name}
+                  </button>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {format(new Date(d.created_at), 'MMM d, yyyy')}
+                    {d.file_size ? ` · ${fmtSize(d.file_size)}` : ''}
                   </div>
                 </div>
+                <div className="flex items-center gap-0.5 shrink-0 opacity-70 group-hover:opacity-100 transition-opacity">
+                  <Button size="icon" variant="ghost" className="h-9 w-9 rounded-full" onClick={() => openPreview(d)} title="Preview">
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-9 w-9 rounded-full hover:bg-primary/10 hover:text-primary" onClick={() => download(d)} title="Download">
+                    <Download className="h-4 w-4" />
+                  </Button>
+                  {canManage && (
+                    <Button size="icon" variant="ghost" className="h-9 w-9 rounded-full hover:bg-destructive/10" onClick={() => del(d)} title="Delete">
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <Button size="sm" variant="ghost" onClick={() => openPreview(d)}><Eye className="h-4 w-4" /></Button>
-                <Button size="sm" variant="ghost" onClick={() => download(d)}><Download className="h-4 w-4" /></Button>
-                {canManage && (
-                  <Button size="sm" variant="ghost" onClick={() => del(d)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                )}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
       <Dialog open={!!preview} onOpenChange={(o) => !o && setPreview(null)}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader><DialogTitle className="truncate">{preview?.name}</DialogTitle></DialogHeader>
-          {preview?.type === 'image' ? (
-            <img src={preview.url} alt={preview.name} className="w-full h-auto max-h-[75vh] object-contain" />
-          ) : preview?.type === 'pdf' ? (
-            <iframe src={preview.url} title={preview.name} className="w-full h-[75vh]" />
-          ) : null}
+        <DialogContent className="max-w-none w-screen h-screen sm:rounded-none p-0 border-0 bg-background/98 backdrop-blur-xl gap-0 flex flex-col">
+          <DialogHeader className="px-6 py-4 border-b border-border/60 flex flex-row items-center justify-between space-y-0">
+            <DialogTitle className="truncate font-display text-lg font-semibold tracking-tight">
+              {preview?.name}
+            </DialogTitle>
+            <div className="flex items-center gap-2">
+              {preview && (
+                <Button size="sm" variant="outline" className="rounded-full" onClick={() => window.open(preview.url, '_blank')}>
+                  <Download className="h-4 w-4 mr-2" /> Download
+                </Button>
+              )}
+            </div>
+          </DialogHeader>
+          <div className="flex-1 min-h-0 overflow-auto flex items-center justify-center bg-muted/30 p-4">
+            {preview?.type === 'image' ? (
+              <img src={preview.url} alt={preview.name} className="max-w-full max-h-full object-contain rounded-lg shadow-luxe" />
+            ) : preview?.type === 'pdf' ? (
+              <iframe src={preview.url} title={preview.name} className="w-full h-full min-h-[80vh] rounded-lg shadow-luxe bg-white" />
+            ) : null}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
