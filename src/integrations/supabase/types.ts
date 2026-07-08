@@ -509,6 +509,7 @@ export type Database = {
           closing_date: string | null
           created_at: string
           deal_id: string | null
+          drive_folder_id: string | null
           financing_deadline: string | null
           fub_deal_id: number | null
           id: string
@@ -531,6 +532,7 @@ export type Database = {
           closing_date?: string | null
           created_at?: string
           deal_id?: string | null
+          drive_folder_id?: string | null
           financing_deadline?: string | null
           fub_deal_id?: number | null
           id?: string
@@ -553,6 +555,7 @@ export type Database = {
           closing_date?: string | null
           created_at?: string
           deal_id?: string | null
+          drive_folder_id?: string | null
           financing_deadline?: string | null
           fub_deal_id?: number | null
           id?: string

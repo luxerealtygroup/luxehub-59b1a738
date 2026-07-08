@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { LayoutDashboard, Loader2, Mail, Send } from 'lucide-react';
+import { ExternalLink, LayoutDashboard, Loader2, Mail, Send } from 'lucide-react';
 import { FUBTimeline } from '@/pages/client-portal/components/FUBTimeline';
 import { ClientTaskList } from '@/pages/client-portal/components/ClientTaskList';
 
@@ -220,6 +220,16 @@ export function AgentPortalDialog({
                 <div className="space-y-1">
                   <Label>Drive folder ID</Label>
                   <Input value={form.drive_folder_id} onChange={(e) => setForm({ ...form, drive_folder_id: e.target.value })} placeholder="Google Drive folder ID" />
+                  {form.drive_folder_id.trim() && (
+                    <a
+                      href={`https://drive.google.com/drive/folders/${form.drive_folder_id.trim()}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1"
+                    >
+                      <ExternalLink className="h-3 w-3" /> Open folder in Google Drive
+                    </a>
+                  )}
                 </div>
                 <div className="space-y-1">
                   <Label>Slack channel ID</Label>

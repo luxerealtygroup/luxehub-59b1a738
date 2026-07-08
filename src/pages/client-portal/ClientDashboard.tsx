@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
-import { FileText, Download, FolderOpen, Home, Calendar, CheckSquare, MessageCircle, ShoppingCart, Tag } from 'lucide-react';
+import { FileText, Download, FolderOpen, Home, Calendar, CheckSquare, MessageCircle, ShoppingCart, Tag, ImageIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { TransactionTimeline } from './components/TransactionTimeline';
 import { ClientTaskList } from './components/ClientTaskList';
@@ -14,6 +14,8 @@ import { ClientMessaging } from './components/ClientMessaging';
 import { PropertyDetails } from './components/PropertyDetails';
 import { ClientSidebar } from './components/ClientSidebar';
 import { FUBTimeline } from './components/FUBTimeline';
+import { DriveDocuments } from './components/DriveDocuments';
+import { DrivePhotos } from './components/DrivePhotos';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ShoppingCart as ShoppingCartIcon, Tag as TagIcon } from 'lucide-react';
 
@@ -35,6 +37,7 @@ interface ClientAccount {
   email: string;
   full_name: string | null;
   fub_person_id: number | null;
+  drive_folder_id?: string | null;
 }
 
 interface Transaction {
@@ -54,6 +57,7 @@ interface Transaction {
   property_description: string | null;
   deal_id?: string | null;
   fub_deal_id?: number | null;
+  drive_folder_id?: string | null;
 }
 
 const ClientDashboard = () => {
@@ -423,69 +427,16 @@ const ClientDashboard = () => {
 
       case 'documents':
         return (
-          <div className="space-y-6">
-            {scopedDocuments.length === 0 ? (
-              <Card className="border-dashed">
-                <CardContent className="flex flex-col items-center justify-center py-16">
-                  <FolderOpen className="h-16 w-16 text-muted-foreground/50 mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No documents yet</h3>
-                  <p className="text-muted-foreground text-center max-w-md">
-                    Your agent will upload documents here when they're ready for you to review.
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-8">
-                {Object.entries(groupedScopedDocuments).map(([type, docs]) => (
-                  <div key={type}>
-                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getDocumentTypeColor(type)}`}>
-                        {type}
-                      </span>
-                      <span className="text-muted-foreground text-sm font-normal">
-                        ({docs.length} {docs.length === 1 ? 'document' : 'documents'})
-                      </span>
-                    </h3>
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                      {docs.map((doc) => (
-                        <Card key={doc.id} className="hover:border-primary/30 transition-colors">
-                          <CardHeader className="pb-3">
-                            <div className="flex items-start gap-3">
-                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                                <FileText className="h-5 w-5 text-primary" />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <CardTitle className="text-base font-medium truncate">
-                                  {doc.title}
-                                </CardTitle>
-                                <p className="text-xs text-muted-foreground truncate">
-                                  {doc.file_name}
-                                </p>
-                              </div>
-                            </div>
-                          </CardHeader>
-                          <CardContent className="pt-0">
-                            <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
-                              <span>{formatFileSize(doc.file_size)}</span>
-                              <span>{format(new Date(doc.created_at), 'MMM d, yyyy')}</span>
-                            </div>
-                            <Button 
-                              onClick={() => handleDownload(doc)} 
-                              className="w-full gap-2"
-                              variant="outline"
-                            >
-                              <Download className="h-4 w-4" />
-                              Download
-                            </Button>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <DriveDocuments
+            folderId={selectedTransaction?.drive_folder_id ?? clientAccount?.drive_folder_id ?? null}
+          />
+        );
+
+      case 'photos':
+        return (
+          <DrivePhotos
+            folderId={selectedTransaction?.drive_folder_id ?? clientAccount?.drive_folder_id ?? null}
+          />
         );
 
       case 'messages':
@@ -508,6 +459,7 @@ const ClientDashboard = () => {
       case 'sale': return 'Your Sale';
       case 'tasks': return 'Tasks';
       case 'documents': return 'Documents';
+      case 'photos': return 'Photos';
       case 'messages': return 'Messages';
       default: return 'Dashboard';
     }
@@ -520,6 +472,7 @@ const ClientDashboard = () => {
       case 'sale': return <Tag className="h-5 w-5" />;
       case 'tasks': return <CheckSquare className="h-5 w-5" />;
       case 'documents': return <FileText className="h-5 w-5" />;
+      case 'photos': return <ImageIcon className="h-5 w-5" />;
       case 'messages': return <MessageCircle className="h-5 w-5" />;
       default: return <Home className="h-5 w-5" />;
     }
