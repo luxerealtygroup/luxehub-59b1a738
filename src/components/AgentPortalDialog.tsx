@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ExternalLink, LayoutDashboard, Loader2, Mail, Send } from 'lucide-react';
+import { ExternalLink, LayoutDashboard, Loader2, Send } from 'lucide-react';
 import { FUBTimeline } from '@/pages/client-portal/components/FUBTimeline';
 import { ClientTaskList } from '@/pages/client-portal/components/ClientTaskList';
 import { GoogleDriveConnect } from '@/components/GoogleDriveConnect';
@@ -287,20 +287,6 @@ export function AgentPortalDialog({
                   {sendingInvite ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
                   Send magic-link invitation
                 </Button>
-                {account && (
-                  <Button
-                    variant="ghost"
-                    onClick={() =>
-                      supabase.auth
-                        .resetPasswordForEmail(account.email, {
-                          redirectTo: `${window.location.origin}/reset-password`,
-                        })
-                        .then(() => toast({ title: 'Signup / reset email sent', description: `Sent to ${account.email}` }))
-                    }
-                  >
-                    <Mail className="h-4 w-4 mr-2" /> Send signup link
-                  </Button>
-                )}
               </div>
             </TabsContent>
 
