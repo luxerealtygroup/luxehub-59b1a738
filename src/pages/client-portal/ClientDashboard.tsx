@@ -110,13 +110,17 @@ const ClientDashboard = () => {
       }
 
       // Fetch data in parallel
-      const [docsResult, transactionsResult] = await Promise.all([
+      const [docsResult, transactionsResult, pipelineResult] = await Promise.all([
         docsQuery,
         supabase
           .from('client_transactions')
           .select('*')
           .eq('client_account_id', account.id)
-          .order('created_at', { ascending: false })
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('pipeline_clients')
+          .select('id, client_type, property_address, property_interest, expected_pending_date, projected_sale_amount, status, created_at')
+          .eq('email', account.email.toLowerCase()),
       ]);
 
       if (docsResult.error) {
@@ -129,9 +133,55 @@ const ClientDashboard = () => {
         console.error('Error fetching transactions:', transactionsResult.error);
       } else {
         const txs = (transactionsResult.data || []) as Transaction[];
-        setTransactions(txs);
+
+        // Option 2: auto-detect both sides from the pipeline. If the client's
+        // email has a buyer AND a seller entry in pipeline_clients, ensure the
+        // portal renders both sections regardless of client_type on the
+        // account. We synthesize a lightweight transaction row for any side
+        // that isn't already represented in client_transactions.
+        const pipelineRows = (pipelineResult?.data || []) as Array<{
+          id: string;
+          client_type: string | null;
+          property_address: string | null;
+          property_interest: string | null;
+          expected_pending_date: string | null;
+          projected_sale_amount: number | null;
+          status: string | null;
+          created_at: string;
+        }>;
+
+        const hasBuyerTx = txs.some(t => t.transaction_type === 'buyer' || t.transaction_type === 'purchase');
+        const hasSellerTx = txs.some(t => t.transaction_type === 'seller' || t.transaction_type === 'listing' || t.transaction_type === 'sale');
+        const buyerPipeline = pipelineRows.find(p => (p.client_type || '').toLowerCase() === 'buyer');
+        const sellerPipeline = pipelineRows.find(p => ['seller', 'listing'].includes((p.client_type || '').toLowerCase()));
+
+        const synthetic: Transaction[] = [];
+        const synth = (row: typeof pipelineRows[number], type: 'buyer' | 'seller'): Transaction => ({
+          id: `pipeline-${row.id}`,
+          property_address: row.property_address || row.property_interest || (type === 'buyer' ? 'Property search in progress' : 'Listing in progress'),
+          transaction_type: type,
+          status: row.status || 'pending',
+          list_price: type === 'seller' ? row.projected_sale_amount ?? null : null,
+          sale_price: null,
+          offer_date: null,
+          acceptance_date: null,
+          inspection_date: null,
+          appraisal_date: null,
+          financing_deadline: null,
+          closing_date: row.expected_pending_date ?? null,
+          property_photos: [],
+          property_description: null,
+          deal_id: null,
+          fub_deal_id: null,
+          drive_folder_id: null,
+        });
+        if (buyerPipeline && !hasBuyerTx) synthetic.push(synth(buyerPipeline, 'buyer'));
+        if (sellerPipeline && !hasSellerTx) synthetic.push(synth(sellerPipeline, 'seller'));
+
+        const merged = [...txs, ...synthetic];
+        setTransactions(merged);
         // Prefer an active transaction, otherwise the most recent
-        const preferred = txs.find(t => t.status === 'active' || t.status === 'pending') || txs[0];
+        const preferred = merged.find(t => t.status === 'active' || t.status === 'pending') || merged[0];
         if (preferred) setSelectedTransactionId(preferred.id);
       }
 
