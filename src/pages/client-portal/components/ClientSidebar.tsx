@@ -6,7 +6,8 @@ import {
   CheckSquare,
   LogOut,
   ShoppingCart,
-  Tag
+  Tag,
+  ImageIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -37,6 +38,7 @@ const mainMenuItems = [
   { id: 'overview', title: 'Overview', icon: Home },
   { id: 'tasks', title: 'Tasks', icon: CheckSquare },
   { id: 'documents', title: 'Documents', icon: FileText },
+  { id: 'photos', title: 'Photos', icon: ImageIcon },
   { id: 'messages', title: 'Messages', icon: MessageCircle },
 ];
 
