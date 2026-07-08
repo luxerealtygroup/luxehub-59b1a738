@@ -287,20 +287,6 @@ export function AgentPortalDialog({
                   {sendingInvite ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
                   Send magic-link invitation
                 </Button>
-                {account && (
-                  <Button
-                    variant="ghost"
-                    onClick={() =>
-                      supabase.auth
-                        .resetPasswordForEmail(account.email, {
-                          redirectTo: `${window.location.origin}/reset-password`,
-                        })
-                        .then(() => toast({ title: 'Signup / reset email sent', description: `Sent to ${account.email}` }))
-                    }
-                  >
-                    <Mail className="h-4 w-4 mr-2" /> Send signup link
-                  </Button>
-                )}
               </div>
             </TabsContent>
 
