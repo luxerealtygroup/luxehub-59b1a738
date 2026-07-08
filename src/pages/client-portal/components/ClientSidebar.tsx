@@ -63,10 +63,10 @@ export function ClientSidebar({
           </div>
           {!collapsed && (
             <div className="min-w-0">
-              <h1 className="font-display text-lg font-semibold tracking-tight text-foreground leading-none">
+              <h1 className="font-display text-lg font-semibold tracking-tight text-sidebar-foreground leading-none">
                 LUXE<span className="text-primary">hub</span>
               </h1>
-              <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mt-1">Client Portal</p>
+              <p className="text-[10px] uppercase tracking-[0.18em] text-sidebar-foreground/60 mt-1">Client Portal</p>
             </div>
           )}
         </div>
