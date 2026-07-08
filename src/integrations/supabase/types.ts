@@ -1559,6 +1559,54 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          client_name: string | null
+          created_at: string
+          id: string
+          is_read: boolean
+          message_id: string | null
+          message_preview: string | null
+          portal_id: string
+          user_id: string
+        }
+        Insert: {
+          client_name?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message_id?: string | null
+          message_preview?: string | null
+          portal_id: string
+          user_id: string
+        }
+        Update: {
+          client_name?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message_id?: string | null
+          message_preview?: string | null
+          portal_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "portal_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_portal_id_fkey"
+            columns: ["portal_id"]
+            isOneToOne: false
+            referencedRelation: "client_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       open_house_attendees: {
         Row: {
           condition_feedback: string | null

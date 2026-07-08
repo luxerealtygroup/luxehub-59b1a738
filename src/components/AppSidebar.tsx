@@ -24,6 +24,7 @@ import {
   Mail,
   DoorOpen,
   Users2
+  ,Bell
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -73,6 +74,7 @@ const allSections: MenuSection[] = [
     planningVisible: true,
     items: [
       { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
+      { title: 'Notifications', url: '/dashboard/notifications', icon: Bell },
     ],
   },
   {

@@ -34,6 +34,7 @@ import CMABoss from "./pages/CMABoss";
 import BusinessPlanning from "./pages/BusinessPlanning";
 import CompanyBusinessPlanningPage from "./pages/CompanyBusinessPlanningPage";
 import AdminClientPortals from "./pages/AdminClientPortals";
+import Notifications from "./pages/Notifications";
 import NotFound from "./pages/NotFound";
 import AuthConfirm from "./pages/AuthConfirm";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -127,6 +128,7 @@ const App = () => (
               <Route path="cma-boss" element={<RoleGuard><CMABoss /></RoleGuard>} />
               <Route path="business-planning" element={<BusinessPlanning />} />
               <Route path="settings" element={<AccountSettings />} />
+              <Route path="notifications" element={<Notifications />} />
               <Route path="admin" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><AdminReports /></RoleGuard>} />
               <Route path="admin/business-planning" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><CompanyBusinessPlanningPage /></RoleGuard>} />
               <Route path="admin/client-portals" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><AdminClientPortals /></RoleGuard>} />

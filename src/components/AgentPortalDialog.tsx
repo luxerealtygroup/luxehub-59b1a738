@@ -31,6 +31,7 @@ interface AgentPortalDialogProps {
   fubPersonId?: number | null;
   defaultType?: 'buyer' | 'seller';
   trigger?: React.ReactNode;
+  initialTab?: 'setup' | 'timeline' | 'tasks' | 'documents' | 'photos' | 'messages';
 }
 
 interface ClientAccountRow {
@@ -49,6 +50,7 @@ export function AgentPortalDialog({
   fubPersonId,
   defaultType,
   trigger,
+  initialTab,
 }: AgentPortalDialogProps) {
   const { user } = useAuth();
   const { isAdmin } = useUserRole();
@@ -218,7 +220,7 @@ export function AgentPortalDialog({
             <Loader2 className="h-4 w-4 animate-spin" /> Loading portal…
           </div>
         ) : (
-          <Tabs defaultValue={account ? 'timeline' : 'setup'} className="w-full">
+          <Tabs defaultValue={initialTab ?? (account ? 'timeline' : 'setup')} className="w-full">
             <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="setup">Setup</TabsTrigger>
               <TabsTrigger value="timeline" disabled={!account}>

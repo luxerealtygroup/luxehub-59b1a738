@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
+import { NotificationsBell } from '@/components/NotificationsBell';
 import { ViewAsAgentProvider, useViewAsAgent } from '@/hooks/useViewAsAgent';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
@@ -81,6 +82,9 @@ const DashboardLayout = () => {
                 <h2 className="font-display text-lg text-foreground">Agent Dashboard</h2>
               </div>
               <ViewAsAgentControls />
+              <div className="ml-2">
+                <NotificationsBell />
+              </div>
             </header>
             <ViewAsAgentBanner />
             <div className="flex-1 p-6">
