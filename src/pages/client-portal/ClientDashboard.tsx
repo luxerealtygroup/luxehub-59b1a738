@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
-import { FileText, Download, FolderOpen, Home, Calendar, CheckSquare, MessageCircle, ShoppingCart, Tag } from 'lucide-react';
+import { FileText, Download, FolderOpen, Home, Calendar, CheckSquare, MessageCircle, ShoppingCart, Tag, ImageIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { TransactionTimeline } from './components/TransactionTimeline';
 import { ClientTaskList } from './components/ClientTaskList';
@@ -14,6 +14,8 @@ import { ClientMessaging } from './components/ClientMessaging';
 import { PropertyDetails } from './components/PropertyDetails';
 import { ClientSidebar } from './components/ClientSidebar';
 import { FUBTimeline } from './components/FUBTimeline';
+import { DriveDocuments } from './components/DriveDocuments';
+import { DrivePhotos } from './components/DrivePhotos';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ShoppingCart as ShoppingCartIcon, Tag as TagIcon } from 'lucide-react';
 
@@ -35,6 +37,7 @@ interface ClientAccount {
   email: string;
   full_name: string | null;
   fub_person_id: number | null;
+  drive_folder_id?: string | null;
 }
 
 interface Transaction {
@@ -54,6 +57,7 @@ interface Transaction {
   property_description: string | null;
   deal_id?: string | null;
   fub_deal_id?: number | null;
+  drive_folder_id?: string | null;
 }
 
 const ClientDashboard = () => {
