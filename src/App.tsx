@@ -34,6 +34,7 @@ import CMABoss from "./pages/CMABoss";
 import BusinessPlanning from "./pages/BusinessPlanning";
 import CompanyBusinessPlanningPage from "./pages/CompanyBusinessPlanningPage";
 import AdminClientPortals from "./pages/AdminClientPortals";
+import Notifications from "./pages/Notifications";
 import NotFound from "./pages/NotFound";
 import AuthConfirm from "./pages/AuthConfirm";
 import ForgotPassword from "./pages/ForgotPassword";
