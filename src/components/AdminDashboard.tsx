@@ -30,6 +30,8 @@ import ConversionReport from './ConversionReport';
 import { CreateAgentDialog } from './CreateAgentDialog';
 import { SyncClaudeProfilesButton } from './SyncClaudeProfilesButton';
 import ClosingsCalendar from './admin/ClosingsCalendar';
+import { AgentPortalDialog } from '@/components/AgentPortalDialog';
+import { LayoutDashboard } from 'lucide-react';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
@@ -152,6 +154,8 @@ interface CompanyTransaction {
   status: 'closed' | 'pending' | 'conditional';
   stageName: string;
   agentName: string;
+  clientFubId: number | null;
+  clientEmail: string | null;
 }
 
 const COLORS = ['hsl(43, 74%, 49%)', 'hsl(142, 71%, 45%)', 'hsl(217, 91%, 60%)', 'hsl(280, 67%, 60%)', 'hsl(350, 89%, 60%)'];
@@ -194,6 +198,7 @@ const AdminDashboard = () => {
   const [monthlyRevenue, setMonthlyRevenue] = useState<MonthlyRevenueData[]>([]);
   const [monthlyPipeline, setMonthlyPipeline] = useState<MonthlyPipelineData[]>([]);
   const [companyTransactions, setCompanyTransactions] = useState<CompanyTransaction[]>([]);
+  const [portalByFubId, setPortalByFubId] = useState<Map<number, { id: string; status: 'active' | 'invited'; email: string; full_name: string | null; client_type: string | null }>>(new Map());
   const [quarterlyGoals, setQuarterlyGoals] = useState<QuarterlyGoals | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -210,6 +215,30 @@ const AdminDashboard = () => {
   const conversionsRef = useRef<HTMLDivElement>(null);
 
   const { metadata: dealMetadata, upsertDealCategory, bulkUpsert, refetch: refetchMetadata } = useDealMetadata();
+
+  useEffect(() => {
+    if (roleLoading || !isAdmin) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('client_accounts')
+        .select('id,email,full_name,client_type,fub_person_id,user_id,invited_by');
+      if (cancelled || !data) return;
+      const map = new Map<number, { id: string; status: 'active' | 'invited'; email: string; full_name: string | null; client_type: string | null }>();
+      data.forEach((a: any) => {
+        if (!a.fub_person_id) return;
+        map.set(a.fub_person_id, {
+          id: a.id,
+          status: a.user_id === a.invited_by ? 'invited' : 'active',
+          email: a.email,
+          full_name: a.full_name,
+          client_type: a.client_type,
+        });
+      });
+      setPortalByFubId(map);
+    })();
+    return () => { cancelled = true; };
+  }, [roleLoading, isAdmin]);
 
   useEffect(() => {
     if (roleLoading || !isAdmin) return;
@@ -321,6 +350,8 @@ const AdminDashboard = () => {
             status: 'closed' as const,
             stageName: deal.stageName || 'Closed',
             agentName: deal.users?.[0]?.name || 'Unknown',
+            clientFubId: deal.people?.[0]?.id ?? null,
+            clientEmail: null,
           })),
           ...pendingDeals.map((deal: FUBDeal) => ({
             id: deal.id,
@@ -332,6 +363,8 @@ const AdminDashboard = () => {
             status: 'pending' as const,
             stageName: deal.stageName || 'Pending',
             agentName: deal.users?.[0]?.name || 'Unknown',
+            clientFubId: deal.people?.[0]?.id ?? null,
+            clientEmail: null,
           })),
           ...conditionalDeals.map((deal: FUBDeal) => ({
             id: deal.id,
@@ -343,6 +376,8 @@ const AdminDashboard = () => {
             status: 'conditional' as const,
             stageName: deal.stageName || 'Offer',
             agentName: deal.users?.[0]?.name || 'Unknown',
+            clientFubId: deal.people?.[0]?.id ?? null,
+            clientEmail: null,
           })),
         ].sort((a, b) => {
           // Sort by closing date descending (most recent first)
@@ -1274,6 +1309,7 @@ const AdminDashboard = () => {
                                   />
                                 </TableHead>
                                 <TableHead>Client</TableHead>
+                                <TableHead className="w-16 text-center">Portal</TableHead>
                                 <TableHead>Property</TableHead>
                                 <TableHead>Agent</TableHead>
                                 <TableHead>{key === 'closed' ? 'Close Date' : 'Projected Close'}</TableHead>
@@ -1301,6 +1337,36 @@ const AdminDashboard = () => {
                                       />
                                     </TableCell>
                                     <TableCell className="font-medium">{transaction.clientName}</TableCell>
+                                    <TableCell className="text-center">
+                                      {(() => {
+                                        const portal = transaction.clientFubId
+                                          ? portalByFubId.get(transaction.clientFubId)
+                                          : undefined;
+                                        const color = portal
+                                          ? portal.status === 'active'
+                                            ? 'text-green-500 hover:text-green-400'
+                                            : 'text-amber-500 hover:text-amber-400'
+                                          : 'text-muted-foreground/40 hover:text-blue-500';
+                                        const title = portal
+                                          ? portal.status === 'active'
+                                            ? 'Active portal — click to manage'
+                                            : 'Invitation pending — click to manage'
+                                          : 'No portal — click to set up';
+                                        return (
+                                          <AgentPortalDialog
+                                            clientName={portal?.full_name ?? transaction.clientName}
+                                            clientEmail={portal?.email}
+                                            fubPersonId={transaction.clientFubId ?? undefined}
+                                            defaultType={(portal?.client_type as 'buyer' | 'seller') || undefined}
+                                            trigger={
+                                              <button type="button" title={title} className={`inline-flex items-center justify-center ${color}`}>
+                                                <LayoutDashboard className="h-4 w-4" />
+                                              </button>
+                                            }
+                                          />
+                                        );
+                                      })()}
+                                    </TableCell>
                                     <TableCell className="text-muted-foreground max-w-[200px] truncate">
                                       {transaction.propertyAddress || '-'}
                                     </TableCell>

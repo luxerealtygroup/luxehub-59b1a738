@@ -22,7 +22,8 @@ import {
   UserCheck,
   KeyRound,
   Mail,
-  DoorOpen
+  DoorOpen,
+  Users2
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -326,6 +327,28 @@ export function AppSidebar() {
                         <TooltipContent side="right" className="text-xs">
                           <span className="text-muted-foreground">Admin ›</span>{' '}
                           <span className="font-medium">Business Planning</span>
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <SidebarMenuButton asChild>
+                          <NavLink
+                            to="/dashboard/admin/client-portals"
+                            className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:bg-blue-500/10 hover:text-blue-500 transition-colors border-l-2 border-transparent"
+                            activeClassName="bg-blue-500/15 text-blue-500 font-medium border-l-2 !border-blue-500"
+                          >
+                            <Users2 className="h-5 w-5 shrink-0" />
+                            {!collapsed && <span>Client Portals</span>}
+                          </NavLink>
+                        </SidebarMenuButton>
+                      </TooltipTrigger>
+                      {collapsed && (
+                        <TooltipContent side="right" className="text-xs">
+                          <span className="text-muted-foreground">Admin ›</span>{' '}
+                          <span className="font-medium">Client Portals</span>
                         </TooltipContent>
                       )}
                     </Tooltip>
