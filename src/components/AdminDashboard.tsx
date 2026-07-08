@@ -1309,6 +1309,7 @@ const AdminDashboard = () => {
                                   />
                                 </TableHead>
                                 <TableHead>Client</TableHead>
+                                <TableHead className="w-16 text-center">Portal</TableHead>
                                 <TableHead>Property</TableHead>
                                 <TableHead>Agent</TableHead>
                                 <TableHead>{key === 'closed' ? 'Close Date' : 'Projected Close'}</TableHead>
