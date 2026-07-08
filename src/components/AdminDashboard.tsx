@@ -323,6 +323,8 @@ const AdminDashboard = () => {
             status: 'closed' as const,
             stageName: deal.stageName || 'Closed',
             agentName: deal.users?.[0]?.name || 'Unknown',
+            clientFubId: deal.people?.[0]?.id ?? null,
+            clientEmail: null,
           })),
           ...pendingDeals.map((deal: FUBDeal) => ({
             id: deal.id,
@@ -334,6 +336,8 @@ const AdminDashboard = () => {
             status: 'pending' as const,
             stageName: deal.stageName || 'Pending',
             agentName: deal.users?.[0]?.name || 'Unknown',
+            clientFubId: deal.people?.[0]?.id ?? null,
+            clientEmail: null,
           })),
           ...conditionalDeals.map((deal: FUBDeal) => ({
             id: deal.id,
@@ -345,6 +349,8 @@ const AdminDashboard = () => {
             status: 'conditional' as const,
             stageName: deal.stageName || 'Offer',
             agentName: deal.users?.[0]?.name || 'Unknown',
+            clientFubId: deal.people?.[0]?.id ?? null,
+            clientEmail: null,
           })),
         ].sort((a, b) => {
           // Sort by closing date descending (most recent first)
