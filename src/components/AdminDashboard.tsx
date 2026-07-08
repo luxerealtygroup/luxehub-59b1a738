@@ -1337,6 +1337,36 @@ const AdminDashboard = () => {
                                       />
                                     </TableCell>
                                     <TableCell className="font-medium">{transaction.clientName}</TableCell>
+                                    <TableCell className="text-center">
+                                      {(() => {
+                                        const portal = transaction.clientFubId
+                                          ? portalByFubId.get(transaction.clientFubId)
+                                          : undefined;
+                                        const color = portal
+                                          ? portal.status === 'active'
+                                            ? 'text-green-500 hover:text-green-400'
+                                            : 'text-amber-500 hover:text-amber-400'
+                                          : 'text-muted-foreground/40 hover:text-blue-500';
+                                        const title = portal
+                                          ? portal.status === 'active'
+                                            ? 'Active portal — click to manage'
+                                            : 'Invitation pending — click to manage'
+                                          : 'No portal — click to set up';
+                                        return (
+                                          <AgentPortalDialog
+                                            clientName={portal?.full_name ?? transaction.clientName}
+                                            clientEmail={portal?.email}
+                                            fubPersonId={transaction.clientFubId ?? undefined}
+                                            defaultType={(portal?.client_type as 'buyer' | 'seller') || undefined}
+                                            trigger={
+                                              <button type="button" title={title} className={`inline-flex items-center justify-center ${color}`}>
+                                                <LayoutDashboard className="h-4 w-4" />
+                                              </button>
+                                            }
+                                          />
+                                        );
+                                      })()}
+                                    </TableCell>
                                     <TableCell className="text-muted-foreground max-w-[200px] truncate">
                                       {transaction.propertyAddress || '-'}
                                     </TableCell>
