@@ -26,9 +26,11 @@ interface ClientTaskListProps {
   clientAccountId: string;
   /** When true, shows an "Add task" button so agents can create tasks for the client. */
   canManage?: boolean;
+  /** When provided, only tasks for this transaction are shown, and new tasks attach to it. */
+  transactionId?: string | null;
 }
 
-export function ClientTaskList({ clientAccountId, canManage = false }: ClientTaskListProps) {
+export function ClientTaskList({ clientAccountId, canManage = false, transactionId = null }: ClientTaskListProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -38,14 +40,15 @@ export function ClientTaskList({ clientAccountId, canManage = false }: ClientTas
 
   useEffect(() => {
     fetchTasks();
-  }, [clientAccountId]);
+  }, [clientAccountId, transactionId]);
 
   const fetchTasks = async () => {
-    const { data, error } = await supabase
+    let q = supabase
       .from('client_tasks')
       .select('*')
-      .eq('client_account_id', clientAccountId)
-      .order('due_date', { ascending: true, nullsFirst: false });
+      .eq('client_account_id', clientAccountId);
+    if (transactionId) q = q.eq('transaction_id', transactionId);
+    const { data, error } = await q.order('due_date', { ascending: true, nullsFirst: false });
 
     if (!error) {
       setTasks(data || []);
@@ -101,6 +104,7 @@ export function ClientTaskList({ clientAccountId, canManage = false }: ClientTas
         description: form.notes.trim() || null,
         status: 'pending',
         assigned_by: user.id,
+        transaction_id: transactionId,
       })
       .select()
       .single();

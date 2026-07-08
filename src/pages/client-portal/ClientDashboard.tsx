@@ -14,6 +14,8 @@ import { ClientMessaging } from './components/ClientMessaging';
 import { PropertyDetails } from './components/PropertyDetails';
 import { ClientSidebar } from './components/ClientSidebar';
 import { FUBTimeline } from './components/FUBTimeline';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ShoppingCart as ShoppingCartIcon, Tag as TagIcon } from 'lucide-react';
 
 interface ClientDocument {
   id: string;
@@ -50,6 +52,8 @@ interface Transaction {
   closing_date: string | null;
   property_photos: string[];
   property_description: string | null;
+  deal_id?: string | null;
+  fub_deal_id?: number | null;
 }
 
 const ClientDashboard = () => {
@@ -58,6 +62,7 @@ const ClientDashboard = () => {
   const [clientAccount, setClientAccount] = useState<ClientAccount | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
+  const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -117,7 +122,11 @@ const ClientDashboard = () => {
       if (transactionsResult.error) {
         console.error('Error fetching transactions:', transactionsResult.error);
       } else {
-        setTransactions((transactionsResult.data || []) as Transaction[]);
+        const txs = (transactionsResult.data || []) as Transaction[];
+        setTransactions(txs);
+        // Prefer an active transaction, otherwise the most recent
+        const preferred = txs.find(t => t.status === 'active' || t.status === 'pending') || txs[0];
+        if (preferred) setSelectedTransactionId(preferred.id);
       }
 
       setLoading(false);
@@ -196,7 +205,36 @@ const ClientDashboard = () => {
     t.transaction_type === 'seller' || t.transaction_type === 'listing' || t.transaction_type === 'sale'
   );
 
-  const activeTransaction = transactions.find(t => t.status === 'active' || t.status === 'pending');
+  const selectedTransaction =
+    transactions.find(t => t.id === selectedTransactionId) ||
+    transactions.find(t => t.status === 'active' || t.status === 'pending') ||
+    transactions[0] ||
+    null;
+  const activeTransaction = selectedTransaction;
+
+  // Documents scoped to the selected transaction when it has a linked deal
+  const scopedDocuments = selectedTransaction?.deal_id
+    ? documents.filter(d => (d as unknown as { deal_id?: string }).deal_id === selectedTransaction.deal_id)
+    : documents;
+
+  const groupedScopedDocuments = scopedDocuments.reduce((acc, doc) => {
+    const type = doc.document_type || 'Other';
+    if (!acc[type]) acc[type] = [];
+    acc[type].push(doc);
+    return acc;
+  }, {} as Record<string, ClientDocument[]>);
+
+  const txLabel = (t: Transaction) => {
+    const type = t.transaction_type;
+    const isBuy = type === 'buyer' || type === 'purchase';
+    const isSell = type === 'seller' || type === 'listing' || type === 'sale';
+    const prefix = isBuy ? 'My Purchase' : isSell ? 'My Sale' : 'My Transaction';
+    return `${prefix} — ${t.property_address || 'Property'}`;
+  };
+  const txIcon = (t: Transaction) => {
+    const isBuy = t.transaction_type === 'buyer' || t.transaction_type === 'purchase';
+    return isBuy ? <ShoppingCartIcon className="h-4 w-4" /> : <TagIcon className="h-4 w-4" />;
+  };
 
   if (loading) {
     return (
@@ -233,8 +271,13 @@ const ClientDashboard = () => {
                   <FUBTimeline
                     fubPersonId={clientAccount.fub_person_id}
                     clientAccountId={clientAccount.id}
+                    fubDealId={selectedTransaction?.fub_deal_id ?? null}
+                    transactionId={selectedTransaction?.id ?? null}
                   />
-                  <ClientTaskList clientAccountId={clientAccount.id} />
+                  <ClientTaskList
+                    clientAccountId={clientAccount.id}
+                    transactionId={selectedTransaction?.id ?? null}
+                  />
                 </div>
               </div>
             ) : activeTransaction ? (
@@ -243,7 +286,10 @@ const ClientDashboard = () => {
                 <div className="space-y-6">
                   <TransactionTimeline transaction={activeTransaction} />
                   {clientAccount && (
-                    <ClientTaskList clientAccountId={clientAccount.id} />
+                    <ClientTaskList
+                      clientAccountId={clientAccount.id}
+                      transactionId={selectedTransaction?.id ?? null}
+                    />
                   )}
                 </div>
               </div>
@@ -369,13 +415,16 @@ const ClientDashboard = () => {
 
       case 'tasks':
         return clientAccount && (
-          <ClientTaskList clientAccountId={clientAccount.id} />
+          <ClientTaskList
+            clientAccountId={clientAccount.id}
+            transactionId={selectedTransaction?.id ?? null}
+          />
         );
 
       case 'documents':
         return (
           <div className="space-y-6">
-            {documents.length === 0 ? (
+            {scopedDocuments.length === 0 ? (
               <Card className="border-dashed">
                 <CardContent className="flex flex-col items-center justify-center py-16">
                   <FolderOpen className="h-16 w-16 text-muted-foreground/50 mb-4" />
@@ -387,7 +436,7 @@ const ClientDashboard = () => {
               </Card>
             ) : (
               <div className="space-y-8">
-                {Object.entries(groupedDocuments).map(([type, docs]) => (
+                {Object.entries(groupedScopedDocuments).map(([type, docs]) => (
                   <div key={type}>
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                       <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getDocumentTypeColor(type)}`}>
@@ -500,6 +549,29 @@ const ClientDashboard = () => {
                 </div>
                 <h1 className="font-display text-xl font-semibold">{getPageTitle()}</h1>
               </div>
+              {transactions.length > 1 && activeTab !== 'messages' && (
+                <div className="ml-auto flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground hidden sm:inline">Transaction</span>
+                  <Select
+                    value={selectedTransactionId ?? undefined}
+                    onValueChange={(v) => setSelectedTransactionId(v)}
+                  >
+                    <SelectTrigger className="w-[280px]">
+                      <SelectValue placeholder="Select a transaction" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {transactions.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          <span className="flex items-center gap-2">
+                            {txIcon(t)}
+                            {txLabel(t)}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
           </header>
 

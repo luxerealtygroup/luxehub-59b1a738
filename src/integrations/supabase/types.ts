@@ -510,6 +510,7 @@ export type Database = {
           created_at: string
           deal_id: string | null
           financing_deadline: string | null
+          fub_deal_id: number | null
           id: string
           inspection_date: string | null
           list_price: number | null
@@ -531,6 +532,7 @@ export type Database = {
           created_at?: string
           deal_id?: string | null
           financing_deadline?: string | null
+          fub_deal_id?: number | null
           id?: string
           inspection_date?: string | null
           list_price?: number | null
@@ -552,6 +554,7 @@ export type Database = {
           created_at?: string
           deal_id?: string | null
           financing_deadline?: string | null
+          fub_deal_id?: number | null
           id?: string
           inspection_date?: string | null
           list_price?: number | null
@@ -1790,6 +1793,7 @@ export type Database = {
           id: string
           note: string
           stage: string
+          transaction_id: string | null
           updated_at: string
           user_id: string
         }
@@ -1799,6 +1803,7 @@ export type Database = {
           id?: string
           note: string
           stage: string
+          transaction_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -1808,6 +1813,7 @@ export type Database = {
           id?: string
           note?: string
           stage?: string
+          transaction_id?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -1817,6 +1823,13 @@ export type Database = {
             columns: ["client_account_id"]
             isOneToOne: false
             referencedRelation: "client_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_timeline_notes_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "client_transactions"
             referencedColumns: ["id"]
           },
         ]
