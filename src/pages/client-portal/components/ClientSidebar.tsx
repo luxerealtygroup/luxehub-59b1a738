@@ -1,6 +1,5 @@
 import { 
   Home, 
-  Gem,
   FileText, 
   MessageCircle, 
   CheckSquare,
@@ -9,6 +8,7 @@ import {
   Tag,
   ImageIcon,
 } from 'lucide-react';
+import luxeLogo from '@/assets/luxe-logo.png.asset.json';
 import { Button } from '@/components/ui/button';
 import {
   Sidebar,
@@ -57,17 +57,14 @@ export function ClientSidebar({
   return (
     <Sidebar className="border-r border-primary/10 bg-sidebar">
       <SidebarHeader className="border-b border-primary/10 p-4">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary via-primary to-primary/80 flex items-center justify-center shadow-gold">
-            <Gem className="h-5 w-5 text-primary-foreground" />
-          </div>
+        <div className={`flex ${collapsed ? 'justify-center' : 'flex-col items-center'} gap-2`}>
+          <img
+            src={luxeLogo.url}
+            alt="LUXE Realty Group"
+            className={`${collapsed ? 'h-8' : 'h-16'} w-auto object-contain invert brightness-0 [filter:invert(1)]`}
+          />
           {!collapsed && (
-            <div className="min-w-0">
-              <h1 className="font-display text-lg font-semibold tracking-tight text-sidebar-foreground leading-none">
-                LUXE<span className="text-primary">hub</span>
-              </h1>
-              <p className="text-[10px] uppercase tracking-[0.18em] text-sidebar-foreground/60 mt-1">Client Portal</p>
-            </div>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-sidebar-foreground/60">Client Portal</p>
           )}
         </div>
       </SidebarHeader>
