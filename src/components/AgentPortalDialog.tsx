@@ -237,8 +237,7 @@ export function AgentPortalDialog({
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label>FUB contact ID</Label>
-                  <Label className="text-xs text-muted-foreground">Search Follow Up Boss</Label>
+                  <Label>FUB contact</Label>
                   <FUBContactTypeahead
                     selectedContact={
                       form.fub_person_id
