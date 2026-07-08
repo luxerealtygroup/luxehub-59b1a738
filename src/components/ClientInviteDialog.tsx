@@ -12,7 +12,8 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { UserPlus, Copy, Check } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { UserPlus, Copy, Check, Mail, Loader2 } from 'lucide-react';
 
 interface ClientInviteDialogProps {
   clientName?: string;
@@ -24,6 +25,7 @@ export function ClientInviteDialog({ clientName, clientEmail, fubPersonId }: Cli
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState(clientEmail || '');
   const [copied, setCopied] = useState(false);
+  const [sending, setSending] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -55,6 +57,39 @@ export function ClientInviteDialog({ clientName, clientEmail, fubPersonId }: Cli
         description: "Please copy the link manually.",
         variant: "destructive"
       });
+    }
+  };
+
+  const handleSendEmail = async () => {
+    if (!email) {
+      toast({ title: 'Add an email', description: 'Enter the client email first.', variant: 'destructive' });
+      return;
+    }
+    setSending(true);
+    try {
+      const { error } = await supabase.functions.invoke('send-transactional-email', {
+        body: {
+          templateName: 'client-portal-invite',
+          recipientEmail: email,
+          idempotencyKey: `portal-invite-${email}-${Date.now()}`,
+          templateData: {
+            clientName: clientName || '',
+            agentName: user?.email?.split('@')[0] || 'Your agent',
+            inviteUrl: inviteLink,
+          },
+        },
+      });
+      if (error) throw error;
+      toast({ title: 'Invitation sent', description: `Emailed the portal link to ${email}.` });
+      setOpen(false);
+    } catch (err) {
+      toast({
+        title: 'Send failed',
+        description: err instanceof Error ? err.message : 'Could not send the invitation.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSending(false);
     }
   };
 
@@ -111,6 +146,16 @@ export function ClientInviteDialog({ clientName, clientEmail, fubPersonId }: Cli
           <p className="text-sm text-muted-foreground">
             Share this link with your client. They'll be able to create an account and view documents you've uploaded for them.
           </p>
+
+          <Button
+            type="button"
+            onClick={handleSendEmail}
+            disabled={sending || !email}
+            className="w-full gap-2"
+          >
+            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+            {sending ? 'Sending…' : 'Email invitation to client'}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
