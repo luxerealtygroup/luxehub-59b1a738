@@ -1863,6 +1863,47 @@ export type Database = {
           },
         ]
       }
+      portal_messages: {
+        Row: {
+          created_at: string
+          id: string
+          message_body: string
+          portal_id: string
+          sender_name: string | null
+          sender_type: Database["public"]["Enums"]["portal_message_sender"]
+          sender_user_id: string | null
+          slack_ts: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message_body: string
+          portal_id: string
+          sender_name?: string | null
+          sender_type: Database["public"]["Enums"]["portal_message_sender"]
+          sender_user_id?: string | null
+          slack_ts?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message_body?: string
+          portal_id?: string
+          sender_name?: string | null
+          sender_type?: Database["public"]["Enums"]["portal_message_sender"]
+          sender_user_id?: string | null
+          slack_ts?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_messages_portal_id_fkey"
+            columns: ["portal_id"]
+            isOneToOne: false
+            referencedRelation: "client_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       portal_photos: {
         Row: {
           caption: string | null
@@ -2660,6 +2701,7 @@ export type Database = {
         | "under_contract"
         | "closed"
         | "lost"
+      portal_message_sender: "client" | "agent" | "ops"
       portal_photo_category: "property" | "milestone"
     }
     CompositeTypes: {
@@ -2807,6 +2849,7 @@ export const Constants = {
         "closed",
         "lost",
       ],
+      portal_message_sender: ["client", "agent", "ops"],
       portal_photo_category: ["property", "milestone"],
     },
   },
