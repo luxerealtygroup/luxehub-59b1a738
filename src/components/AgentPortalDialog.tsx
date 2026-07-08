@@ -21,6 +21,7 @@ import { ClientTaskList } from '@/pages/client-portal/components/ClientTaskList'
 import { GoogleDriveConnect } from '@/components/GoogleDriveConnect';
 import { PortalDocumentsPanel } from '@/components/portal/PortalDocumentsPanel';
 import { PortalPhotosPanel } from '@/components/portal/PortalPhotosPanel';
+import { PortalChatPanel } from '@/components/portal/PortalChatPanel';
 import { useUserRole } from '@/hooks/useUserRole';
 
 interface AgentPortalDialogProps {
@@ -188,7 +189,7 @@ export function AgentPortalDialog({
           </div>
         ) : (
           <Tabs defaultValue={account ? 'timeline' : 'setup'} className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="setup">Setup</TabsTrigger>
               <TabsTrigger value="timeline" disabled={!account}>
                 Timeline
@@ -201,6 +202,9 @@ export function AgentPortalDialog({
               </TabsTrigger>
               <TabsTrigger value="photos" disabled={!account}>
                 Photos
+              </TabsTrigger>
+              <TabsTrigger value="messages" disabled={!account}>
+                Messages
               </TabsTrigger>
             </TabsList>
 
@@ -300,6 +304,10 @@ export function AgentPortalDialog({
 
             <TabsContent value="photos" className="pt-4">
               {account && <PortalPhotosPanel portalId={account.id} canManage={isAdmin} />}
+            </TabsContent>
+
+            <TabsContent value="messages" className="pt-4">
+              {account && <PortalChatPanel portalId={account.id} viewerRole="agent" />}
             </TabsContent>
           </Tabs>
         )}
