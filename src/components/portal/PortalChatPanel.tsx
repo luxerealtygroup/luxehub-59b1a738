@@ -50,8 +50,17 @@ export function PortalChatPanel({ portalId, viewerRole }: PortalChatPanelProps) 
     };
     load();
 
-    const channel = supabase
-      .channel(`portal-messages-${portalId}`)
+    // Ensure the realtime socket is using the current auth token so RLS
+    // authorizes postgres_changes broadcasts to this subscriber.
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    (async () => {
+      const { data: sess } = await supabase.auth.getSession();
+      if (sess.session?.access_token) {
+        await supabase.realtime.setAuth(sess.session.access_token);
+      }
+      if (cancelled) return;
+      channel = supabase
+        .channel(`portal-messages-${portalId}-${viewerRole}`)
       .on(
         'postgres_changes',
         {
@@ -68,13 +77,18 @@ export function PortalChatPanel({ portalId, viewerRole }: PortalChatPanelProps) 
           });
         },
       )
-      .subscribe();
+        .subscribe((status) => {
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            console.warn('portal_messages realtime status:', status);
+          }
+        });
+    })();
 
     return () => {
       cancelled = true;
-      supabase.removeChannel(channel);
+      if (channel) supabase.removeChannel(channel);
     };
-  }, [portalId]);
+  }, [portalId, viewerRole]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -97,6 +111,15 @@ export function PortalChatPanel({ portalId, viewerRole }: PortalChatPanelProps) 
         variant: 'destructive',
       });
     } else {
+      // Optimistically append the just-inserted message so the sender sees it
+      // immediately even if the realtime broadcast for their own row is
+      // delayed or filtered. The realtime handler dedupes by id.
+      const inserted = (data as { message?: PortalMessage })?.message;
+      if (inserted?.id) {
+        setMessages((prev) =>
+          prev.some((m) => m.id === inserted.id) ? prev : [...prev, inserted],
+        );
+      }
       setText('');
     }
     setSending(false);
