@@ -1822,6 +1822,85 @@ export type Database = {
         }
         Relationships: []
       }
+      portal_documents: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_path: string
+          file_size: number | null
+          file_type: string | null
+          id: string
+          portal_id: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          portal_id: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          portal_id?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_documents_portal_id_fkey"
+            columns: ["portal_id"]
+            isOneToOne: false
+            referencedRelation: "client_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      portal_photos: {
+        Row: {
+          caption: string | null
+          category: Database["public"]["Enums"]["portal_photo_category"]
+          created_at: string
+          file_path: string
+          id: string
+          portal_id: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          caption?: string | null
+          category?: Database["public"]["Enums"]["portal_photo_category"]
+          created_at?: string
+          file_path: string
+          id?: string
+          portal_id: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          caption?: string | null
+          category?: Database["public"]["Enums"]["portal_photo_category"]
+          created_at?: string
+          file_path?: string
+          id?: string
+          portal_id?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_photos_portal_id_fkey"
+            columns: ["portal_id"]
+            isOneToOne: false
+            referencedRelation: "client_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       portal_timeline_notes: {
         Row: {
           client_account_id: string
@@ -2550,6 +2629,10 @@ export type Database = {
         }
         Returns: number
       }
+      owns_portal: {
+        Args: { _portal_id: string; _user_id: string }
+        Returns: boolean
+      }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
@@ -2577,6 +2660,7 @@ export type Database = {
         | "under_contract"
         | "closed"
         | "lost"
+      portal_photo_category: "property" | "milestone"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2723,6 +2807,7 @@ export const Constants = {
         "closed",
         "lost",
       ],
+      portal_photo_category: ["property", "milestone"],
     },
   },
 } as const
