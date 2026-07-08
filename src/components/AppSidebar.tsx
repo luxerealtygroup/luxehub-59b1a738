@@ -74,6 +74,7 @@ const allSections: MenuSection[] = [
     planningVisible: true,
     items: [
       { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
+      { title: 'Notifications', url: '/dashboard/notifications', icon: Bell },
     ],
   },
   {
