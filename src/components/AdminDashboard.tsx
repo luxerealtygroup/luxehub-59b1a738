@@ -152,6 +152,8 @@ interface CompanyTransaction {
   status: 'closed' | 'pending' | 'conditional';
   stageName: string;
   agentName: string;
+  clientFubId: number | null;
+  clientEmail: string | null;
 }
 
 const COLORS = ['hsl(43, 74%, 49%)', 'hsl(142, 71%, 45%)', 'hsl(217, 91%, 60%)', 'hsl(280, 67%, 60%)', 'hsl(350, 89%, 60%)'];
