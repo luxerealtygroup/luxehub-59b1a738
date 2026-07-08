@@ -30,6 +30,7 @@ interface AgentPortalDialogProps {
   clientEmail?: string;
   fubPersonId?: number | null;
   defaultType?: 'buyer' | 'seller';
+  trigger?: React.ReactNode;
 }
 
 interface ClientAccountRow {
@@ -47,6 +48,7 @@ export function AgentPortalDialog({
   clientEmail,
   fubPersonId,
   defaultType,
+  trigger,
 }: AgentPortalDialogProps) {
   const { user } = useAuth();
   const { isAdmin } = useUserRole();
@@ -196,10 +198,12 @@ export function AgentPortalDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline" className="gap-2">
-          <LayoutDashboard className="h-4 w-4" />
-          Client Portal
-        </Button>
+        {trigger ?? (
+          <Button size="sm" variant="outline" className="gap-2">
+            <LayoutDashboard className="h-4 w-4" />
+            Client Portal
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
