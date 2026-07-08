@@ -18,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ExternalLink, LayoutDashboard, Loader2, Mail, Send } from 'lucide-react';
 import { FUBTimeline } from '@/pages/client-portal/components/FUBTimeline';
 import { ClientTaskList } from '@/pages/client-portal/components/ClientTaskList';
+import { GoogleDriveConnect } from '@/components/GoogleDriveConnect';
 
 interface AgentPortalDialogProps {
   clientName?: string;
@@ -194,6 +195,13 @@ export function AgentPortalDialog({
             </TabsList>
 
             <TabsContent value="setup" className="space-y-3 pt-4">
+              <div className="rounded-lg border bg-muted/30 p-3">
+                <div className="text-sm font-medium mb-1">Google Drive</div>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Connect your Google account so LUXEhub can list documents and photos from the linked Drive folder for this client.
+                </p>
+                <GoogleDriveConnect />
+              </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
                   <Label>Client name</Label>
