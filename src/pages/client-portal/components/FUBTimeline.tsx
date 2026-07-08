@@ -27,6 +27,10 @@ interface FUBTimelineProps {
   fubPersonId: number | null | undefined;
   clientAccountId: string;
   canAddNotes?: boolean; // agent side
+  /** Restrict the timeline to a single Follow Up Boss deal (per-transaction view). */
+  fubDealId?: number | null;
+  /** Scope timeline notes to a specific transaction. */
+  transactionId?: string | null;
 }
 
 // Canonical ordered stage buckets. FUB stage names are matched case-insensitively
@@ -65,7 +69,13 @@ function normalizeStages(deals: FUBDeal[]): StageEntry[] {
   return entries;
 }
 
-export function FUBTimeline({ fubPersonId, clientAccountId, canAddNotes = false }: FUBTimelineProps) {
+export function FUBTimeline({
+  fubPersonId,
+  clientAccountId,
+  canAddNotes = false,
+  fubDealId = null,
+  transactionId = null,
+}: FUBTimelineProps) {
   const { toast } = useToast();
   const [stages, setStages] = useState<StageEntry[]>([]);
   const [notes, setNotes] = useState<TimelineNote[]>([]);
@@ -84,11 +94,19 @@ export function FUBTimeline({ fubPersonId, clientAccountId, canAddNotes = false 
         fubPersonId
           ? followUpBossApi.getPersonDeals(fubPersonId)
           : Promise.resolve({ success: true, data: { deals: [] } } as any),
-        supabase
-          .from('portal_timeline_notes')
-          .select('*')
-          .eq('client_account_id', clientAccountId)
-          .order('created_at', { ascending: false }),
+        (transactionId
+          ? supabase
+              .from('portal_timeline_notes')
+              .select('*')
+              .eq('client_account_id', clientAccountId)
+              .eq('transaction_id', transactionId)
+              .order('created_at', { ascending: false })
+          : supabase
+              .from('portal_timeline_notes')
+              .select('*')
+              .eq('client_account_id', clientAccountId)
+              .is('transaction_id', null)
+              .order('created_at', { ascending: false })),
       ]);
 
       if (cancelled) return;
@@ -96,7 +114,10 @@ export function FUBTimeline({ fubPersonId, clientAccountId, canAddNotes = false 
       if (!dealsRes.success) {
         setError(dealsRes.error || 'Unable to load Follow Up Boss deals');
       } else {
-        const deals = dealsRes.data?.deals ?? [];
+        let deals = dealsRes.data?.deals ?? [];
+        if (fubDealId) {
+          deals = deals.filter((d) => Number(d.id) === Number(fubDealId));
+        }
         setStages(normalizeStages(deals));
       }
       if (!notesRes.error && notesRes.data) {
@@ -108,7 +129,7 @@ export function FUBTimeline({ fubPersonId, clientAccountId, canAddNotes = false 
     return () => {
       cancelled = true;
     };
-  }, [fubPersonId, clientAccountId]);
+  }, [fubPersonId, clientAccountId, fubDealId, transactionId]);
 
   const currentStageName = stages[stages.length - 1]?.stage ?? null;
 
@@ -131,7 +152,13 @@ export function FUBTimeline({ fubPersonId, clientAccountId, canAddNotes = false 
     }
     const { data, error } = await supabase
       .from('portal_timeline_notes')
-      .insert({ client_account_id: clientAccountId, user_id: user.id, stage, note: text })
+      .insert({
+        client_account_id: clientAccountId,
+        user_id: user.id,
+        stage,
+        note: text,
+        transaction_id: transactionId,
+      })
       .select()
       .single();
     setSavingStage(null);
