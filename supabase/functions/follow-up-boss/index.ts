@@ -90,6 +90,23 @@ serve(async (req) => {
         endpoint = `/people/${params.id}`;
         break;
 
+      case 'get_person_deals': {
+        // Return every deal for a specific FUB person so the client portal
+        // can render a timeline of the actual stages that person's deals hit.
+        const personId = Number(params?.personId);
+        if (!personId) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'personId is required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        const dp = new URLSearchParams();
+        dp.append('personId', personId.toString());
+        dp.append('limit', '100');
+        endpoint = `/deals?${dp.toString()}`;
+        break;
+      }
+
       case 'get_people': {
         const peopleParams = new URLSearchParams();
         if (params?.limit) peopleParams.append('limit', params.limit.toString());
