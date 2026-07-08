@@ -549,6 +549,29 @@ const ClientDashboard = () => {
                 </div>
                 <h1 className="font-display text-xl font-semibold">{getPageTitle()}</h1>
               </div>
+              {transactions.length > 1 && activeTab !== 'messages' && (
+                <div className="ml-auto flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground hidden sm:inline">Transaction</span>
+                  <Select
+                    value={selectedTransactionId ?? undefined}
+                    onValueChange={(v) => setSelectedTransactionId(v)}
+                  >
+                    <SelectTrigger className="w-[280px]">
+                      <SelectValue placeholder="Select a transaction" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {transactions.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          <span className="flex items-center gap-2">
+                            {txIcon(t)}
+                            {txLabel(t)}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
           </header>
 
