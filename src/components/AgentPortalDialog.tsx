@@ -15,10 +15,9 @@ import {
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ExternalLink, LayoutDashboard, Loader2, Send } from 'lucide-react';
+import { LayoutDashboard, Loader2, Send } from 'lucide-react';
 import { FUBTimeline } from '@/pages/client-portal/components/FUBTimeline';
 import { ClientTaskList } from '@/pages/client-portal/components/ClientTaskList';
-import { GoogleDriveConnect } from '@/components/GoogleDriveConnect';
 import { FUBContactTypeahead } from '@/components/FUBContactTypeahead';
 import { PortalDocumentsPanel } from '@/components/portal/PortalDocumentsPanel';
 import { PortalPhotosPanel } from '@/components/portal/PortalPhotosPanel';
@@ -210,13 +209,6 @@ export function AgentPortalDialog({
             </TabsList>
 
             <TabsContent value="setup" className="space-y-3 pt-4">
-              <div className="rounded-lg border bg-muted/30 p-3">
-                <div className="text-sm font-medium mb-1">Google Drive</div>
-                <p className="text-xs text-muted-foreground mb-2">
-                  Connect your Google account so LUXEhub can list documents and photos from the linked Drive folder for this client.
-                </p>
-                <GoogleDriveConnect />
-              </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
                   <Label>Client name</Label>
@@ -258,20 +250,6 @@ export function AgentPortalDialog({
                     }
                     onClear={() => setForm({ ...form, fub_person_id: '' })}
                   />
-                </div>
-                <div className="space-y-1">
-                  <Label>Drive folder ID</Label>
-                  <Input value={form.drive_folder_id} onChange={(e) => setForm({ ...form, drive_folder_id: e.target.value })} placeholder="Google Drive folder ID" />
-                  {form.drive_folder_id.trim() && (
-                    <a
-                      href={`https://drive.google.com/drive/folders/${form.drive_folder_id.trim()}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1"
-                    >
-                      <ExternalLink className="h-3 w-3" /> Open folder in Google Drive
-                    </a>
-                  )}
                 </div>
                 <div className="space-y-1">
                   <Label>Slack channel ID</Label>
