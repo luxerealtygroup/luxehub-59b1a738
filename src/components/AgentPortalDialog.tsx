@@ -19,6 +19,7 @@ import { ExternalLink, LayoutDashboard, Loader2, Mail, Send } from 'lucide-react
 import { FUBTimeline } from '@/pages/client-portal/components/FUBTimeline';
 import { ClientTaskList } from '@/pages/client-portal/components/ClientTaskList';
 import { GoogleDriveConnect } from '@/components/GoogleDriveConnect';
+import { FUBContactTypeahead } from '@/components/FUBContactTypeahead';
 import { PortalDocumentsPanel } from '@/components/portal/PortalDocumentsPanel';
 import { PortalPhotosPanel } from '@/components/portal/PortalPhotosPanel';
 import { PortalChatPanel } from '@/components/portal/PortalChatPanel';
@@ -237,7 +238,27 @@ export function AgentPortalDialog({
                 </div>
                 <div className="space-y-1">
                   <Label>FUB contact ID</Label>
-                  <Input value={form.fub_person_id} onChange={(e) => setForm({ ...form, fub_person_id: e.target.value.replace(/[^0-9]/g, '') })} placeholder="e.g. 12345" />
+                  <Label className="text-xs text-muted-foreground">Search Follow Up Boss</Label>
+                  <FUBContactTypeahead
+                    selectedContact={
+                      form.fub_person_id
+                        ? {
+                            id: Number(form.fub_person_id),
+                            name: form.full_name || `FUB #${form.fub_person_id}`,
+                            email: form.email || undefined,
+                          }
+                        : null
+                    }
+                    onSelect={(c) =>
+                      setForm({
+                        ...form,
+                        fub_person_id: String(c.id),
+                        full_name: form.full_name || c.name,
+                        email: form.email || c.email || '',
+                      })
+                    }
+                    onClear={() => setForm({ ...form, fub_person_id: '' })}
+                  />
                 </div>
                 <div className="space-y-1">
                   <Label>Drive folder ID</Label>
