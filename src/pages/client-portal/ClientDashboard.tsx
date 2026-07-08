@@ -10,7 +10,7 @@ import { FileText, Download, FolderOpen, Home, Calendar, CheckSquare, MessageCir
 import { format } from 'date-fns';
 import { TransactionTimeline } from './components/TransactionTimeline';
 import { ClientTaskList } from './components/ClientTaskList';
-import { ClientMessaging } from './components/ClientMessaging';
+import { PortalChatPanel } from '@/components/portal/PortalChatPanel';
 import { PropertyDetails } from './components/PropertyDetails';
 import { ClientSidebar } from './components/ClientSidebar';
 import { FUBTimeline } from './components/FUBTimeline';
@@ -439,10 +439,7 @@ const ClientDashboard = () => {
 
       case 'messages':
         return clientAccount && (
-          <ClientMessaging 
-            clientAccountId={clientAccount.id} 
-            userId={clientAccount.user_id}
-          />
+          <PortalChatPanel portalId={clientAccount.id} viewerRole="client" />
         );
 
       default:
