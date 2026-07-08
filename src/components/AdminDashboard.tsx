@@ -198,6 +198,7 @@ const AdminDashboard = () => {
   const [monthlyRevenue, setMonthlyRevenue] = useState<MonthlyRevenueData[]>([]);
   const [monthlyPipeline, setMonthlyPipeline] = useState<MonthlyPipelineData[]>([]);
   const [companyTransactions, setCompanyTransactions] = useState<CompanyTransaction[]>([]);
+  const [portalByFubId, setPortalByFubId] = useState<Map<number, { id: string; status: 'active' | 'invited'; email: string; full_name: string | null; client_type: string | null }>>(new Map());
   const [quarterlyGoals, setQuarterlyGoals] = useState<QuarterlyGoals | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
