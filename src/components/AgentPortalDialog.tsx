@@ -331,7 +331,13 @@ export function AgentPortalDialog({
             </TabsContent>
 
             <TabsContent value="messages" className="pt-4">
-              {account && <PortalChatPanel portalId={account.id} viewerRole="agent" />}
+              {account && (
+                <PortalChatPanel
+                  portalId={account.id}
+                  viewerRole="agent"
+                  sendAsAgentId={account.invited_by ?? null}
+                />
+              )}
             </TabsContent>
           </Tabs>
         )}
