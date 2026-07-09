@@ -30,7 +30,7 @@ interface ViewAsAgentContextType {
   agentOptions: AgentOption[];
 }
 
-const ViewAsAgentContext = createContext<ViewAsAgentContextType | undefined>(undefined);
+export const ViewAsAgentContext = createContext<ViewAsAgentContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'viewAsAgent';
 
