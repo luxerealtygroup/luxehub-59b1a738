@@ -19,6 +19,7 @@ import {
   Filter,
 } from 'lucide-react';
 import { AgentPortalDialog } from '@/components/AgentPortalDialog';
+import { useUserRole } from '@/hooks/useUserRole';
 
 type PortalRow = {
   id: string;
@@ -41,6 +42,7 @@ type PortalRow = {
 type FilterKey = 'all' | 'missing_slack' | 'missing_docs' | 'invited';
 
 export default function AdminClientPortals() {
+  const { isAdmin } = useUserRole();
   const [rows, setRows] = useState<PortalRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -149,10 +151,12 @@ export default function AdminClientPortals() {
         <div>
           <h1 className="text-2xl font-display font-semibold text-foreground flex items-center gap-2">
             <Users className="h-6 w-6 text-blue-500" />
-            Client Portals
+            {isAdmin ? 'Client Portals' : 'My Client Portals'}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Every client portal across the team, with health at a glance.
+            {isAdmin
+              ? 'Every client portal across the team, with health at a glance.'
+              : 'Your client portals, with health at a glance.'}
           </p>
         </div>
         <AgentPortalDialog
