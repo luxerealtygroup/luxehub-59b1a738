@@ -526,6 +526,12 @@ const ClientDashboard = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                  <ClientNotificationsBell onOpenMessages={() => setActiveTab('messages')} />
+                </div>
+              )}
+              {!(transactions.length > 1 && activeTab !== 'messages') && (
+                <div className="ml-auto">
+                  <ClientNotificationsBell onOpenMessages={() => setActiveTab('messages')} />
                 </div>
               )}
             </div>
