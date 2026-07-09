@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
     const token = authHeader.replace('Bearer ', '');
     const { data: claims, error: claimsErr } = await userClient.auth.getClaims(token);
     if (claimsErr || !claims?.claims) return json({ error: 'Unauthorized' }, 401);
-    const userId = claims.claims.sub as string;
+    let userId = claims.claims.sub as string;
 
     const body = await req.json().catch(() => ({}));
     const portalId = String(body.portal_id ?? '').trim();
@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
         .maybeSingle();
       senderName = prof?.full_name || 'Your Agent';
       // Reassign so the DB row + downstream notification trigger reflect the agent.
-      (userId as unknown as string) = attributedUserId;
+      userId = attributedUserId;
     }
 
     // Post to Slack first (so we can capture ts). If it fails, still save.
