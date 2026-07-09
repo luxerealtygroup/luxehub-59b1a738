@@ -82,6 +82,7 @@ const allSections: MenuSection[] = [
     items: [
       { title: 'Pipeline', url: '/dashboard/pipeline', icon: Building2 },
       { title: 'Transactions', url: '/dashboard/commissions', icon: DollarSign },
+      { title: 'Client Portals', url: '/dashboard/client-portals', icon: Users2 },
     ],
   },
   {
