@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useContext } from 'react';
+import { ViewAsAgentContext } from '@/hooks/useViewAsAgent';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +34,11 @@ export function PortalChatPanel({ portalId, viewerRole }: PortalChatPanelProps) 
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const viewCtx = useContext(ViewAsAgentContext);
+  const sendAsAgentId =
+    viewerRole === 'agent' && viewCtx?.isViewingAsAgent && viewCtx.viewingAgentId
+      ? viewCtx.viewingAgentId
+      : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -102,7 +109,11 @@ export function PortalChatPanel({ portalId, viewerRole }: PortalChatPanelProps) 
     if (!body || sending) return;
     setSending(true);
     const { data, error } = await supabase.functions.invoke('portal-send-message', {
-      body: { portal_id: portalId, message: body },
+      body: {
+        portal_id: portalId,
+        message: body,
+        send_as_agent_id: sendAsAgentId ?? undefined,
+      },
     });
     if (error || (data as any)?.error) {
       toast({
