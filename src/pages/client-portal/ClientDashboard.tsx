@@ -20,6 +20,7 @@ import { PortalDocumentsPanel } from '@/components/portal/PortalDocumentsPanel';
 import { PortalPhotosPanel } from '@/components/portal/PortalPhotosPanel';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ShoppingCart as ShoppingCartIcon, Tag as TagIcon } from 'lucide-react';
+import { ClientNotificationsBell } from './components/ClientNotificationsBell';
 
 interface ClientDocument {
   id: string;
@@ -525,6 +526,12 @@ const ClientDashboard = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                  <ClientNotificationsBell onOpenMessages={() => setActiveTab('messages')} />
+                </div>
+              )}
+              {!(transactions.length > 1 && activeTab !== 'messages') && (
+                <div className="ml-auto">
+                  <ClientNotificationsBell onOpenMessages={() => setActiveTab('messages')} />
                 </div>
               )}
             </div>
