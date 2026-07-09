@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useViewAsAgent } from '@/hooks/useViewAsAgent';
 
 export interface NotificationRow {
   id: string;
@@ -21,32 +22,35 @@ export interface NotificationRow {
 
 export function useNotifications(limit = 50) {
   const { user } = useAuth();
+  const { isViewingAsAgent, viewingAgentId } = useViewAsAgent();
+  const scopedUserId = isViewingAsAgent && viewingAgentId ? viewingAgentId : user?.id ?? null;
   const [items, setItems] = useState<NotificationRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
-    if (!user) return;
+    if (!scopedUserId) return;
     setLoading(true);
     const { data } = await supabase
       .from('notifications')
       .select('*, client_accounts:portal_id(email, full_name, fub_person_id, client_type)')
+      .eq('user_id', scopedUserId)
       .order('created_at', { ascending: false })
       .limit(limit);
     setItems((data as NotificationRow[]) ?? []);
     setLoading(false);
-  }, [user, limit]);
+  }, [scopedUserId, limit]);
 
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!scopedUserId) return;
     const channel = supabase
-      .channel(`notifications-${user.id}`)
+      .channel(`notifications-${scopedUserId}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'notifications' },
+        { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${scopedUserId}` },
         () => {
           fetchAll();
         },
@@ -55,7 +59,7 @@ export function useNotifications(limit = 50) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, fetchAll]);
+  }, [scopedUserId, fetchAll]);
 
   const markRead = async (id: string) => {
     setItems((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
