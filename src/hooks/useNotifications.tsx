@@ -1,7 +1,7 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useContext } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { useViewAsAgent } from '@/hooks/useViewAsAgent';
+import { ViewAsAgentContext } from '@/hooks/useViewAsAgent';
 
 export interface NotificationRow {
   id: string;
@@ -22,8 +22,12 @@ export interface NotificationRow {
 
 export function useNotifications(limit = 50) {
   const { user } = useAuth();
-  const { isViewingAsAgent, viewingAgentId } = useViewAsAgent();
-  const scopedUserId = isViewingAsAgent && viewingAgentId ? viewingAgentId : user?.id ?? null;
+  // Optional — client portal renders this hook outside ViewAsAgentProvider.
+  const viewCtx = useContext(ViewAsAgentContext);
+  const scopedUserId =
+    viewCtx?.isViewingAsAgent && viewCtx.viewingAgentId
+      ? viewCtx.viewingAgentId
+      : user?.id ?? null;
   const [items, setItems] = useState<NotificationRow[]>([]);
   const [loading, setLoading] = useState(true);
 
