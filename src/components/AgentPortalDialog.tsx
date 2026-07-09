@@ -42,6 +42,7 @@ interface ClientAccountRow {
   client_type: string | null;
   drive_folder_id: string | null;
   slack_channel_id: string | null;
+  invited_by: string | null;
 }
 
 export function AgentPortalDialog({
@@ -330,7 +331,13 @@ export function AgentPortalDialog({
             </TabsContent>
 
             <TabsContent value="messages" className="pt-4">
-              {account && <PortalChatPanel portalId={account.id} viewerRole="agent" />}
+              {account && (
+                <PortalChatPanel
+                  portalId={account.id}
+                  viewerRole="agent"
+                  sendAsAgentId={account.invited_by ?? null}
+                />
+              )}
             </TabsContent>
           </Tabs>
         )}
