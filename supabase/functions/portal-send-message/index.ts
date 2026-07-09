@@ -23,6 +23,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const portalId = String(body.portal_id ?? '').trim();
     const message = String(body.message ?? '').trim();
+    const sendAsAgentId = body.send_as_agent_id ? String(body.send_as_agent_id).trim() : '';
     if (!portalId || !message) return json({ error: 'portal_id and message required' }, 400);
     if (message.length > 4000) return json({ error: 'Message too long' }, 400);
 
@@ -48,12 +49,28 @@ Deno.serve(async (req) => {
       const { data: teamCheck } = await admin.rpc('is_team_member', { _user_id: userId });
       if (!teamCheck) return json({ error: 'Forbidden' }, 403);
       senderType = 'agent';
+
+      // If an admin/owner is impersonating an agent via "View as Agent",
+      // attribute the message to that agent instead of the real user.
+      let attributedUserId = userId;
+      if (sendAsAgentId && sendAsAgentId !== userId) {
+        const [{ data: isAdmin }, { data: isOwner }] = await Promise.all([
+          admin.rpc('has_role', { _user_id: userId, _role: 'admin' }),
+          admin.rpc('has_role', { _user_id: userId, _role: 'owner' }),
+        ]);
+        if (isAdmin || isOwner) {
+          attributedUserId = sendAsAgentId;
+        }
+      }
+
       const { data: prof } = await admin
         .from('profiles')
         .select('full_name')
-        .eq('id', userId)
+        .eq('id', attributedUserId)
         .maybeSingle();
       senderName = prof?.full_name || 'Your Agent';
+      // Reassign so the DB row + downstream notification trigger reflect the agent.
+      (userId as unknown as string) = attributedUserId;
     }
 
     // Post to Slack first (so we can capture ts). If it fails, still save.
