@@ -42,6 +42,7 @@ interface ClientAccountRow {
   client_type: string | null;
   drive_folder_id: string | null;
   slack_channel_id: string | null;
+  invited_by: string | null;
 }
 
 export function AgentPortalDialog({
