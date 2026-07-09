@@ -25,9 +25,16 @@ interface PortalChatPanelProps {
   portalId: string;
   /** 'client' shows client-styled bubbles on the right; 'agent' shows agent messages on the right. */
   viewerRole: 'client' | 'agent';
+  /**
+   * Optional agent user id to attribute the outgoing message to. When set and
+   * the caller is an admin/owner, the edge function stores the message under
+   * this agent's name instead of the caller's profile. Falls back to the
+   * "View as Agent" context when not provided.
+   */
+  sendAsAgentId?: string | null;
 }
 
-export function PortalChatPanel({ portalId, viewerRole }: PortalChatPanelProps) {
+export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAgentIdProp }: PortalChatPanelProps) {
   const [messages, setMessages] = useState<PortalMessage[]>([]);
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
@@ -36,8 +43,9 @@ export function PortalChatPanel({ portalId, viewerRole }: PortalChatPanelProps) 
   const { toast } = useToast();
   const viewCtx = useContext(ViewAsAgentContext);
   const sendAsAgentId =
-    viewerRole === 'agent' && viewCtx?.isViewingAsAgent && viewCtx.viewingAgentId
-      ? viewCtx.viewingAgentId
+    viewerRole === 'agent'
+      ? sendAsAgentIdProp ??
+        (viewCtx?.isViewingAsAgent && viewCtx.viewingAgentId ? viewCtx.viewingAgentId : null)
       : null;
 
   useEffect(() => {
