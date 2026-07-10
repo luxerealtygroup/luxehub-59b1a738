@@ -6,7 +6,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Users,
   MessageSquare,
@@ -16,7 +15,6 @@ import {
   Loader2,
   Plus,
   Settings,
-  Filter,
 } from 'lucide-react';
 import { AgentPortalDialog } from '@/components/AgentPortalDialog';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -36,10 +34,18 @@ type PortalRow = {
   status: 'active' | 'invited';
   docCount: number;
   lastMessageAt: string | null;
+  lastMessageFromClient: boolean;
   transactionSides: Set<'buyer' | 'seller'>;
+  healthScore: number;
 };
 
-type FilterKey = 'all' | 'missing_slack' | 'missing_docs' | 'invited';
+type FilterKey =
+  | 'all'
+  | 'not_invited'
+  | 'missing_slack'
+  | 'missing_docs'
+  | 'missing_fub'
+  | 'unread';
 
 export default function AdminClientPortals() {
   const { isAdmin } = useUserRole();
@@ -70,7 +76,7 @@ export default function AdminClientPortals() {
         portalIds.length
           ? supabase
               .from('portal_messages')
-              .select('portal_id,created_at')
+              .select('portal_id,created_at,sender_type')
               .in('portal_id', portalIds)
               .order('created_at', { ascending: false })
           : Promise.resolve({ data: [] as any[] }),
@@ -89,8 +95,12 @@ export default function AdminClientPortals() {
       (docsRes.data ?? []).forEach((d: any) => docCount.set(d.portal_id, (docCount.get(d.portal_id) ?? 0) + 1));
 
       const lastMsg = new Map<string, string>();
+      const lastFromClient = new Map<string, boolean>();
       (msgsRes.data ?? []).forEach((m: any) => {
-        if (!lastMsg.has(m.portal_id)) lastMsg.set(m.portal_id, m.created_at);
+        if (!lastMsg.has(m.portal_id)) {
+          lastMsg.set(m.portal_id, m.created_at);
+          lastFromClient.set(m.portal_id, m.sender_type === 'client');
+        }
       });
 
       const txSides = new Map<string, Set<'buyer' | 'seller'>>();
@@ -100,14 +110,29 @@ export default function AdminClientPortals() {
         txSides.set(t.client_account_id, set);
       });
 
-      const enriched: PortalRow[] = list.map((r) => ({
-        ...r,
-        agentName: r.invited_by ? profileMap.get(r.invited_by) ?? 'Unknown' : 'Unknown',
-        status: r.user_id === r.invited_by ? 'invited' : 'active',
-        docCount: docCount.get(r.id) ?? 0,
-        lastMessageAt: lastMsg.get(r.id) ?? null,
-        transactionSides: txSides.get(r.id) ?? new Set(),
-      }));
+      const enriched: PortalRow[] = list.map((r) => {
+        const status: 'active' | 'invited' = r.user_id === r.invited_by ? 'invited' : 'active';
+        const dCount = docCount.get(r.id) ?? 0;
+        const lastAt = lastMsg.get(r.id) ?? null;
+        const clientLast = lastFromClient.get(r.id) ?? false;
+        const replied = !lastAt || !clientLast;
+        const score =
+          (status === 'active' ? 1 : 0) +
+          (r.slack_channel_id ? 1 : 0) +
+          (r.fub_person_id ? 1 : 0) +
+          (dCount > 0 ? 1 : 0) +
+          (replied ? 1 : 0);
+        return {
+          ...r,
+          agentName: r.invited_by ? profileMap.get(r.invited_by) ?? 'Unknown' : 'Unknown',
+          status,
+          docCount: dCount,
+          lastMessageAt: lastAt,
+          lastMessageFromClient: clientLast,
+          transactionSides: txSides.get(r.id) ?? new Set(),
+          healthScore: score,
+        };
+      });
 
       setRows(enriched);
       setLoading(false);
@@ -122,20 +147,40 @@ export default function AdminClientPortals() {
         const hay = `${r.full_name ?? ''} ${r.email} ${r.agentName}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
+      if (health === 'not_invited' && r.status !== 'invited') return false;
       if (health === 'missing_slack' && r.slack_channel_id) return false;
       if (health === 'missing_docs' && r.docCount > 0) return false;
-      if (health === 'invited' && r.status !== 'invited') return false;
+      if (health === 'missing_fub' && r.fub_person_id) return false;
+      if (health === 'unread' && !(r.lastMessageAt && r.lastMessageFromClient)) return false;
       return true;
     });
   }, [rows, search, health]);
 
   const stats = useMemo(() => {
-    const active = rows.filter((r) => r.status === 'active').length;
-    const invited = rows.filter((r) => r.status === 'invited').length;
-    const missingSlack = rows.filter((r) => !r.slack_channel_id).length;
-    const missingDocs = rows.filter((r) => r.docCount === 0).length;
-    return { active, invited, missingSlack, missingDocs };
+    return {
+      all: rows.length,
+      not_invited: rows.filter((r) => r.status === 'invited').length,
+      missing_slack: rows.filter((r) => !r.slack_channel_id).length,
+      missing_docs: rows.filter((r) => r.docCount === 0).length,
+      missing_fub: rows.filter((r) => !r.fub_person_id).length,
+      unread: rows.filter((r) => r.lastMessageAt && r.lastMessageFromClient).length,
+    };
   }, [rows]);
+
+  const filterChips: { key: FilterKey; label: string; count: number }[] = [
+    { key: 'all', label: 'All', count: stats.all },
+    { key: 'not_invited', label: 'Not Invited', count: stats.not_invited },
+    { key: 'missing_slack', label: 'No Slack Channel', count: stats.missing_slack },
+    { key: 'missing_docs', label: 'No Documents', count: stats.missing_docs },
+    { key: 'missing_fub', label: 'No FUB Linked', count: stats.missing_fub },
+    { key: 'unread', label: 'Unread Messages', count: stats.unread },
+  ];
+
+  const healthMeta = (score: number) => {
+    if (score === 5) return { dot: 'bg-green-500', label: 'text-green-500', tone: '' };
+    if (score >= 3) return { dot: 'bg-amber-500', label: 'text-amber-500', tone: 'bg-amber-500/[0.04]' };
+    return { dot: 'bg-red-500', label: 'text-red-500', tone: 'bg-red-500/[0.05]' };
+  };
 
   const transactionLabel = (sides: Set<'buyer' | 'seller'>, fallback: string | null) => {
     if (sides.has('buyer') && sides.has('seller')) return 'Both';
@@ -169,45 +214,42 @@ export default function AdminClientPortals() {
         />
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          { label: 'Active', value: stats.active, color: 'text-green-500' },
-          { label: 'Invited (pending)', value: stats.invited, color: 'text-amber-500' },
-          { label: 'Missing Slack', value: stats.missingSlack, color: 'text-orange-500' },
-          { label: 'No documents', value: stats.missingDocs, color: 'text-blue-500' },
-        ].map((s) => (
-          <Card key={s.label}>
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground uppercase tracking-wide">{s.label}</p>
-              <p className={`text-2xl font-semibold ${s.color}`}>{s.value}</p>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="flex flex-wrap gap-2">
+        {filterChips.map((c) => {
+          const active = health === c.key;
+          return (
+            <button
+              key={c.key}
+              type="button"
+              onClick={() => setHealth(c.key)}
+              className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-all ${
+                active
+                  ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                  : 'bg-card text-foreground border-border/60 hover:border-primary/40 hover:bg-primary/[0.04]'
+              }`}
+            >
+              {c.label}
+              <span
+                className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                  active ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-muted-foreground'
+                }`}
+              >
+                {c.count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
           <CardTitle className="text-base">All Portals ({filtered.length})</CardTitle>
-          <div className="flex items-center gap-2">
-            <Input
-              placeholder="Search client, email, agent…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-64"
-            />
-            <Select value={health} onValueChange={(v) => setHealth(v as FilterKey)}>
-              <SelectTrigger className="w-48 gap-2">
-                <Filter className="h-4 w-4" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All portals</SelectItem>
-                <SelectItem value="invited">Not yet signed up</SelectItem>
-                <SelectItem value="missing_slack">Missing Slack channel</SelectItem>
-                <SelectItem value="missing_docs">No documents uploaded</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <Input
+            placeholder="Search client, email, agent…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-64"
+          />
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -227,6 +269,7 @@ export default function AdminClientPortals() {
                     <TableHead>Agent</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Health</TableHead>
                     <TableHead className="text-center">FUB</TableHead>
                     <TableHead className="text-center">Slack</TableHead>
                     <TableHead className="text-center">Docs</TableHead>
@@ -235,8 +278,22 @@ export default function AdminClientPortals() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((r) => (
-                    <TableRow key={r.id} className="border-border/50">
+                  {filtered.map((r) => {
+                    const h = healthMeta(r.healthScore);
+                    const clickable = r.healthScore < 5;
+                    return (
+                    <AgentPortalDialog
+                      key={r.id}
+                      clientName={r.full_name || undefined}
+                      clientEmail={r.email}
+                      fubPersonId={r.fub_person_id}
+                      defaultType={(r.client_type as 'buyer' | 'seller') || undefined}
+                      trigger={
+                        <TableRow
+                          className={`border-border/50 ${h.tone} ${
+                            clickable ? 'cursor-pointer hover:bg-muted/40' : ''
+                          }`}
+                        >
                       <TableCell>
                         <div className="font-medium">{r.full_name || '—'}</div>
                         <div className="text-xs text-muted-foreground">{r.email}</div>
@@ -253,6 +310,12 @@ export default function AdminClientPortals() {
                         ) : (
                           <Badge className="bg-amber-500/15 text-amber-500 border-amber-500/30">Invited</Badge>
                         )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-block h-2.5 w-2.5 rounded-full ${h.dot}`} />
+                          <span className={`text-xs font-semibold ${h.label}`}>{r.healthScore}/5</span>
+                        </div>
                       </TableCell>
                       <TableCell className="text-center">
                         <Link2
@@ -280,30 +343,39 @@ export default function AdminClientPortals() {
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {r.lastMessageAt ? (
-                          <span className="flex items-center gap-1">
+                          <span
+                            className={`flex items-center gap-1 ${
+                              r.lastMessageFromClient ? 'text-red-500 font-medium' : ''
+                            }`}
+                          >
                             <MessageSquare className="h-3 w-3" />
                             {formatDistanceToNow(new Date(r.lastMessageAt), { addSuffix: true })}
+                            {r.lastMessageFromClient && (
+                              <span className="ml-1 rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-semibold">
+                                Unread
+                              </span>
+                            )}
                           </span>
                         ) : (
                           '—'
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        <AgentPortalDialog
-                          clientName={r.full_name || undefined}
-                          clientEmail={r.email}
-                          fubPersonId={r.fub_person_id}
-                          defaultType={(r.client_type as 'buyer' | 'seller') || undefined}
-                          trigger={
-                            <Button size="sm" variant="outline" className="gap-2">
-                              <Settings className="h-4 w-4" />
-                              Manage
-                            </Button>
-                          }
-                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-2"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Settings className="h-4 w-4" />
+                          Manage
+                        </Button>
                       </TableCell>
-                    </TableRow>
-                  ))}
+                        </TableRow>
+                      }
+                    />
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
