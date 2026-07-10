@@ -20,10 +20,15 @@ Deno.serve(async (req) => {
     const isPhone = /^[\d\s()+\-.]{7,}$/.test(q);
 
     // FUB v1 /people does not support fulltext `query`; use specific params.
-    const params = new URLSearchParams({ limit: '10', sort: 'name' });
+    // FUB v1 /people supports fulltext with `?name=` OR `?email=` OR `?phone=`.
+    // But name matching is exact — for fuzzy typeahead we hit the search endpoint.
+    const params = new URLSearchParams({ limit: '10' });
     if (isEmail) params.set('email', q);
     else if (isPhone) params.set('phone', q.replace(/\D/g, ''));
-    else params.set('name', q);
+    else {
+      // Full-text search parameter used by FUB app
+      params.set('name', q);
+    }
 
     const url = `https://api.followupboss.com/v1/people?${params.toString()}`;
     const resp = await fetch(url, {
