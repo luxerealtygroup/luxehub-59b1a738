@@ -8,7 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Snowflake, CheckCircle2 } from 'lucide-react';
+import { Snowflake, CheckCircle2, Heart, Instagram, ExternalLink } from 'lucide-react';
 import luxeLogoAsset from '@/assets/luxe-logo.png.asset.json';
 const luxeLogo = luxeLogoAsset.url;
 
@@ -141,7 +141,17 @@ const Nominate = () => {
               </CardDescription>
               <div className="mx-auto mt-4 h-px w-24 divider-hair" />
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-6">
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-5 text-center">
+                <p className="eyebrow text-primary mb-2">LUXE IMPACT PROJECT</p>
+                <p className="text-sm text-foreground leading-relaxed">
+                  This nomination is part of the Luxe Impact Project — Luxe Realty Group's community
+                  initiative built on the belief that real estate is about people, not just properties.
+                  Through our Community Support Fund, we're helping families across Waterloo Region find
+                  relief from the summer heat.
+                </p>
+              </div>
+
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-3">
                   <Label className="text-sm font-medium">
@@ -248,6 +258,35 @@ const Nominate = () => {
                   {loading ? 'Submitting...' : 'Submit Nomination'}
                 </Button>
               </form>
+
+              <div className="rounded-xl border border-border/70 bg-card/50 p-5 text-center">
+                <p className="eyebrow mb-2">Want to get involved?</p>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Help us keep even more families cool this summer. Every contribution and follow spreads the impact.
+                </p>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <a
+                    href="https://gofund.me/83a6c9851"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-gold w-full sm:w-auto"
+                  >
+                    <Heart className="h-4 w-4 mr-2" />
+                    Donate
+                    <ExternalLink className="h-3.5 w-3.5 ml-2 opacity-70" />
+                  </a>
+                  <a
+                    href="https://instagram.com/luxeimpactproject"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-outline-gold w-full sm:w-auto"
+                  >
+                    <Instagram className="h-4 w-4 mr-2" />
+                    Follow us on Instagram
+                    <ExternalLink className="h-3.5 w-3.5 ml-2 opacity-70" />
+                  </a>
+                </div>
+              </div>
             </CardContent>
           </Card>
         )}
