@@ -8,7 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Snowflake, CheckCircle2 } from 'lucide-react';
+import { Snowflake, CheckCircle2, Heart, Instagram, ExternalLink } from 'lucide-react';
 import luxeLogoAsset from '@/assets/luxe-logo.png.asset.json';
 const luxeLogo = luxeLogoAsset.url;
 
