@@ -117,7 +117,7 @@ const Nominate = () => {
       <div className="px-4 py-10">
         <div className="mx-auto max-w-2xl">
           <div className="flex flex-col items-center text-center mb-8">
-            <img src={luxeLogo} alt="LUXEhub" className="h-16 w-auto mb-4" />
+            <img src={luxeLogo} alt="LUXEhub" className="h-24 w-auto mb-4" />
           <div className="flex items-center gap-2 text-primary">
             <Snowflake className="h-5 w-5" />
             <span className="eyebrow">Community Giveback</span>
