@@ -141,7 +141,17 @@ const Nominate = () => {
               </CardDescription>
               <div className="mx-auto mt-4 h-px w-24 divider-hair" />
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-6">
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-5 text-center">
+                <p className="eyebrow text-primary mb-2">LUXE IMPACT PROJECT</p>
+                <p className="text-sm text-foreground leading-relaxed">
+                  This nomination is part of the Luxe Impact Project — Luxe Realty Group's community
+                  initiative built on the belief that real estate is about people, not just properties.
+                  Through our Community Support Fund, we're helping families across Waterloo Region find
+                  relief from the summer heat.
+                </p>
+              </div>
+
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-3">
                   <Label className="text-sm font-medium">
