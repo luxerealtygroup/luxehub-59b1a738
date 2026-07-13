@@ -116,14 +116,24 @@ const Nominate = () => {
 
       <div className="px-4 py-10">
         <div className="mx-auto max-w-2xl">
-          <div className="flex flex-col items-center text-center mb-8">
-            <img src={luxeLogo} alt="LUXEhub" className="h-24 w-auto mb-4" />
-          <div className="flex items-center gap-2 text-primary">
-            <Snowflake className="h-5 w-5" />
-            <span className="eyebrow">Community Giveback</span>
-            <Snowflake className="h-5 w-5" />
+          <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-10 mb-10">
+            <div className="flex flex-col items-center text-center">
+              <img src={luxeLogo} alt="LUXE Realty Group" className="h-32 md:h-40 w-auto mb-3" />
+              <div className="flex items-center gap-2 text-primary">
+                <Snowflake className="h-4 w-4" />
+                <span className="eyebrow">Community Giveback</span>
+                <Snowflake className="h-4 w-4" />
+              </div>
+            </div>
+
+            <div className="flex flex-col items-center text-center">
+              <div className="relative flex h-32 w-32 md:h-40 md:w-40 flex-col items-center justify-center rounded-full border-2 border-primary/30 bg-gradient-to-br from-primary/10 to-card p-4 shadow-luxe">
+                <span className="font-display text-2xl md:text-3xl font-semibold uppercase tracking-wider text-primary">LUXE</span>
+                <Heart className="h-4 w-4 md:h-5 md:w-5 text-primary/80 my-1.5 fill-primary/20" />
+                <span className="text-[10px] md:text-xs font-semibold uppercase tracking-[0.2em] text-primary">Impact Project</span>
+              </div>
+            </div>
           </div>
-        </div>
 
         {submitted ? (
           <Card className="luxe-card">
