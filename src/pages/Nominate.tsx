@@ -316,7 +316,7 @@ const Nominate = () => {
           © LUXEhub — Keeping our community cool, together.
         </p>
         <p className="mt-4 text-center text-[10px] md:text-[11px] text-muted-foreground/80 leading-relaxed max-w-2xl mx-auto">
-          Selected recipients will receive a 5,000 BTU air conditioning unit, with delivery on July 28th. Recipients will be asked to complete a media release form. No children will be photographed or recorded without documented parental/guardian consent. All personal information submitted is kept confidential and used solely by Luxe Realty Group Inc. for the purposes of this program.
+          Selected recipients will receive a 5,000 BTU window air conditioning unit, with delivery on July 28th. Recipients will be asked to complete a media release form. No children will be photographed or recorded without documented parental/guardian consent. All personal information submitted is kept confidential and used solely by Luxe Realty Group Inc. for the purposes of this program.
         </p>
       </div>
     </div>
