@@ -103,10 +103,21 @@ const Nominate = () => {
   };
 
   return (
-    <div className="min-h-screen surface-canvas px-4 py-10">
-      <div className="mx-auto max-w-2xl">
-        <div className="flex flex-col items-center text-center mb-8">
-          <img src={luxeLogo} alt="LUXEhub" className="h-16 w-auto mb-4" />
+    <div className="min-h-screen surface-canvas">
+      <div className="relative w-full h-[320px] md:h-[380px] overflow-hidden rounded-b-2xl shadow-luxe">
+        <img
+          src="https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?auto=format&fit=crop&w=1600&q=80"
+          alt="Diverse group of people stacking hands together in community unity"
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-foreground/70 via-foreground/40 to-primary/35" />
+        <div className="absolute inset-0 bg-gradient-to-r from-foreground/20 via-transparent to-foreground/20" />
+      </div>
+
+      <div className="px-4 py-10">
+        <div className="mx-auto max-w-2xl">
+          <div className="flex flex-col items-center text-center mb-8">
+            <img src={luxeLogo} alt="LUXEhub" className="h-16 w-auto mb-4" />
           <div className="flex items-center gap-2 text-primary">
             <Snowflake className="h-5 w-5" />
             <span className="eyebrow">Community Giveback</span>
@@ -296,7 +307,8 @@ const Nominate = () => {
         </p>
       </div>
     </div>
-  );
+  </div>
+);
 };
 
 export default Nominate;
