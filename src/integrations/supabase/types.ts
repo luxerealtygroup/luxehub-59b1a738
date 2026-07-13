@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      ac_nominations: {
+        Row: {
+          created_at: string
+          household_size: number | null
+          id: string
+          nomination_type: string
+          nominator_consent: boolean
+          nominator_email: string
+          nominator_name: string
+          nominator_phone: string
+          nominee_address: string | null
+          nominee_consent: boolean
+          nominee_name: string | null
+          nominee_phone: string | null
+          story: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          household_size?: number | null
+          id?: string
+          nomination_type: string
+          nominator_consent?: boolean
+          nominator_email: string
+          nominator_name: string
+          nominator_phone: string
+          nominee_address?: string | null
+          nominee_consent?: boolean
+          nominee_name?: string | null
+          nominee_phone?: string | null
+          story: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          household_size?: number | null
+          id?: string
+          nomination_type?: string
+          nominator_consent?: boolean
+          nominator_email?: string
+          nominator_name?: string
+          nominator_phone?: string
+          nominee_address?: string | null
+          nominee_consent?: boolean
+          nominee_name?: string | null
+          nominee_phone?: string | null
+          story?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       agent_activities: {
         Row: {
           activity_type: Database["public"]["Enums"]["activity_type"]

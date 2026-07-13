@@ -45,6 +45,7 @@ import ClientSignup from "./pages/client-portal/ClientSignup";
 import ClientDashboard from "./pages/client-portal/ClientDashboard";
 import Unsubscribe from "./pages/Unsubscribe";
 import GoogleDriveCallback from "./pages/GoogleDriveCallback";
+import Nominate from "./pages/Nominate";
 
 const queryClient = new QueryClient();
 
@@ -96,6 +97,7 @@ const App = () => (
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/unsubscribe" element={<Unsubscribe />} />
+            <Route path="/nominate" element={<Nominate />} />
             <Route path="/agent/google-drive/callback" element={<GoogleDriveCallback />} />
             
             {/* Client Portal Routes */}
