@@ -258,6 +258,35 @@ const Nominate = () => {
                   {loading ? 'Submitting...' : 'Submit Nomination'}
                 </Button>
               </form>
+
+              <div className="rounded-xl border border-border/70 bg-card/50 p-5 text-center">
+                <p className="eyebrow mb-2">Want to get involved?</p>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Help us keep even more families cool this summer. Every contribution and follow spreads the impact.
+                </p>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <a
+                    href="https://gofund.me/83a6c9851"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-gold w-full sm:w-auto"
+                  >
+                    <Heart className="h-4 w-4 mr-2" />
+                    Donate
+                    <ExternalLink className="h-3.5 w-3.5 ml-2 opacity-70" />
+                  </a>
+                  <a
+                    href="https://instagram.com/luxeimpactproject"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-outline-gold w-full sm:w-auto"
+                  >
+                    <Instagram className="h-4 w-4 mr-2" />
+                    Follow us on Instagram
+                    <ExternalLink className="h-3.5 w-3.5 ml-2 opacity-70" />
+                  </a>
+                </div>
+              </div>
             </CardContent>
           </Card>
         )}
