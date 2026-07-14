@@ -25,6 +25,7 @@ import {
   DoorOpen,
   Users2
   ,Bell
+  ,Heart
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -59,6 +60,7 @@ interface MenuItem {
   url: string;
   icon: React.ElementType;
   external?: boolean;
+  adminOnly?: boolean;
 }
 
 interface MenuSection {
@@ -83,6 +85,7 @@ const allSections: MenuSection[] = [
       { title: 'Pipeline', url: '/dashboard/pipeline', icon: Building2 },
       { title: 'Transactions', url: '/dashboard/commissions', icon: DollarSign },
       { title: 'Client Portals', url: '/dashboard/client-portals', icon: Users2 },
+      { title: 'Nominations', url: '/dashboard/nominations', icon: Heart, adminOnly: true },
     ],
   },
   {
@@ -145,7 +148,10 @@ export function AppSidebar() {
           items: section.items.filter(item => planningPerformanceItems.includes(item.title)),
         };
       }
-      return section;
+      return {
+        ...section,
+        items: section.items.filter(item => !item.adminOnly || isAdmin),
+      };
     });
 
   return (
