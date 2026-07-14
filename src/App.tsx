@@ -46,6 +46,7 @@ import ClientDashboard from "./pages/client-portal/ClientDashboard";
 import Unsubscribe from "./pages/Unsubscribe";
 import GoogleDriveCallback from "./pages/GoogleDriveCallback";
 import Nominate from "./pages/Nominate";
+import Nominations from "./pages/Nominations";
 
 const queryClient = new QueryClient();
 
@@ -132,6 +133,7 @@ const App = () => (
               <Route path="settings" element={<AccountSettings />} />
               <Route path="notifications" element={<Notifications />} />
               <Route path="client-portals" element={<RoleGuard><AdminClientPortals /></RoleGuard>} />
+              <Route path="nominations" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><Nominations /></RoleGuard>} />
               <Route path="admin" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><AdminReports /></RoleGuard>} />
               <Route path="admin/business-planning" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><CompanyBusinessPlanningPage /></RoleGuard>} />
               <Route path="admin/client-portals" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><AdminClientPortals /></RoleGuard>} />
