@@ -93,12 +93,12 @@ const Login = () => {
         isRealtor ? "border-gold/20" : "border-border/50"
       )}>
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted/50">
-            {isRealtor ? (
-              <User className="h-7 w-7 text-gold" />
-            ) : (
-              <Building2 className="h-7 w-7 text-primary" />
-            )}
+          <div className="mx-auto mb-4">
+            <img
+              src={luxeLogo.url}
+              alt="LUXE Realty Group"
+              className="mx-auto h-auto max-h-32 w-auto object-contain"
+            />
           </div>
           <CardTitle className={cn(
             "text-3xl font-display",
