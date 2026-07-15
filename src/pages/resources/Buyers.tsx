@@ -12,11 +12,6 @@ const docs = [
     desc: 'Editable Word version of Schedule A for buyers.',
     href: '/resources/buyers/Schedule-A-Buyer.docx',
   },
-  {
-    title: 'Schedule B1 (PDF)',
-    desc: 'Schedule B1 for buyer transactions.',
-    href: '/resources/buyers/Schedule-B1.pdf',
-  },
 ];
 
 const links = [
