@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getRoleBasedRedirect } from '@/lib/utils/roleRedirect';
 import { cn } from '@/lib/utils';
 import { User, Building2 } from 'lucide-react';
+import luxeLogo from '@/assets/luxe-logo.png.asset.json';
 
 type LoginMode = 'realtor' | 'client';
 
