@@ -78,8 +78,15 @@ serve(async (req) => {
     switch (action) {
       case 'search_people': {
         const searchParams = new URLSearchParams();
-        if (params?.query) {
-          searchParams.append('name', params.query);
+        const rawQuery = typeof params?.query === 'string' ? params.query.trim() : '';
+        if (rawQuery) {
+          if (rawQuery.includes('@')) {
+            searchParams.append('emails', rawQuery);
+          } else if (/^[\d\s()+\-.]+$/.test(rawQuery) && rawQuery.replace(/\D/g, '').length >= 4) {
+            searchParams.append('phones', rawQuery.replace(/\D/g, ''));
+          } else {
+            searchParams.append('name', rawQuery);
+          }
         }
         if (params?.limit) searchParams.append('limit', params.limit.toString());
         endpoint = `/people?${searchParams.toString()}`;
