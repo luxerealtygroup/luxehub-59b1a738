@@ -186,12 +186,6 @@ export default function AdminTickets() {
           .update({ status: 'in_progress' })
           .eq('id', selectedTicket.id);
       }
-      // Notify user
-      await supabase.from('notifications').insert({
-        user_id: selectedTicket.user_id,
-        client_name: 'LUXE Support',
-        message_preview: body.slice(0, 100),
-      });
     }
     setSending(false);
   };
