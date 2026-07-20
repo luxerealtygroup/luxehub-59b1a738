@@ -545,6 +545,7 @@ const ClientDashboard = () => {
             </div>
           </main>
         </div>
+        <SupportChatWidget userType="client" />
       </div>
     </SidebarProvider>
   );
