@@ -17,14 +17,52 @@ const ResetPassword = () => {
 
   useEffect(() => {
     // Listen for the PASSWORD_RECOVERY event which fires when user clicks the reset link
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
         setReady(true);
       }
     });
 
+    // Handle different Supabase reset link formats
+    (async () => {
+      const url = new URL(window.location.href);
+      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      const token_hash = url.searchParams.get('token_hash');
+      const type = url.searchParams.get('type') || hash.get('type');
+      const code = url.searchParams.get('code');
+      const error_description = url.searchParams.get('error_description') || hash.get('error_description');
+
+      if (error_description) {
+        toast({ title: 'Reset link invalid', description: error_description, variant: 'destructive' });
+        return;
+      }
+
+      try {
+        if (token_hash && type === 'recovery') {
+          const { error } = await supabase.auth.verifyOtp({ token_hash, type: 'recovery' });
+          if (error) throw error;
+          setReady(true);
+        } else if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) throw error;
+          setReady(true);
+        } else {
+          // Hash-fragment tokens are auto-handled by supabase-js and fire PASSWORD_RECOVERY.
+          // Fallback: if a session already exists, allow the update.
+          const { data } = await supabase.auth.getSession();
+          if (data.session) setReady(true);
+        }
+      } catch (err: any) {
+        toast({
+          title: 'Reset link invalid or expired',
+          description: err?.message ?? 'Please request a new password reset email.',
+          variant: 'destructive',
+        });
+      }
+    })();
+
     return () => subscription.unsubscribe();
-  }, []);
+  }, [toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
