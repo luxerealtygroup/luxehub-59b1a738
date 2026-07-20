@@ -2461,6 +2461,98 @@ export type Database = {
         }
         Relationships: []
       }
+      support_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          metadata: Json
+          sender_type: string
+          sender_user_id: string | null
+          ticket_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          sender_type: string
+          sender_user_id?: string | null
+          ticket_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          sender_type?: string
+          sender_user_id?: string | null
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_messages_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_tickets: {
+        Row: {
+          assigned_admin_id: string | null
+          context_metadata: Json
+          context_route: string | null
+          created_at: string
+          escalated_at: string | null
+          escalation_reason: string | null
+          id: string
+          priority: string
+          resolved_at: string | null
+          status: string
+          subject: string | null
+          updated_at: string
+          user_email: string
+          user_id: string
+          user_type: string
+        }
+        Insert: {
+          assigned_admin_id?: string | null
+          context_metadata?: Json
+          context_route?: string | null
+          created_at?: string
+          escalated_at?: string | null
+          escalation_reason?: string | null
+          id?: string
+          priority?: string
+          resolved_at?: string | null
+          status?: string
+          subject?: string | null
+          updated_at?: string
+          user_email: string
+          user_id: string
+          user_type: string
+        }
+        Update: {
+          assigned_admin_id?: string | null
+          context_metadata?: Json
+          context_route?: string | null
+          created_at?: string
+          escalated_at?: string | null
+          escalation_reason?: string | null
+          id?: string
+          priority?: string
+          resolved_at?: string | null
+          status?: string
+          subject?: string | null
+          updated_at?: string
+          user_email?: string
+          user_id?: string
+          user_type?: string
+        }
+        Relationships: []
+      }
       suppressed_emails: {
         Row: {
           created_at: string
