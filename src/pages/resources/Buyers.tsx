@@ -1,4 +1,4 @@
-import { ExternalLink, FileText, Wand2, ListChecks } from 'lucide-react';
+import { ExternalLink, FileText, Wand2, ListChecks, HelpCircle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 
 const docs = [
@@ -26,6 +26,12 @@ const links = [
     desc: 'Ontario eXp Transaction Guide checklists.',
     href: 'https://exptransactionguide.com/ON/transaction-checklists',
     icon: ListChecks,
+  },
+  {
+    title: 'OREA Forms Explained',
+    desc: 'Official OREA explanations of standard forms and clauses.',
+    href: 'https://www.orea.com/standard-forms-clauses?category=Forms%20Explained#standard-forms',
+    icon: HelpCircle,
   },
 ];
 
