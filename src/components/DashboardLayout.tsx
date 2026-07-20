@@ -1,4 +1,5 @@
 import { Outlet } from 'react-router-dom';
+import { SupportChatWidget } from '@/components/support/SupportChatWidget';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { NotificationsBell } from '@/components/NotificationsBell';
@@ -90,6 +91,7 @@ const DashboardLayout = () => {
             <div className="flex-1 p-6">
               <Outlet />
             </div>
+            <SupportChatWidget userType="realtor" />
           </main>
         </div>
       </SidebarProvider>

@@ -18,6 +18,7 @@ import { DriveDocuments } from './components/DriveDocuments';
 import { DrivePhotos } from './components/DrivePhotos';
 import { PortalDocumentsPanel } from '@/components/portal/PortalDocumentsPanel';
 import { PortalPhotosPanel } from '@/components/portal/PortalPhotosPanel';
+import { SupportChatWidget } from '@/components/support/SupportChatWidget';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ShoppingCart as ShoppingCartIcon, Tag as TagIcon } from 'lucide-react';
 import { ClientNotificationsBell } from './components/ClientNotificationsBell';
@@ -545,6 +546,7 @@ const ClientDashboard = () => {
             </div>
           </main>
         </div>
+        <SupportChatWidget userType="client" />
       </div>
     </SidebarProvider>
   );
