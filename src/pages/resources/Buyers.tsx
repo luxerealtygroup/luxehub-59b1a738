@@ -27,6 +27,12 @@ const links = [
     href: 'https://exptransactionguide.com/ON/transaction-checklists',
     icon: ListChecks,
   },
+  {
+    title: 'OREA Forms Explained',
+    desc: 'Official OREA explanations of standard forms and clauses.',
+    href: 'https://www.orea.com/standard-forms-clauses?category=Forms%20Explained#standard-forms',
+    icon: HelpCircle,
+  },
 ];
 
 export default function BuyersResources() {
