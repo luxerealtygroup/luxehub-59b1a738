@@ -1,4 +1,4 @@
-import { ExternalLink, FileText, BookOpen, ClipboardList, Wand2, ListChecks } from 'lucide-react';
+import { ExternalLink, FileText, BookOpen, ClipboardList, Wand2, ListChecks, HelpCircle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Link } from 'react-router-dom';
 

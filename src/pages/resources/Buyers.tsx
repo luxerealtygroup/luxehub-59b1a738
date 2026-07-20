@@ -1,4 +1,4 @@
-import { ExternalLink, FileText, Wand2, ListChecks } from 'lucide-react';
+import { ExternalLink, FileText, Wand2, ListChecks, HelpCircle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 
 const docs = [
