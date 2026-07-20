@@ -1,6 +1,7 @@
 import type { ComponentType } from 'npm:react@18.3.1'
 import { template as openHouseFeedback } from './open-house-feedback.tsx'
 import { template as clientPortalInvite } from './client-portal-invite.tsx'
+import { template as supportTicketEscalated } from './support-ticket-escalated.tsx'
 
 export interface TemplateEntry {
   component: ComponentType<any>
@@ -13,4 +14,5 @@ export interface TemplateEntry {
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'open-house-feedback': openHouseFeedback,
   'client-portal-invite': clientPortalInvite,
+  'support-ticket-escalated': supportTicketEscalated,
 }
