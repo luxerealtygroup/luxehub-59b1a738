@@ -7,7 +7,7 @@ Deno.serve(async () => {
   );
   const { data, error } = await admin.auth.admin.updateUserById(
     "53b3385f-45db-418a-b132-70af49ac9db0",
-    { password: "Luxe123!" }
+    { password: "LuxeHub2026!" }
   );
   return new Response(JSON.stringify({ ok: !error, error: error?.message, id: data?.user?.id }), {
     headers: { "Content-Type": "application/json" },
