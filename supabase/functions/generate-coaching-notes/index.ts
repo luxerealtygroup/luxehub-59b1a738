@@ -10,14 +10,10 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
 
-function weekEndISO(weekOf: string): string {
+function previousWeekISO(weekOf: string): string {
   const d = new Date(weekOf);
-  d.setUTCDate(d.getUTCDate() + 7);
+  d.setUTCDate(d.getUTCDate() - 7);
   return d.toISOString().slice(0, 10);
-}
-
-function nextWeekISO(weekOf: string): string {
-  return weekEndISO(weekOf);
 }
 
 Deno.serve(async (req) => {
@@ -34,12 +30,12 @@ Deno.serve(async (req) => {
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
 
-    const nextWeek = nextWeekISO(week_of);
+    const previousWeek = previousWeekISO(week_of);
 
-    const [profileRes, thisWeekGoalsRes, nextWeekGoalsRes, annualGoalsRes, dealsRes] = await Promise.all([
+    const [profileRes, thisWeekGoalsRes, previousWeekGoalsRes, annualGoalsRes, dealsRes] = await Promise.all([
       supabase.from("profiles").select("id, full_name, coaching_history_seed, signature_emoji").eq("id", agent_id).maybeSingle(),
       supabase.from("agent_goals").select("*").eq("user_id", agent_id).eq("start_date", week_of),
-      supabase.from("agent_goals").select("*").eq("user_id", agent_id).eq("start_date", nextWeek),
+      supabase.from("agent_goals").select("*").eq("user_id", agent_id).eq("start_date", previousWeek),
       supabase.from("agent_goals").select("*").eq("user_id", agent_id).in("period", ["annual", "quarterly", "q3", "yearly"]),
       supabase.from("deals").select("id, client_name, stage, deal_value, expected_close_date").eq("user_id", agent_id),
     ]);
@@ -61,7 +57,7 @@ Deno.serve(async (req) => {
       },
       week_of,
       this_week_targets: thisWeekGoalsRes.data ?? [],
-      next_week_targets: nextWeekGoalsRes.data ?? [],
+      previous_week_targets: previousWeekGoalsRes.data ?? [],
       annual_and_quarterly_goals: annualGoalsRes.data ?? [],
       pipeline: {
         active_pipeline_count: activePipelineCount,
@@ -75,12 +71,16 @@ Deno.serve(async (req) => {
 
     const systemPrompt = `You are a direct, warm-but-firm real estate performance coach writing a weekly coaching note for an agent. Write in second person when addressing the agent. Be honest about misses, specific about numbers (use ONLY the numbers provided — do not estimate), and concrete about next actions.
 
+Data mapping:
+- "this_week_targets" in the context = the current week's goals. Use these for the 🎯 Non-Negotiables section.
+- "previous_week_targets" in the context = the previous week's goals. Use these for the ✅ Last Week section to compare against the agent's actual performance discussed in the transcript.
+
 Output the note in this EXACT structure, using the emojis and section headers verbatim:
 
 [signature_emoji] [Agent Name] — Week of [date] | [one-line hook summarizing the key situation this week]
 
 ✅ Last Week — Progress Where It Counted
-[bullet list of last week's stats vs. targets — use ✅ for hits, and honestly name misses]
+[bullet list of last week's stats vs. previous_week_targets — use ✅ for hits, and honestly name misses. Compare the actual numbers discussed in the transcript to the previous week's targets.]
 
 📍 The Truth
 [2-4 sentence honest reflection paragraph on last week]
@@ -95,7 +95,7 @@ Q3 pipeline running total: X
 Then a gap-analysis paragraph interpreting these numbers.]
 
 🎯 Non-Negotiables
-[checklist using ☐ for each of this week's targets with a short one-line rationale]
+[checklist using ☐ for each of this_week_targets with a short one-line rationale. These are the current week's goals.]
 
 ⚠️ Things To Watch
 [for each named risk/opportunity/person mentioned in the transcript, a **bolded mini-header** followed by a short paragraph]
