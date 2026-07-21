@@ -9,6 +9,15 @@ import { useHasFUB } from '@/hooks/useHasFUB';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useFubDealMetrics } from '@/hooks/useFubDealMetrics';
 import { DebugMetricsPanel } from '@/components/DebugMetricsPanel';
+import { useDemoMode } from '@/hooks/useDemoMode';
+import {
+  DEMO_FUB_METRICS,
+  DEMO_GOAL_SETTINGS,
+  DEMO_PIPELINE_CLIENTS,
+  DEMO_DEALS_WITH_SOURCE,
+  DEMO_FORECAST_DEALS,
+  DEMO_WEEKLY_411,
+} from '@/lib/demoData';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -88,6 +97,7 @@ const Reports = () => {
   const { effectiveUserId, effectiveFubUserId, viewingAgentName } = useViewAsAgent();
   const { hasFUB } = useHasFUB();
   const { isAdmin } = useUserRole();
+  const { demoMode } = useDemoMode();
   const queryUserId = effectiveUserId;
   const [loading, setLoading] = useState(true);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -97,15 +107,16 @@ const Reports = () => {
     setSearchParams({ tab: value });
   };
 
-  const { metrics: actualMetrics, debugInfo, loading: metricsLoading } = useFubDealMetrics({
+  const { metrics: liveMetrics, debugInfo, loading: metricsLoading } = useFubDealMetrics({
     userId: queryUserId,
     fubUserId: effectiveFubUserId,
     year: currentYear,
     hasFUB,
     agentName: viewingAgentName,
   });
+  const actualMetrics = demoMode ? DEMO_FUB_METRICS : liveMetrics;
   
-  const [goalSettings, setGoalSettings] = useState({
+  const [goalSettingsState, setGoalSettings] = useState({
     deals_goal: 0,
     gci_goal: 0,
     avg_sale_price: 350000,
@@ -114,11 +125,19 @@ const Reports = () => {
     fallout_rate: 50,
     monthlyDeals: Array(12).fill(0) as number[]
   });
-  
-  const [pipelineClients, setPipelineClients] = useState<PipelineClient[]>([]);
-  const [dealsWithSource, setDealsWithSource] = useState<DealWithSource[]>([]);
-  const [forecastDeals, setForecastDeals] = useState<DealForForecast[]>([]);
-  const [weekly411, setWeekly411] = useState<Weekly411 | null>(null);
+  const goalSettings = demoMode ? DEMO_GOAL_SETTINGS : goalSettingsState;
+
+  const [pipelineClientsState, setPipelineClients] = useState<PipelineClient[]>([]);
+  const [dealsWithSourceState, setDealsWithSource] = useState<DealWithSource[]>([]);
+  const [forecastDealsState, setForecastDeals] = useState<DealForForecast[]>([]);
+  const [weekly411State, setWeekly411] = useState<Weekly411 | null>(null);
+
+  const pipelineClients = demoMode
+    ? (DEMO_PIPELINE_CLIENTS as unknown as PipelineClient[])
+    : pipelineClientsState;
+  const dealsWithSource = demoMode ? (DEMO_DEALS_WITH_SOURCE as DealWithSource[]) : dealsWithSourceState;
+  const forecastDeals = demoMode ? (DEMO_FORECAST_DEALS as DealForForecast[]) : forecastDealsState;
+  const weekly411 = demoMode ? (DEMO_WEEKLY_411 as unknown as Weekly411) : weekly411State;
 
   const fetchAllData = async () => {
     if (!queryUserId) return;
