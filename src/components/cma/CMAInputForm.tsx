@@ -1134,6 +1134,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
               </div>
             </CardContent>
           </Card>
+          <StepWarnings step={1} />
         </div>
       )}
 
