@@ -395,6 +395,16 @@ const CMAEditApprove = ({
           <>
             <Button
               variant="outline"
+              size="sm"
+              onClick={handleRegenerate}
+              disabled={regenerating || saving}
+              className="mr-auto border-primary/30 text-primary hover:bg-primary/10"
+            >
+              {regenerating ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Wand2 className="h-4 w-4 mr-1" />}
+              Regenerate with AI
+            </Button>
+            <Button
+              variant="outline"
               onClick={() => handleSave('reviewing')}
               disabled={saving}
             >
