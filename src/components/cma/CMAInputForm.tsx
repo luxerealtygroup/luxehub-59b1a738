@@ -972,19 +972,60 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     }
   };
 
-  const canProceedFromStep = (n: WizardStep): boolean => {
-    if (n === 1) return !!clientName.trim();
-    if (n === 2) return !!propertyAddress.trim() && !!cityArea.trim();
-    return true;
+  // Non-blocking, quality warnings per step. Agents can always advance.
+  const stepWarnings = (n: WizardStep): string[] => {
+    const w: string[] = [];
+    if (n === 1) {
+      if (!clientName.trim()) w.push('No client name entered');
+      if (!agentName.trim()) w.push('No agent name entered');
+    }
+    if (n === 2) {
+      if (!propertyAddress.trim()) w.push('Property address is empty');
+      if (!cityArea.trim()) w.push('City / Area is empty');
+      if (!sqft.trim() && !aboveGradeSqFt.trim()) {
+        w.push('No square footage entered — valuation adjustments may be less accurate');
+      }
+      if (!targetListPrice.trim()) w.push('No target list price entered');
+      if (!keyFeaturesText.trim()) {
+        w.push('No Key Features added — the CMA\u2019s valuation adjustments may be less accurate without this');
+      }
+    }
+    if (n === 4) {
+      const included = reviewComps.filter(c => !c.excluded);
+      if (included.length === 0) w.push('No comparables added — the CMA needs comps to produce a defensible price band');
+      else if (included.filter(c => c.comp_category === 'sold').length < 3) {
+        w.push('Fewer than 3 sold comparables — pricing confidence will be limited');
+      }
+    }
+    if (n === 5) {
+      if (!agentNotes.trim()) w.push('No agent notes added — optional, but adds context to the Opinion of Value');
+    }
+    return w;
   };
 
+  const allWarnings = (): { step: WizardStep; label: string; warnings: string[] }[] =>
+    WIZARD_STEPS
+      .filter(s => s.n !== 6)
+      .map(s => ({ step: s.n, label: s.label, warnings: stepWarnings(s.n) }))
+      .filter(x => x.warnings.length > 0);
+
   const handleNext = () => {
-    if (!canProceedFromStep(wizardStep)) {
-      if (wizardStep === 1) toast.error('Please enter a client name');
-      else if (wizardStep === 2) toast.error('Property address and city are required');
-      return;
-    }
     nextStep();
+  };
+
+  const StepWarnings = ({ step }: { step: WizardStep }) => {
+    const w = stepWarnings(step);
+    if (w.length === 0) return null;
+    return (
+      <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-400 space-y-1">
+        {w.map((msg, i) => (
+          <div key={i} className="flex items-start gap-1.5">
+            <span aria-hidden>⚠</span>
+            <span>{msg}</span>
+          </div>
+        ))}
+      </div>
+    );
   };
 
   const fmtCurrency = (v: string | number) => {
@@ -1093,6 +1134,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
               </div>
             </CardContent>
           </Card>
+          <StepWarnings step={1} />
         </div>
       )}
 
@@ -1229,6 +1271,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
             coverIndex={coverPhotoIndex}
             setCoverIndex={setCoverPhotoIndex}
           />
+          <StepWarnings step={2} />
         </div>
       )}
 
@@ -1254,6 +1297,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
             </CardContent>
           </Card>
           <CMAImprovements items={improvementsList} onChange={setImprovementsList} />
+          <StepWarnings step={3} />
         </div>
       )}
 
@@ -1340,11 +1384,13 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
             confirmLabel="Continue to Agent Notes"
             backLabel="Back"
           />
+          <StepWarnings step={4} />
         </div>
       )}
 
       {/* ============ STEP 5: Agent Notes ============ */}
       {wizardStep === 5 && (
+        <div className="space-y-6">
         <Card className="border-gold/20">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2 font-serif">
@@ -1362,10 +1408,13 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
             />
           </CardContent>
         </Card>
+        <StepWarnings step={5} />
+        </div>
       )}
 
       {/* ============ STEP 6: Review & Generate ============ */}
       {wizardStep === 6 && (
+        <div className="space-y-4">
         <Card className="border-gold/20">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2 font-serif">
@@ -1450,6 +1499,35 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
             )}
           </CardContent>
         </Card>
+        {(() => {
+          const groups = allWarnings();
+          if (groups.length === 0) return null;
+          return (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 space-y-2">
+              <div className="text-sm font-medium text-amber-700 dark:text-amber-400 flex items-center gap-2">
+                <span aria-hidden>⚠</span> Heads up before generating
+              </div>
+              <ul className="text-xs text-amber-700/90 dark:text-amber-400/90 space-y-1.5">
+                {groups.map(g => (
+                  <li key={g.step} className="flex flex-wrap items-start gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setWizardStep(g.step)}
+                      className="font-medium underline underline-offset-2 hover:text-amber-800 dark:hover:text-amber-300"
+                    >
+                      Step {g.step} · {g.label}
+                    </button>
+                    <span className="text-muted-foreground">— {g.warnings.join('; ')}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-[11px] text-muted-foreground pt-1">
+                You can still generate — these are quality suggestions, not blockers.
+              </p>
+            </div>
+          );
+        })()}
+        </div>
       )}
 
       {/* ============ Wizard Footer ============ */}
