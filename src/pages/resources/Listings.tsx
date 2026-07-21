@@ -203,10 +203,8 @@ export default function ListingsResources() {
           </Card>
         </a>
 
-        <a
-          href="https://claude.ai/project/019e6495-7aeb-74ab-9a2a-bcef737ae5ab"
-          target="_blank"
-          rel="noopener noreferrer"
+        <Link
+          to="/dashboard/cma-boss"
           className="group"
         >
           <Card className="p-5 h-full border-gold/20 hover:border-gold/60 hover:bg-gold/5 transition-colors">
@@ -217,7 +215,6 @@ export default function ListingsResources() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <h3 className="font-medium text-foreground">CMA Boss</h3>
-                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/60 group-hover:text-gold" />
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   Generate comparative market analyses for your listings.
@@ -225,7 +222,7 @@ export default function ListingsResources() {
               </div>
             </div>
           </Card>
-        </a>
+        </Link>
 
         <a
           href="https://www.orea.com/standard-forms-clauses?category=Forms%20Explained#standard-forms"
