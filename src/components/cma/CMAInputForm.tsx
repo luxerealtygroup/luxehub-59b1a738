@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Upload, Loader2, Home, DollarSign, BarChart3, FileUp, Users, Link2, PenLine } from 'lucide-react';
+import { Upload, Loader2, Home, DollarSign, BarChart3, FileUp, Users, Link2, PenLine, FileText } from 'lucide-react';
 import { FUBContactTypeahead } from '@/components/FUBContactTypeahead';
 import { useHasFUB } from '@/hooks/useHasFUB';
 import CMACompReview, { type ReviewComp, type ExtractionSummary } from './CMACompReview';
@@ -89,6 +89,59 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
   // Subject photos
   const [subjectPhotos, setSubjectPhotos] = useState<File[]>([]);
   const [coverPhotoIndex, setCoverPhotoIndex] = useState(0);
+
+  // Listing PDF extraction
+  const [extractingListing, setExtractingListing] = useState(false);
+
+  const handleListingPdfUpload = async (file: File) => {
+    if (!file) return;
+    if (file.type !== 'application/pdf') {
+      toast.error('Please upload a PDF file');
+      return;
+    }
+    setExtractingListing(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(',').pop() || '');
+        };
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+
+      const { data, error } = await supabase.functions.invoke('extract-listing-data', {
+        body: { pdfBase64: base64 },
+      });
+      if (error) throw error;
+      if (!data?.success || !data?.subjectProperty) {
+        throw new Error(data?.error || 'Extraction failed');
+      }
+      const sp = data.subjectProperty;
+
+      if (sp.address) setPropertyAddress(sp.address);
+      if (sp.propertyType) {
+        const pt = String(sp.propertyType).toLowerCase();
+        if (pt.includes('detached') && !pt.includes('semi')) setPropertyType('detached');
+        else if (pt.includes('semi')) setPropertyType('semi');
+        else if (pt.includes('town')) setPropertyType('town');
+        else if (pt.includes('condo') || pt.includes('apartment')) setPropertyType('condo');
+        else setPropertyType('other');
+      }
+      if (sp.bedrooms) setBedrooms(String(sp.bedrooms));
+      if (sp.bathrooms) setBathrooms(String(sp.bathrooms));
+      const sqftVal = sp.totalFinishedSqFt ?? sp.aboveGradeSqFt;
+      if (sqftVal) setSqft(String(sqftVal));
+
+      toast.success('Listing details extracted — please review and edit as needed');
+    } catch (e: any) {
+      console.error('Listing extraction failed:', e);
+      toast.error(e?.message || 'Failed to extract listing details');
+    } finally {
+      setExtractingListing(false);
+    }
+  };
 
   // Load existing CMA data for editing
   const loadExistingReport = async () => {
@@ -817,9 +870,33 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
       {/* Subject Property */}
       <Card className="border-gold/20">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Home className="h-4 w-4 text-gold" /> Subject Property
-          </CardTitle>
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Home className="h-4 w-4 text-gold" /> Subject Property
+            </CardTitle>
+            <label className="inline-flex">
+              <input
+                type="file"
+                accept="application/pdf"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleListingPdfUpload(f);
+                  e.target.value = '';
+                }}
+              />
+              <span
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-gold/30 text-gold hover:bg-gold/10 cursor-pointer transition-colors ${extractingListing ? 'opacity-60 pointer-events-none' : ''}`}
+              >
+                {extractingListing
+                  ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Extracting…</>
+                  : <><FileText className="h-3.5 w-3.5" /> Upload Listing (PDF)</>}
+              </span>
+            </label>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Upload an MLS listing PDF to auto-fill the fields below. You can edit anything after.
+          </p>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
