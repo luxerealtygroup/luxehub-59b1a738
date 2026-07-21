@@ -624,15 +624,7 @@ const FourOneOne = () => {
         return (
           <Card className="border-primary/20 bg-primary/5">
             <CardContent className="py-4">
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div className="text-center">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Annual Sales Goal</p>
-                  <p className="text-2xl font-bold text-primary">{syncedGoals.deals_goal}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Annual GCI Goal</p>
-                  <p className="text-2xl font-bold text-primary">{formatCurrency(syncedGoals.gci_goal)}</p>
-                </div>
+              <div className="grid grid-cols-3 md:grid-cols-3 gap-4">
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">{monthNames[weekMonth]} Sales</p>
                   <p className="text-2xl font-bold text-foreground">{Math.round(syncedGoals.monthly_deals[weekMonth] * 10) / 10}</p>
