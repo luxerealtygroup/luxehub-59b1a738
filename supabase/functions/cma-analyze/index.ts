@@ -231,6 +231,7 @@ Provide your complete analysis as a JSON object.`;
           extraction_summary: {
             total_comps_found: reviewedComps.length,
             sold_count: reviewedComps.filter((c: any) => c.comp_category === 'sold').length,
+            pending_count: reviewedComps.filter((c: any) => c.comp_category === 'pending').length,
             active_count: reviewedComps.filter((c: any) => c.comp_category === 'active').length,
             expired_count: reviewedComps.filter((c: any) => c.comp_category === 'expired').length,
             low_confidence_count: 0,
@@ -410,6 +411,7 @@ Extract any properties you find, even with minimal data.`;
     const extractionSummary = {
       total_comps_found: allComps.length,
       sold_count: allComps.filter((c: any) => c.comp_category === 'sold').length,
+      pending_count: allComps.filter((c: any) => c.comp_category === 'pending').length,
       active_count: allComps.filter((c: any) => c.comp_category === 'active').length,
       expired_count: allComps.filter((c: any) => c.comp_category === 'expired').length,
       low_confidence_count: allComps.filter((c: any) => (c.confidence ?? 1) < 0.5).length,
