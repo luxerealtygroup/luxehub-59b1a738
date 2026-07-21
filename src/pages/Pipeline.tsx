@@ -40,6 +40,8 @@ import { ActivityRequirementsEngine } from '@/components/ActivityRequirementsEng
 import { PaceTracker } from '@/components/PaceTracker';
 import { aggregate411Rows } from '@/lib/utils/weekly411Fallback';
 import { currentYear, safe, pct } from '@/components/business-planning/types';
+import { useDemoMode } from '@/hooks/useDemoMode';
+import { DEMO_PIPELINE_FULL } from '@/lib/demoData';
 
 interface PipelineClient {
   id: string;
@@ -92,6 +94,7 @@ const stageLabels: { [key: number]: string } = {
 const Pipeline = () => {
   const { user } = useAuth();
   const { isViewingAsAgent, effectiveUserId } = useViewAsAgent();
+  const { demoMode } = useDemoMode();
   const isReadOnly = isViewingAsAgent;
   const queryUserId = effectiveUserId;
   const { toast } = useToast();
@@ -203,6 +206,16 @@ const Pipeline = () => {
   useEffect(() => {
     if (queryUserId) fetchClients();
   }, [queryUserId]);
+
+  useEffect(() => {
+    if (demoMode) {
+      setClients(DEMO_PIPELINE_FULL as unknown as PipelineClient[]);
+      setLoading(false);
+    } else if (queryUserId) {
+      fetchClients();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demoMode]);
 
   useEffect(() => {
     filterClients();
