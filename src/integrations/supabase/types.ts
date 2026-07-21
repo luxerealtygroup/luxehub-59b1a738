@@ -973,6 +973,44 @@ export type Database = {
         }
         Relationships: []
       }
+      coaching_sessions: {
+        Row: {
+          agent_id: string
+          created_at: string
+          created_by: string | null
+          generated_notes: string | null
+          id: string
+          transcript_text: string
+          week_of: string
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          created_by?: string | null
+          generated_notes?: string | null
+          id?: string
+          transcript_text: string
+          week_of: string
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          created_by?: string | null
+          generated_notes?: string | null
+          id?: string
+          transcript_text?: string
+          week_of?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coaching_sessions_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       commissions: {
         Row: {
           agent_split_percent: number | null
@@ -2165,6 +2203,7 @@ export type Database = {
         Row: {
           access_expires_at: string | null
           avatar_url: string | null
+          coaching_history_seed: string | null
           created_at: string
           email: string | null
           fub_account: string
@@ -2177,6 +2216,7 @@ export type Database = {
         Insert: {
           access_expires_at?: string | null
           avatar_url?: string | null
+          coaching_history_seed?: string | null
           created_at?: string
           email?: string | null
           fub_account?: string
@@ -2189,6 +2229,7 @@ export type Database = {
         Update: {
           access_expires_at?: string | null
           avatar_url?: string | null
+          coaching_history_seed?: string | null
           created_at?: string
           email?: string | null
           fub_account?: string
