@@ -157,6 +157,7 @@ const FourOneOne = () => {
   const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [weeklyData, setWeeklyData] = useState<Weekly411>({ ...emptyWeekly });
   const [appointmentRecords, setAppointmentRecords] = useState<AppointmentRecord[]>([]);
+  const [coachingNote, setCoachingNote] = useState<string | null>(null);
   const [showAppointmentDialog, setShowAppointmentDialog] = useState(false);
   const [newAppointment, setNewAppointment] = useState<AppointmentRecord>({
     fub_contact_id: null,
@@ -323,6 +324,21 @@ const FourOneOne = () => {
     fetchAnnualGoals();
     fetchSyncedGoals();
     fetchAppointmentRecords();
+  }, [user, currentWeek]);
+
+  // Fetch coaching note for the current week (if one exists)
+  useEffect(() => {
+    if (!user) return;
+    const weekStart = format(currentWeek, 'yyyy-MM-dd');
+    (async () => {
+      const { data } = await supabase
+        .from('coaching_sessions')
+        .select('generated_notes')
+        .eq('agent_id', user.id)
+        .eq('week_of', weekStart)
+        .maybeSingle();
+      setCoachingNote(data?.generated_notes || null);
+    })();
   }, [user, currentWeek]);
 
   // Fetch weekly data after synced goals are loaded so defaults can be populated
@@ -1057,6 +1073,22 @@ const FourOneOne = () => {
               </div>
             </CardContent>
           </Card>
+
+          {coachingNote && (
+            <Card className="border-primary/20 bg-primary/5">
+              <CardHeader>
+                <CardTitle className="text-lg font-display flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-primary" />
+                  Coaching Notes — Week of {format(currentWeek, 'MMM d, yyyy')}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+                  {coachingNote}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs text-muted-foreground">
