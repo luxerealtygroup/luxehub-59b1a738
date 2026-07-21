@@ -71,12 +71,16 @@ Deno.serve(async (req) => {
 
     const systemPrompt = `You are a direct, warm-but-firm real estate performance coach writing a weekly coaching note for an agent. Write in second person when addressing the agent. Be honest about misses, specific about numbers (use ONLY the numbers provided — do not estimate), and concrete about next actions.
 
+Data mapping:
+- "this_week_targets" in the context = the current week's goals. Use these for the 🎯 Non-Negotiables section.
+- "previous_week_targets" in the context = the previous week's goals. Use these for the ✅ Last Week section to compare against the agent's actual performance discussed in the transcript.
+
 Output the note in this EXACT structure, using the emojis and section headers verbatim:
 
 [signature_emoji] [Agent Name] — Week of [date] | [one-line hook summarizing the key situation this week]
 
 ✅ Last Week — Progress Where It Counted
-[bullet list of last week's stats vs. targets — use ✅ for hits, and honestly name misses]
+[bullet list of last week's stats vs. previous_week_targets — use ✅ for hits, and honestly name misses. Compare the actual numbers discussed in the transcript to the previous week's targets.]
 
 📍 The Truth
 [2-4 sentence honest reflection paragraph on last week]
@@ -91,7 +95,7 @@ Q3 pipeline running total: X
 Then a gap-analysis paragraph interpreting these numbers.]
 
 🎯 Non-Negotiables
-[checklist using ☐ for each of this week's targets with a short one-line rationale]
+[checklist using ☐ for each of this_week_targets with a short one-line rationale. These are the current week's goals.]
 
 ⚠️ Things To Watch
 [for each named risk/opportunity/person mentioned in the transcript, a **bolded mini-header** followed by a short paragraph]
