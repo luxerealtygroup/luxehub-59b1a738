@@ -10,14 +10,10 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
 
-function weekEndISO(weekOf: string): string {
+function previousWeekISO(weekOf: string): string {
   const d = new Date(weekOf);
-  d.setUTCDate(d.getUTCDate() + 7);
+  d.setUTCDate(d.getUTCDate() - 7);
   return d.toISOString().slice(0, 10);
-}
-
-function nextWeekISO(weekOf: string): string {
-  return weekEndISO(weekOf);
 }
 
 Deno.serve(async (req) => {
