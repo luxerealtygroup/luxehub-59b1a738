@@ -155,7 +155,7 @@ function chunkText(text: string, maxChunkSize: number): string[] {
 }
 
 const STREET_TYPES = "Drive|Dr|Road|Rd|Street|St|Avenue|Ave|Crescent|Cres|Court|Ct|Boulevard|Blvd|Place|Pl|Lane|Way|Trail|Terrace|Circle|Parkway|Pkwy|Crt|Gate|Hill";
-const STREET_ADDRESS_PATTERN = `\\d+\\s+[A-Za-z0-9'’.-]+(?:\\s+[A-Za-z0-9'’.-]+){0,8}\\s+(?:${STREET_TYPES})`;
+const STREET_ADDRESS_PATTERN = `\\d+[ \\t]+[A-Za-z0-9'’.-]+(?:[ \\t]+[A-Za-z0-9'’.-]+){0,8}[ \\t]+(?:${STREET_TYPES})`;
 
 function cleanNumber(value: unknown): number | null {
   if (value == null || value === '') return null;
@@ -359,7 +359,7 @@ function deduplicateComps(comps: any[]): any[] {
 function preProcessCloudCMAText(text: string): string {
   // Add markers before likely property block starts to help AI parsing
   // Detect address patterns that start property blocks
-  const addressPattern = /(\d+\s+[A-Za-z]+(?:\s+[A-Za-z]+)*\s+(?:Avenue|Street|Drive|Road|Crescent|Court|Boulevard|Place|Way|Lane|Circle|Trail|Terrace|Ave|St|Dr|Rd|Cres|Ct|Blvd|Pl|Crt))/gi;
+  const addressPattern = /(\d+[ \t]+[A-Za-z]+(?:[ \t]+[A-Za-z]+)*[ \t]+(?:Avenue|Street|Drive|Road|Crescent|Court|Boulevard|Place|Way|Lane|Circle|Trail|Terrace|Ave|St|Dr|Rd|Cres|Ct|Blvd|Pl|Crt))/gi;
   
   // Count detected addresses for logging
   const matches = text.match(addressPattern);
