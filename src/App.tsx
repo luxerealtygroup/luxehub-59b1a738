@@ -35,6 +35,7 @@ import BusinessPlanning from "./pages/BusinessPlanning";
 import CompanyBusinessPlanningPage from "./pages/CompanyBusinessPlanningPage";
 import AdminClientPortals from "./pages/AdminClientPortals";
 import AdminTickets from "./pages/AdminTickets";
+import CoachingNotes from "./pages/CoachingNotes";
 import Notifications from "./pages/Notifications";
 import NotFound from "./pages/NotFound";
 import AuthConfirm from "./pages/AuthConfirm";
@@ -139,6 +140,7 @@ const App = () => (
               <Route path="admin/business-planning" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><CompanyBusinessPlanningPage /></RoleGuard>} />
               <Route path="admin/client-portals" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><AdminClientPortals /></RoleGuard>} />
               <Route path="admin/tickets" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><AdminTickets /></RoleGuard>} />
+              <Route path="admin/coaching-notes" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><CoachingNotes /></RoleGuard>} />
               <Route path="admin/agent/:agentId" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><AgentProfile /></RoleGuard>} />
             </Route>
             <Route path="*" element={<NotFound />} />
