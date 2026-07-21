@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
       },
       week_of,
       this_week_targets: thisWeekGoalsRes.data ?? [],
-      next_week_targets: nextWeekGoalsRes.data ?? [],
+      previous_week_targets: previousWeekGoalsRes.data ?? [],
       annual_and_quarterly_goals: annualGoalsRes.data ?? [],
       pipeline: {
         active_pipeline_count: activePipelineCount,
