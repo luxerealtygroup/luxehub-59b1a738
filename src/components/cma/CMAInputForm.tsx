@@ -609,10 +609,11 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
         approx_sqft: sqft ? parseInt(sqft) : null,
         target_list_price: targetListPrice ? parseFloat(targetListPrice) : null,
         intended_list_date: intendedListDate || null,
-        purchase_price: parseFloat(purchasePrice),
-        purchase_date: purchaseDate,
+        purchase_price: purchasePrice ? parseFloat(purchasePrice) : null,
+        purchase_date: purchaseDate || null,
         improvements_invested: getImprovementsTotal(),
         improvements_list: improvementsList,
+        agent_notes: agentNotes.trim() || null,
         ...(cmaPdfName ? { cma_pdf_name: cmaPdfName } : {}),
         fub_person_id: selectedContact?.id || null,
         fub_person_name: selectedContact?.name || null,
@@ -676,10 +677,10 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
 
       if (fnData?.success && fnData.analysis) {
         const a = fnData.analysis;
-        const pp = parseFloat(purchasePrice);
+        const pp = purchasePrice ? parseFloat(purchasePrice) : 0;
         const imp = getImprovementsTotal();
-        const eqLow = a.pricing_band_low ? a.pricing_band_low - pp - imp : null;
-        const eqHigh = a.pricing_band_high ? a.pricing_band_high - pp - imp : null;
+        const eqLow = a.pricing_band_low && pp ? a.pricing_band_low - pp - imp : null;
+        const eqHigh = a.pricing_band_high && pp ? a.pricing_band_high - pp - imp : null;
 
         await supabase.from('cma_reports').update({
           analysis_status: 'completed',
@@ -723,7 +724,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
   // Save as draft (skip review)
   const handleSaveDraft = async () => {
     if (!user) return;
-    if (!propertyAddress || !cityArea || !purchasePrice || !purchaseDate) {
+    if (!propertyAddress || !cityArea) {
       toast.error('Please fill in all required fields');
       return;
     }
@@ -760,10 +761,11 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
         approx_sqft: sqft ? parseInt(sqft) : null,
         target_list_price: targetListPrice ? parseFloat(targetListPrice) : null,
         intended_list_date: intendedListDate || null,
-        purchase_price: parseFloat(purchasePrice),
-        purchase_date: purchaseDate,
+        purchase_price: purchasePrice ? parseFloat(purchasePrice) : null,
+        purchase_date: purchaseDate || null,
         improvements_invested: getImprovementsTotal(),
         improvements_list: improvementsList,
+        agent_notes: agentNotes.trim() || null,
         ...(cmaPdfPath ? { cma_pdf_path: cmaPdfPath } : {}),
         ...(cmaPdfName ? { cma_pdf_name: cmaPdfName } : {}),
         fub_person_id: selectedContact?.id || null,
