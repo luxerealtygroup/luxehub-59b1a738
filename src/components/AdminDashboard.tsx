@@ -206,7 +206,7 @@ const AdminDashboard = () => {
   const [showPipelineReport, setShowPipelineReport] = useState(false);
   const [txFilter, setTxFilter] = useState<'all' | 'needs_review'>('all');
   const [selectedTxIds, setSelectedTxIds] = useState<Set<number>>(new Set());
-  const [activeTab, setActiveTab] = useState<string>('pipeline');
+  const [activeTab, setActiveTab] = useState<string>('team411');
   const pipelineRef = useRef<HTMLDivElement>(null);
   const budgetRef = useRef<HTMLDivElement>(null);
   const teamRef = useRef<HTMLDivElement>(null);
@@ -1012,6 +1012,9 @@ const AdminDashboard = () => {
       {/* Main Dashboard Sections */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="bg-card border border-border h-auto p-1 flex-wrap">
+          <TabsTrigger value="team411" className="flex items-center gap-2">
+            <Target className="h-4 w-4" /> Team Coaching
+          </TabsTrigger>
           <TabsTrigger value="pipeline" className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4" /> Pipeline & Sales
           </TabsTrigger>
@@ -1023,9 +1026,6 @@ const AdminDashboard = () => {
           </TabsTrigger>
           <TabsTrigger value="analytics" className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4" /> Analytics
-          </TabsTrigger>
-          <TabsTrigger value="team411" className="flex items-center gap-2">
-            <Target className="h-4 w-4" /> Team 4-1-1
           </TabsTrigger>
           <TabsTrigger value="conversions" className="flex items-center gap-2">
             <ArrowRightLeft className="h-4 w-4" /> Conversions
