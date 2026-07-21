@@ -14,7 +14,7 @@ import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { ChevronLeft, ChevronRight, Save, Target, Trophy, TrendingUp, FileText, ArrowRight, Plus, Trash2, CalendarDays } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, Target, Trophy, TrendingUp, FileText, ArrowRight, Plus, Trash2, CalendarDays, Copy, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format, startOfWeek, addWeeks, subWeeks } from 'date-fns';
 import { FUBContactTypeahead } from '@/components/FUBContactTypeahead';
@@ -162,6 +162,7 @@ const FourOneOne = () => {
   const [weeklyData, setWeeklyData] = useState<Weekly411>({ ...emptyWeekly });
   const [appointmentRecords, setAppointmentRecords] = useState<AppointmentRecord[]>([]);
   const [coachingNote, setCoachingNote] = useState<string | null>(null);
+  const [noteCopied, setNoteCopied] = useState(false);
   const [showAppointmentDialog, setShowAppointmentDialog] = useState(false);
   const [newAppointment, setNewAppointment] = useState<AppointmentRecord>({
     fub_contact_id: null,
@@ -1083,10 +1084,29 @@ const FourOneOne = () => {
           {coachingNote && (
             <Card className="border-primary/20 bg-primary/5">
               <CardHeader>
-                <CardTitle className="text-lg font-display flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-primary" />
-                  Coaching Notes — Week of {format(currentWeek, 'MMM d, yyyy')}
-                </CardTitle>
+                <div className="flex items-center justify-between gap-2">
+                  <CardTitle className="text-lg font-display flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-primary" />
+                    Coaching Notes — Week of {format(currentWeek, 'MMM d, yyyy')}
+                  </CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(coachingNote);
+                        setNoteCopied(true);
+                        toast({ title: 'Copied', description: 'Coaching notes copied to clipboard' });
+                        setTimeout(() => setNoteCopied(false), 2000);
+                      } catch {
+                        toast({ title: 'Copy failed', variant: 'destructive' });
+                      }
+                    }}
+                  >
+                    {noteCopied ? <Check className="h-4 w-4 mr-1" /> : <Copy className="h-4 w-4 mr-1" />}
+                    {noteCopied ? 'Copied' : 'Copy'}
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
