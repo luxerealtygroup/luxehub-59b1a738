@@ -1271,6 +1271,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
             coverIndex={coverPhotoIndex}
             setCoverIndex={setCoverPhotoIndex}
           />
+          <StepWarnings step={2} />
         </div>
       )}
 
@@ -1296,6 +1297,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
             </CardContent>
           </Card>
           <CMAImprovements items={improvementsList} onChange={setImprovementsList} />
+          <StepWarnings step={3} />
         </div>
       )}
 
@@ -1382,11 +1384,13 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
             confirmLabel="Continue to Agent Notes"
             backLabel="Back"
           />
+          <StepWarnings step={4} />
         </div>
       )}
 
       {/* ============ STEP 5: Agent Notes ============ */}
       {wizardStep === 5 && (
+        <div className="space-y-6">
         <Card className="border-gold/20">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2 font-serif">
@@ -1404,6 +1408,8 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
             />
           </CardContent>
         </Card>
+        <StepWarnings step={5} />
+        </div>
       )}
 
       {/* ============ STEP 6: Review & Generate ============ */}
