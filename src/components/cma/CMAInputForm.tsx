@@ -241,6 +241,9 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
       if (r.fub_person_id) {
         setSelectedContact({ id: r.fub_person_id, name: r.fub_person_name || '' });
       }
+      if (r.fub_person_name) setClientName(r.fub_person_name);
+      // Allow free navigation across all steps when editing
+      setMaxStepReached(6);
       // Load existing comps for review
       if (Array.isArray(r.extracted_comps) && r.extracted_comps.length > 0) {
         setReviewComps(r.extracted_comps.map((c: any) => ({
