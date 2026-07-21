@@ -429,6 +429,9 @@ const CMACompReview = ({
         <Badge variant="outline" className="text-[10px] border-emerald-500 text-emerald-500">
           Sold: {includedComps.filter(c => c.comp_category === 'sold').length}
         </Badge>
+        <Badge variant="outline" className="text-[10px] border-amber-500 text-amber-500">
+          Pending: {includedComps.filter(c => c.comp_category === 'pending').length}
+        </Badge>
         <Badge variant="outline" className="text-[10px] border-blue-500 text-blue-500">
           Active: {includedComps.filter(c => c.comp_category === 'active').length}
         </Badge>
