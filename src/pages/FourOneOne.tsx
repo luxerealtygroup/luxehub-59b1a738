@@ -157,6 +157,7 @@ const FourOneOne = () => {
   const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [weeklyData, setWeeklyData] = useState<Weekly411>({ ...emptyWeekly });
   const [appointmentRecords, setAppointmentRecords] = useState<AppointmentRecord[]>([]);
+  const [coachingNote, setCoachingNote] = useState<string | null>(null);
   const [showAppointmentDialog, setShowAppointmentDialog] = useState(false);
   const [newAppointment, setNewAppointment] = useState<AppointmentRecord>({
     fub_contact_id: null,
@@ -323,6 +324,21 @@ const FourOneOne = () => {
     fetchAnnualGoals();
     fetchSyncedGoals();
     fetchAppointmentRecords();
+  }, [user, currentWeek]);
+
+  // Fetch coaching note for the current week (if one exists)
+  useEffect(() => {
+    if (!user) return;
+    const weekStart = format(currentWeek, 'yyyy-MM-dd');
+    (async () => {
+      const { data } = await supabase
+        .from('coaching_sessions')
+        .select('generated_notes')
+        .eq('agent_id', user.id)
+        .eq('week_of', weekStart)
+        .maybeSingle();
+      setCoachingNote(data?.generated_notes || null);
+    })();
   }, [user, currentWeek]);
 
   // Fetch weekly data after synced goals are loaded so defaults can be populated
