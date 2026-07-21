@@ -54,6 +54,9 @@ interface CMACompReviewProps {
   onBack: () => void;
   isSubmitting: boolean;
   extractionSummary?: ExtractionSummary | null;
+  confirmLabel?: string;
+  backLabel?: string;
+  submittingLabel?: string;
 }
 
 const emptyComp = (): ReviewComp => ({
@@ -89,6 +92,9 @@ const CMACompReview = ({
   onBack,
   isSubmitting,
   extractionSummary,
+  confirmLabel,
+  backLabel,
+  submittingLabel,
 }: CMACompReviewProps) => {
   const [overrideReason, setOverrideReason] = useState('');
   const [showOverride, setShowOverride] = useState(false);
@@ -447,7 +453,7 @@ const CMACompReview = ({
       {/* Actions */}
       <div className="flex gap-3">
         <Button variant="outline" onClick={onBack} disabled={isSubmitting}>
-          Back
+          {backLabel ?? 'Back'}
         </Button>
         <Button
           onClick={onConfirm}
@@ -455,7 +461,7 @@ const CMACompReview = ({
           className="bg-gold hover:bg-gold/90 text-gold-foreground"
         >
           {isSubmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-          {isSubmitting ? 'Analyzing...' : 'Confirm & Generate Report'}
+          {isSubmitting ? (submittingLabel ?? 'Analyzing...') : (confirmLabel ?? 'Confirm & Generate Report')}
         </Button>
       </div>
     </div>

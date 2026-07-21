@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Upload, Loader2, Home, DollarSign, BarChart3, FileUp, Users, Link2, PenLine, FileText } from 'lucide-react';
+import { Upload, Loader2, Home, DollarSign, BarChart3, FileUp, Users, Link2, PenLine, FileText, Check, ChevronRight, User, Calendar, ClipboardList, Sparkles } from 'lucide-react';
 import { FUBContactTypeahead } from '@/components/FUBContactTypeahead';
 import { useHasFUB } from '@/hooks/useHasFUB';
 import CMACompReview, { type ReviewComp, type ExtractionSummary } from './CMACompReview';
@@ -31,6 +31,16 @@ interface SelectedContact {
 
 type FormStep = 'input' | 'review';
 type ImportMethod = 'pdf' | 'link' | 'manual';
+type WizardStep = 1 | 2 | 3 | 4 | 5 | 6;
+
+const WIZARD_STEPS: { n: WizardStep; label: string }[] = [
+  { n: 1, label: 'Client & Listing' },
+  { n: 2, label: 'Subject Property' },
+  { n: 3, label: 'Purchase History' },
+  { n: 4, label: 'Comparables' },
+  { n: 5, label: 'Agent Notes' },
+  { n: 6, label: 'Review & Generate' },
+];
 
 const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) => {
   const { user } = useAuth();
@@ -44,6 +54,13 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
 
   // FUB Contact
   const [selectedContact, setSelectedContact] = useState<SelectedContact | null>(null);
+
+  // Wizard
+  const [wizardStep, setWizardStep] = useState<WizardStep>(1);
+  const [maxStepReached, setMaxStepReached] = useState<WizardStep>(1);
+  const [clientName, setClientName] = useState('');
+  const [agentName, setAgentName] = useState('');
+  const [hasExtracted, setHasExtracted] = useState(false);
 
   // Subject Property
   const [propertyAddress, setPropertyAddress] = useState('');
@@ -224,6 +241,9 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
       if (r.fub_person_id) {
         setSelectedContact({ id: r.fub_person_id, name: r.fub_person_name || '' });
       }
+      if (r.fub_person_name) setClientName(r.fub_person_name);
+      // Allow free navigation across all steps when editing
+      setMaxStepReached(6);
       // Load existing comps for review
       if (Array.isArray(r.extracted_comps) && r.extracted_comps.length > 0) {
         setReviewComps(r.extracted_comps.map((c: any) => ({
@@ -258,6 +278,35 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
   useEffect(() => {
     if (editReportId) loadExistingReport();
   }, [editReportId]);
+
+  // Load current user's name as default Agent Name
+  useEffect(() => {
+    (async () => {
+      if (!user) return;
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (data?.full_name) setAgentName(prev => prev || data.full_name);
+    })();
+  }, [user]);
+
+  // Keep client name in sync with FUB selection when present
+  useEffect(() => {
+    if (selectedContact?.name) setClientName(selectedContact.name);
+  }, [selectedContact]);
+
+  const goToStep = (n: WizardStep) => {
+    setWizardStep(n);
+    setMaxStepReached(prev => (n > prev ? n : prev));
+  };
+  const nextStep = () => {
+    if (wizardStep < 6) goToStep(((wizardStep + 1) as WizardStep));
+  };
+  const prevStep = () => {
+    if (wizardStep > 1) setWizardStep(((wizardStep - 1) as WizardStep));
+  };
 
   const hasMarketStats = () => {
     if (statsMethod === 'manual') return activeListings || soldListings || medianSalePrice || avgDOM || saleToListRatio;
@@ -887,349 +936,564 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     );
   }
 
-  // ============= STEP 2: REVIEW COMPS =============
-  if (step === 'review') {
-    return (
-      <CMACompReview
-        comps={reviewComps}
-        onCompsChange={setReviewComps}
-        onReRunExtraction={handleReRunExtraction}
-        isExtracting={extracting}
-        onConfirm={handleConfirmAndAnalyze}
-        onBack={() => setStep('input')}
-        isSubmitting={analyzing}
-        extractionSummary={extractionSummary}
-      />
-    );
-  }
+  // Trigger comp extraction from PDF / link (called from Step 4)
+  const handleExtractComps = async () => {
+    if (importMethod === 'pdf' && !cmaPdf) {
+      toast.error('Please upload a PDF first');
+      return;
+    }
+    if (importMethod === 'link' && !cmaSourceUrl) {
+      toast.error('Please paste a CloudCMA link first');
+      return;
+    }
+    setExtracting(true);
+    try {
+      if (importMethod === 'pdf') {
+        const { comps: extracted, summary } = await runExtraction();
+        setReviewComps(extracted);
+        setExtractionSummary(summary);
+        toast.success(`Extracted ${extracted.length} comps from PDF`);
+      } else if (importMethod === 'link') {
+        try { new URL(cmaSourceUrl); } catch {
+          toast.error('Please enter a valid URL');
+          return;
+        }
+        const { comps: extracted, summary } = await runLinkExtraction();
+        setReviewComps(extracted);
+        setExtractionSummary(summary);
+        toast.success(`Extracted ${extracted.length} comps from link`);
+      }
+      setHasExtracted(true);
+    } catch (err) {
+      console.error('Extraction error:', err);
+      toast.error('Extraction failed. You can add comparables manually.');
+    } finally {
+      setExtracting(false);
+    }
+  };
 
-  // ============= STEP 1: INPUT FORM =============
+  const canProceedFromStep = (n: WizardStep): boolean => {
+    if (n === 1) return !!clientName.trim();
+    if (n === 2) return !!propertyAddress.trim() && !!cityArea.trim();
+    return true;
+  };
+
+  const handleNext = () => {
+    if (!canProceedFromStep(wizardStep)) {
+      if (wizardStep === 1) toast.error('Please enter a client name');
+      else if (wizardStep === 2) toast.error('Property address and city are required');
+      return;
+    }
+    nextStep();
+  };
+
+  const fmtCurrency = (v: string | number) => {
+    const n = typeof v === 'number' ? v : parseFloat(v);
+    if (!isFinite(n)) return '—';
+    return `$${n.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+  };
+
+  const Stepper = (
+    <div className="mb-8">
+      {/* Mobile compact */}
+      <div className="sm:hidden">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-medium text-foreground">Step {wizardStep} of 6</span>
+          <span className="text-xs text-muted-foreground">{WIZARD_STEPS[wizardStep - 1].label}</span>
+        </div>
+        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+          <div className="h-full bg-gold transition-all duration-300" style={{ width: `${(wizardStep / 6) * 100}%` }} />
+        </div>
+      </div>
+      {/* Desktop full stepper */}
+      <div className="hidden sm:flex items-center gap-1">
+        {WIZARD_STEPS.map((s, i) => {
+          const isActive = wizardStep === s.n;
+          const isComplete = maxStepReached > s.n && !isActive;
+          const canJump = s.n <= maxStepReached;
+          return (
+            <div key={s.n} className="flex items-center flex-1 min-w-0">
+              <button
+                type="button"
+                disabled={!canJump}
+                onClick={() => canJump && setWizardStep(s.n)}
+                className={`group flex items-center gap-2 min-w-0 ${canJump ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}
+              >
+                <span
+                  className={`shrink-0 flex items-center justify-center h-7 w-7 rounded-full border text-[11px] font-semibold transition-all ${
+                    isActive
+                      ? 'bg-gold text-gold-foreground border-gold shadow-sm scale-105'
+                      : isComplete
+                        ? 'bg-gold/15 text-gold border-gold/40'
+                        : 'bg-muted text-muted-foreground border-border'
+                  }`}
+                >
+                  {isComplete ? <Check className="h-3.5 w-3.5" /> : s.n}
+                </span>
+                <span
+                  className={`truncate text-[10px] font-medium tracking-[0.08em] uppercase ${
+                    isActive ? 'text-foreground' : isComplete ? 'text-gold' : 'text-muted-foreground'
+                  }`}
+                >
+                  {s.label}
+                </span>
+              </button>
+              {i < WIZARD_STEPS.length - 1 && (
+                <ChevronRight className="h-3.5 w-3.5 mx-1 text-muted-foreground/40 shrink-0" />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-6 max-w-4xl">
-      {/* FUB Client Search */}
-      {hasFUB && (
+      {Stepper}
+
+      {/* ============ STEP 1: Client & Listing Info ============ */}
+      {wizardStep === 1 && (
+        <div className="space-y-6">
+          {hasFUB && (
+            <Card className="border-gold/20">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Users className="h-4 w-4 text-gold" /> Link to Client (Follow Up Boss)
+                  <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <FUBContactTypeahead
+                  selectedContact={selectedContact}
+                  onSelect={setSelectedContact}
+                  onClear={() => setSelectedContact(null)}
+                />
+              </CardContent>
+            </Card>
+          )}
+          <Card className="border-gold/20">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2 font-serif">
+                <User className="h-4 w-4 text-gold" /> Client & Listing Info
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <Label>Client Name *</Label>
+                <Input value={clientName} onChange={e => setClientName(e.target.value)} placeholder="e.g. Jane & John Smith" />
+              </div>
+              <div>
+                <Label>Agent Name</Label>
+                <Input value={agentName} onChange={e => setAgentName(e.target.value)} placeholder="Your name" />
+              </div>
+              <div>
+                <Label>Intended List Date</Label>
+                <Input type="date" value={intendedListDate} onChange={e => setIntendedListDate(e.target.value)} />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* ============ STEP 2: Subject Property ============ */}
+      {wizardStep === 2 && (
+        <div className="space-y-6">
+          <Card className="border-gold/20">
+            <CardHeader className="pb-4">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <CardTitle className="text-base flex items-center gap-2 font-serif">
+                  <Home className="h-4 w-4 text-gold" /> Subject Property
+                </CardTitle>
+                <label className="inline-flex">
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleListingPdfUpload(f);
+                      e.target.value = '';
+                    }}
+                  />
+                  <span
+                    className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md bg-gold text-gold-foreground hover:bg-gold/90 cursor-pointer transition-colors shadow-sm ${extractingListing ? 'opacity-60 pointer-events-none' : ''}`}
+                  >
+                    {extractingListing
+                      ? <><Loader2 className="h-4 w-4 animate-spin" /> Extracting…</>
+                      : <><FileText className="h-4 w-4" /> Upload Listing (PDF)</>}
+                  </span>
+                </label>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Upload an MLS listing PDF to auto-fill the fields below. You can edit anything after.
+              </p>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <Label>Property Address *</Label>
+                <Input value={propertyAddress} onChange={e => setPropertyAddress(e.target.value)} placeholder="123 Main St" />
+              </div>
+              <div>
+                <Label>City / Area *</Label>
+                <Input value={cityArea} onChange={e => setCityArea(e.target.value)} placeholder="Toronto" />
+              </div>
+              <div>
+                <Label>Property Type</Label>
+                <Select value={propertyType} onValueChange={setPropertyType}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="detached">Detached</SelectItem>
+                    <SelectItem value="semi">Semi-Detached</SelectItem>
+                    <SelectItem value="town">Townhouse</SelectItem>
+                    <SelectItem value="condo">Condo</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Bedrooms</Label>
+                <Input value={bedrooms} onChange={e => setBedrooms(e.target.value)} placeholder="e.g. 5+1" />
+              </div>
+              <div>
+                <Label>Bathrooms</Label>
+                <Input value={bathrooms} onChange={e => setBathrooms(e.target.value)} placeholder="e.g. 4 or 3 full, 1 half" />
+              </div>
+              <div>
+                <Label>Above-Grade Sq Ft</Label>
+                <Input type="number" value={aboveGradeSqFt} onChange={e => setAboveGradeSqFt(e.target.value)} placeholder="1500" />
+              </div>
+              <div>
+                <Label>Finished Basement Sq Ft</Label>
+                <Input type="number" value={finishedBasementSqFt} onChange={e => setFinishedBasementSqFt(e.target.value)} placeholder="600" />
+              </div>
+              <div>
+                <Label>Total Finished Sq Ft</Label>
+                <Input type="number" value={sqft} onChange={e => setSqft(e.target.value)} placeholder="1800" />
+              </div>
+              <div>
+                <Label>Garage</Label>
+                <Select value={garage || 'unknown'} onValueChange={v => setGarage(v === 'unknown' ? '' : v)}>
+                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unknown">—</SelectItem>
+                    <SelectItem value="single attached">Single attached</SelectItem>
+                    <SelectItem value="double attached">Double attached</SelectItem>
+                    <SelectItem value="triple attached">Triple attached</SelectItem>
+                    <SelectItem value="single detached">Single detached</SelectItem>
+                    <SelectItem value="double detached">Double detached</SelectItem>
+                    <SelectItem value="carport">Carport</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Build Year / Age Range</Label>
+                <Input value={buildYear} onChange={e => setBuildYear(e.target.value)} placeholder="e.g. 2005 or 16-30" />
+              </div>
+              <div>
+                <Label>Condition</Label>
+                <Select value={condition || 'Good'} onValueChange={setCondition}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Excellent">Excellent</SelectItem>
+                    <SelectItem value="Very Good">Very Good</SelectItem>
+                    <SelectItem value="Good">Good</SelectItem>
+                    <SelectItem value="Fair">Fair</SelectItem>
+                    <SelectItem value="Needs Work">Needs work</SelectItem>
+                    <SelectItem value="Renovated Throughout">Renovated throughout</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Target List Price</Label>
+                <Input type="number" value={targetListPrice} onChange={e => setTargetListPrice(e.target.value)} placeholder="750000" />
+              </div>
+              <div className="sm:col-span-2">
+                <Label>Key Features</Label>
+                <p className="text-xs text-muted-foreground mb-1.5">
+                  One per line. Include standouts that drive pricing adjustments — pool, ravine/waterfront lot, walkout basement, in-law suite, premium finishes, renovations.
+                </p>
+                <Textarea
+                  value={keyFeaturesText}
+                  onChange={e => setKeyFeaturesText(e.target.value)}
+                  rows={5}
+                  placeholder={"In-ground pool\nBacks onto ravine\nFully finished basement\nAttached double garage\nHardwood throughout"}
+                />
+              </div>
+            </CardContent>
+          </Card>
+          <CMAPhotoUpload
+            photos={subjectPhotos}
+            setPhotos={setSubjectPhotos}
+            coverIndex={coverPhotoIndex}
+            setCoverIndex={setCoverPhotoIndex}
+          />
+        </div>
+      )}
+
+      {/* ============ STEP 3: Purchase History (optional) ============ */}
+      {wizardStep === 3 && (
+        <div className="space-y-6">
+          <Card className="border-gold/20">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2 font-serif">
+                <DollarSign className="h-4 w-4 text-gold" /> Client Purchase History
+                <span className="text-xs text-muted-foreground font-normal">(optional — skip if unknown)</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <Label>Purchase Price</Label>
+                <Input type="number" value={purchasePrice} onChange={e => setPurchasePrice(e.target.value)} placeholder="500000" />
+              </div>
+              <div>
+                <Label>Purchase Date</Label>
+                <Input type="date" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} />
+              </div>
+            </CardContent>
+          </Card>
+          <CMAImprovements items={improvementsList} onChange={setImprovementsList} />
+        </div>
+      )}
+
+      {/* ============ STEP 4: Comparables ============ */}
+      {wizardStep === 4 && (
+        <div className="space-y-6">
+          <Card className="border-gold/20">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2 font-serif">
+                <FileUp className="h-4 w-4 text-gold" /> Import Comparables
+                <span className="text-xs text-muted-foreground font-normal">(choose one method)</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-3 gap-2">
+                <button type="button" onClick={() => setImportMethod('pdf')}
+                  className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-all text-center ${importMethod === 'pdf' ? 'border-gold bg-gold/10 text-foreground' : 'border-border hover:border-gold/40 text-muted-foreground'}`}>
+                  <Upload className="h-5 w-5" />
+                  <span className="text-xs font-medium">Upload PDF</span>
+                </button>
+                <button type="button" onClick={() => setImportMethod('link')}
+                  className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-all text-center ${importMethod === 'link' ? 'border-gold bg-gold/10 text-foreground' : 'border-border hover:border-gold/40 text-muted-foreground'}`}>
+                  <Link2 className="h-5 w-5" />
+                  <span className="text-xs font-medium">CloudCMA Link</span>
+                </button>
+                <button type="button" onClick={() => setImportMethod('manual')}
+                  className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-all text-center ${importMethod === 'manual' ? 'border-gold bg-gold/10 text-foreground' : 'border-border hover:border-gold/40 text-muted-foreground'}`}>
+                  <PenLine className="h-5 w-5" />
+                  <span className="text-xs font-medium">Manual Entry</span>
+                </button>
+              </div>
+              {importMethod === 'pdf' && (
+                <div className="border-2 border-dashed border-gold/20 rounded-lg p-6 text-center">
+                  <input type="file" accept=".pdf" id="cma-pdf-upload" className="hidden"
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        if (file.type !== 'application/pdf') { toast.error('Only PDF files are accepted'); return; }
+                        setCmaPdf(file);
+                      }
+                    }} />
+                  <label htmlFor="cma-pdf-upload" className="cursor-pointer">
+                    <Upload className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+                    {cmaPdf ? <p className="text-sm text-gold font-medium">{cmaPdf.name}</p>
+                      : <p className="text-sm text-muted-foreground">Click to upload CloudCMA PDF</p>}
+                  </label>
+                </div>
+              )}
+              {importMethod === 'link' && (
+                <div className="space-y-2">
+                  <Label>CloudCMA Report Link</Label>
+                  <Input value={cmaSourceUrl} onChange={e => setCmaSourceUrl(e.target.value)} placeholder="Paste CloudCMA share link here" type="url" />
+                </div>
+              )}
+              {(importMethod === 'pdf' || importMethod === 'link') && (
+                <Button onClick={handleExtractComps} disabled={extracting || (importMethod === 'pdf' ? !cmaPdf : !cmaSourceUrl)}
+                  className="bg-gold hover:bg-gold/90 text-gold-foreground">
+                  {extracting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Extracting…</>
+                    : <><Sparkles className="h-4 w-4 mr-2" /> {hasExtracted ? 'Re-extract Comps' : 'Extract Comps'}</>}
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+
+          <div className="flex items-center justify-between px-1">
+            <div className="text-sm font-medium text-foreground">
+              {reviewComps.filter(c => !c.excluded).length} comparable{reviewComps.filter(c => !c.excluded).length === 1 ? '' : 's'} added
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Sold: {reviewComps.filter(c => !c.excluded && c.comp_category === 'sold').length}
+              {' · '}Active: {reviewComps.filter(c => !c.excluded && c.comp_category === 'active').length}
+            </div>
+          </div>
+
+          <CMACompReview
+            comps={reviewComps}
+            onCompsChange={setReviewComps}
+            onReRunExtraction={handleReRunExtraction}
+            isExtracting={extracting}
+            onConfirm={() => nextStep()}
+            onBack={prevStep}
+            isSubmitting={false}
+            extractionSummary={extractionSummary}
+            confirmLabel="Continue to Agent Notes"
+            backLabel="Back"
+          />
+        </div>
+      )}
+
+      {/* ============ STEP 5: Agent Notes ============ */}
+      {wizardStep === 5 && (
         <Card className="border-gold/20">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Users className="h-4 w-4 text-gold" /> Link to Client (Follow Up Boss)
+            <CardTitle className="text-base flex items-center gap-2 font-serif">
+              <PenLine className="h-4 w-4 text-gold" /> Agent Notes
+              <span className="text-xs text-muted-foreground font-normal">(optional)</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <FUBContactTypeahead
-              selectedContact={selectedContact}
-              onSelect={setSelectedContact}
-              onClear={() => setSelectedContact(null)}
+            <Textarea
+              value={agentNotes}
+              onChange={e => setAgentNotes(e.target.value)}
+              rows={10}
+              placeholder="Any additional context — buyer intelligence, seller circumstances, prior offers, structural concerns, competing listings, motivation, timing pressure, condition observations, etc. Claude will factor this into the Opinion of Value and pricing rationale."
+              className="min-h-[220px]"
             />
           </CardContent>
         </Card>
       )}
 
-      {/* Subject Property */}
-      <Card className="border-gold/20">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between gap-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Home className="h-4 w-4 text-gold" /> Subject Property
+      {/* ============ STEP 6: Review & Generate ============ */}
+      {wizardStep === 6 && (
+        <Card className="border-gold/20">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2 font-serif">
+              <ClipboardList className="h-4 w-4 text-gold" /> Review & Generate
             </CardTitle>
-            <label className="inline-flex">
-              <input
-                type="file"
-                accept="application/pdf"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleListingPdfUpload(f);
-                  e.target.value = '';
-                }}
-              />
-              <span
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-gold/30 text-gold hover:bg-gold/10 cursor-pointer transition-colors ${extractingListing ? 'opacity-60 pointer-events-none' : ''}`}
-              >
-                {extractingListing
-                  ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Extracting…</>
-                  : <><FileText className="h-3.5 w-3.5" /> Upload Listing (PDF)</>}
-              </span>
-            </label>
-          </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Upload an MLS listing PDF to auto-fill the fields below. You can edit anything after.
-          </p>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
-          <div className="sm:col-span-2">
-            <Label>Property Address *</Label>
-            <Input value={propertyAddress} onChange={e => setPropertyAddress(e.target.value)} placeholder="123 Main St" />
-          </div>
-          <div>
-            <Label>City / Area *</Label>
-            <Input value={cityArea} onChange={e => setCityArea(e.target.value)} placeholder="Toronto" />
-          </div>
-          <div>
-            <Label>Property Type</Label>
-            <Select value={propertyType} onValueChange={setPropertyType}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="detached">Detached</SelectItem>
-                <SelectItem value="semi">Semi-Detached</SelectItem>
-                <SelectItem value="town">Townhouse</SelectItem>
-                <SelectItem value="condo">Condo</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>Bedrooms</Label>
-            <Input value={bedrooms} onChange={e => setBedrooms(e.target.value)} placeholder="e.g. 5+1" />
-          </div>
-          <div>
-            <Label>Bathrooms</Label>
-            <Input value={bathrooms} onChange={e => setBathrooms(e.target.value)} placeholder="e.g. 4 or 3 full, 1 half" />
-          </div>
-          <div>
-            <Label>Total Finished Sq Ft</Label>
-            <Input type="number" value={sqft} onChange={e => setSqft(e.target.value)} placeholder="1800" />
-          </div>
-          <div>
-            <Label>Above-Grade Sq Ft</Label>
-            <Input type="number" value={aboveGradeSqFt} onChange={e => setAboveGradeSqFt(e.target.value)} placeholder="1500" />
-          </div>
-          <div>
-            <Label>Finished Basement Sq Ft</Label>
-            <Input type="number" value={finishedBasementSqFt} onChange={e => setFinishedBasementSqFt(e.target.value)} placeholder="600" />
-          </div>
-          <div>
-            <Label>Garage</Label>
-            <Select value={garage || 'unknown'} onValueChange={v => setGarage(v === 'unknown' ? '' : v)}>
-              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="unknown">—</SelectItem>
-                <SelectItem value="single attached">Single attached</SelectItem>
-                <SelectItem value="double attached">Double attached</SelectItem>
-                <SelectItem value="triple attached">Triple attached</SelectItem>
-                <SelectItem value="single detached">Single detached</SelectItem>
-                <SelectItem value="double detached">Double detached</SelectItem>
-                <SelectItem value="carport">Carport</SelectItem>
-                <SelectItem value="none">None</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>Build Year / Age Range</Label>
-            <Input value={buildYear} onChange={e => setBuildYear(e.target.value)} placeholder="e.g. 2005 or 16-30" />
-          </div>
-          <div>
-            <Label>Condition</Label>
-            <Select value={condition || 'Good'} onValueChange={setCondition}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Excellent">Excellent</SelectItem>
-                <SelectItem value="Very Good">Very Good</SelectItem>
-                <SelectItem value="Good">Good</SelectItem>
-                <SelectItem value="Fair">Fair</SelectItem>
-                <SelectItem value="Needs Work">Needs work</SelectItem>
-                <SelectItem value="Renovated Throughout">Renovated throughout</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>Target List Price</Label>
-            <Input type="number" value={targetListPrice} onChange={e => setTargetListPrice(e.target.value)} placeholder="750000" />
-          </div>
-          <div>
-            <Label>Intended List Date</Label>
-            <Input type="date" value={intendedListDate} onChange={e => setIntendedListDate(e.target.value)} />
-          </div>
-          <div className="sm:col-span-2">
-            <Label>Key Features</Label>
-            <p className="text-xs text-muted-foreground mb-1.5">
-              One per line. Include standouts that drive pricing adjustments — pool, ravine/waterfront lot, walkout basement, in-law suite, premium finishes, renovations.
-            </p>
-            <Textarea
-              value={keyFeaturesText}
-              onChange={e => setKeyFeaturesText(e.target.value)}
-              rows={5}
-              placeholder={"In-ground pool\nBacks onto ravine\nFully finished basement\nAttached double garage\nHardwood throughout"}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Purchase History */}
-      <Card className="border-gold/20">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <DollarSign className="h-4 w-4 text-gold" /> Client Purchase History
-            <span className="text-xs text-muted-foreground font-normal">(optional)</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <Label>Purchase Price</Label>
-            <Input type="number" value={purchasePrice} onChange={e => setPurchasePrice(e.target.value)} placeholder="500000" />
-          </div>
-          <div>
-            <Label>Purchase Date</Label>
-            <Input type="date" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Improvements & Upgrades */}
-      <CMAImprovements items={improvementsList} onChange={setImprovementsList} />
-
-      {/* Agent Notes */}
-      <Card className="border-gold/20">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <PenLine className="h-4 w-4 text-gold" /> Agent Notes
-            <span className="text-xs text-muted-foreground font-normal">(optional — passed to CMA generator)</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Textarea
-            value={agentNotes}
-            onChange={e => setAgentNotes(e.target.value)}
-            rows={6}
-            placeholder="Paste a transcript or type free-form context: buyer intelligence, seller circumstances, prior offers, structural concerns, competing listings, motivation, timing pressure, condition observations, or anything else you'd mention in conversation. Claude will factor this into the Opinion of Value and pricing rationale."
-            className="min-h-[140px]"
-          />
-        </CardContent>
-      </Card>
-
-      {/* Comparable Import Method */}
-      <Card className="border-gold/20">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <FileUp className="h-4 w-4 text-gold" /> Import Comparables
-            <span className="text-xs text-muted-foreground font-normal">(choose one method)</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Method selector */}
-          <div className="grid grid-cols-3 gap-2">
-            <button
-              type="button"
-              onClick={() => setImportMethod('pdf')}
-              className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-all text-center ${
-                importMethod === 'pdf'
-                  ? 'border-gold bg-gold/10 text-foreground'
-                  : 'border-border hover:border-gold/40 text-muted-foreground'
-              }`}
-            >
-              <Upload className="h-5 w-5" />
-              <span className="text-xs font-medium">Upload PDF</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setImportMethod('link')}
-              className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-all text-center ${
-                importMethod === 'link'
-                  ? 'border-gold bg-gold/10 text-foreground'
-                  : 'border-border hover:border-gold/40 text-muted-foreground'
-              }`}
-            >
-              <Link2 className="h-5 w-5" />
-              <span className="text-xs font-medium">CloudCMA Link</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setImportMethod('manual')}
-              className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-all text-center ${
-                importMethod === 'manual'
-                  ? 'border-gold bg-gold/10 text-foreground'
-                  : 'border-border hover:border-gold/40 text-muted-foreground'
-              }`}
-            >
-              <PenLine className="h-5 w-5" />
-              <span className="text-xs font-medium">Manual Entry</span>
-            </button>
-          </div>
-
-          {/* PDF Upload */}
-          {importMethod === 'pdf' && (
-            <div className="border-2 border-dashed border-gold/20 rounded-lg p-6 text-center">
-              <input
-                type="file"
-                accept=".pdf"
-                id="cma-pdf-upload"
-                className="hidden"
-                onChange={e => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    if (file.type !== 'application/pdf') {
-                      toast.error('Only PDF files are accepted');
-                      return;
-                    }
-                    setCmaPdf(file);
-                  }
-                }}
-              />
-              <label htmlFor="cma-pdf-upload" className="cursor-pointer">
-                <Upload className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
-                {cmaPdf ? (
-                  <p className="text-sm text-gold font-medium">{cmaPdf.name}</p>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Click to upload CloudCMA PDF</p>
+            <p className="text-xs text-muted-foreground mt-1">Review the details below. Click any completed step above to jump back and edit.</p>
+          </CardHeader>
+          <CardContent className="space-y-5 text-sm">
+            <section>
+              <div className="flex items-center justify-between mb-1.5">
+                <h3 className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground font-medium">Client & Listing</h3>
+                <button className="text-[11px] text-gold hover:underline" onClick={() => setWizardStep(1)}>Edit</button>
+              </div>
+              <div className="grid sm:grid-cols-3 gap-2 rounded-md bg-muted/30 p-3">
+                <div><span className="text-muted-foreground text-xs">Client:</span> <span className="font-medium">{clientName || '—'}</span></div>
+                <div><span className="text-muted-foreground text-xs">Agent:</span> <span className="font-medium">{agentName || '—'}</span></div>
+                <div><span className="text-muted-foreground text-xs">List date:</span> <span className="font-medium">{intendedListDate || '—'}</span></div>
+              </div>
+            </section>
+            <section>
+              <div className="flex items-center justify-between mb-1.5">
+                <h3 className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground font-medium">Subject Property</h3>
+                <button className="text-[11px] text-gold hover:underline" onClick={() => setWizardStep(2)}>Edit</button>
+              </div>
+              <div className="rounded-md bg-muted/30 p-3 space-y-1">
+                <div className="font-medium">{propertyAddress || '—'}{cityArea ? `, ${cityArea}` : ''}</div>
+                <div className="text-xs text-muted-foreground">
+                  {propertyType} · {bedrooms || '—'} bed · {bathrooms || '—'} bath · {sqft || aboveGradeSqFt || '—'} sqft
+                  {buildYear ? ` · Built ${buildYear}` : ''} · {condition || '—'}
+                </div>
+                <div className="text-xs">
+                  <span className="text-muted-foreground">Target list price:</span>{' '}
+                  <span className="font-medium text-foreground">{targetListPrice ? fmtCurrency(targetListPrice) : '—'}</span>
+                </div>
+                {keyFeaturesText.trim() && (
+                  <div className="text-xs">
+                    <span className="text-muted-foreground">Key features:</span>{' '}
+                    <span className="text-foreground">
+                      {keyFeaturesText.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 4).join(' · ')}
+                      {keyFeaturesText.split('\n').filter(s => s.trim()).length > 4 ? ' …' : ''}
+                    </span>
+                  </div>
                 )}
-              </label>
-            </div>
+              </div>
+            </section>
+            {(purchasePrice || purchaseDate || improvementsList.length > 0) && (
+              <section>
+                <div className="flex items-center justify-between mb-1.5">
+                  <h3 className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground font-medium">Purchase History</h3>
+                  <button className="text-[11px] text-gold hover:underline" onClick={() => setWizardStep(3)}>Edit</button>
+                </div>
+                <div className="grid sm:grid-cols-3 gap-2 rounded-md bg-muted/30 p-3 text-xs">
+                  <div><span className="text-muted-foreground">Price:</span> <span className="font-medium">{purchasePrice ? fmtCurrency(purchasePrice) : '—'}</span></div>
+                  <div><span className="text-muted-foreground">Date:</span> <span className="font-medium">{purchaseDate || '—'}</span></div>
+                  <div><span className="text-muted-foreground">Improvements:</span> <span className="font-medium">{getImprovementsTotal() ? fmtCurrency(getImprovementsTotal()) : '—'}</span></div>
+                </div>
+              </section>
+            )}
+            <section>
+              <div className="flex items-center justify-between mb-1.5">
+                <h3 className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground font-medium">Comparables</h3>
+                <button className="text-[11px] text-gold hover:underline" onClick={() => setWizardStep(4)}>Edit</button>
+              </div>
+              <div className="rounded-md bg-muted/30 p-3 text-xs">
+                <span className="font-medium text-foreground">{reviewComps.filter(c => !c.excluded).length} comparables</span>
+                <span className="text-muted-foreground">
+                  {' '}(Sold: {reviewComps.filter(c => !c.excluded && c.comp_category === 'sold').length},{' '}
+                  Active: {reviewComps.filter(c => !c.excluded && c.comp_category === 'active').length})
+                </span>
+              </div>
+            </section>
+            {agentNotes.trim() && (
+              <section>
+                <div className="flex items-center justify-between mb-1.5">
+                  <h3 className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground font-medium">Agent Notes</h3>
+                  <button className="text-[11px] text-gold hover:underline" onClick={() => setWizardStep(5)}>Edit</button>
+                </div>
+                <div className="rounded-md bg-muted/30 p-3 text-xs text-foreground whitespace-pre-wrap">
+                  {agentNotes.slice(0, 500)}{agentNotes.length > 500 ? '…' : ''}
+                </div>
+              </section>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ============ Wizard Footer ============ */}
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-border/40">
+        <div className="flex gap-2">
+          <Button variant="ghost" onClick={onCancel} disabled={isProcessing}>Cancel</Button>
+          <Button
+            variant="outline"
+            onClick={handleSaveDraft}
+            disabled={isProcessing}
+          >
+            {saving && !analyzing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+            Save Draft
+          </Button>
+        </div>
+        <div className="flex gap-2">
+          {wizardStep > 1 && wizardStep !== 4 && (
+            <Button variant="outline" onClick={prevStep} disabled={isProcessing}>Back</Button>
           )}
-
-          {/* CloudCMA Link */}
-          {importMethod === 'link' && (
-            <div className="space-y-2">
-              <Label>CloudCMA Report Link</Label>
-              <Input
-                value={cmaSourceUrl}
-                onChange={e => setCmaSourceUrl(e.target.value)}
-                placeholder="Paste CloudCMA share link here"
-                type="url"
-              />
-              <p className="text-[10px] text-muted-foreground">
-                Paste the share link from your CloudCMA report. The system will automatically extract all comparable properties.
-              </p>
-            </div>
+          {wizardStep === 3 && (
+            <Button variant="ghost" onClick={nextStep} disabled={isProcessing} className="text-muted-foreground">
+              Skip
+            </Button>
           )}
-
-          {/* Manual */}
-          {importMethod === 'manual' && (
-            <div className="rounded-lg bg-muted/30 p-4 text-center">
-              <PenLine className="h-6 w-6 text-muted-foreground/40 mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">
-                You'll add comparables manually in the next step.
-              </p>
-            </div>
+          {wizardStep < 6 && wizardStep !== 4 && (
+            <Button
+              onClick={handleNext}
+              disabled={isProcessing}
+              className="bg-gold hover:bg-gold/90 text-gold-foreground"
+            >
+              Next <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Subject Property Photos */}
-      <CMAPhotoUpload
-        photos={subjectPhotos}
-        setPhotos={setSubjectPhotos}
-        coverIndex={coverPhotoIndex}
-        setCoverIndex={setCoverPhotoIndex}
-      />
-
-      {/* Actions */}
-      <div className="flex gap-3">
-        <Button variant="outline" onClick={onCancel} disabled={isProcessing}>Cancel</Button>
-        <Button
-          variant="outline"
-          onClick={handleSaveDraft}
-          disabled={isProcessing}
-        >
-          {saving && !analyzing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-          {isEditMode ? 'Save Draft' : 'Save Draft'}
-        </Button>
-        <Button
-          onClick={handleProceedToReview}
-          disabled={isProcessing}
-          className="bg-gold hover:bg-gold/90 text-gold-foreground"
-        >
-          {extracting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-          {extracting ? 'Extracting Comps...' : 'Review Comps & Analyze'}
-        </Button>
+          {wizardStep === 6 && (
+            <Button
+              onClick={handleConfirmAndAnalyze}
+              disabled={isProcessing}
+              className="bg-gold hover:bg-gold/90 text-gold-foreground"
+            >
+              {analyzing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Generating…</>
+                : <><Sparkles className="h-4 w-4 mr-2" /> Generate CMA</>}
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
