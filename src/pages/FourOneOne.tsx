@@ -147,6 +147,9 @@ const emptyWeekly: Weekly411 = {
 
 const FourOneOne = () => {
   const { user } = useAuth();
+  const { isViewingAsAgent, effectiveUserId } = useViewAsAgent();
+  const queryUserId = effectiveUserId || user?.id;
+  const isReadOnly = isViewingAsAgent;
   const { toast } = useToast();
   const { hasFUB } = useHasFUB();
   const [loading, setLoading] = useState(true);
