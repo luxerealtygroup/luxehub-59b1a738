@@ -465,6 +465,13 @@ const Pipeline = () => {
         )}
       </div>
 
+      {/* Quarterly Gap Analysis */}
+      <PipelineGapCard
+        userId={queryUserId}
+        currentPipelineCount={pipelineMetrics.clientsInDateRange}
+        readOnly={isReadOnly}
+      />
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="border-primary/10 bg-card/50">
