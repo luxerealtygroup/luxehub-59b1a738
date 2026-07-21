@@ -1503,6 +1503,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
                 <span className="font-medium text-foreground">{reviewComps.filter(c => !c.excluded).length} comparables</span>
                 <span className="text-muted-foreground">
                   {' '}(Sold: {reviewComps.filter(c => !c.excluded && c.comp_category === 'sold').length},{' '}
+                  Pending: {reviewComps.filter(c => !c.excluded && c.comp_category === 'pending').length},{' '}
                   Active: {reviewComps.filter(c => !c.excluded && c.comp_category === 'active').length})
                 </span>
               </div>
