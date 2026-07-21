@@ -96,16 +96,17 @@ const CMABoss = () => {
         comparables: comps.map((c: any) => ({
           address: c.address,
           status: c.comp_category === 'active' ? 'active'
+            : c.comp_category === 'pending' ? 'pending'
             : c.comp_category === 'sold' ? 'sold'
             : c.comp_category === 'expired' ? 'active'
             : (c.sold_price ? 'sold' : 'active'),
           beds: c.beds != null ? String(c.beds) : '',
           baths: c.baths != null ? String(c.baths) : '',
-          sqFt: 0,
+          sqFt: c.sqft ?? 0,
           listPrice: c.list_price ?? 0,
           soldPrice: c.sold_price ?? null,
           dom: c.days_on_market ?? 0,
-          notes: [c.area, c.is_weak ? `Weak: ${c.weak_reason || ''}` : ''].filter(Boolean).join(' — '),
+          notes: [c.notes, c.area, c.is_weak ? `Weak: ${c.weak_reason || ''}` : ''].filter(Boolean).join(' — '),
         })),
         agentNotes: (r as any).agent_notes || null,
       };
