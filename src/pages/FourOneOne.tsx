@@ -1074,6 +1074,22 @@ const FourOneOne = () => {
             </CardContent>
           </Card>
 
+          {coachingNote && (
+            <Card className="border-primary/20 bg-primary/5">
+              <CardHeader>
+                <CardTitle className="text-lg font-display flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-primary" />
+                  Coaching Notes — Week of {format(currentWeek, 'MMM d, yyyy')}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+                  {coachingNote}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs text-muted-foreground">
               {autoSaving
