@@ -5,42 +5,43 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const EXTRACTION_SYSTEM_PROMPT = `You are a real estate CMA PDF data extraction specialist. Your job is to find and extract ALL comparable property data from the provided text.
+const EXTRACTION_SYSTEM_PROMPT = `You are a real estate CMA data extraction specialist. Extract ALL comparable properties from the provided PDF text. The text may come from a CloudCMA report OR from one or more MLS "Member Full" sheets (Cornerstone / KWAR / other Ontario boards). Both formats appear as repeating property blocks separated by photo pages — IGNORE photo pages.
 
-IMPORTANT: CloudCMA PDFs do NOT use tables. Each comparable appears as a REPEATING PROPERTY BLOCK like this:
+Each comparable is a distinct property block. A new comparable begins at the next street address + MLS pattern.
 
-[Street Address]
-[City, Province/State]
-MLS #XXXXXXX
-$XXX,XXX
-X Beds X Baths
-XXXX Sq Ft
-[Status: Closed / Pending / Active / Expired]
-[Sold Date if applicable]
-[Days on Market]
+MLS "MEMBER FULL" LABEL MAP — use these EXACT labels when present:
+- Status → "Status" or top-of-sheet badge: values are "Closed", "Sold", "Pending", "Active", "Expired", "Withdrawn", "Terminated".
+- List Price → "List Price" field (full dollar amount, e.g. $849,900).
+- Sold Price → "Sold Price" / "Close Price" field (Closed listings only).
+- DOM → "DOM/CDOM" field. Use the FIRST number only, e.g. "12/131" → 12.
+- Beds → "Beds (AG+BG)" total, e.g. "4 (4 + 0)" → 4. Do NOT use the per-floor breakdown table.
+- Baths → "Baths (F+H)" total, e.g. "4 (3 + 1)" → 4.
+- SqFt → "SqFt Fin Total". If absent, compute "AG Fin SqFt" + "BG Fin SqFt". If only "Apx Sqft" is given, use that.
+- Sale Date → for Pending status use "Pending Date"; for Closed/Sold status use "Close Date" (both appear in the Brokerage Information section near the bottom). Format YYYY-MM-DD.
+- Address → the street address line at the top of each sheet.
 
-After each property block, there may be multiple pages of property photos, room images, and listing details. IGNORE those image/photo pages. A new comparable starts when you see the next street address + MLS pattern.
+COMP_CATEGORY MAPPING — CRITICAL, DO NOT COLLAPSE:
+- "Closed" or "Sold" → comp_category = "sold"
+- "Pending" → comp_category = "pending"  (this is its OWN category; do NOT map to active)
+- "Active" → comp_category = "active"
+- "Expired" / "Withdrawn" / "Terminated" → comp_category = "expired"
+- Anything else → "other"
 
-DETECTION PATTERNS - look for ANY of these:
-1. Street addresses containing: Avenue, Street, Drive, Road, Crescent, Court, Boulevard, Place, Way, Lane, Circle, Trail, Terrace, Ave, St, Dr, Rd, Cres, Ct, Blvd, Pl
-2. MLS numbers: "MLS #" or "MLS:" followed by digits
-3. Price patterns: $XXX,XXX or $X,XXX,XXX
-4. Property stats in ANY format: "3 Beds 2 Baths", "3 BR / 2 BA", "3bd 2ba", "Beds: 3", "3 Bedroom", "3 bed", "3 br"
-5. Square footage: "XXXX Sq Ft", "XXXX sqft", "XXXX SF"
-6. Status keywords: "Closed", "Sold", "Pending", "Active", "Expired", "Withdrawn"
-7. DOM/Days on Market patterns
+PRICE RULES — CRITICAL:
+- Return prices as FULL numeric integers with NO scaling, e.g. "$849,900" → 849900, "$1,299,000" → 1299000.
+- NEVER divide by 1,000 or 10,000. NEVER return prices "in thousands" (e.g. 849) or truncated (e.g. 84). Always the complete dollar amount as a plain integer.
+- Strip currency symbols and commas before returning. Do not include decimals.
 
-CRITICAL RULES:
-1. Search the ENTIRE text from start to finish. Do NOT stop after finding a few properties.
-2. Each property block may span multiple lines with varying formatting.
-3. A single listing may have data spread across multiple pages - treat as ONE comparable until a new address/MLS appears.
-4. Extract EVERY property you can identify - even if some fields are missing.
-5. For each property, extract whatever fields are available. Missing fields should be null.
-6. Assign comp_category based on status keywords: "Closed"/"Sold" = sold, "Active" = active, "Pending" = active, "Expired"/"Withdrawn" = expired
-7. Assign confidence: 1.0 = all key fields found, 0.7 = most fields, 0.5 = address + some data, 0.3 = minimal data.
-8. Assign needs_review: true if important fields (price, beds/baths) are missing.
-9. DO NOT include the subject property as a comparable.
-10. If text appears garbled or encoded, look for recognizable patterns (addresses, prices, MLS numbers) within the noise.
+NOTES FIELD — REQUIRED:
+- For each comp, write a short one-line "notes" summary (max ~120 chars) of standout features drawn from Public Remarks / Interior / Exterior / Inclusions / Extras sections. Examples: "Inground saltwater pool + hot tub, finished basement", "Walkout basement to ravine, updated kitchen", "No pool, gas fireplace, fully finished basement, double garage". This is what the agent will read at a glance and what the pricing analysis will weigh — do not leave it null when the source has any descriptive content.
+
+GENERAL RULES:
+1. Search the ENTIRE text from start to finish. Do not stop after finding a few properties.
+2. A listing may span many pages — treat as ONE comparable until a new address/MLS appears.
+3. Extract every property found, even with partial data. Missing fields → null.
+4. Assign confidence: 1.0 = all key fields, 0.7 = most, 0.5 = address + some, 0.3 = minimal.
+5. Set needs_review: true if price OR beds/baths OR address is missing.
+6. DO NOT include the subject property as a comparable.
 
 RESPOND WITH ONLY this JSON (no markdown, no code blocks):
 {
@@ -59,6 +60,7 @@ RESPOND WITH ONLY this JSON (no markdown, no code blocks):
       "is_weak": false,
       "weak_reason": null,
       "comp_category": "sold|active|expired|other",
+      "notes": "string or null",
       "source_page": number,
       "confidence": number,
       "needs_review": boolean,
