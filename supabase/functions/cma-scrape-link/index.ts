@@ -22,7 +22,7 @@ RULES:
 1. Extract EVERY property listing you find. Do NOT skip any.
 2. The subject property may appear first - do NOT include it as a comparable if it matches the subject address provided.
 3. Missing fields should be null.
-4. Assign comp_category: "Closed"/"Sold" = sold, "Active" = active, "Pending" = active, "Expired" = expired
+4. Assign comp_category: "Closed"/"Sold" = sold, "Pending" = pending, "Active" = active, "Expired" = expired. Do not collapse Pending into Active or Sold.
 5. Assign confidence: 1.0 = all key fields, 0.7 = most fields, 0.5 = partial, 0.3 = minimal
 6. Set needs_review: true if price OR beds/baths are missing
 
@@ -42,7 +42,7 @@ RESPOND WITH ONLY this JSON (no markdown, no code blocks):
       "mls_number": "string or null",
       "is_weak": false,
       "weak_reason": null,
-      "comp_category": "sold|active|expired|other",
+      "comp_category": "sold|pending|active|expired|other",
       "confidence": number,
       "needs_review": boolean,
       "needs_review_reason": "string or null"
@@ -51,6 +51,7 @@ RESPOND WITH ONLY this JSON (no markdown, no code blocks):
   "extraction_summary": {
     "total_comps_found": number,
     "sold_count": number,
+    "pending_count": number,
     "active_count": number,
     "expired_count": number,
     "needs_review_count": number,
@@ -189,13 +190,15 @@ Find every property listing on this page and extract all available data.`;
     }
 
     const comps = parsed.extracted_comps || [];
-    const summary = parsed.extraction_summary || {
+    const computedSummary = {
       total_comps_found: comps.length,
       sold_count: comps.filter((c: any) => c.comp_category === "sold").length,
+      pending_count: comps.filter((c: any) => c.comp_category === "pending").length,
       active_count: comps.filter((c: any) => c.comp_category === "active").length,
       expired_count: comps.filter((c: any) => c.comp_category === "expired").length,
       needs_review_count: comps.filter((c: any) => c.needs_review).length,
     };
+    const summary = { ...computedSummary, ...(parsed.extraction_summary || {}), ...computedSummary };
 
     console.log(`Extracted ${comps.length} comps from CloudCMA link`);
 

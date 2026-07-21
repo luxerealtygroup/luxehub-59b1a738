@@ -28,6 +28,8 @@ interface Comp {
   source_page?: number;
   confidence?: number;
   _manual_edit?: boolean;
+  sqft?: number | null;
+  notes?: string | null;
 }
 
 interface Objection {
@@ -580,6 +582,7 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
           <CardContent className="overflow-x-auto">
             {(() => {
               const sold = report.extracted_comps.filter(c => c.comp_category === 'sold').length;
+              const pending = report.extracted_comps.filter(c => c.comp_category === 'pending').length;
               const active = report.extracted_comps.filter(c => c.comp_category === 'active').length;
               const expired = report.extracted_comps.filter(c => c.comp_category === 'expired').length;
               const lowConf = report.extracted_comps.filter(c => (c.confidence ?? 1) < 0.5).length;
@@ -587,6 +590,7 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
               return (
                 <div className="flex flex-wrap gap-2 mb-3">
                   {sold > 0 && <Badge variant="outline" className="text-[10px] border-emerald-500 text-emerald-500">Sold: {sold}</Badge>}
+                  {pending > 0 && <Badge variant="outline" className="text-[10px] border-amber-500 text-amber-500">Pending: {pending}</Badge>}
                   {active > 0 && <Badge variant="outline" className="text-[10px] border-blue-500 text-blue-500">Active: {active}</Badge>}
                   {expired > 0 && <Badge variant="outline" className="text-[10px] border-muted-foreground text-muted-foreground">Expired: {expired}</Badge>}
                   {manual > 0 && <Badge variant="outline" className="text-[10px] border-gold text-gold">Manual: {manual}</Badge>}
@@ -601,6 +605,7 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
                   <th className="text-center py-2 px-2 text-xs text-muted-foreground font-medium">Type</th>
                   <th className="text-center py-2 px-2 text-xs text-muted-foreground font-medium">Beds</th>
                   <th className="text-center py-2 px-2 text-xs text-muted-foreground font-medium">Baths</th>
+                  <th className="text-center py-2 px-2 text-xs text-muted-foreground font-medium">SqFt</th>
                   <th className="text-right py-2 px-2 text-xs text-muted-foreground font-medium">List</th>
                   <th className="text-right py-2 px-2 text-xs text-muted-foreground font-medium">Sold</th>
                   <th className="text-center py-2 px-2 text-xs text-muted-foreground font-medium">DOM</th>
@@ -611,7 +616,13 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
               </thead>
               <tbody>
                 {report.extracted_comps.map((comp, i) => {
-                  const catColor = comp.comp_category === 'sold' ? 'text-emerald-500' : comp.comp_category === 'active' ? 'text-blue-500' : 'text-muted-foreground';
+                  const catColor = comp.comp_category === 'sold'
+                    ? 'text-emerald-500'
+                    : comp.comp_category === 'pending'
+                      ? 'text-amber-500'
+                      : comp.comp_category === 'active'
+                        ? 'text-blue-500'
+                        : 'text-muted-foreground';
                   const confPct = Math.round((comp.confidence ?? 1) * 100);
                   const confColor = confPct >= 70 ? 'text-emerald-500' : confPct >= 50 ? 'text-amber-500' : 'text-destructive';
                   return (
@@ -623,6 +634,7 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
                       <td className={`py-2 px-2 text-center text-[10px] font-medium uppercase ${catColor}`}>{comp.comp_category || '—'}</td>
                       <td className="py-2 px-2 text-center">{comp.beds ?? '—'}</td>
                       <td className="py-2 px-2 text-center">{comp.baths ?? '—'}</td>
+                      <td className="py-2 px-2 text-center">{comp.sqft ? comp.sqft.toLocaleString() : '—'}</td>
                       <td className="py-2 px-2 text-right">{comp.list_price ? `$${comp.list_price.toLocaleString()}` : '—'}</td>
                       <td className="py-2 px-2 text-right">{comp.sold_price ? `$${comp.sold_price.toLocaleString()}` : '—'}</td>
                       <td className="py-2 px-2 text-center">{comp.days_on_market ?? '—'}</td>

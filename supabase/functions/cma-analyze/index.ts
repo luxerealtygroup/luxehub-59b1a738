@@ -70,6 +70,7 @@ RESPOND WITH ONLY this JSON (no markdown, no code blocks):
   "extraction_summary": {
     "total_comps_found": number,
     "sold_count": number,
+    "pending_count": number,
     "active_count": number,
     "expired_count": number,
     "low_confidence_count": number,
@@ -153,6 +154,191 @@ function chunkText(text: string, maxChunkSize: number): string[] {
   return chunks;
 }
 
+const STREET_TYPES = "Drive|Dr|Road|Rd|Street|St|Avenue|Ave|Crescent|Cres|Court|Ct|Boulevard|Blvd|Place|Pl|Lane|Way|Trail|Terrace|Circle|Parkway|Pkwy|Crt|Gate|Hill";
+const STREET_ADDRESS_PATTERN = `\\d+[ \\t]+[A-Za-z0-9'’.-]+(?:[ \\t]+[A-Za-z0-9'’.-]+){0,8}[ \\t]+(?:${STREET_TYPES})`;
+
+function cleanNumber(value: unknown): number | null {
+  if (value == null || value === '') return null;
+  const raw = String(value).replace(/[^0-9.]/g, '');
+  if (!raw) return null;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : null;
+}
+
+function normalizeAddressKey(value: unknown): string {
+  if (!value) return '';
+  const source = String(value);
+  const streetMatch = source.match(new RegExp(STREET_ADDRESS_PATTERN, 'i'));
+  const street = streetMatch?.[0] || source.split(',')[0] || source;
+  return street.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function normalizeMls(value: unknown): string {
+  return value ? String(value).replace(/[^a-zA-Z0-9]/g, '').toLowerCase() : '';
+}
+
+function statusToCategory(status: string | null): 'sold' | 'pending' | 'active' | 'expired' | 'other' {
+  const s = (status || '').toLowerCase();
+  if (s === 'closed' || s === 'sold') return 'sold';
+  if (s === 'pending') return 'pending';
+  if (s === 'active') return 'active';
+  if (['expired', 'withdrawn', 'terminated'].includes(s)) return 'expired';
+  return 'other';
+}
+
+function toIsoDate(value: string | null): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  const m = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return null;
+  const [, month, day, year] = m;
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+}
+
+function escapeRegex(label: string): string {
+  return label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function moneyAfterLabel(block: string, labels: string[]): number | null {
+  for (const label of labels) {
+    const match = block.match(new RegExp(`${escapeRegex(label)}\\s*:\\s*\\$?\\s*([\\d,]+)(?:\\.\\d{2})?`, 'i'));
+    const parsed = cleanNumber(match?.[1]);
+    if (parsed != null) return parsed;
+  }
+  return null;
+}
+
+function intAfterLabel(block: string, label: string): number | null {
+  const match = block.match(new RegExp(`${escapeRegex(label)}\\s*:?\\s*([\\d,]+)`, 'i'));
+  return cleanNumber(match?.[1]);
+}
+
+function extractSourcePage(textBeforeBlock: string): number {
+  const pageMatches = [...textBeforeBlock.matchAll(/---\s*PAGE\s+(\d+)\s*---/gi)];
+  return pageMatches.length ? Number(pageMatches[pageMatches.length - 1][1]) : 1;
+}
+
+function parsePublicRemarks(block: string): string | null {
+  const remarks = block.match(/Public Remarks:\s*([\s\S]*?)(?:Private Remarks:|Showing Remarks:|Offer Remarks:|Buyer Brokerage Compensation:|Exterior\s+Exterior Feat:|Interior\s+Interior Feat:|Brokerage Information|Pending Date:|Close Date:|---\s*PAGE\s+\d+\s*---|$)/i)?.[1];
+  if (!remarks) return null;
+  const cleaned = remarks.replace(/\s+/g, ' ').trim();
+  return cleaned ? cleaned.slice(0, 160) : null;
+}
+
+function confidenceFromCompleteness(comp: any): number {
+  const requiresTransactionFields = comp.comp_category === 'sold' || comp.comp_category === 'pending';
+  const checks = [
+    !!comp.address,
+    comp.comp_category && comp.comp_category !== 'other',
+    comp.list_price != null,
+    !requiresTransactionFields || comp.sold_price != null,
+    !requiresTransactionFields || !!comp.sale_date,
+    comp.days_on_market != null,
+    comp.beds != null,
+    comp.baths != null,
+    comp.sqft != null,
+  ];
+  const score = checks.filter(Boolean).length;
+  let confidence = score >= 8 ? 1 : score >= 6 ? 0.7 : score >= 4 ? 0.5 : 0.3;
+  if (requiresTransactionFields && !comp.sale_date) confidence = Math.min(confidence, 0.7);
+  return confidence;
+}
+
+function parseMLSMemberFullComps(pdfText: string, subjectAddress?: string): any[] {
+  const startPattern = new RegExp(`(?:Property Member Full\\s+)?(${STREET_ADDRESS_PATTERN}),\\s+[^\\n]{0,180}?\\s+Member Full`, 'gi');
+  const starts = [...pdfText.matchAll(startPattern)].map(match => ({
+    index: match.index ?? 0,
+    address: match[1],
+  }));
+  const subjectKey = normalizeAddressKey(subjectAddress);
+  const comps: any[] = [];
+
+  for (let i = 0; i < starts.length; i++) {
+    const start = starts[i];
+    const end = starts[i + 1]?.index ?? pdfText.length;
+    const block = pdfText.slice(start.index, end);
+    const addressKey = normalizeAddressKey(start.address);
+    if (!addressKey || (subjectKey && addressKey === subjectKey)) continue;
+
+    const header = block.slice(0, 1400);
+    const status = header.match(/\b(Active|Pending|Closed|Sold|Expired|Withdrawn|Terminated)\s*\/\s*Residential/i)?.[1]
+      || header.match(/Recent:\s*[^:]*:\s*(Active|Pending|Closed|Sold|Expired|Withdrawn|Terminated)\b/i)?.[1]
+      || null;
+    const comp_category = statusToCategory(status);
+    const domMatch = block.match(/DOM\/CDOM\s*:?\s*(\d+)\s*(?:\/\s*\d+)?/i);
+    const bedsMatch = block.match(/Beds\s*\(AG\+BG\)\s*:\s*(\d+(?:\.\d+)?)/i);
+    const bathsMatch = block.match(/Baths\s*\(F\+H\)\s*:\s*(\d+(?:\.\d+)?)/i);
+    const sqftTotal = intAfterLabel(block, 'SqFt Fin Total');
+    const agSqft = block.match(/(?:^|\s)AG Fin SqFt\s*:\s*([\d,]+)/i)?.[1];
+    const bgSqft = block.match(/(?:^|\s)BG Fin SqFt\s*:\s*([\d,]+)/i)?.[1];
+    const ag = cleanNumber(agSqft);
+    const bg = cleanNumber(bgSqft);
+    const pendingDate = toIsoDate(block.match(/Pending Date\s*:\s*(\d{1,2}\/\d{1,2}\/\d{4}|\d{4}-\d{2}-\d{2})/i)?.[1] || null);
+    const closeDate = toIsoDate(block.match(/Close Date\s*:\s*(\d{1,2}\/\d{1,2}\/\d{4}|\d{4}-\d{2}-\d{2})/i)?.[1] || null);
+
+    const comp: any = {
+      address: start.address,
+      mls_number: block.match(/Listing ID:\s*([A-Z0-9]+)/i)?.[1] || null,
+      comp_category,
+      list_price: moneyAfterLabel(block, ['List Price']) ?? moneyAfterLabel(block, ['Original List Price']),
+      sold_price: moneyAfterLabel(block, ['Sold Price', 'Close Price']),
+      days_on_market: cleanNumber(domMatch?.[1]),
+      beds: cleanNumber(bedsMatch?.[1]),
+      baths: cleanNumber(bathsMatch?.[1]),
+      sqft: sqftTotal ?? (ag != null || bg != null ? (ag || 0) + (bg || 0) : null),
+      sale_date: comp_category === 'pending' ? (pendingDate || closeDate) : (closeDate || pendingDate),
+      notes: parsePublicRemarks(block),
+      source_page: extractSourcePage(pdfText.slice(0, start.index)),
+      is_weak: false,
+      weak_reason: null,
+      needs_review: false,
+      needs_review_reason: null,
+    };
+    comp.confidence = confidenceFromCompleteness(comp);
+    comps.push(comp);
+  }
+
+  return comps;
+}
+
+function mergeMLSCorrections(aiComps: any[], mlsComps: any[]): any[] {
+  if (mlsComps.length === 0) return aiComps;
+  const byAddress = new Map(mlsComps.map(comp => [normalizeAddressKey(comp.address), comp]));
+  const byMls = new Map(mlsComps.filter(comp => comp.mls_number).map(comp => [normalizeMls(comp.mls_number), comp]));
+  const merged = aiComps.map(comp => {
+    const correction = byMls.get(normalizeMls(comp.mls_number)) || byAddress.get(normalizeAddressKey(comp.address));
+    if (!correction) return comp;
+    const next = {
+      ...comp,
+      address: comp.address || correction.address,
+      mls_number: comp.mls_number || correction.mls_number,
+      comp_category: correction.comp_category,
+      list_price: correction.list_price ?? comp.list_price,
+      sold_price: correction.sold_price ?? comp.sold_price,
+      days_on_market: correction.days_on_market ?? comp.days_on_market,
+      beds: correction.beds ?? comp.beds,
+      baths: correction.baths ?? comp.baths,
+      sqft: correction.sqft ?? comp.sqft,
+      sale_date: correction.sale_date ?? comp.sale_date,
+      notes: comp.notes || correction.notes,
+      source_page: correction.source_page ?? comp.source_page,
+    };
+    next.confidence = confidenceFromCompleteness(next);
+    return next;
+  });
+
+  const existingKeys = new Set(merged.map(comp => normalizeMls(comp.mls_number) || normalizeAddressKey(comp.address)).filter(Boolean));
+  for (const comp of mlsComps) {
+    const key = normalizeMls(comp.mls_number) || normalizeAddressKey(comp.address);
+    if (key && !existingKeys.has(key)) {
+      merged.push(comp);
+      existingKeys.add(key);
+    }
+  }
+  return merged;
+}
+
 function deduplicateComps(comps: any[]): any[] {
   const seen = new Map<string, any>();
   for (const comp of comps) {
@@ -173,7 +359,7 @@ function deduplicateComps(comps: any[]): any[] {
 function preProcessCloudCMAText(text: string): string {
   // Add markers before likely property block starts to help AI parsing
   // Detect address patterns that start property blocks
-  const addressPattern = /(\d+\s+[A-Za-z]+(?:\s+[A-Za-z]+)*\s+(?:Avenue|Street|Drive|Road|Crescent|Court|Boulevard|Place|Way|Lane|Circle|Trail|Terrace|Ave|St|Dr|Rd|Cres|Ct|Blvd|Pl|Crt))/gi;
+  const addressPattern = /(\d+[ \t]+[A-Za-z]+(?:[ \t]+[A-Za-z]+)*[ \t]+(?:Avenue|Street|Drive|Road|Crescent|Court|Boulevard|Place|Way|Lane|Circle|Trail|Terrace|Ave|St|Dr|Rd|Cres|Ct|Blvd|Pl|Crt))/gi;
   
   // Count detected addresses for logging
   const matches = text.match(addressPattern);
@@ -268,7 +454,7 @@ There are no comparable properties extracted from a PDF. Provide analysis based 
           ...analysis,
           extracted_comps: [],
           extraction_summary: {
-            total_comps_found: 0, sold_count: 0, active_count: 0, expired_count: 0,
+            total_comps_found: 0, sold_count: 0, pending_count: 0, active_count: 0, expired_count: 0,
             low_confidence_count: 0, needs_review_count: 0, extraction_passes: 0,
           },
         },
@@ -281,6 +467,11 @@ There are no comparable properties extracted from a PDF. Provide analysis based 
     // === MULTI-CHUNK EXTRACTION ===
     // Pre-process the text to add structural markers
     const processedText = preProcessCloudCMAText(pdfText);
+    const mlsParsedComps = parseMLSMemberFullComps(pdfText, subjectProperty?.address);
+    if (mlsParsedComps.length > 0) {
+      console.log(`Deterministic MLS parse found ${mlsParsedComps.length} Member Full comps`);
+      console.log(`First deterministic comp: ${JSON.stringify(mlsParsedComps[0])}`);
+    }
     
     const MAX_CHUNK_SIZE = 45000;
     const chunks = chunkText(processedText, MAX_CHUNK_SIZE);
@@ -340,6 +531,8 @@ Remember: Extract EVERY property found. Even partial data is valuable. Do not sk
 
     // Deduplicate across chunks
     allComps = deduplicateComps(allComps);
+    allComps = mergeMLSCorrections(allComps, mlsParsedComps);
+    allComps = deduplicateComps(allComps);
     console.log(`After dedup: ${allComps.length} unique comps`);
 
     // Pass 2: Retry if too few comps found - use original text with more aggressive prompt
@@ -379,6 +572,7 @@ Extract any properties you find, even with minimal data.`;
         
         if (retryComps.length > 0) {
           allComps.push(...retryComps);
+          allComps = mergeMLSCorrections(allComps, mlsParsedComps);
           allComps = deduplicateComps(allComps);
           extractionNotes.push(`Retry pass found ${retryComps.length} additional comps`);
         }
@@ -389,6 +583,8 @@ Extract any properties you find, even with minimal data.`;
     }
 
     // Mark partial extractions as needs_review
+    allComps = mergeMLSCorrections(allComps, mlsParsedComps);
+    allComps = deduplicateComps(allComps);
     for (const comp of allComps) {
       if (!comp.needs_review) {
         const missingFields: string[] = [];
