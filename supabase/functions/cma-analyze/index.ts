@@ -220,7 +220,7 @@ function extractSourcePage(textBeforeBlock: string): number {
 }
 
 function parsePublicRemarks(block: string): string | null {
-  const remarks = block.match(/Public Remarks:\s*([\s\S]*?)(?:Private Remarks:|Showing Remarks:|Offer Remarks:|Buyer Brokerage Compensation:|Exterior\s+Exterior Feat:|Interior\s+Interior Feat:|Brokerage Information|$)/i)?.[1];
+  const remarks = block.match(/Public Remarks:\s*([\s\S]*?)(?:Private Remarks:|Showing Remarks:|Offer Remarks:|Buyer Brokerage Compensation:|Exterior\s+Exterior Feat:|Interior\s+Interior Feat:|Brokerage Information|Pending Date:|Close Date:|---\s*PAGE\s+\d+\s*---|$)/i)?.[1];
   if (!remarks) return null;
   const cleaned = remarks.replace(/\s+/g, ' ').trim();
   return cleaned ? cleaned.slice(0, 160) : null;
@@ -454,7 +454,7 @@ There are no comparable properties extracted from a PDF. Provide analysis based 
           ...analysis,
           extracted_comps: [],
           extraction_summary: {
-            total_comps_found: 0, sold_count: 0, active_count: 0, expired_count: 0,
+            total_comps_found: 0, sold_count: 0, pending_count: 0, active_count: 0, expired_count: 0,
             low_confidence_count: 0, needs_review_count: 0, extraction_passes: 0,
           },
         },

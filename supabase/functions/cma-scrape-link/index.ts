@@ -190,7 +190,7 @@ Find every property listing on this page and extract all available data.`;
     }
 
     const comps = parsed.extracted_comps || [];
-    const summary = parsed.extraction_summary || {
+    const computedSummary = {
       total_comps_found: comps.length,
       sold_count: comps.filter((c: any) => c.comp_category === "sold").length,
       pending_count: comps.filter((c: any) => c.comp_category === "pending").length,
@@ -198,6 +198,7 @@ Find every property listing on this page and extract all available data.`;
       expired_count: comps.filter((c: any) => c.comp_category === "expired").length,
       needs_review_count: comps.filter((c: any) => c.needs_review).length,
     };
+    const summary = { ...computedSummary, ...(parsed.extraction_summary || {}), ...computedSummary };
 
     console.log(`Extracted ${comps.length} comps from CloudCMA link`);
 
