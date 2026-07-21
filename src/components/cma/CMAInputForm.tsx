@@ -477,11 +477,6 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
       toast.error('Please fill in all required fields');
       return;
     }
-    if (!hasMarketStats()) {
-      toast.error('Please provide market stats before proceeding');
-      return;
-    }
-
     // Extract from PDF
     if (importMethod === 'pdf' && cmaPdf) {
       setExtracting(true);
