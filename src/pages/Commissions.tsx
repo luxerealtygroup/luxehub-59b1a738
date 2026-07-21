@@ -16,6 +16,8 @@ import { formatCurrency } from '@/lib/utils';
 import { ManualModeBadge } from '@/components/ManualModeBadge';
 import { getDealWeight, formatWeightedDeals, inferDealCategory } from '@/lib/utils/dealWeight';
 import { useDealMetadata } from '@/hooks/useDealMetadata';
+import { useDemoMode } from '@/hooks/useDemoMode';
+import { DEMO_TRANSACTIONS } from '@/lib/demoData';
 
 interface FUBDealDisplay {
   id: number;
@@ -39,8 +41,12 @@ const Commissions = () => {
   const { isAdmin } = useUserRole();
   const { hasFUB } = useHasFUB();
   const { isViewingAsAgent, effectiveFubUserId } = useViewAsAgent();
+  const { demoMode } = useDemoMode();
   const [fubDeals, setFUBDeals] = useState<FUBDeal[]>([]);
-  const [fubDealsDisplay, setFUBDealsDisplay] = useState<FUBDealDisplay[]>([]);
+  const [fubDealsDisplayState, setFUBDealsDisplay] = useState<FUBDealDisplay[]>([]);
+  const fubDealsDisplay: FUBDealDisplay[] = demoMode
+    ? (DEMO_TRANSACTIONS as FUBDealDisplay[])
+    : fubDealsDisplayState;
   const [loading, setLoading] = useState(true);
   const [fubLoading, setFubLoading] = useState(false);
   const { metadata: metadataMap } = useDealMetadata();
