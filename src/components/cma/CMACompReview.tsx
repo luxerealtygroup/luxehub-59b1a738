@@ -54,6 +54,9 @@ interface CMACompReviewProps {
   onBack: () => void;
   isSubmitting: boolean;
   extractionSummary?: ExtractionSummary | null;
+  confirmLabel?: string;
+  backLabel?: string;
+  submittingLabel?: string;
 }
 
 const emptyComp = (): ReviewComp => ({
@@ -89,6 +92,9 @@ const CMACompReview = ({
   onBack,
   isSubmitting,
   extractionSummary,
+  confirmLabel,
+  backLabel,
+  submittingLabel,
 }: CMACompReviewProps) => {
   const [overrideReason, setOverrideReason] = useState('');
   const [showOverride, setShowOverride] = useState(false);
