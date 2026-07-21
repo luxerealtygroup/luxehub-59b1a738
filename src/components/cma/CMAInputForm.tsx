@@ -477,11 +477,6 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
       toast.error('Please fill in all required fields');
       return;
     }
-    if (!hasMarketStats()) {
-      toast.error('Please provide market stats before proceeding');
-      return;
-    }
-
     // Extract from PDF
     if (importMethod === 'pdf' && cmaPdf) {
       setExtracting(true);
@@ -1079,100 +1074,6 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
         coverIndex={coverPhotoIndex}
         setCoverIndex={setCoverPhotoIndex}
       />
-
-      {/* Market Stats */}
-      <Card className="border-gold/20">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <BarChart3 className="h-4 w-4 text-gold" /> Market Stats
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Tabs value={statsMethod} onValueChange={setStatsMethod}>
-            <TabsList className="mb-4">
-              <TabsTrigger value="manual">Manual Entry</TabsTrigger>
-              <TabsTrigger value="pdf">Upload PDF</TabsTrigger>
-              <TabsTrigger value="paste">Paste Text</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="manual" className="space-y-4">
-              <div>
-                <Label>Stats Date Range</Label>
-                <Select value={statsDateRange} onValueChange={setStatsDateRange}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="30">Last 30 Days</SelectItem>
-                    <SelectItem value="60">Last 60 Days</SelectItem>
-                    <SelectItem value="90">Last 90 Days</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <div>
-                  <Label>Active Listings</Label>
-                  <Input type="number" value={activeListings} onChange={e => setActiveListings(e.target.value)} />
-                </div>
-                <div>
-                  <Label>Sold Listings</Label>
-                  <Input type="number" value={soldListings} onChange={e => setSoldListings(e.target.value)} />
-                </div>
-                <div>
-                  <Label>Median Sale Price</Label>
-                  <Input type="number" value={medianSalePrice} onChange={e => setMedianSalePrice(e.target.value)} />
-                </div>
-                <div>
-                  <Label>Average Days on Market</Label>
-                  <Input type="number" value={avgDOM} onChange={e => setAvgDOM(e.target.value)} />
-                </div>
-                <div>
-                  <Label>Sale-to-List Ratio %</Label>
-                  <Input type="number" step="0.1" value={saleToListRatio} onChange={e => setSaleToListRatio(e.target.value)} placeholder="98.5" />
-                </div>
-                <div>
-                  <Label>Months of Inventory</Label>
-                  <Input type="number" step="0.1" value={monthsOfInventory} onChange={e => setMonthsOfInventory(e.target.value)} />
-                </div>
-              </div>
-              <div>
-                <Label>Additional Market Notes</Label>
-                <Textarea value={marketNotes} onChange={e => setMarketNotes(e.target.value)} placeholder="Any additional context about the market..." />
-              </div>
-            </TabsContent>
-
-            <TabsContent value="pdf">
-              <div className="border-2 border-dashed border-gold/20 rounded-lg p-6 text-center">
-                <input
-                  type="file"
-                  accept=".pdf"
-                  id="stats-pdf-upload"
-                  className="hidden"
-                  onChange={e => {
-                    const file = e.target.files?.[0];
-                    if (file && file.type === 'application/pdf') setStatsPdf(file);
-                  }}
-                />
-                <label htmlFor="stats-pdf-upload" className="cursor-pointer">
-                  <Upload className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
-                  {statsPdf ? (
-                    <p className="text-sm text-gold font-medium">{statsPdf.name}</p>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">Upload market stats PDF</p>
-                  )}
-                </label>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="paste">
-              <Textarea
-                value={pastedStats}
-                onChange={e => setPastedStats(e.target.value)}
-                placeholder="Paste market stats text here..."
-                rows={8}
-              />
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
 
       {/* Actions */}
       <div className="flex gap-3">

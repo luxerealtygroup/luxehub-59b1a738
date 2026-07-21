@@ -184,41 +184,36 @@ Deno.serve(async (req) => {
     let final: any = null;
     for (let i = 0; i < 10; i++) {
       const resp = await callAnthropic(messages);
-      console.log(`generate-cma: round ${i} stop_reason=${resp.stop_reason}`);
+      const stop = resp.stop_reason;
+      const blockTypes = (resp.content || []).map((b: any) => b.type);
+      console.log(`generate-cma: round ${i} stop_reason=${stop} blocks=${blockTypes.join(",")}`);
 
       // Append assistant turn
       messages.push({ role: "assistant", content: resp.content });
 
-      if (resp.stop_reason === "tool_use") {
-        // Server-side tools (web_search) are already executed by Anthropic and
-        // their results are included as `web_search_tool_result` blocks in the
-        // same assistant message. There is no client-side tool to run, so we
-        // simply loop and let Claude continue on its own. Anthropic requires a
-        // user turn between assistant turns only for client-side tools.
-        // For server tools, the next call continues automatically — but the API
-        // requires we send messages back; the assistant message with the
-        // server tool result stands alone. Break unless there are pending
-        // client tool_use blocks (none in our case).
-        const clientToolUses = (resp.content || []).filter(
-          (b: any) => b.type === "tool_use"
-        );
-        if (clientToolUses.length === 0) {
-          // Server tool completed inline — the response is actually final for this round.
-          final = resp;
-          break;
-        }
-        // (No client tools defined — should not happen.)
+      // Server-side web_search: Anthropic executes the tool inline and returns
+      // server_tool_use + web_search_tool_result blocks in the assistant turn.
+      // If stop_reason is "pause_turn" or "tool_use" (with only server tools),
+      // we must re-call the API with the assistant turn as-is so Claude
+      // continues generating. Only "end_turn" / "stop_sequence" are final.
+      if (stop === "end_turn" || stop === "stop_sequence") {
+        final = resp;
+        break;
+      }
+
+      // Handle any client-side tool_use (none defined here, but guard anyway)
+      const clientToolUses = (resp.content || []).filter(
+        (b: any) => b.type === "tool_use"
+      );
+      if (clientToolUses.length > 0) {
         const toolResults = clientToolUses.map((tu: any) => ({
           type: "tool_result",
           tool_use_id: tu.id,
           content: "ok",
         }));
         messages.push({ role: "user", content: toolResults });
-        continue;
       }
-
-      final = resp;
-      break;
+      // Otherwise (pause_turn or server-only tool_use), loop and let Claude continue.
     }
 
     if (!final) throw new Error("No final response from Anthropic");
