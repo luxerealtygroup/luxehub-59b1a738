@@ -193,6 +193,7 @@ Find every property listing on this page and extract all available data.`;
     const summary = parsed.extraction_summary || {
       total_comps_found: comps.length,
       sold_count: comps.filter((c: any) => c.comp_category === "sold").length,
+      pending_count: comps.filter((c: any) => c.comp_category === "pending").length,
       active_count: comps.filter((c: any) => c.comp_category === "active").length,
       expired_count: comps.filter((c: any) => c.comp_category === "expired").length,
       needs_review_count: comps.filter((c: any) => c.needs_review).length,
