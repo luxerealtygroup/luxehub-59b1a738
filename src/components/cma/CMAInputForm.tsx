@@ -648,60 +648,8 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
           ai_raw_response: fnData.analysis,
         }).eq('id', reportId);
 
-        // Enhance the CMA with Claude-generated narrative text
-        try {
-          const { data: genData } = await supabase.functions.invoke('generate-cma', {
-            body: {
-              report_id: reportId,
-              property: {
-                address: propertyAddress,
-                city_area: cityArea,
-                type: propertyType,
-                beds: bedrooms ? parseInt(bedrooms) : null,
-                baths: bathrooms ? parseInt(bathrooms) : null,
-                sqft: sqft ? parseInt(sqft) : null,
-                target_list_price: targetListPrice ? parseFloat(targetListPrice) : null,
-                intended_list_date: intendedListDate || null,
-              },
-              purchase_history: {
-                purchase_price: pp,
-                purchase_date: purchaseDate,
-                improvements_invested: imp,
-                improvements_list: improvementsList,
-              },
-              market_stats: {
-                active_listings: activeListings ? parseInt(activeListings) : null,
-                sold_listings: soldListings ? parseInt(soldListings) : null,
-                median_sale_price: medianSalePrice ? parseFloat(medianSalePrice) : null,
-                avg_days_on_market: avgDOM ? parseFloat(avgDOM) : null,
-                sale_to_list_ratio: saleToListRatio ? parseFloat(saleToListRatio) : null,
-                months_of_inventory: monthsOfInventory ? parseFloat(monthsOfInventory) : null,
-                notes: marketNotes || null,
-              },
-              comps: finalComps,
-              analysis: {
-                cma_grade: a.cma_grade,
-                pricing_band_low: a.pricing_band_low,
-                pricing_band_recommended: a.pricing_band_recommended,
-                pricing_band_high: a.pricing_band_high,
-                pricing_confidence: a.pricing_confidence,
-                strategy_recommendation: a.strategy_recommendation,
-                risk_flags: a.risk_flags || [],
-                weak_comp_alerts: a.weak_comp_alerts || [],
-                adjustment_observations: a.adjustment_observations || [],
-                market_narrative: a.market_narrative,
-              },
-            },
-          });
-          if (genData?.success) {
-            toast.success('CMA narrative generated!');
-          } else {
-            console.warn('generate-cma returned non-success:', genData?.error);
-          }
-        } catch (genErr) {
-          console.error('generate-cma call failed:', genErr);
-          // Do not fail the whole submission if narrative generation fails
-        }
+        // Editorial HTML CMA is generated on-demand from the Audit view via the
+        // "Generate CMA" button, which calls the generate-cma edge function.
 
         toast.success('CMA analysis complete!');
       } else {
