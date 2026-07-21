@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { FUBClientSearch } from '@/components/FUBClientSearch';
 import { AgentPortalDialog } from '@/components/AgentPortalDialog';
+import { PipelineGapCard } from '@/components/PipelineGapCard';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
