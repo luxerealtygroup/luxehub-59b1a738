@@ -191,6 +191,15 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
       setSqft(r.approx_sqft?.toString() || '');
       setTargetListPrice(r.target_list_price?.toString() || '');
       setIntendedListDate(r.intended_list_date || '');
+      setAboveGradeSqFt((r as any).above_grade_sqft?.toString() || '');
+      setFinishedBasementSqFt((r as any).finished_basement_sqft?.toString() || '');
+      setGarage((r as any).garage || '');
+      setBuildYear((r as any).build_year?.toString() || '');
+      setCondition((r as any).condition || 'Good');
+      {
+        const kf = (r as any).key_features;
+        if (Array.isArray(kf)) setKeyFeaturesText(kf.join('\n'));
+      }
       setPurchasePrice(r.purchase_price?.toString() || '');
       setPurchaseDate(r.purchase_date || '');
       setImprovements(r.improvements_invested?.toString() || '');
@@ -342,6 +351,15 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
       baths: bathrooms || null,
       sqft: sqft || null,
       targetPrice: targetListPrice || null,
+      aboveGradeSqFt: aboveGradeSqFt ? parseInt(aboveGradeSqFt) : null,
+      finishedBasementSqFt: finishedBasementSqFt ? parseInt(finishedBasementSqFt) : null,
+      garage: garage || null,
+      buildYear: buildYear || null,
+      condition: condition || null,
+      keyFeatures: keyFeaturesText
+        .split('\n')
+        .map(s => s.trim())
+        .filter(Boolean),
     },
     purchaseHistory: {
       purchasePrice: purchasePrice ? parseFloat(purchasePrice) : null,
