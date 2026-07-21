@@ -184,7 +184,7 @@ Generate the JSON output now.`;
 }
 
 function safeJsonParse(text: string): unknown {
-  const cleaned = text
+  let cleaned = text
     .replace(/^\s*```json\s*/i, "")
     .replace(/^\s*```\s*/i, "")
     .replace(/\s*```\s*$/i, "")
@@ -192,6 +192,22 @@ function safeJsonParse(text: string): unknown {
   try {
     return JSON.parse(cleaned);
   } catch {
+    // Try to extract the first balanced JSON object
+    const firstBrace = cleaned.indexOf("{");
+    if (firstBrace >= 0) {
+      let depth = 0;
+      for (let i = firstBrace; i < cleaned.length; i++) {
+        if (cleaned[i] === "{" || cleaned[i] === "[") depth++;
+        else if (cleaned[i] === "}" || cleaned[i] === "]") depth--;
+        if (depth === 0) {
+          try {
+            return JSON.parse(cleaned.slice(firstBrace, i + 1));
+          } catch {
+            break;
+          }
+        }
+      }
+    }
     return null;
   }
 }
