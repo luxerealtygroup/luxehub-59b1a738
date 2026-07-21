@@ -950,15 +950,16 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <DollarSign className="h-4 w-4 text-gold" /> Client Purchase History
+            <span className="text-xs text-muted-foreground font-normal">(optional)</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div>
-            <Label>Purchase Price *</Label>
+            <Label>Purchase Price</Label>
             <Input type="number" value={purchasePrice} onChange={e => setPurchasePrice(e.target.value)} placeholder="500000" />
           </div>
           <div>
-            <Label>Purchase Date *</Label>
+            <Label>Purchase Date</Label>
             <Input type="date" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} />
           </div>
         </CardContent>
@@ -966,6 +967,25 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
 
       {/* Improvements & Upgrades */}
       <CMAImprovements items={improvementsList} onChange={setImprovementsList} />
+
+      {/* Agent Notes */}
+      <Card className="border-gold/20">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <PenLine className="h-4 w-4 text-gold" /> Agent Notes
+            <span className="text-xs text-muted-foreground font-normal">(optional — passed to CMA generator)</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Textarea
+            value={agentNotes}
+            onChange={e => setAgentNotes(e.target.value)}
+            rows={6}
+            placeholder="Paste a transcript or type free-form context: buyer intelligence, seller circumstances, prior offers, structural concerns, competing listings, motivation, timing pressure, condition observations, or anything else you'd mention in conversation. Claude will factor this into the Opinion of Value and pricing rationale."
+            className="min-h-[140px]"
+          />
+        </CardContent>
+      </Card>
 
       {/* Comparable Import Method */}
       <Card className="border-gold/20">
