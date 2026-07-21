@@ -99,6 +99,7 @@ const CMAEditApprove = ({
   onCompsOverrideReasonChange,
 }: CMAEditApproveProps) => {
   const [saving, setSaving] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
   const isTerminal = TERMINAL_STATUSES.includes(approvalStatus);
   const isPostApproval = POST_APPROVAL_STATUSES.includes(approvalStatus);
 
