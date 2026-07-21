@@ -30,12 +30,12 @@ Deno.serve(async (req) => {
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
 
-    const nextWeek = nextWeekISO(week_of);
+    const previousWeek = previousWeekISO(week_of);
 
-    const [profileRes, thisWeekGoalsRes, nextWeekGoalsRes, annualGoalsRes, dealsRes] = await Promise.all([
+    const [profileRes, thisWeekGoalsRes, previousWeekGoalsRes, annualGoalsRes, dealsRes] = await Promise.all([
       supabase.from("profiles").select("id, full_name, coaching_history_seed, signature_emoji").eq("id", agent_id).maybeSingle(),
       supabase.from("agent_goals").select("*").eq("user_id", agent_id).eq("start_date", week_of),
-      supabase.from("agent_goals").select("*").eq("user_id", agent_id).eq("start_date", nextWeek),
+      supabase.from("agent_goals").select("*").eq("user_id", agent_id).eq("start_date", previousWeek),
       supabase.from("agent_goals").select("*").eq("user_id", agent_id).in("period", ["annual", "quarterly", "q3", "yearly"]),
       supabase.from("deals").select("id, client_name, stage, deal_value, expected_close_date").eq("user_id", agent_id),
     ]);
