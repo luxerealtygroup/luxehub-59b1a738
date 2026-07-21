@@ -447,6 +447,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     const summary: ExtractionSummary = fnData.analysis.extraction_summary || {
       total_comps_found: aiComps.length,
       sold_count: aiComps.filter((c: any) => c.comp_category === 'sold').length,
+      pending_count: aiComps.filter((c: any) => c.comp_category === 'pending').length,
       active_count: aiComps.filter((c: any) => c.comp_category === 'active').length,
       expired_count: aiComps.filter((c: any) => c.comp_category === 'expired').length,
       low_confidence_count: aiComps.filter((c: any) => (c.confidence ?? 1) < 0.5).length,
