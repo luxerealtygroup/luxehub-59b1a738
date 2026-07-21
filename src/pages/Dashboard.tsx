@@ -493,7 +493,7 @@ const Dashboard = () => {
           </a>
           <a href="/dashboard/411" className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center group">
             <Calendar className="h-6 w-6 mx-auto text-gold mb-2 group-hover:scale-110 transition-transform" />
-            <span className="text-sm text-foreground font-medium">4-1-1</span>
+            <span className="text-sm text-foreground font-medium">Weekly Coaching</span>
           </a>
           <a href="/dashboard/reports" className="p-4 rounded-lg bg-gold/10 hover:bg-gold/20 transition-colors text-center group">
             <TrendingUp className="h-6 w-6 mx-auto text-gold mb-2 group-hover:scale-110 transition-transform" />
