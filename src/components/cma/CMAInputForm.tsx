@@ -979,15 +979,57 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
           </div>
           <div>
             <Label>Bedrooms</Label>
-            <Input type="number" value={bedrooms} onChange={e => setBedrooms(e.target.value)} placeholder="3" />
+            <Input value={bedrooms} onChange={e => setBedrooms(e.target.value)} placeholder="e.g. 5+1" />
           </div>
           <div>
             <Label>Bathrooms</Label>
-            <Input type="number" value={bathrooms} onChange={e => setBathrooms(e.target.value)} placeholder="2" />
+            <Input value={bathrooms} onChange={e => setBathrooms(e.target.value)} placeholder="e.g. 4 or 3 full, 1 half" />
           </div>
           <div>
-            <Label>Approx Square Footage</Label>
+            <Label>Total Finished Sq Ft</Label>
             <Input type="number" value={sqft} onChange={e => setSqft(e.target.value)} placeholder="1800" />
+          </div>
+          <div>
+            <Label>Above-Grade Sq Ft</Label>
+            <Input type="number" value={aboveGradeSqFt} onChange={e => setAboveGradeSqFt(e.target.value)} placeholder="1500" />
+          </div>
+          <div>
+            <Label>Finished Basement Sq Ft</Label>
+            <Input type="number" value={finishedBasementSqFt} onChange={e => setFinishedBasementSqFt(e.target.value)} placeholder="600" />
+          </div>
+          <div>
+            <Label>Garage</Label>
+            <Select value={garage || 'unknown'} onValueChange={v => setGarage(v === 'unknown' ? '' : v)}>
+              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unknown">—</SelectItem>
+                <SelectItem value="single attached">Single attached</SelectItem>
+                <SelectItem value="double attached">Double attached</SelectItem>
+                <SelectItem value="triple attached">Triple attached</SelectItem>
+                <SelectItem value="single detached">Single detached</SelectItem>
+                <SelectItem value="double detached">Double detached</SelectItem>
+                <SelectItem value="carport">Carport</SelectItem>
+                <SelectItem value="none">None</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Build Year / Age Range</Label>
+            <Input value={buildYear} onChange={e => setBuildYear(e.target.value)} placeholder="e.g. 2005 or 16-30" />
+          </div>
+          <div>
+            <Label>Condition</Label>
+            <Select value={condition || 'Good'} onValueChange={setCondition}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Excellent">Excellent</SelectItem>
+                <SelectItem value="Very Good">Very Good</SelectItem>
+                <SelectItem value="Good">Good</SelectItem>
+                <SelectItem value="Fair">Fair</SelectItem>
+                <SelectItem value="Needs Work">Needs work</SelectItem>
+                <SelectItem value="Renovated Throughout">Renovated throughout</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <Label>Target List Price</Label>
@@ -996,6 +1038,18 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
           <div>
             <Label>Intended List Date</Label>
             <Input type="date" value={intendedListDate} onChange={e => setIntendedListDate(e.target.value)} />
+          </div>
+          <div className="sm:col-span-2">
+            <Label>Key Features</Label>
+            <p className="text-xs text-muted-foreground mb-1.5">
+              One per line. Include standouts that drive pricing adjustments — pool, ravine/waterfront lot, walkout basement, in-law suite, premium finishes, renovations.
+            </p>
+            <Textarea
+              value={keyFeaturesText}
+              onChange={e => setKeyFeaturesText(e.target.value)}
+              rows={5}
+              placeholder={"In-ground pool\nBacks onto ravine\nFully finished basement\nAttached double garage\nHardwood throughout"}
+            />
           </div>
         </CardContent>
       </Card>
