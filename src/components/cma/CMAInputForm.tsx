@@ -1414,6 +1414,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
 
       {/* ============ STEP 6: Review & Generate ============ */}
       {wizardStep === 6 && (
+        <div className="space-y-4">
         <Card className="border-gold/20">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2 font-serif">
@@ -1498,6 +1499,35 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
             )}
           </CardContent>
         </Card>
+        {(() => {
+          const groups = allWarnings();
+          if (groups.length === 0) return null;
+          return (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 space-y-2">
+              <div className="text-sm font-medium text-amber-700 dark:text-amber-400 flex items-center gap-2">
+                <span aria-hidden>⚠</span> Heads up before generating
+              </div>
+              <ul className="text-xs text-amber-700/90 dark:text-amber-400/90 space-y-1.5">
+                {groups.map(g => (
+                  <li key={g.step} className="flex flex-wrap items-start gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setWizardStep(g.step)}
+                      className="font-medium underline underline-offset-2 hover:text-amber-800 dark:hover:text-amber-300"
+                    >
+                      Step {g.step} · {g.label}
+                    </button>
+                    <span className="text-muted-foreground">— {g.warnings.join('; ')}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-[11px] text-muted-foreground pt-1">
+                You can still generate — these are quality suggestions, not blockers.
+              </p>
+            </div>
+          );
+        })()}
+        </div>
       )}
 
       {/* ============ Wizard Footer ============ */}
