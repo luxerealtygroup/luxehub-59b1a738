@@ -59,7 +59,7 @@ RESPOND WITH ONLY this JSON (no markdown, no code blocks):
       "mls_number": "string or null",
       "is_weak": false,
       "weak_reason": null,
-      "comp_category": "sold|active|expired|other",
+      "comp_category": "sold|pending|active|expired|other",
       "notes": "string or null",
       "source_page": number,
       "confidence": number,
