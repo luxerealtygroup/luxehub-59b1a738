@@ -1075,48 +1075,6 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
         setCoverIndex={setCoverPhotoIndex}
       />
 
-      {/* Market Stats */}
-      <Card className="border-gold/20">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <BarChart3 className="h-4 w-4 text-gold" /> Market Stats
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Tabs value={statsMethod} onValueChange={setStatsMethod}>
-            <TabsList className="mb-4">
-              <TabsTrigger value="manual">Manual Entry</TabsTrigger>
-              <TabsTrigger value="pdf">Upload PDF</TabsTrigger>
-              <TabsTrigger value="paste">Paste Text</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="manual" className="space-y-4">
-              <div>
-                <Label>Stats Date Range</Label>
-                <Select value={statsDateRange} onValueChange={setStatsDateRange}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="30">Last 30 Days</SelectItem>
-                    <SelectItem value="60">Last 60 Days</SelectItem>
-                    <SelectItem value="90">Last 90 Days</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <div>
-                  <Label>Active Listings</Label>
-                  <Input type="number" value={activeListings} onChange={e => setActiveListings(e.target.value)} />
-                </div>
-                <div>
-                  <Label>Sold Listings</Label>
-                  <Input type="number" value={soldListings} onChange={e => setSoldListings(e.target.value)} />
-                </div>
-                <div>
-                  <Label>Median Sale Price</Label>
-                  <Input type="number" value={medianSalePrice} onChange={e => setMedianSalePrice(e.target.value)} />
-                </div>
-                <div>
-                  <Label>Average Days on Market</Label>
                   <Input type="number" value={avgDOM} onChange={e => setAvgDOM(e.target.value)} />
                 </div>
                 <div>
