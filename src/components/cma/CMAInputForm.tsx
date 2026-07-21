@@ -390,6 +390,24 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     return listTotal > 0 ? listTotal : (improvements ? parseFloat(improvements) : 0);
   };
 
+  // Safety net for AI-extracted prices. Sometimes the extractor returns values
+  // in thousands or otherwise truncated (e.g. "$849,900" → 84). If a residential
+  // list/sold price comes back < 20,000 we assume it lost its trailing digits
+  // and scale up by 10,000. Values already in a sane range pass through.
+  const sanitizePrice = (raw: unknown): number | null => {
+    if (raw == null || raw === '') return null;
+    let n: number;
+    if (typeof raw === 'string') {
+      n = Number(raw.replace(/[^0-9.]/g, ''));
+    } else {
+      n = Number(raw);
+    }
+    if (!Number.isFinite(n) || n <= 0) return null;
+    if (n < 1000) n = n * 10000;      // e.g. 84 → 840,000
+    else if (n < 20000) n = n * 1000; // e.g. 849 → 849,000
+    return Math.round(n);
+  };
+
   const buildRequestBody = (pdfText: string, manualComps: ReviewComp[]) => ({
     pdfText,
     subjectProperty: {
