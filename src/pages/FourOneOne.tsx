@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useViewAsAgent } from '@/hooks/useViewAsAgent';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -146,6 +147,9 @@ const emptyWeekly: Weekly411 = {
 
 const FourOneOne = () => {
   const { user } = useAuth();
+  const { isViewingAsAgent, effectiveUserId } = useViewAsAgent();
+  const queryUserId = effectiveUserId || user?.id;
+  const isReadOnly = isViewingAsAgent;
   const { toast } = useToast();
   const { hasFUB } = useHasFUB();
   const [loading, setLoading] = useState(true);
@@ -190,12 +194,12 @@ const FourOneOne = () => {
   const weekMonth = currentWeek.getMonth();
 
   const fetchAppointmentRecords = useCallback(async () => {
-    if (!user) return;
+    if (!queryUserId) return;
     const weekStart = format(currentWeek, 'yyyy-MM-dd');
     const { data } = await supabase
       .from('appointment_records')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', queryUserId)
       .eq('week_start_date', weekStart)
       .order('appointment_date', { ascending: true });
     
@@ -211,13 +215,13 @@ const FourOneOne = () => {
   }, [user, currentWeek]);
 
   const fetchWeeklyData = async () => {
-    if (!user) return;
+    if (!queryUserId) return;
     const weekStart = format(currentWeek, 'yyyy-MM-dd');
     
     const { data } = await supabase
       .from('weekly_411')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', queryUserId)
       .eq('week_start_date', weekStart)
       .maybeSingle();
 
@@ -244,19 +248,19 @@ const FourOneOne = () => {
   };
 
   const fetchSyncedGoals = async () => {
-    if (!user) return;
+    if (!queryUserId) return;
     
     const { data } = await supabase
       .from('agent_goals')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', queryUserId)
       .eq('period', 'yearly')
       .in('goal_type', ['deals_closed', 'revenue']);
     
     const { data: pipelineClients } = await supabase
       .from('pipeline_clients')
       .select('expected_pending_date')
-      .eq('user_id', user.id);
+      .eq('user_id', queryUserId);
     
     const pipelineByMonth = Array(12).fill(0);
     pipelineClients?.forEach(c => {
@@ -274,10 +278,10 @@ const FourOneOne = () => {
     const dealsValue = dealsGoal?.target_value || 0;
     const gciValue = gciGoal?.target_value || 0;
     
-    const savedCalcValues = localStorage.getItem(`goalCalcValues_${user.id}_${currentYear}`);
+    const savedCalcValues = localStorage.getItem(`goalCalcValues_${queryUserId}_${currentYear}`);
     const falloutRate = savedCalcValues ? JSON.parse(savedCalcValues).fallout_rate ?? 50 : 50;
     
-    const savedMonthlyGoals = localStorage.getItem(`monthlyGoals_${user.id}_${currentYear}`);
+    const savedMonthlyGoals = localStorage.getItem(`monthlyGoals_${queryUserId}_${currentYear}`);
     let monthlyDeals = Array(12).fill(dealsValue / 12);
     let monthlyGci = Array(12).fill(gciValue / 12);
     
@@ -302,12 +306,12 @@ const FourOneOne = () => {
   };
 
   const fetchAnnualGoals = async () => {
-    if (!user) return;
+    if (!queryUserId) return;
     
     const { data } = await supabase
       .from('production_goals')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', queryUserId)
       .eq('year', currentYear)
       .maybeSingle();
 
@@ -324,27 +328,28 @@ const FourOneOne = () => {
     fetchAnnualGoals();
     fetchSyncedGoals();
     fetchAppointmentRecords();
-  }, [user, currentWeek]);
+  }, [user, queryUserId, currentWeek]);
 
   // Fetch coaching note for the current week (if one exists)
   useEffect(() => {
     if (!user) return;
     const weekStart = format(currentWeek, 'yyyy-MM-dd');
+    if (!queryUserId) { setCoachingNote(null); return; }
     (async () => {
       const { data } = await supabase
         .from('coaching_sessions')
         .select('generated_notes')
-        .eq('agent_id', user.id)
+        .eq('agent_id', queryUserId)
         .eq('week_of', weekStart)
         .maybeSingle();
       setCoachingNote(data?.generated_notes || null);
     })();
-  }, [user, currentWeek]);
+  }, [user, queryUserId, currentWeek]);
 
   // Fetch weekly data after synced goals are loaded so defaults can be populated
   useEffect(() => {
-    if (user) fetchWeeklyData();
-  }, [user, currentWeek, syncedGoals.deals_goal]);
+    if (queryUserId) fetchWeeklyData();
+  }, [user, queryUserId, currentWeek, syncedGoals.deals_goal]);
 
   // Auto-update appointments_held count from structured records
   useEffect(() => {
@@ -353,7 +358,7 @@ const FourOneOne = () => {
 
   // Debounced autosave for 4-1-1
   useEffect(() => {
-    if (!user || !weeklyData.week_start_date) return;
+    if (!user || isReadOnly || !weeklyData.week_start_date) return;
     const snapshot = JSON.stringify(weeklyData);
     if (snapshot === lastSavedSnapshotRef.current) return;
 
@@ -400,7 +405,7 @@ const FourOneOne = () => {
   }, [weeklyData, appointmentRecords.length, user, currentWeek]);
 
   const saveWeeklyData = async () => {
-    if (!user) return;
+    if (!user || isReadOnly) return;
     setSaving(true);
 
     const weekStart = format(currentWeek, 'yyyy-MM-dd');
@@ -425,7 +430,7 @@ const FourOneOne = () => {
   };
 
   const addAppointmentRecord = async () => {
-    if (!user || !newAppointment.contact_name || !newAppointment.outcome || !newAppointment.appointment_type) return;
+    if (!user || isReadOnly || !newAppointment.contact_name || !newAppointment.outcome || !newAppointment.appointment_type) return;
     if (hasFUB && !newAppointment.fub_contact_id) return;
     // Compute week_start_date from the actual appointment date (Mon-based week),
     // so appointments are tracked in the week they were held, not when they were entered.
@@ -464,6 +469,7 @@ const FourOneOne = () => {
   };
 
   const deleteAppointmentRecord = async (id: string) => {
+    if (isReadOnly) return;
     const { error } = await supabase.from('appointment_records').delete().eq('id', id);
     if (!error) {
       fetchAppointmentRecords();
@@ -488,7 +494,7 @@ const FourOneOne = () => {
   };
 
   const saveAnnualGoals = async () => {
-    if (!user) return;
+    if (!user || isReadOnly) return;
     setSaving(true);
 
     const payload = {
@@ -548,7 +554,7 @@ const FourOneOne = () => {
   const calcProgress = (actual: number, goal: number) => goal > 0 ? Math.min(100, (actual / goal) * 100) : 0;
 
   const carryForwardPriority = async (type: 'business' | 'personal', num: number, text: string) => {
-    if (!user) return;
+    if (!user || isReadOnly) return;
     
     const nextWeekStart = format(addWeeks(currentWeek, 1), 'yyyy-MM-dd');
     const cleanText = text.replace(/^\[Carried\] /, '');
@@ -557,7 +563,7 @@ const FourOneOne = () => {
     const { data: nextWeekData } = await supabase
       .from('weekly_411')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', queryUserId)
       .eq('week_start_date', nextWeekStart)
       .maybeSingle();
 
