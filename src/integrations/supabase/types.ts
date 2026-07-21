@@ -2211,6 +2211,7 @@ export type Database = {
           full_name: string | null
           id: string
           is_demo_account: boolean
+          signature_emoji: string | null
           updated_at: string
         }
         Insert: {
@@ -2224,6 +2225,7 @@ export type Database = {
           full_name?: string | null
           id: string
           is_demo_account?: boolean
+          signature_emoji?: string | null
           updated_at?: string
         }
         Update: {
@@ -2237,6 +2239,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           is_demo_account?: boolean
+          signature_emoji?: string | null
           updated_at?: string
         }
         Relationships: []
