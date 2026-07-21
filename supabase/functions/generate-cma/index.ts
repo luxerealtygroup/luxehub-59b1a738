@@ -53,7 +53,7 @@ const BodySchema = z.object({
       sold_price: z.number().nullable().optional(),
       days_on_market: z.number().nullable().optional(),
       sale_date: z.string().nullable().optional(),
-      comp_category: z.string().default("sold"),
+      comp_category: z.enum(["sold", "active", "expired", "pending", "other"]).default("sold"),
       is_weak: z.boolean().default(false),
       weak_reason: z.string().nullable().optional(),
     })
