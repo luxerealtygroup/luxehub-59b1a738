@@ -61,6 +61,9 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
   const [improvements, setImprovements] = useState('');
   const [improvementsList, setImprovementsList] = useState<ImprovementItem[]>([]);
 
+  // Agent Notes (free-form context passed to generate-cma)
+  const [agentNotes, setAgentNotes] = useState('');
+
   // CloudCMA PDF
   const [cmaPdf, setCmaPdf] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -167,6 +170,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
       setPurchaseDate(r.purchase_date || '');
       setImprovements(r.improvements_invested?.toString() || '');
       setImprovementsList(Array.isArray(r.improvements_list) ? r.improvements_list : []);
+      setAgentNotes((r as any).agent_notes || '');
       setStatsMethod(r.stats_method || 'manual');
       setStatsDateRange(r.stats_date_range?.replace(/[^0-9]/g, '') || '30');
       setActiveListings(r.active_listings?.toString() || '');
@@ -315,10 +319,11 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
       targetPrice: targetListPrice || null,
     },
     purchaseHistory: {
-      purchasePrice: parseFloat(purchasePrice),
-      purchaseDate,
+      purchasePrice: purchasePrice ? parseFloat(purchasePrice) : null,
+      purchaseDate: purchaseDate || null,
       improvements: getImprovementsTotal(),
     },
+    agentNotes: agentNotes.trim() ? agentNotes.trim() : null,
     marketStats: {
       method: statsMethod,
       dateRange: statsDateRange,
@@ -473,7 +478,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
 
   // Step 1: Move to review (extract if PDF/link present, else empty review)
   const handleProceedToReview = async () => {
-    if (!propertyAddress || !cityArea || !purchasePrice || !purchaseDate) {
+    if (!propertyAddress || !cityArea) {
       toast.error('Please fill in all required fields');
       return;
     }
@@ -604,10 +609,11 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
         approx_sqft: sqft ? parseInt(sqft) : null,
         target_list_price: targetListPrice ? parseFloat(targetListPrice) : null,
         intended_list_date: intendedListDate || null,
-        purchase_price: parseFloat(purchasePrice),
-        purchase_date: purchaseDate,
+        purchase_price: purchasePrice ? parseFloat(purchasePrice) : null,
+        purchase_date: purchaseDate || null,
         improvements_invested: getImprovementsTotal(),
         improvements_list: improvementsList,
+        agent_notes: agentNotes.trim() || null,
         ...(cmaPdfName ? { cma_pdf_name: cmaPdfName } : {}),
         fub_person_id: selectedContact?.id || null,
         fub_person_name: selectedContact?.name || null,
@@ -671,10 +677,10 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
 
       if (fnData?.success && fnData.analysis) {
         const a = fnData.analysis;
-        const pp = parseFloat(purchasePrice);
+        const pp = purchasePrice ? parseFloat(purchasePrice) : 0;
         const imp = getImprovementsTotal();
-        const eqLow = a.pricing_band_low ? a.pricing_band_low - pp - imp : null;
-        const eqHigh = a.pricing_band_high ? a.pricing_band_high - pp - imp : null;
+        const eqLow = a.pricing_band_low && pp ? a.pricing_band_low - pp - imp : null;
+        const eqHigh = a.pricing_band_high && pp ? a.pricing_band_high - pp - imp : null;
 
         await supabase.from('cma_reports').update({
           analysis_status: 'completed',
@@ -718,7 +724,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
   // Save as draft (skip review)
   const handleSaveDraft = async () => {
     if (!user) return;
-    if (!propertyAddress || !cityArea || !purchasePrice || !purchaseDate) {
+    if (!propertyAddress || !cityArea) {
       toast.error('Please fill in all required fields');
       return;
     }
@@ -755,10 +761,11 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
         approx_sqft: sqft ? parseInt(sqft) : null,
         target_list_price: targetListPrice ? parseFloat(targetListPrice) : null,
         intended_list_date: intendedListDate || null,
-        purchase_price: parseFloat(purchasePrice),
-        purchase_date: purchaseDate,
+        purchase_price: purchasePrice ? parseFloat(purchasePrice) : null,
+        purchase_date: purchaseDate || null,
         improvements_invested: getImprovementsTotal(),
         improvements_list: improvementsList,
+        agent_notes: agentNotes.trim() || null,
         ...(cmaPdfPath ? { cma_pdf_path: cmaPdfPath } : {}),
         ...(cmaPdfName ? { cma_pdf_name: cmaPdfName } : {}),
         fub_person_id: selectedContact?.id || null,
@@ -943,15 +950,16 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <DollarSign className="h-4 w-4 text-gold" /> Client Purchase History
+            <span className="text-xs text-muted-foreground font-normal">(optional)</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div>
-            <Label>Purchase Price *</Label>
+            <Label>Purchase Price</Label>
             <Input type="number" value={purchasePrice} onChange={e => setPurchasePrice(e.target.value)} placeholder="500000" />
           </div>
           <div>
-            <Label>Purchase Date *</Label>
+            <Label>Purchase Date</Label>
             <Input type="date" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} />
           </div>
         </CardContent>
@@ -959,6 +967,25 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
 
       {/* Improvements & Upgrades */}
       <CMAImprovements items={improvementsList} onChange={setImprovementsList} />
+
+      {/* Agent Notes */}
+      <Card className="border-gold/20">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <PenLine className="h-4 w-4 text-gold" /> Agent Notes
+            <span className="text-xs text-muted-foreground font-normal">(optional — passed to CMA generator)</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Textarea
+            value={agentNotes}
+            onChange={e => setAgentNotes(e.target.value)}
+            rows={6}
+            placeholder="Paste a transcript or type free-form context: buyer intelligence, seller circumstances, prior offers, structural concerns, competing listings, motivation, timing pressure, condition observations, or anything else you'd mention in conversation. Claude will factor this into the Opinion of Value and pricing rationale."
+            className="min-h-[140px]"
+          />
+        </CardContent>
+      </Card>
 
       {/* Comparable Import Method */}
       <Card className="border-gold/20">

@@ -105,6 +105,7 @@ const CMABoss = () => {
           dom: c.days_on_market ?? 0,
           notes: [c.area, c.is_weak ? `Weak: ${c.weak_reason || ''}` : ''].filter(Boolean).join(' — '),
         })),
+        agentNotes: (r as any).agent_notes || null,
       };
 
       toast.info('Generating editorial CMA — this can take 20–40 seconds...');

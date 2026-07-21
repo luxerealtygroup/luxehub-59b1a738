@@ -223,6 +223,7 @@ const CMAEditApprove = ({
           notes: r.market_notes || null,
         },
         comps: Array.isArray(r.extracted_comps) ? r.extracted_comps : [],
+        agentNotes: (r as any).agent_notes || null,
         analysis: {
           cma_grade: r.cma_grade,
           pricing_band_low: r.pricing_band_low,

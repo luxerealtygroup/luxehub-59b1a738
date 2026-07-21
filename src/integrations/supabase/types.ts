@@ -743,6 +743,7 @@ export type Database = {
         Row: {
           active_listings: number | null
           adjustment_observations: Json | null
+          agent_notes: string | null
           ai_raw_response: Json | null
           analysis_status: string | null
           approval_status: string
@@ -798,8 +799,8 @@ export type Database = {
           pricing_confidence: string | null
           property_address: string
           property_type: string
-          purchase_date: string
-          purchase_price: number
+          purchase_date: string | null
+          purchase_price: number | null
           risk_flags: Json | null
           sale_to_list_ratio: number | null
           seller_objections: Json | null
@@ -820,6 +821,7 @@ export type Database = {
         Insert: {
           active_listings?: number | null
           adjustment_observations?: Json | null
+          agent_notes?: string | null
           ai_raw_response?: Json | null
           analysis_status?: string | null
           approval_status?: string
@@ -875,8 +877,8 @@ export type Database = {
           pricing_confidence?: string | null
           property_address: string
           property_type?: string
-          purchase_date: string
-          purchase_price: number
+          purchase_date?: string | null
+          purchase_price?: number | null
           risk_flags?: Json | null
           sale_to_list_ratio?: number | null
           seller_objections?: Json | null
@@ -897,6 +899,7 @@ export type Database = {
         Update: {
           active_listings?: number | null
           adjustment_observations?: Json | null
+          agent_notes?: string | null
           ai_raw_response?: Json | null
           analysis_status?: string | null
           approval_status?: string
@@ -952,8 +955,8 @@ export type Database = {
           pricing_confidence?: string | null
           property_address?: string
           property_type?: string
-          purchase_date?: string
-          purchase_price?: number
+          purchase_date?: string | null
+          purchase_price?: number | null
           risk_flags?: Json | null
           sale_to_list_ratio?: number | null
           seller_objections?: Json | null
