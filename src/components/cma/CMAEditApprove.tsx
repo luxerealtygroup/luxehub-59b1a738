@@ -184,6 +184,79 @@ const CMAEditApprove = ({
     }
   };
 
+  const handleRegenerate = async () => {
+    setRegenerating(true);
+    try {
+      const { data: report, error: fetchErr } = await supabase
+        .from('cma_reports')
+        .select('*')
+        .eq('id', reportId)
+        .single();
+      if (fetchErr || !report) throw fetchErr || new Error('Failed to load report');
+
+      const r = report as any;
+      const payload = {
+        report_id: reportId,
+        property: {
+          address: r.property_address || propertyAddress,
+          city_area: r.city_area || cityArea,
+          type: r.property_type || 'detached',
+          beds: r.bedrooms ?? null,
+          baths: r.bathrooms ?? null,
+          sqft: r.approx_sqft ?? null,
+          target_list_price: r.target_list_price ?? null,
+          intended_list_date: r.intended_list_date || null,
+        },
+        purchase_history: {
+          purchase_price: r.purchase_price ?? 0,
+          purchase_date: r.purchase_date || '',
+          improvements_invested: r.improvements_invested ?? 0,
+          improvements_list: Array.isArray(r.improvements_list) ? r.improvements_list : [],
+        },
+        market_stats: {
+          active_listings: r.active_listings ?? null,
+          sold_listings: r.sold_listings ?? null,
+          median_sale_price: r.median_sale_price ?? null,
+          avg_days_on_market: r.avg_days_on_market ?? null,
+          sale_to_list_ratio: r.sale_to_list_ratio ?? null,
+          months_of_inventory: r.months_of_inventory ?? null,
+          notes: r.market_notes || null,
+        },
+        comps: Array.isArray(r.extracted_comps) ? r.extracted_comps : [],
+        analysis: {
+          cma_grade: r.cma_grade,
+          pricing_band_low: r.pricing_band_low,
+          pricing_band_recommended: r.pricing_band_recommended,
+          pricing_band_high: r.pricing_band_high,
+          pricing_confidence: r.pricing_confidence,
+          strategy_recommendation: r.strategy_recommendation,
+          risk_flags: Array.isArray(r.risk_flags) ? r.risk_flags : [],
+          weak_comp_alerts: Array.isArray(r.weak_comp_alerts) ? r.weak_comp_alerts : [],
+          adjustment_observations: Array.isArray(r.adjustment_observations) ? r.adjustment_observations : [],
+          talking_points: Array.isArray(r.talking_points) ? r.talking_points : [],
+          seller_objections: Array.isArray(r.seller_objections) ? r.seller_objections : [],
+          market_narrative: r.market_narrative || null,
+        },
+      };
+
+      const { data: genData } = await supabase.functions.invoke('generate-cma', {
+        body: payload,
+      });
+
+      if (genData?.success) {
+        toast.success('AI narrative regenerated');
+        onUpdate();
+      } else {
+        throw new Error(genData?.error || 'Narrative generation failed');
+      }
+    } catch (err) {
+      console.error('Regenerate CMA error:', err);
+      toast.error('Failed to regenerate AI narrative');
+    } finally {
+      setRegenerating(false);
+    }
+  };
+
   const statusColors: Record<string, string> = {
     draft: 'bg-muted text-muted-foreground',
     reviewing: 'bg-blue-500/20 text-blue-500',
