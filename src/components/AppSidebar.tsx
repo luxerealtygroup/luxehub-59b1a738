@@ -94,7 +94,7 @@ const allSections: MenuSection[] = [
     planningVisible: true,
     items: [
       { title: 'Activities', url: '/dashboard/activities', icon: Phone },
-      { title: '4-1-1', url: '/dashboard/411', icon: ClipboardList },
+      { title: 'Weekly Coaching', url: '/dashboard/411', icon: ClipboardList },
       { title: 'Goals', url: '/dashboard/goals', icon: Target },
       { title: 'Business Planning', url: '/dashboard/business-planning', icon: Compass },
       { title: 'Reports', url: '/dashboard/reports', icon: FileText },
@@ -124,8 +124,8 @@ const agentResourcesItems = [
   { title: 'Open House Tracker', url: '/dashboard/resources/open-house-tracker', icon: DoorOpen },
 ];
 
-// Planning-only users see only planningVisible sections, and within Performance only Goals, 4-1-1, Reports
-const planningPerformanceItems = ['Goals', '4-1-1', 'Reports', 'Business Planning'];
+// Planning-only users see only planningVisible sections, and within Performance only Goals, Weekly Coaching, Reports
+const planningPerformanceItems = ['Goals', 'Weekly Coaching', 'Reports', 'Business Planning'];
 
 export function AppSidebar() {
   const { signOut, user } = useAuth();
