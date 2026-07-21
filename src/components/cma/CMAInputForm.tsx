@@ -31,6 +31,16 @@ interface SelectedContact {
 
 type FormStep = 'input' | 'review';
 type ImportMethod = 'pdf' | 'link' | 'manual';
+type WizardStep = 1 | 2 | 3 | 4 | 5 | 6;
+
+const WIZARD_STEPS: { n: WizardStep; label: string }[] = [
+  { n: 1, label: 'Client & Listing' },
+  { n: 2, label: 'Subject Property' },
+  { n: 3, label: 'Purchase History' },
+  { n: 4, label: 'Comparables' },
+  { n: 5, label: 'Agent Notes' },
+  { n: 6, label: 'Review & Generate' },
+];
 
 const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) => {
   const { user } = useAuth();
@@ -44,6 +54,13 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
 
   // FUB Contact
   const [selectedContact, setSelectedContact] = useState<SelectedContact | null>(null);
+
+  // Wizard
+  const [wizardStep, setWizardStep] = useState<WizardStep>(1);
+  const [maxStepReached, setMaxStepReached] = useState<WizardStep>(1);
+  const [clientName, setClientName] = useState('');
+  const [agentName, setAgentName] = useState('');
+  const [hasExtracted, setHasExtracted] = useState(false);
 
   // Subject Property
   const [propertyAddress, setPropertyAddress] = useState('');
@@ -258,6 +275,35 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
   useEffect(() => {
     if (editReportId) loadExistingReport();
   }, [editReportId]);
+
+  // Load current user's name as default Agent Name
+  useEffect(() => {
+    (async () => {
+      if (!user) return;
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (data?.full_name) setAgentName(prev => prev || data.full_name);
+    })();
+  }, [user]);
+
+  // Keep client name in sync with FUB selection when present
+  useEffect(() => {
+    if (selectedContact?.name) setClientName(selectedContact.name);
+  }, [selectedContact]);
+
+  const goToStep = (n: WizardStep) => {
+    setWizardStep(n);
+    setMaxStepReached(prev => (n > prev ? n : prev));
+  };
+  const nextStep = () => {
+    if (wizardStep < 6) goToStep(((wizardStep + 1) as WizardStep));
+  };
+  const prevStep = () => {
+    if (wizardStep > 1) setWizardStep(((wizardStep - 1) as WizardStep));
+  };
 
   const hasMarketStats = () => {
     if (statsMethod === 'manual') return activeListings || soldListings || medianSalePrice || avgDOM || saleToListRatio;
