@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 export interface ReviewComp {
   id: string;
   address: string;
-  comp_category: 'sold' | 'active' | 'expired' | 'other';
+  comp_category: 'sold' | 'pending' | 'active' | 'expired' | 'other';
   list_price: number | null;
   sold_price: number | null;
   sale_date: string | null;
@@ -34,6 +34,7 @@ export interface ReviewComp {
 export interface ExtractionSummary {
   total_comps_found: number;
   sold_count: number;
+  pending_count?: number;
   active_count: number;
   expired_count: number;
   low_confidence_count: number;
@@ -285,6 +286,7 @@ const CMACompReview = ({
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="sold">Sold</SelectItem>
+                          <SelectItem value="pending">Pending</SelectItem>
                           <SelectItem value="active">Active</SelectItem>
                           <SelectItem value="expired">Expired</SelectItem>
                           <SelectItem value="other">Other</SelectItem>
