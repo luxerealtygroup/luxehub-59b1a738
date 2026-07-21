@@ -571,7 +571,7 @@ const FourOneOne = () => {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-64 text-primary animate-pulse">Loading 4-1-1...</div>;
+    return <div className="flex items-center justify-center h-64 text-primary animate-pulse">Loading Weekly Coaching...</div>;
   }
 
   const outcomeColors: Record<string, string> = {
@@ -585,7 +585,7 @@ const FourOneOne = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-display font-bold text-foreground">4-1-1 Tracker</h1>
+          <h1 className="text-3xl font-display font-bold text-foreground">Weekly Coaching</h1>
           <p className="text-muted-foreground mt-1">Weekly accountability & goal tracking</p>
         </div>
       </div>
