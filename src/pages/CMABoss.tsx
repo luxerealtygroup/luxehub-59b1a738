@@ -71,7 +71,9 @@ const CMABoss = () => {
         if (prof?.full_name) agentName = prof.full_name;
       }
 
-      const above = r.approx_sqft ?? 0;
+      const above = (r as any).above_grade_sqft ?? r.approx_sqft ?? 0;
+      const basement = (r as any).finished_basement_sqft ?? 0;
+      const total = r.approx_sqft ?? (above + basement);
       const comps = Array.isArray(r.extracted_comps) ? r.extracted_comps : [];
 
       const payload = {
@@ -81,14 +83,14 @@ const CMABoss = () => {
           address: r.property_address,
           propertyType: r.property_type,
           aboveGradeSqFt: above,
-          finishedBasementSqFt: 0,
-          totalFinishedSqFt: above,
+          finishedBasementSqFt: basement,
+          totalFinishedSqFt: total,
           bedrooms: r.bedrooms != null ? String(r.bedrooms) : '',
           bathrooms: r.bathrooms != null ? String(r.bathrooms) : '',
-          garage: '',
-          keyFeatures: [],
-          buildYear: null,
-          condition: '',
+          garage: (r as any).garage || '',
+          keyFeatures: Array.isArray((r as any).key_features) ? (r as any).key_features : [],
+          buildYear: (r as any).build_year ?? null,
+          condition: (r as any).condition || '',
           priorMlsListing: null,
         },
         comparables: comps.map((c: any) => ({
