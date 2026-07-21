@@ -177,6 +177,14 @@ Deno.serve(async (req) => {
 Data mapping:
 - "this_week_targets" in the context = the current week's goals. Use these for the 🎯 Non-Negotiables section.
 - "previous_week_targets" in the context = the previous week's goals. Use these for the ✅ Last Week section to compare against the agent's actual performance discussed in the transcript.
+- "pipeline.firm_closed_count" = deals closed/won/sold (source: Follow Up Boss). Use for "Firm closed".
+- "pipeline.conditional_count" = deals in conditional/offer stages (source: FUB). Use for "Conditional".
+- "pipeline.firm_pending_count" = pending/under-contract deals that are not still on offer.
+- "pipeline.total_secured_count" = firm_closed + conditional + firm_pending. Use for "Total secured".
+- "quarterly_gap_setting.quarterly_goal" = the agent's goal for the current quarter (source: pipeline_gap_settings). Use for "Q3 goal" (or whichever quarter current_quarter.quarter is).
+- "pipeline.current_quarter_running_total_units" = firm_closed + conditional + firm_pending whose close date lands in the current quarter. Use for "Q3 pipeline running total".
+- "annual_and_quarterly_goals" contains agent_goals rows; use the row where goal_type="gci" and period IN ("annual","yearly") for "Annual goal".
+- If pipeline.fub_fetch_error is non-null, say the pipeline numbers could not be pulled from Follow Up Boss and skip the pipeline math block rather than fabricating numbers.
 
 Output the note in this EXACT structure, using the emojis and section headers verbatim:
 
