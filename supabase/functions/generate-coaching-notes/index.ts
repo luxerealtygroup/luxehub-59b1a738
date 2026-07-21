@@ -72,40 +72,102 @@ Deno.serve(async (req) => {
     if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
 
     const previousWeek = previousWeekISO(week_of);
+    const q = quarterOf(week_of);
 
-    const [profileRes, thisWeekGoalsRes, previousWeekGoalsRes, annualGoalsRes, dealsRes] = await Promise.all([
-      supabase.from("profiles").select("id, full_name, coaching_history_seed, signature_emoji").eq("id", agent_id).maybeSingle(),
+    const [profileRes, thisWeekGoalsRes, previousWeekGoalsRes, annualGoalsRes, pipelineClientsRes, gapRes] = await Promise.all([
+      supabase.from("profiles").select("id, full_name, coaching_history_seed, signature_emoji, fub_user_id, fub_account").eq("id", agent_id).maybeSingle(),
       supabase.from("agent_goals").select("*").eq("user_id", agent_id).eq("start_date", week_of),
       supabase.from("agent_goals").select("*").eq("user_id", agent_id).eq("start_date", previousWeek),
-      supabase.from("agent_goals").select("*").eq("user_id", agent_id).in("period", ["annual", "quarterly", "q3", "yearly"]),
-      supabase.from("deals").select("id, client_name, stage, deal_value, expected_close_date").eq("user_id", agent_id),
+      supabase.from("agent_goals").select("*").eq("user_id", agent_id).in("period", ["annual", "quarterly", "q1", "q2", "q3", "q4", "yearly"]),
+      supabase.from("pipeline_clients").select("id, stage, client_type, deal_category, projected_sale_amount, projected_gci, expected_pending_date, status").eq("user_id", agent_id),
+      supabase.from("pipeline_gap_settings").select("*").eq("user_id", agent_id).eq("year", q.year).eq("quarter", q.quarter).maybeSingle(),
     ]);
 
     if (profileRes.error) throw profileRes.error;
     const profile = profileRes.data;
     if (!profile) throw new Error("Agent profile not found");
 
-    const deals = dealsRes.data ?? [];
-    const activePipelineCount = deals.filter((d) => !["closed", "lost", "withdrawn"].includes(String(d.stage))).length;
-    const firmClosed = deals.filter((d) => ["closed", "firm", "sold"].includes(String(d.stage))).length;
-    const conditional = deals.filter((d) => ["conditional", "pending"].includes(String(d.stage))).length;
+    // Fetch FUB deals for this agent via the follow-up-boss edge function,
+    // then filter to deals where the agent is one of the assigned FUB users.
+    let fubDealsForAgent: any[] = [];
+    let fubFetchError: string | null = null;
+    try {
+      const fubRes = await supabase.functions.invoke("follow-up-boss", {
+        body: { action: "get_deals", params: { all: true, limit: 100 } },
+        headers: { "x-view-as-user-id": agent_id },
+      });
+      const payload: any = fubRes.data;
+      const allDeals: any[] = payload?.data?.deals ?? [];
+      if (profile.fub_user_id) {
+        fubDealsForAgent = allDeals.filter((d) => dealBelongsToAgent(d, profile.fub_user_id));
+      } else {
+        fubFetchError = "Agent has no fub_user_id set on profile.";
+      }
+    } catch (e) {
+      fubFetchError = e instanceof Error ? e.message : String(e);
+      console.error("FUB fetch failed:", fubFetchError);
+    }
+
+    const closedDeals = fubDealsForAgent.filter((d) => classifyFubStage(d.stageName) === "closed");
+    const pendingDeals = fubDealsForAgent.filter((d) => classifyFubStage(d.stageName) === "pending");
+    const conditionalDeals = pendingDeals.filter((d) => isConditional(d.stageName));
+    const firmPendingDeals = pendingDeals.filter((d) => !isConditional(d.stageName));
+
+    const qClosed = closedDeals.filter((d) => inQuarter(dealCloseDate(d), q.startISO, q.endISO));
+    const qConditional = conditionalDeals.filter((d) => inQuarter(dealCloseDate(d), q.startISO, q.endISO));
+    const qFirmPending = firmPendingDeals.filter((d) => inQuarter(dealCloseDate(d), q.startISO, q.endISO));
+    const qRunningTotalUnits = qClosed.length + qConditional.length + qFirmPending.length;
+
+    const gciSum = (arr: any[]) => arr.reduce((s, d) => s + (Number(d?.commissionValue ?? d?.agentCommission ?? 0) || 0), 0);
+
+    const pipelineClients = pipelineClientsRes.data ?? [];
+    const activePipelineCount = pipelineClients.filter((c: any) => Number(c.stage) < 9).length;
+
+    const quarterlyGoal = (gapRes as any).data?.quarterly_goal ?? null;
+    const falloutRate = (gapRes as any).data?.fallout_rate ?? null;
 
     const context = {
       agent: {
         name: profile.full_name,
         signature_emoji: profile.signature_emoji ?? "💜",
         coaching_history_seed: profile.coaching_history_seed ?? null,
+        fub_user_id: profile.fub_user_id ?? null,
       },
       week_of,
+      current_quarter: { year: q.year, quarter: q.quarter, start: q.startISO, end: q.endISO },
       this_week_targets: thisWeekGoalsRes.data ?? [],
       previous_week_targets: previousWeekGoalsRes.data ?? [],
       annual_and_quarterly_goals: annualGoalsRes.data ?? [],
+      quarterly_gap_setting: {
+        quarterly_goal: quarterlyGoal,
+        fallout_rate: falloutRate,
+      },
       pipeline: {
-        active_pipeline_count: activePipelineCount,
-        firm_closed: firmClosed,
-        conditional: conditional,
-        total_secured: firmClosed + conditional,
-        deals: deals,
+        source: "follow_up_boss",
+        fub_fetch_error: fubFetchError,
+        active_pipeline_count_local: activePipelineCount,
+        total_fub_deals_for_agent: fubDealsForAgent.length,
+        firm_closed_count: closedDeals.length,
+        firm_closed_gci: gciSum(closedDeals),
+        conditional_count: conditionalDeals.length,
+        conditional_gci: gciSum(conditionalDeals),
+        firm_pending_count: firmPendingDeals.length,
+        firm_pending_gci: gciSum(firmPendingDeals),
+        total_secured_count: closedDeals.length + conditionalDeals.length + firmPendingDeals.length,
+        current_quarter_running_total_units: qRunningTotalUnits,
+        current_quarter_closed_count: qClosed.length,
+        current_quarter_conditional_count: qConditional.length,
+        current_quarter_firm_pending_count: qFirmPending.length,
+        deals_sample: fubDealsForAgent.slice(0, 40).map((d) => ({
+          id: d.id,
+          name: d.name,
+          stage: d.stageName,
+          pipeline: d.pipelineName,
+          price: d.price,
+          commissionValue: d.commissionValue,
+          projectedCloseDate: d.projectedCloseDate,
+          status: d.status,
+        })),
       },
       transcript_text,
     };
