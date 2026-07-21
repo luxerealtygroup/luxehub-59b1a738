@@ -277,7 +277,7 @@ function parseMLSMemberFullComps(pdfText: string, subjectAddress?: string): any[
     const pendingDate = toIsoDate(block.match(/Pending Date\s*:\s*(\d{1,2}\/\d{1,2}\/\d{4}|\d{4}-\d{2}-\d{2})/i)?.[1] || null);
     const closeDate = toIsoDate(block.match(/Close Date\s*:\s*(\d{1,2}\/\d{1,2}\/\d{4}|\d{4}-\d{2}-\d{2})/i)?.[1] || null);
 
-    const comp = {
+    const comp: any = {
       address: start.address,
       mls_number: block.match(/Listing ID:\s*([A-Z0-9]+)/i)?.[1] || null,
       comp_category,
@@ -467,6 +467,11 @@ There are no comparable properties extracted from a PDF. Provide analysis based 
     // === MULTI-CHUNK EXTRACTION ===
     // Pre-process the text to add structural markers
     const processedText = preProcessCloudCMAText(pdfText);
+    const mlsParsedComps = parseMLSMemberFullComps(pdfText, subjectProperty?.address);
+    if (mlsParsedComps.length > 0) {
+      console.log(`Deterministic MLS parse found ${mlsParsedComps.length} Member Full comps`);
+      console.log(`First deterministic comp: ${JSON.stringify(mlsParsedComps[0])}`);
+    }
     
     const MAX_CHUNK_SIZE = 45000;
     const chunks = chunkText(processedText, MAX_CHUNK_SIZE);
@@ -526,6 +531,8 @@ Remember: Extract EVERY property found. Even partial data is valuable. Do not sk
 
     // Deduplicate across chunks
     allComps = deduplicateComps(allComps);
+    allComps = mergeMLSCorrections(allComps, mlsParsedComps);
+    allComps = deduplicateComps(allComps);
     console.log(`After dedup: ${allComps.length} unique comps`);
 
     // Pass 2: Retry if too few comps found - use original text with more aggressive prompt
@@ -565,6 +572,7 @@ Extract any properties you find, even with minimal data.`;
         
         if (retryComps.length > 0) {
           allComps.push(...retryComps);
+          allComps = mergeMLSCorrections(allComps, mlsParsedComps);
           allComps = deduplicateComps(allComps);
           extractionNotes.push(`Retry pass found ${retryComps.length} additional comps`);
         }
@@ -575,6 +583,8 @@ Extract any properties you find, even with minimal data.`;
     }
 
     // Mark partial extractions as needs_review
+    allComps = mergeMLSCorrections(allComps, mlsParsedComps);
+    allComps = deduplicateComps(allComps);
     for (const comp of allComps) {
       if (!comp.needs_review) {
         const missingFields: string[] = [];
