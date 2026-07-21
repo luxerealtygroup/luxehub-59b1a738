@@ -128,3 +128,16 @@ export const DEMO_WEEKLY_411 = {
   priority_4: 'Review buyer contracts with Andersons',
   priority_4_completed: true,
 };
+
+export const DEMO_TRANSACTIONS = [
+  { id: 1001, clientName: 'The Andersons', propertyAddress: '124 Maple Ridge Dr, Oakville, ON', stageName: 'Sold', dealValue: 875000, grossCommission: 21875, createdAt: `${currentYear}-02-14`, status: 'Sold', source: 'fub', pipelineName: 'Buyer', name: 'Andersons - Maple Ridge', isLease: false, weight: 1 },
+  { id: 1002, clientName: 'Sophia Chen', propertyAddress: '58 Lakeshore Blvd, Burlington, ON', stageName: 'Sold', dealValue: 1240000, grossCommission: 31000, createdAt: `${currentYear}-03-02`, status: 'Sold', source: 'fub', pipelineName: 'Seller', name: 'Chen - Lakeshore', isLease: false, weight: 1 },
+  { id: 1003, clientName: 'M. Rodriguez', propertyAddress: '812 Oak Park Ave, Milton, ON', stageName: 'Sold', dealValue: 675000, grossCommission: 16875, createdAt: `${currentYear}-04-11`, status: 'Sold', source: 'fub', pipelineName: 'Buyer', name: 'Rodriguez - Oak Park', isLease: false, weight: 1 },
+  { id: 1004, clientName: 'The Patels', propertyAddress: '204 Trafalgar Rd, Oakville, ON', stageName: 'Sold', dealValue: 920000, grossCommission: 23000, createdAt: `${currentYear}-05-19`, status: 'Sold', source: 'fub', pipelineName: 'Seller', name: 'Patels - Trafalgar', isLease: false, weight: 1 },
+  { id: 1005, clientName: 'J. Thompson', propertyAddress: '77 Riverside Cres, Mississauga, ON', stageName: 'Sold', dealValue: 540000, grossCommission: 13500, createdAt: `${currentYear}-06-08`, status: 'Sold', source: 'fub', pipelineName: 'Buyer', name: 'Thompson - Riverside', isLease: false, weight: 1 },
+  { id: 1006, clientName: 'K. & L. Byrne', propertyAddress: '19 Kerr St, Oakville, ON', stageName: 'Sold', dealValue: 780000, grossCommission: 19500, createdAt: `${currentYear}-07-15`, status: 'Sold', source: 'fub', pipelineName: 'Buyer', name: 'Byrne - Kerr', isLease: false, weight: 1 },
+  { id: 1007, clientName: 'The Nguyens', propertyAddress: '331 Rebecca St, Oakville, ON', stageName: 'Under Contract', dealValue: 1425000, grossCommission: 35625, createdAt: `${currentYear}-08-05`, status: 'Under Contract', source: 'fub', pipelineName: 'Seller', name: 'Nguyens - Rebecca', isLease: false, weight: 1 },
+  { id: 1008, clientName: 'D. Wallace', propertyAddress: '410 Speers Rd, Oakville, ON', stageName: 'Offer Accepted', dealValue: 1150000, grossCommission: 28750, createdAt: `${currentYear}-08-20`, status: 'Offer Accepted', source: 'fub', pipelineName: 'Seller', name: 'Wallace - Speers', isLease: false, weight: 1 },
+  { id: 1009, clientName: 'A. Morrison', propertyAddress: '88 Dundas St W, Oakville, ON', stageName: 'Leased', dealValue: 3200, grossCommission: 3200, createdAt: `${currentYear}-06-28`, status: 'Leased', source: 'fub', pipelineName: 'Lease', name: 'Morrison - Dundas', isLease: true, weight: 0.33 },
+  { id: 1010, clientName: 'R. Sinclair', propertyAddress: '55 Bronte Rd, Oakville, ON', stageName: 'Sold', dealValue: 815000, grossCommission: 20375, createdAt: `${currentYear}-01-30`, status: 'Sold', source: 'fub', pipelineName: 'Buyer', name: 'Sinclair - Bronte', isLease: false, weight: 1 },
+];
