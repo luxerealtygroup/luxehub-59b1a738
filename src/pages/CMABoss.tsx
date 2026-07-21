@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Plus, FileText, Loader2, ArrowLeft, Eye, ClipboardCheck, BarChart3, Bug, Pencil } from 'lucide-react';
+import { Plus, FileText, Loader2, ArrowLeft, Eye, ClipboardCheck, BarChart3, Bug, Pencil, Sparkles, Maximize2, Printer, Download } from 'lucide-react';
 import CMAInputForm from '@/components/cma/CMAInputForm';
 import CMAAuditView from '@/components/cma/CMAAuditView';
 import CMAClientReport from '@/components/cma/CMAClientReport';
@@ -31,7 +31,7 @@ interface CMAReport {
   version_number: number;
 }
 
-type ViewMode = 'list' | 'create' | 'edit' | 'audit' | 'report';
+type ViewMode = 'list' | 'create' | 'edit' | 'audit' | 'report' | 'generated';
 
 const CMABoss = () => {
   const { user } = useAuth();
@@ -47,6 +47,106 @@ const CMABoss = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('reports');
+  const [generating, setGenerating] = useState(false);
+  const [generatedHtml, setGeneratedHtml] = useState<string | null>(null);
+
+  const handleGenerateCma = async (reportId: string) => {
+    setGenerating(true);
+    try {
+      const { data: r, error } = await supabase
+        .from('cma_reports')
+        .select('*')
+        .eq('id', reportId)
+        .single();
+      if (error || !r) throw error || new Error('Report not found');
+
+      // Agent name
+      let agentName = 'Luxe Realty Group';
+      if (r.user_id) {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', r.user_id)
+          .maybeSingle();
+        if (prof?.full_name) agentName = prof.full_name;
+      }
+
+      const above = r.approx_sqft ?? 0;
+      const comps = Array.isArray(r.extracted_comps) ? r.extracted_comps : [];
+
+      const payload = {
+        clientName: r.fub_person_name || 'Valued Client',
+        agentName,
+        subjectProperty: {
+          address: r.property_address,
+          propertyType: r.property_type,
+          aboveGradeSqFt: above,
+          finishedBasementSqFt: 0,
+          totalFinishedSqFt: above,
+          bedrooms: r.bedrooms != null ? String(r.bedrooms) : '',
+          bathrooms: r.bathrooms != null ? String(r.bathrooms) : '',
+          garage: '',
+          keyFeatures: [],
+          buildYear: null,
+          condition: '',
+          priorMlsListing: null,
+        },
+        comparables: comps.map((c: any) => ({
+          address: c.address,
+          status: c.comp_category === 'active' ? 'active'
+            : c.comp_category === 'sold' ? 'sold'
+            : c.comp_category === 'expired' ? 'active'
+            : (c.sold_price ? 'sold' : 'active'),
+          beds: c.beds != null ? String(c.beds) : '',
+          baths: c.baths != null ? String(c.baths) : '',
+          sqFt: 0,
+          listPrice: c.list_price ?? 0,
+          soldPrice: c.sold_price ?? null,
+          dom: c.days_on_market ?? 0,
+          notes: [c.area, c.is_weak ? `Weak: ${c.weak_reason || ''}` : ''].filter(Boolean).join(' — '),
+        })),
+      };
+
+      toast.info('Generating editorial CMA — this can take 20–40 seconds...');
+      const { data, error: fnErr } = await supabase.functions.invoke('generate-cma', { body: payload });
+      if (fnErr) throw fnErr;
+      if (!data?.success || !data?.html) throw new Error(data?.error || 'No HTML returned');
+
+      setGeneratedHtml(data.html);
+      setViewMode('generated');
+    } catch (e: any) {
+      console.error('Generate CMA failed:', e);
+      toast.error(e?.message || 'Failed to generate CMA');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const openFullscreen = () => {
+    if (!generatedHtml) return;
+    const w = window.open('', '_blank');
+    if (w) { w.document.write(generatedHtml); w.document.close(); }
+  };
+  const printGenerated = () => {
+    if (!generatedHtml) return;
+    const w = window.open('', '_blank');
+    if (w) {
+      w.document.write(generatedHtml);
+      w.document.close();
+      w.focus();
+      setTimeout(() => w.print(), 500);
+    }
+  };
+  const downloadGenerated = () => {
+    if (!generatedHtml) return;
+    const blob = new Blob([generatedHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `cma-${Date.now()}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   // Determine the query agent ID:
   // - Admin + View-as-Agent → target agent only
@@ -201,6 +301,16 @@ const CMABoss = () => {
               </Button>
             )}
             <Button
+              size="sm"
+              onClick={() => handleGenerateCma(selectedReportId)}
+              disabled={generating}
+              className="bg-gold hover:bg-gold/90 text-gold-foreground"
+            >
+              {generating
+                ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Generating…</>
+                : <><Sparkles className="h-4 w-4 mr-1" /> Generate CMA</>}
+            </Button>
+            <Button
               variant="outline"
               size="sm"
               onClick={() => setViewMode('report')}
@@ -211,6 +321,40 @@ const CMABoss = () => {
           </div>
         </div>
         <CMAAuditView reportId={selectedReportId} />
+      </div>
+    );
+  }
+
+  if (viewMode === 'generated' && generatedHtml) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" onClick={() => setViewMode('audit')}>
+              <ArrowLeft className="h-4 w-4 mr-1" /> Back to Audit
+            </Button>
+            <h1 className="text-2xl font-display font-bold text-foreground">Editorial CMA</h1>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={openFullscreen}>
+              <Maximize2 className="h-4 w-4 mr-1" /> Fullscreen
+            </Button>
+            <Button variant="outline" size="sm" onClick={printGenerated}>
+              <Printer className="h-4 w-4 mr-1" /> Print
+            </Button>
+            <Button variant="outline" size="sm" onClick={downloadGenerated}>
+              <Download className="h-4 w-4 mr-1" /> Save HTML
+            </Button>
+          </div>
+        </div>
+        <div className="border border-gold/20 rounded-lg overflow-hidden bg-white" style={{ height: 'calc(100vh - 180px)' }}>
+          <iframe
+            title="Editorial CMA"
+            srcDoc={generatedHtml}
+            className="w-full h-full border-0"
+            sandbox="allow-same-origin"
+          />
+        </div>
       </div>
     );
   }
