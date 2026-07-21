@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, RotateCcw, CheckCircle, Edit3, AlertTriangle, XCircle } from 'lucide-react';
+import { Loader2, RotateCcw, CheckCircle, Edit3, AlertTriangle, XCircle, Wand2 } from 'lucide-react';
 
 interface Objection {
   objection: string;
