@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 export interface ReviewComp {
   id: string;
   address: string;
-  comp_category: 'sold' | 'active' | 'expired' | 'other';
+  comp_category: 'sold' | 'pending' | 'active' | 'expired' | 'other';
   list_price: number | null;
   sold_price: number | null;
   sale_date: string | null;
@@ -34,6 +34,7 @@ export interface ReviewComp {
 export interface ExtractionSummary {
   total_comps_found: number;
   sold_count: number;
+  pending_count?: number;
   active_count: number;
   expired_count: number;
   low_confidence_count: number;
@@ -285,6 +286,7 @@ const CMACompReview = ({
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="sold">Sold</SelectItem>
+                          <SelectItem value="pending">Pending</SelectItem>
                           <SelectItem value="active">Active</SelectItem>
                           <SelectItem value="expired">Expired</SelectItem>
                           <SelectItem value="other">Other</SelectItem>
@@ -426,6 +428,9 @@ const CMACompReview = ({
       <div className="flex flex-wrap gap-2">
         <Badge variant="outline" className="text-[10px] border-emerald-500 text-emerald-500">
           Sold: {includedComps.filter(c => c.comp_category === 'sold').length}
+        </Badge>
+        <Badge variant="outline" className="text-[10px] border-amber-500 text-amber-500">
+          Pending: {includedComps.filter(c => c.comp_category === 'pending').length}
         </Badge>
         <Badge variant="outline" className="text-[10px] border-blue-500 text-blue-500">
           Active: {includedComps.filter(c => c.comp_category === 'active').length}

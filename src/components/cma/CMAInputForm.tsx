@@ -390,6 +390,24 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     return listTotal > 0 ? listTotal : (improvements ? parseFloat(improvements) : 0);
   };
 
+  // Safety net for AI-extracted prices. Sometimes the extractor returns values
+  // in thousands or otherwise truncated (e.g. "$849,900" → 84). If a residential
+  // list/sold price comes back < 20,000 we assume it lost its trailing digits
+  // and scale up by 10,000. Values already in a sane range pass through.
+  const sanitizePrice = (raw: unknown): number | null => {
+    if (raw == null || raw === '') return null;
+    let n: number;
+    if (typeof raw === 'string') {
+      n = Number(raw.replace(/[^0-9.]/g, ''));
+    } else {
+      n = Number(raw);
+    }
+    if (!Number.isFinite(n) || n <= 0) return null;
+    if (n < 1000) n = n * 10000;      // e.g. 84 → 840,000
+    else if (n < 20000) n = n * 1000; // e.g. 849 → 849,000
+    return Math.round(n);
+  };
+
   const buildRequestBody = (pdfText: string, manualComps: ReviewComp[]) => ({
     pdfText,
     subjectProperty: {
@@ -447,6 +465,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     const summary: ExtractionSummary = fnData.analysis.extraction_summary || {
       total_comps_found: aiComps.length,
       sold_count: aiComps.filter((c: any) => c.comp_category === 'sold').length,
+      pending_count: aiComps.filter((c: any) => c.comp_category === 'pending').length,
       active_count: aiComps.filter((c: any) => c.comp_category === 'active').length,
       expired_count: aiComps.filter((c: any) => c.comp_category === 'expired').length,
       low_confidence_count: aiComps.filter((c: any) => (c.confidence ?? 1) < 0.5).length,
@@ -476,14 +495,14 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
       id: crypto.randomUUID(),
       address: c.address || '',
       comp_category: c.comp_category || 'sold',
-      list_price: c.list_price ?? null,
-      sold_price: c.sold_price ?? null,
+      list_price: sanitizePrice(c.list_price),
+      sold_price: sanitizePrice(c.sold_price),
       sale_date: c.sale_date ?? null,
       days_on_market: c.days_on_market ?? null,
       beds: c.beds ?? null,
       baths: c.baths ?? null,
       sqft: c.sqft ?? null,
-      notes: null,
+      notes: c.notes ?? null,
       excluded: false,
       _manual_edit: !!c._manual_edit,
       confidence: c.confidence ?? 1,
@@ -518,6 +537,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     const summary: ExtractionSummary = fnData.extraction_summary || {
       total_comps_found: aiComps.length,
       sold_count: aiComps.filter((c: any) => c.comp_category === 'sold').length,
+      pending_count: aiComps.filter((c: any) => c.comp_category === 'pending').length,
       active_count: aiComps.filter((c: any) => c.comp_category === 'active').length,
       expired_count: aiComps.filter((c: any) => c.comp_category === 'expired').length,
       low_confidence_count: aiComps.filter((c: any) => (c.confidence ?? 1) < 0.5).length,
@@ -546,14 +566,14 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
       id: crypto.randomUUID(),
       address: c.address || '',
       comp_category: c.comp_category || 'sold',
-      list_price: c.list_price ?? null,
-      sold_price: c.sold_price ?? null,
+      list_price: sanitizePrice(c.list_price),
+      sold_price: sanitizePrice(c.sold_price),
       sale_date: c.sale_date ?? null,
       days_on_market: c.days_on_market ?? null,
       beds: c.beds ?? null,
       baths: c.baths ?? null,
       sqft: c.sqft ?? null,
-      notes: null,
+      notes: c.notes ?? null,
       excluded: false,
       _manual_edit: false,
       confidence: c.confidence ?? 1,
@@ -1368,6 +1388,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
             </div>
             <div className="text-xs text-muted-foreground">
               Sold: {reviewComps.filter(c => !c.excluded && c.comp_category === 'sold').length}
+              {' · '}Pending: {reviewComps.filter(c => !c.excluded && c.comp_category === 'pending').length}
               {' · '}Active: {reviewComps.filter(c => !c.excluded && c.comp_category === 'active').length}
             </div>
           </div>
@@ -1482,6 +1503,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
                 <span className="font-medium text-foreground">{reviewComps.filter(c => !c.excluded).length} comparables</span>
                 <span className="text-muted-foreground">
                   {' '}(Sold: {reviewComps.filter(c => !c.excluded && c.comp_category === 'sold').length},{' '}
+                  Pending: {reviewComps.filter(c => !c.excluded && c.comp_category === 'pending').length},{' '}
                   Active: {reviewComps.filter(c => !c.excluded && c.comp_category === 'active').length})
                 </span>
               </div>

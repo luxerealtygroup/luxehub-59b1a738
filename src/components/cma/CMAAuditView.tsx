@@ -24,7 +24,7 @@ interface Comp {
   sale_date: string | null;
   is_weak: boolean;
   weak_reason: string | null;
-  comp_category?: 'sold' | 'active' | 'expired' | 'other';
+  comp_category?: 'sold' | 'pending' | 'active' | 'expired' | 'other';
   source_page?: number;
   confidence?: number;
   _manual_edit?: boolean;
