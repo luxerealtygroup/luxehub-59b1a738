@@ -42,7 +42,7 @@ const TAB_LABELS: Record<string, string> = {
   budget: 'Budget & Finances',
   team: 'Team Performance',
   analytics: 'Analytics',
-  team411: 'Team 4-1-1',
+  team411: 'Team Coaching',
   conversions: 'Conversions',
 };
 
