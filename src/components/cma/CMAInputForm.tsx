@@ -1075,58 +1075,6 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
         setCoverIndex={setCoverPhotoIndex}
       />
 
-                  <Input type="number" value={avgDOM} onChange={e => setAvgDOM(e.target.value)} />
-                </div>
-                <div>
-                  <Label>Sale-to-List Ratio %</Label>
-                  <Input type="number" step="0.1" value={saleToListRatio} onChange={e => setSaleToListRatio(e.target.value)} placeholder="98.5" />
-                </div>
-                <div>
-                  <Label>Months of Inventory</Label>
-                  <Input type="number" step="0.1" value={monthsOfInventory} onChange={e => setMonthsOfInventory(e.target.value)} />
-                </div>
-              </div>
-              <div>
-                <Label>Additional Market Notes</Label>
-                <Textarea value={marketNotes} onChange={e => setMarketNotes(e.target.value)} placeholder="Any additional context about the market..." />
-              </div>
-            </TabsContent>
-
-            <TabsContent value="pdf">
-              <div className="border-2 border-dashed border-gold/20 rounded-lg p-6 text-center">
-                <input
-                  type="file"
-                  accept=".pdf"
-                  id="stats-pdf-upload"
-                  className="hidden"
-                  onChange={e => {
-                    const file = e.target.files?.[0];
-                    if (file && file.type === 'application/pdf') setStatsPdf(file);
-                  }}
-                />
-                <label htmlFor="stats-pdf-upload" className="cursor-pointer">
-                  <Upload className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
-                  {statsPdf ? (
-                    <p className="text-sm text-gold font-medium">{statsPdf.name}</p>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">Upload market stats PDF</p>
-                  )}
-                </label>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="paste">
-              <Textarea
-                value={pastedStats}
-                onChange={e => setPastedStats(e.target.value)}
-                placeholder="Paste market stats text here..."
-                rows={8}
-              />
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
-
       {/* Actions */}
       <div className="flex gap-3">
         <Button variant="outline" onClick={onCancel} disabled={isProcessing}>Cancel</Button>
