@@ -656,9 +656,6 @@ const FourOneOne = () => {
           <TabsTrigger value="monthly" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <TrendingUp className="h-4 w-4 mr-2" /> Monthly
           </TabsTrigger>
-          <TabsTrigger value="annual" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <Trophy className="h-4 w-4 mr-2" /> Annual
-          </TabsTrigger>
         </TabsList>
 
         {/* WEEKLY TAB */}
