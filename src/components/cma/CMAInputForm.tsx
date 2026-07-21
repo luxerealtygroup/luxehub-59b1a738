@@ -61,6 +61,9 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
   const [improvements, setImprovements] = useState('');
   const [improvementsList, setImprovementsList] = useState<ImprovementItem[]>([]);
 
+  // Agent Notes (free-form context passed to generate-cma)
+  const [agentNotes, setAgentNotes] = useState('');
+
   // CloudCMA PDF
   const [cmaPdf, setCmaPdf] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -167,6 +170,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
       setPurchaseDate(r.purchase_date || '');
       setImprovements(r.improvements_invested?.toString() || '');
       setImprovementsList(Array.isArray(r.improvements_list) ? r.improvements_list : []);
+      setAgentNotes((r as any).agent_notes || '');
       setStatsMethod(r.stats_method || 'manual');
       setStatsDateRange(r.stats_date_range?.replace(/[^0-9]/g, '') || '30');
       setActiveListings(r.active_listings?.toString() || '');
@@ -315,10 +319,11 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
       targetPrice: targetListPrice || null,
     },
     purchaseHistory: {
-      purchasePrice: parseFloat(purchasePrice),
-      purchaseDate,
+      purchasePrice: purchasePrice ? parseFloat(purchasePrice) : null,
+      purchaseDate: purchaseDate || null,
       improvements: getImprovementsTotal(),
     },
+    agentNotes: agentNotes.trim() ? agentNotes.trim() : null,
     marketStats: {
       method: statsMethod,
       dateRange: statsDateRange,
@@ -473,7 +478,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
 
   // Step 1: Move to review (extract if PDF/link present, else empty review)
   const handleProceedToReview = async () => {
-    if (!propertyAddress || !cityArea || !purchasePrice || !purchaseDate) {
+    if (!propertyAddress || !cityArea) {
       toast.error('Please fill in all required fields');
       return;
     }
