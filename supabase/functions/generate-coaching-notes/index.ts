@@ -16,6 +16,47 @@ function previousWeekISO(weekOf: string): string {
   return d.toISOString().slice(0, 10);
 }
 
+function quarterOf(dateISO: string): { year: number; quarter: number; startISO: string; endISO: string } {
+  const d = new Date(dateISO);
+  const y = d.getUTCFullYear();
+  const q = Math.floor(d.getUTCMonth() / 3) + 1;
+  const startMonth = (q - 1) * 3;
+  const start = new Date(Date.UTC(y, startMonth, 1));
+  const end = new Date(Date.UTC(y, startMonth + 3, 0));
+  return { year: y, quarter: q, startISO: start.toISOString().slice(0, 10), endISO: end.toISOString().slice(0, 10) };
+}
+
+const CLOSED_TOKENS = ["closed", "won", "sold", "settled", "completed"];
+const PENDING_TOKENS = ["pending", "under contract", "conditional", "offer"];
+
+function classifyFubStage(stageName: string): "closed" | "pending" | "other" {
+  const s = (stageName || "").toLowerCase();
+  if (CLOSED_TOKENS.some((t) => s.includes(t))) return "closed";
+  if (PENDING_TOKENS.some((t) => s.includes(t))) return "pending";
+  return "other";
+}
+
+function isConditional(stageName: string): boolean {
+  const s = (stageName || "").toLowerCase();
+  return s.includes("conditional") || s.includes("offer");
+}
+
+function dealBelongsToAgent(deal: any, fubUserId: number | null): boolean {
+  if (!fubUserId) return false;
+  const users = Array.isArray(deal?.users) ? deal.users : [];
+  return users.some((u: any) => Number(u?.id) === Number(fubUserId));
+}
+
+function dealCloseDate(deal: any): string | null {
+  return deal?.projectedCloseDate || deal?.closedDate || deal?.createdAt || null;
+}
+
+function inQuarter(dateStr: string | null, startISO: string, endISO: string): boolean {
+  if (!dateStr) return false;
+  const d = dateStr.slice(0, 10);
+  return d >= startISO && d <= endISO;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
