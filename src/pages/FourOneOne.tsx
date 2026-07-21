@@ -624,15 +624,7 @@ const FourOneOne = () => {
         return (
           <Card className="border-primary/20 bg-primary/5">
             <CardContent className="py-4">
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div className="text-center">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Annual Sales Goal</p>
-                  <p className="text-2xl font-bold text-primary">{syncedGoals.deals_goal}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Annual GCI Goal</p>
-                  <p className="text-2xl font-bold text-primary">{formatCurrency(syncedGoals.gci_goal)}</p>
-                </div>
+              <div className="grid grid-cols-3 md:grid-cols-3 gap-4">
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">{monthNames[weekMonth]} Sales</p>
                   <p className="text-2xl font-bold text-foreground">{Math.round(syncedGoals.monthly_deals[weekMonth] * 10) / 10}</p>
@@ -663,9 +655,6 @@ const FourOneOne = () => {
           </TabsTrigger>
           <TabsTrigger value="monthly" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <TrendingUp className="h-4 w-4 mr-2" /> Monthly
-          </TabsTrigger>
-          <TabsTrigger value="annual" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <Trophy className="h-4 w-4 mr-2" /> Annual
           </TabsTrigger>
         </TabsList>
 
@@ -1205,71 +1194,6 @@ const FourOneOne = () => {
           </Button>
         </TabsContent>
 
-        {/* ANNUAL TAB */}
-        <TabsContent value="annual" className="space-y-6">
-          <Card className="border-primary/10">
-            <CardHeader>
-              <CardTitle className="text-lg font-display flex items-center gap-2">
-                <Trophy className="h-5 w-5 text-primary" /> Annual Goals ({currentYear})
-              </CardTitle>
-              <p className="text-xs text-muted-foreground">
-                These values are synced from your Goals page breakdown. Edit them there to update.
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-muted-foreground">Annual Deals Goal</Label>
-                  <div className="flex h-10 items-center rounded-md border border-input bg-muted/50 px-3 text-lg font-bold">
-                    {syncedGoals.deals_goal || '—'}
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-muted-foreground">Annual GCI Goal</Label>
-                  <div className="flex h-10 items-center rounded-md border border-input bg-muted/50 px-3 text-lg font-bold">
-                    {syncedGoals.gci_goal > 0 ? formatCurrency(syncedGoals.gci_goal) : '—'}
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-muted-foreground">Pipeline Fallout Rate</Label>
-                  <div className="flex h-10 items-center rounded-md border border-input bg-muted/50 px-3 text-lg font-bold">
-                    {syncedGoals.fallout_rate}%
-                  </div>
-                </div>
-              </div>
-
-              {/* Monthly breakdown from Goals page */}
-              {syncedGoals.deals_goal > 0 && (
-                <div>
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3">Monthly Goal Breakdown</h3>
-                  <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                    {monthNames.map((name, idx) => (
-                      <div key={name} className={`p-2 rounded-lg border text-center ${idx === currentMonth ? 'border-primary bg-primary/5' : 'border-border'}`}>
-                        <p className="text-xs font-medium text-muted-foreground">{name}</p>
-                        <p className="text-sm font-bold text-foreground">{Math.round(syncedGoals.monthly_deals[idx] * 10) / 10} deals</p>
-                        <p className="text-xs text-muted-foreground">{formatCurrency(Math.round(syncedGoals.monthly_gci[idx]))}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label>Annual Focus / Big Why</Label>
-                <Textarea
-                  placeholder="What's your driving motivation this year? Your 'One Thing'?"
-                  value={annualGoals.annual_focus || ''}
-                  onChange={(e) => setAnnualGoals({ ...annualGoals, annual_focus: e.target.value })}
-                  rows={4}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Button onClick={saveAnnualGoals} disabled={saving} className="w-full bg-primary text-primary-foreground">
-            <Save className="h-4 w-4 mr-2" /> {saving ? 'Saving...' : 'Save Annual Goals'}
-          </Button>
-        </TabsContent>
       </Tabs>
     </div>
   );
