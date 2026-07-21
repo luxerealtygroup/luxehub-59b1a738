@@ -29,6 +29,8 @@ import { Progress } from '@/components/ui/progress';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
 import { SOURCE_OPTIONS } from '@/lib/constants/sourceOptions';
 import { formatCurrency, formatNumber, formatCurrencyCompact } from '@/lib/utils';
+import { useDemoMode } from '@/hooks/useDemoMode';
+import { DEMO_STATS, DEMO_MONTHLY_GCI, DEMO_FUB_METRICS } from '@/lib/demoData';
 
 interface Stats {
   totalDeals: number;
@@ -112,6 +114,7 @@ const Dashboard = () => {
   const { toast } = useToast();
   const { isPlanningAccess, isAgent } = useUserRole();
   const { isViewingAsAgent, effectiveUserId, effectiveFubUserId, viewingAgentName } = useViewAsAgent();
+  const { demoMode } = useDemoMode();
   const dataUserId = effectiveUserId || user?.id || null;
   const hasEffectiveFUB = isViewingAsAgent ? effectiveFubUserId != null : hasFUB;
   const isPlanningOnly = isPlanningAccess && !isAgent;
@@ -391,32 +394,37 @@ const Dashboard = () => {
   // Merge FUB-sourced metrics into the displayed stats. FUB is the source of
   // truth for deals/GCI whenever the effective user has a FUB id (including
   // when an admin is viewing as that agent).
-  const useFubStats = hasEffectiveFUB && !fubMetricsLoading;
-  const displayStats = useFubStats
+  const activeFubMetrics = demoMode ? DEMO_FUB_METRICS : fubMetrics;
+  const useFubStats = demoMode ? true : (hasEffectiveFUB && !fubMetricsLoading);
+  const baseDisplayStats = useFubStats
     ? {
         ...stats,
-        closedDeals: fubMetrics.weighted_closed,
-        activeDeals: fubMetrics.weighted_pending,
-        totalDeals: fubMetrics.weighted_closed + fubMetrics.weighted_pending,
-        totalCommissions: fubMetrics.gci_sales_closed + fubMetrics.gci_leases_closed,
-        pendingCommissions: fubMetrics.gci_sales_pending + fubMetrics.gci_leases_pending,
+        closedDeals: activeFubMetrics.weighted_closed,
+        activeDeals: activeFubMetrics.weighted_pending,
+        totalDeals: activeFubMetrics.weighted_closed + activeFubMetrics.weighted_pending,
+        totalCommissions: activeFubMetrics.gci_sales_closed + activeFubMetrics.gci_leases_closed,
+        pendingCommissions: activeFubMetrics.gci_sales_pending + activeFubMetrics.gci_leases_pending,
       }
     : stats;
+  const displayStats = demoMode
+    ? { ...baseDisplayStats, ...DEMO_STATS }
+    : baseDisplayStats;
+  const displayMonthlyData = demoMode ? DEMO_MONTHLY_GCI : monthlyData;
 
   // FUB-only weighted/breakdown numbers. Fall back to displayStats when no FUB.
-  const weightedClosed = useFubStats ? fubMetrics.weighted_closed : displayStats.closedDeals;
-  const salesCountClosed = useFubStats ? fubMetrics.sales_count_closed : displayStats.closedDeals;
-  const leaseCountClosed = useFubStats ? fubMetrics.lease_count_closed : 0;
-  const weightedPending = useFubStats ? fubMetrics.weighted_pending : displayStats.activeDeals;
-  const salesCountPending = useFubStats ? fubMetrics.sales_count_pending : displayStats.activeDeals;
-  const leaseCountPending = useFubStats ? fubMetrics.lease_count_pending : 0;
-  const conditionalCount = useFubStats ? fubMetrics.sales_count_conditional : 0;
-  const conditionalGci = useFubStats ? fubMetrics.gci_sales_conditional : 0;
+  const weightedClosed = useFubStats ? activeFubMetrics.weighted_closed : displayStats.closedDeals;
+  const salesCountClosed = useFubStats ? activeFubMetrics.sales_count_closed : displayStats.closedDeals;
+  const leaseCountClosed = useFubStats ? activeFubMetrics.lease_count_closed : 0;
+  const weightedPending = useFubStats ? activeFubMetrics.weighted_pending : displayStats.activeDeals;
+  const salesCountPending = useFubStats ? activeFubMetrics.sales_count_pending : displayStats.activeDeals;
+  const leaseCountPending = useFubStats ? activeFubMetrics.lease_count_pending : 0;
+  const conditionalCount = useFubStats ? activeFubMetrics.sales_count_conditional : 0;
+  const conditionalGci = useFubStats ? activeFubMetrics.gci_sales_conditional : 0;
   const closedGci = useFubStats
-    ? fubMetrics.gci_sales_closed + fubMetrics.gci_leases_closed
+    ? activeFubMetrics.gci_sales_closed + activeFubMetrics.gci_leases_closed
     : displayStats.totalCommissions;
   const pendingGci = useFubStats
-    ? fubMetrics.gci_sales_pending + fubMetrics.gci_leases_pending
+    ? activeFubMetrics.gci_sales_pending + activeFubMetrics.gci_leases_pending
     : displayStats.pendingCommissions;
 
   // Calculate progress percentages
@@ -768,7 +776,7 @@ const Dashboard = () => {
         <CardContent>
           <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={monthlyData}>
+              <AreaChart data={displayMonthlyData}>
                 <defs>
                   <linearGradient id="gciGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="hsl(43 74% 49%)" stopOpacity={0.4} />
