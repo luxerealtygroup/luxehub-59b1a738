@@ -1825,6 +1825,39 @@ export type Database = {
         }
         Relationships: []
       }
+      pipeline_gap_settings: {
+        Row: {
+          created_at: string
+          fallout_rate: number
+          id: string
+          quarter: number
+          quarterly_goal: number
+          updated_at: string
+          user_id: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          fallout_rate?: number
+          id?: string
+          quarter: number
+          quarterly_goal?: number
+          updated_at?: string
+          user_id: string
+          year: number
+        }
+        Update: {
+          created_at?: string
+          fallout_rate?: number
+          id?: string
+          quarter?: number
+          quarterly_goal?: number
+          updated_at?: string
+          user_id?: string
+          year?: number
+        }
+        Relationships: []
+      }
       planning_assumptions: {
         Row: {
           appt_to_contract_rate: number
