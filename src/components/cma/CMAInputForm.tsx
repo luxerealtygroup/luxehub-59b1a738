@@ -408,6 +408,21 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     return Math.round(n);
   };
 
+  const sanitizeInteger = (raw: unknown): number | null => {
+    if (raw == null || raw === '') return null;
+    const n = typeof raw === 'string' ? Number(raw.replace(/[^0-9.]/g, '')) : Number(raw);
+    return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+  };
+
+  const normalizeCompCategory = (raw: unknown): ReviewComp['comp_category'] => {
+    const status = String(raw || '').toLowerCase().trim();
+    if (status.includes('pending')) return 'pending';
+    if (status.includes('closed') || status.includes('sold')) return 'sold';
+    if (status.includes('active')) return 'active';
+    if (status.includes('expired') || status.includes('withdrawn') || status.includes('terminated')) return 'expired';
+    return 'other';
+  };
+
   const buildRequestBody = (pdfText: string, manualComps: ReviewComp[]) => ({
     pdfText,
     subjectProperty: {
@@ -494,14 +509,14 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     const mappedComps = aiComps.map((c: any) => ({
       id: crypto.randomUUID(),
       address: c.address || '',
-      comp_category: c.comp_category || 'sold',
+      comp_category: normalizeCompCategory(c.comp_category || c.status),
       list_price: sanitizePrice(c.list_price),
       sold_price: sanitizePrice(c.sold_price),
       sale_date: c.sale_date ?? null,
-      days_on_market: c.days_on_market ?? null,
-      beds: c.beds ?? null,
-      baths: c.baths ?? null,
-      sqft: c.sqft ?? null,
+      days_on_market: sanitizeInteger(c.days_on_market ?? c.dom),
+      beds: sanitizeInteger(c.beds),
+      baths: sanitizeInteger(c.baths),
+      sqft: sanitizeInteger(c.sqft ?? c.square_feet ?? c.sq_ft),
       notes: c.notes ?? null,
       excluded: false,
       _manual_edit: !!c._manual_edit,
@@ -565,14 +580,14 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     const mappedComps = aiComps.map((c: any) => ({
       id: crypto.randomUUID(),
       address: c.address || '',
-      comp_category: c.comp_category || 'sold',
+      comp_category: normalizeCompCategory(c.comp_category || c.status),
       list_price: sanitizePrice(c.list_price),
       sold_price: sanitizePrice(c.sold_price),
       sale_date: c.sale_date ?? null,
-      days_on_market: c.days_on_market ?? null,
-      beds: c.beds ?? null,
-      baths: c.baths ?? null,
-      sqft: c.sqft ?? null,
+      days_on_market: sanitizeInteger(c.days_on_market ?? c.dom),
+      beds: sanitizeInteger(c.beds),
+      baths: sanitizeInteger(c.baths),
+      sqft: sanitizeInteger(c.sqft ?? c.square_feet ?? c.sq_ft),
       notes: c.notes ?? null,
       excluded: false,
       _manual_edit: false,
