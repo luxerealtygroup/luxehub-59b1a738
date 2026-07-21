@@ -1,0 +1,1 @@
+ALTER TABLE public.cma_reports ALTER COLUMN purchase_price DROP NOT NULL; ALTER TABLE public.cma_reports ALTER COLUMN purchase_date DROP NOT NULL; ALTER TABLE public.cma_reports ADD COLUMN IF NOT EXISTS agent_notes TEXT;
