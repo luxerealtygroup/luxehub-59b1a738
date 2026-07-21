@@ -741,6 +741,7 @@ export type Database = {
       }
       cma_reports: {
         Row: {
+          above_grade_sqft: number | null
           active_listings: number | null
           adjustment_observations: Json | null
           agent_notes: string | null
@@ -756,13 +757,15 @@ export type Database = {
           approved_talking_points: string | null
           approx_sqft: number | null
           avg_days_on_market: number | null
-          bathrooms: number | null
-          bedrooms: number | null
+          bathrooms: string | null
+          bedrooms: string | null
+          build_year: number | null
           city_area: string
           cma_grade: string | null
           cma_pdf_name: string | null
           cma_pdf_path: string | null
           cma_source_url: string | null
+          condition: string | null
           cover_photo_index: number | null
           created_at: string
           equity_gain_high: number | null
@@ -771,13 +774,16 @@ export type Database = {
           extracted_comps: Json | null
           final_list_price: number | null
           final_sold_price: number | null
+          finished_basement_sqft: number | null
           fub_automation_log: Json
           fub_person_id: number | null
           fub_person_name: string | null
+          garage: string | null
           id: string
           improvements_invested: number | null
           improvements_list: Json
           intended_list_date: string | null
+          key_features: Json
           last_edited_by: string | null
           last_equity_update: string | null
           lifecycle_history: Json
@@ -819,6 +825,7 @@ export type Database = {
           weak_comp_alerts: Json | null
         }
         Insert: {
+          above_grade_sqft?: number | null
           active_listings?: number | null
           adjustment_observations?: Json | null
           agent_notes?: string | null
@@ -834,13 +841,15 @@ export type Database = {
           approved_talking_points?: string | null
           approx_sqft?: number | null
           avg_days_on_market?: number | null
-          bathrooms?: number | null
-          bedrooms?: number | null
+          bathrooms?: string | null
+          bedrooms?: string | null
+          build_year?: number | null
           city_area: string
           cma_grade?: string | null
           cma_pdf_name?: string | null
           cma_pdf_path?: string | null
           cma_source_url?: string | null
+          condition?: string | null
           cover_photo_index?: number | null
           created_at?: string
           equity_gain_high?: number | null
@@ -849,13 +858,16 @@ export type Database = {
           extracted_comps?: Json | null
           final_list_price?: number | null
           final_sold_price?: number | null
+          finished_basement_sqft?: number | null
           fub_automation_log?: Json
           fub_person_id?: number | null
           fub_person_name?: string | null
+          garage?: string | null
           id?: string
           improvements_invested?: number | null
           improvements_list?: Json
           intended_list_date?: string | null
+          key_features?: Json
           last_edited_by?: string | null
           last_equity_update?: string | null
           lifecycle_history?: Json
@@ -897,6 +909,7 @@ export type Database = {
           weak_comp_alerts?: Json | null
         }
         Update: {
+          above_grade_sqft?: number | null
           active_listings?: number | null
           adjustment_observations?: Json | null
           agent_notes?: string | null
@@ -912,13 +925,15 @@ export type Database = {
           approved_talking_points?: string | null
           approx_sqft?: number | null
           avg_days_on_market?: number | null
-          bathrooms?: number | null
-          bedrooms?: number | null
+          bathrooms?: string | null
+          bedrooms?: string | null
+          build_year?: number | null
           city_area?: string
           cma_grade?: string | null
           cma_pdf_name?: string | null
           cma_pdf_path?: string | null
           cma_source_url?: string | null
+          condition?: string | null
           cover_photo_index?: number | null
           created_at?: string
           equity_gain_high?: number | null
@@ -927,13 +942,16 @@ export type Database = {
           extracted_comps?: Json | null
           final_list_price?: number | null
           final_sold_price?: number | null
+          finished_basement_sqft?: number | null
           fub_automation_log?: Json
           fub_person_id?: number | null
           fub_person_name?: string | null
+          garage?: string | null
           id?: string
           improvements_invested?: number | null
           improvements_list?: Json
           intended_list_date?: string | null
+          key_features?: Json
           last_edited_by?: string | null
           last_equity_update?: string | null
           lifecycle_history?: Json

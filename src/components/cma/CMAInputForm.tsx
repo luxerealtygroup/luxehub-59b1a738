@@ -55,6 +55,14 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
   const [targetListPrice, setTargetListPrice] = useState('');
   const [intendedListDate, setIntendedListDate] = useState('');
 
+  // Extended Subject Property details (for valuation adjustments)
+  const [aboveGradeSqFt, setAboveGradeSqFt] = useState('');
+  const [finishedBasementSqFt, setFinishedBasementSqFt] = useState('');
+  const [garage, setGarage] = useState('');
+  const [buildYear, setBuildYear] = useState('');
+  const [condition, setCondition] = useState('Good');
+  const [keyFeaturesText, setKeyFeaturesText] = useState('');
+
   // Purchase History
   const [purchasePrice, setPurchasePrice] = useState('');
   const [purchaseDate, setPurchaseDate] = useState('');
@@ -122,8 +130,14 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
         throw new Error(data?.error || 'Extraction failed');
       }
       const sp = data.subjectProperty;
+      console.log('[extract-listing-data] raw response:', sp);
 
       if (sp.address) setPropertyAddress(sp.address);
+      if (sp.city) {
+        setCityArea(sp.area ? `${sp.city} — ${sp.area}` : sp.city);
+      } else if (sp.area) {
+        setCityArea(sp.area);
+      }
       if (sp.propertyType) {
         const pt = String(sp.propertyType).toLowerCase();
         if (pt.includes('detached') && !pt.includes('semi')) setPropertyType('detached');
@@ -132,10 +146,21 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
         else if (pt.includes('condo') || pt.includes('apartment')) setPropertyType('condo');
         else setPropertyType('other');
       }
-      if (sp.bedrooms) setBedrooms(String(sp.bedrooms));
-      if (sp.bathrooms) setBathrooms(String(sp.bathrooms));
+      if (sp.bedrooms != null && sp.bedrooms !== '') setBedrooms(String(sp.bedrooms));
+      if (sp.bathrooms != null && sp.bathrooms !== '') setBathrooms(String(sp.bathrooms));
       const sqftVal = sp.totalFinishedSqFt ?? sp.aboveGradeSqFt;
       if (sqftVal) setSqft(String(sqftVal));
+      if (sp.aboveGradeSqFt) setAboveGradeSqFt(String(sp.aboveGradeSqFt));
+      if (sp.finishedBasementSqFt) setFinishedBasementSqFt(String(sp.finishedBasementSqFt));
+      if (sp.listPrice) setTargetListPrice(String(sp.listPrice));
+      else if (sp.originalListPrice) setTargetListPrice(String(sp.originalListPrice));
+      if (sp.garage) setGarage(String(sp.garage));
+      if (sp.buildYear) setBuildYear(String(sp.buildYear));
+      else if (sp.ageRange) setBuildYear(String(sp.ageRange));
+      if (sp.condition) setCondition(String(sp.condition));
+      if (Array.isArray(sp.keyFeatures) && sp.keyFeatures.length) {
+        setKeyFeaturesText(sp.keyFeatures.join('\n'));
+      }
 
       toast.success('Listing details extracted — please review and edit as needed');
     } catch (e: any) {
@@ -166,6 +191,15 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
       setSqft(r.approx_sqft?.toString() || '');
       setTargetListPrice(r.target_list_price?.toString() || '');
       setIntendedListDate(r.intended_list_date || '');
+      setAboveGradeSqFt((r as any).above_grade_sqft?.toString() || '');
+      setFinishedBasementSqFt((r as any).finished_basement_sqft?.toString() || '');
+      setGarage((r as any).garage || '');
+      setBuildYear((r as any).build_year?.toString() || '');
+      setCondition((r as any).condition || 'Good');
+      {
+        const kf = (r as any).key_features;
+        if (Array.isArray(kf)) setKeyFeaturesText(kf.join('\n'));
+      }
       setPurchasePrice(r.purchase_price?.toString() || '');
       setPurchaseDate(r.purchase_date || '');
       setImprovements(r.improvements_invested?.toString() || '');
@@ -317,6 +351,15 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
       baths: bathrooms || null,
       sqft: sqft || null,
       targetPrice: targetListPrice || null,
+      aboveGradeSqFt: aboveGradeSqFt ? parseInt(aboveGradeSqFt) : null,
+      finishedBasementSqFt: finishedBasementSqFt ? parseInt(finishedBasementSqFt) : null,
+      garage: garage || null,
+      buildYear: buildYear || null,
+      condition: condition || null,
+      keyFeatures: keyFeaturesText
+        .split('\n')
+        .map(s => s.trim())
+        .filter(Boolean),
     },
     purchaseHistory: {
       purchasePrice: purchasePrice ? parseFloat(purchasePrice) : null,
@@ -604,11 +647,17 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
         property_address: propertyAddress,
         city_area: cityArea,
         property_type: propertyType,
-        bedrooms: bedrooms ? parseInt(bedrooms) : null,
-        bathrooms: bathrooms ? parseInt(bathrooms) : null,
+        bedrooms: bedrooms || null,
+        bathrooms: bathrooms || null,
         approx_sqft: sqft ? parseInt(sqft) : null,
         target_list_price: targetListPrice ? parseFloat(targetListPrice) : null,
         intended_list_date: intendedListDate || null,
+        above_grade_sqft: aboveGradeSqFt ? parseInt(aboveGradeSqFt) : null,
+        finished_basement_sqft: finishedBasementSqFt ? parseInt(finishedBasementSqFt) : null,
+        garage: garage || null,
+        build_year: /^\d{4}$/.test(buildYear) ? parseInt(buildYear) : null,
+        condition: condition || null,
+        key_features: keyFeaturesText.split('\n').map(s => s.trim()).filter(Boolean),
         purchase_price: purchasePrice ? parseFloat(purchasePrice) : null,
         purchase_date: purchaseDate || null,
         improvements_invested: getImprovementsTotal(),
@@ -756,11 +805,17 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
         property_address: propertyAddress,
         city_area: cityArea,
         property_type: propertyType,
-        bedrooms: bedrooms ? parseInt(bedrooms) : null,
-        bathrooms: bathrooms ? parseInt(bathrooms) : null,
+        bedrooms: bedrooms || null,
+        bathrooms: bathrooms || null,
         approx_sqft: sqft ? parseInt(sqft) : null,
         target_list_price: targetListPrice ? parseFloat(targetListPrice) : null,
         intended_list_date: intendedListDate || null,
+        above_grade_sqft: aboveGradeSqFt ? parseInt(aboveGradeSqFt) : null,
+        finished_basement_sqft: finishedBasementSqFt ? parseInt(finishedBasementSqFt) : null,
+        garage: garage || null,
+        build_year: /^\d{4}$/.test(buildYear) ? parseInt(buildYear) : null,
+        condition: condition || null,
+        key_features: keyFeaturesText.split('\n').map(s => s.trim()).filter(Boolean),
         purchase_price: purchasePrice ? parseFloat(purchasePrice) : null,
         purchase_date: purchaseDate || null,
         improvements_invested: getImprovementsTotal(),
@@ -924,15 +979,57 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
           </div>
           <div>
             <Label>Bedrooms</Label>
-            <Input type="number" value={bedrooms} onChange={e => setBedrooms(e.target.value)} placeholder="3" />
+            <Input value={bedrooms} onChange={e => setBedrooms(e.target.value)} placeholder="e.g. 5+1" />
           </div>
           <div>
             <Label>Bathrooms</Label>
-            <Input type="number" value={bathrooms} onChange={e => setBathrooms(e.target.value)} placeholder="2" />
+            <Input value={bathrooms} onChange={e => setBathrooms(e.target.value)} placeholder="e.g. 4 or 3 full, 1 half" />
           </div>
           <div>
-            <Label>Approx Square Footage</Label>
+            <Label>Total Finished Sq Ft</Label>
             <Input type="number" value={sqft} onChange={e => setSqft(e.target.value)} placeholder="1800" />
+          </div>
+          <div>
+            <Label>Above-Grade Sq Ft</Label>
+            <Input type="number" value={aboveGradeSqFt} onChange={e => setAboveGradeSqFt(e.target.value)} placeholder="1500" />
+          </div>
+          <div>
+            <Label>Finished Basement Sq Ft</Label>
+            <Input type="number" value={finishedBasementSqFt} onChange={e => setFinishedBasementSqFt(e.target.value)} placeholder="600" />
+          </div>
+          <div>
+            <Label>Garage</Label>
+            <Select value={garage || 'unknown'} onValueChange={v => setGarage(v === 'unknown' ? '' : v)}>
+              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unknown">—</SelectItem>
+                <SelectItem value="single attached">Single attached</SelectItem>
+                <SelectItem value="double attached">Double attached</SelectItem>
+                <SelectItem value="triple attached">Triple attached</SelectItem>
+                <SelectItem value="single detached">Single detached</SelectItem>
+                <SelectItem value="double detached">Double detached</SelectItem>
+                <SelectItem value="carport">Carport</SelectItem>
+                <SelectItem value="none">None</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Build Year / Age Range</Label>
+            <Input value={buildYear} onChange={e => setBuildYear(e.target.value)} placeholder="e.g. 2005 or 16-30" />
+          </div>
+          <div>
+            <Label>Condition</Label>
+            <Select value={condition || 'Good'} onValueChange={setCondition}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Excellent">Excellent</SelectItem>
+                <SelectItem value="Very Good">Very Good</SelectItem>
+                <SelectItem value="Good">Good</SelectItem>
+                <SelectItem value="Fair">Fair</SelectItem>
+                <SelectItem value="Needs Work">Needs work</SelectItem>
+                <SelectItem value="Renovated Throughout">Renovated throughout</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <Label>Target List Price</Label>
@@ -941,6 +1038,18 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
           <div>
             <Label>Intended List Date</Label>
             <Input type="date" value={intendedListDate} onChange={e => setIntendedListDate(e.target.value)} />
+          </div>
+          <div className="sm:col-span-2">
+            <Label>Key Features</Label>
+            <p className="text-xs text-muted-foreground mb-1.5">
+              One per line. Include standouts that drive pricing adjustments — pool, ravine/waterfront lot, walkout basement, in-law suite, premium finishes, renovations.
+            </p>
+            <Textarea
+              value={keyFeaturesText}
+              onChange={e => setKeyFeaturesText(e.target.value)}
+              rows={5}
+              placeholder={"In-ground pool\nBacks onto ravine\nFully finished basement\nAttached double garage\nHardwood throughout"}
+            />
           </div>
         </CardContent>
       </Card>
