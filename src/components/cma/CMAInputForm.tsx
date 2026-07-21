@@ -55,6 +55,14 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
   const [targetListPrice, setTargetListPrice] = useState('');
   const [intendedListDate, setIntendedListDate] = useState('');
 
+  // Extended Subject Property details (for valuation adjustments)
+  const [aboveGradeSqFt, setAboveGradeSqFt] = useState('');
+  const [finishedBasementSqFt, setFinishedBasementSqFt] = useState('');
+  const [garage, setGarage] = useState('');
+  const [buildYear, setBuildYear] = useState('');
+  const [condition, setCondition] = useState('Good');
+  const [keyFeaturesText, setKeyFeaturesText] = useState('');
+
   // Purchase History
   const [purchasePrice, setPurchasePrice] = useState('');
   const [purchaseDate, setPurchaseDate] = useState('');
@@ -122,8 +130,14 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
         throw new Error(data?.error || 'Extraction failed');
       }
       const sp = data.subjectProperty;
+      console.log('[extract-listing-data] raw response:', sp);
 
       if (sp.address) setPropertyAddress(sp.address);
+      if (sp.city) {
+        setCityArea(sp.area ? `${sp.city} — ${sp.area}` : sp.city);
+      } else if (sp.area) {
+        setCityArea(sp.area);
+      }
       if (sp.propertyType) {
         const pt = String(sp.propertyType).toLowerCase();
         if (pt.includes('detached') && !pt.includes('semi')) setPropertyType('detached');
@@ -132,10 +146,21 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
         else if (pt.includes('condo') || pt.includes('apartment')) setPropertyType('condo');
         else setPropertyType('other');
       }
-      if (sp.bedrooms) setBedrooms(String(sp.bedrooms));
-      if (sp.bathrooms) setBathrooms(String(sp.bathrooms));
+      if (sp.bedrooms != null && sp.bedrooms !== '') setBedrooms(String(sp.bedrooms));
+      if (sp.bathrooms != null && sp.bathrooms !== '') setBathrooms(String(sp.bathrooms));
       const sqftVal = sp.totalFinishedSqFt ?? sp.aboveGradeSqFt;
       if (sqftVal) setSqft(String(sqftVal));
+      if (sp.aboveGradeSqFt) setAboveGradeSqFt(String(sp.aboveGradeSqFt));
+      if (sp.finishedBasementSqFt) setFinishedBasementSqFt(String(sp.finishedBasementSqFt));
+      if (sp.listPrice) setTargetListPrice(String(sp.listPrice));
+      else if (sp.originalListPrice) setTargetListPrice(String(sp.originalListPrice));
+      if (sp.garage) setGarage(String(sp.garage));
+      if (sp.buildYear) setBuildYear(String(sp.buildYear));
+      else if (sp.ageRange) setBuildYear(String(sp.ageRange));
+      if (sp.condition) setCondition(String(sp.condition));
+      if (Array.isArray(sp.keyFeatures) && sp.keyFeatures.length) {
+        setKeyFeaturesText(sp.keyFeatures.join('\n'));
+      }
 
       toast.success('Listing details extracted — please review and edit as needed');
     } catch (e: any) {
