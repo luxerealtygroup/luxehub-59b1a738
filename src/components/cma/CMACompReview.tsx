@@ -242,8 +242,8 @@ const CMACompReview = ({
                   <th className="text-center py-2 px-1 text-[10px] text-muted-foreground font-medium w-[30px]">⚡</th>
                   <th className="text-left py-2 px-1 text-[10px] text-muted-foreground font-medium w-[180px]">Address</th>
                   <th className="text-center py-2 px-1 text-[10px] text-muted-foreground font-medium w-[90px]">Category</th>
-                  <th className="text-right py-2 px-1 text-[10px] text-muted-foreground font-medium w-[150px] min-w-[150px]">List $</th>
-                  <th className="text-right py-2 px-1 text-[10px] text-muted-foreground font-medium w-[150px] min-w-[150px]">Sold $</th>
+                  <th className="text-right py-2 px-1 text-[10px] text-muted-foreground font-medium w-[185px] min-w-[185px]">List $</th>
+                  <th className="text-right py-2 px-1 text-[10px] text-muted-foreground font-medium w-[185px] min-w-[185px]">Sold $</th>
                   <th className="text-center py-2 px-1 text-[10px] text-muted-foreground font-medium w-[110px]">Sale Date</th>
                   <th className="text-center py-2 px-1 text-[10px] text-muted-foreground font-medium w-[80px]">DOM</th>
                   <th className="text-center py-2 px-1 text-[10px] text-muted-foreground font-medium w-[70px]">Bd</th>
@@ -293,7 +293,7 @@ const CMACompReview = ({
                         </SelectContent>
                       </Select>
                     </td>
-                    <td className="py-1 px-0.5 min-w-[150px]">
+                    <td className="py-1 px-0.5 min-w-[185px]">
                       <Input
                         type="number"
                         value={comp.list_price ?? ''}
@@ -302,7 +302,7 @@ const CMACompReview = ({
                         placeholder="0"
                       />
                     </td>
-                    <td className="py-1 px-0.5 min-w-[150px]">
+                    <td className="py-1 px-0.5 min-w-[185px]">
                       <Input
                         type="number"
                         value={comp.sold_price ?? ''}
