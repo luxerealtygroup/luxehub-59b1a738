@@ -280,20 +280,8 @@ export default function AdminClientPortals() {
                 <TableBody>
                   {filtered.map((r) => {
                     const h = healthMeta(r.healthScore);
-                    const clickable = r.healthScore < 5;
                     return (
-                    <AgentPortalDialog
-                      key={r.id}
-                      clientName={r.full_name || undefined}
-                      clientEmail={r.email}
-                      fubPersonId={r.fub_person_id}
-                      defaultType={(r.client_type as 'buyer' | 'seller') || undefined}
-                      trigger={
-                        <TableRow
-                          className={`border-border/50 ${h.tone} ${
-                            clickable ? 'cursor-pointer hover:bg-muted/40' : ''
-                          }`}
-                        >
+                      <TableRow key={r.id} className={`border-border/50 ${h.tone}`}>
                       <TableCell>
                         <div className="font-medium">{r.full_name || '—'}</div>
                         <div className="text-xs text-muted-foreground">{r.email}</div>
@@ -361,19 +349,20 @@ export default function AdminClientPortals() {
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="gap-2"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Settings className="h-4 w-4" />
-                          Manage
-                        </Button>
+                        <AgentPortalDialog
+                          clientName={r.full_name || undefined}
+                          clientEmail={r.email}
+                          fubPersonId={r.fub_person_id}
+                          defaultType={(r.client_type as 'buyer' | 'seller') || undefined}
+                          trigger={
+                            <Button size="sm" variant="outline" className="gap-2">
+                              <Settings className="h-4 w-4" />
+                              Manage
+                            </Button>
+                          }
+                        />
                       </TableCell>
-                        </TableRow>
-                      }
-                    />
+                      </TableRow>
                     );
                   })}
                 </TableBody>

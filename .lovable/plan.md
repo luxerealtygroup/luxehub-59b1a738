@@ -1,123 +1,44 @@
-# Support Chat & Ticketing Plan
+# Fix: "Manage" button does nothing on Client Portals page
 
-## Overview
-A floating "Chat with Support" widget available to authenticated realtors (inside `/dashboard/*`) and authenticated clients (inside `/client-portal/*`). An AI assistant (Lovable AI) triages the issue in-chat, tries to resolve common problems, and escalates to a human ticket when it can't — or when the user explicitly requests it. Admins get a new page to view, respond to, and close tickets. Escalations auto-notify and auto-assign to Kristen Schulz (`info@luxerealtygroup.ca`).
+## Root cause (confirmed by reading `src/pages/AdminClientPortals.tsx`)
 
----
+In the portals table, each row is wrapped like this:
 
-## 1. UI
+```
+<AgentPortalDialog trigger={
+  <TableRow ...>
+    ...cells...
+    <TableCell>
+      <Button onClick={(e) => e.stopPropagation()}>Manage</Button>
+    </TableCell>
+  </TableRow>
+} />
+```
 
-**Floating widget component** — `src/components/support/SupportChatWidget.tsx`
-- Fixed bottom-right launcher button (headset icon), opens a popover chat panel (~380×560).
-- Visual style consistent with `PortalChatPanel`.
-- States: intro → AI chat → "Escalated" confirmation.
-- Header actions: minimize, "Talk to a human" (force-escalate), close.
-- Composer with Enter-to-send, streaming assistant responses, markdown rendering.
+Two problems combine to make the Manage button a silent no-op:
 
-**Mounting points (authed areas only)**
-- `src/components/DashboardLayout.tsx` — all authed realtor pages.
-- `src/pages/client-portal/ClientDashboard.tsx` — clients.
-- **Not** mounted on `/login`, `/signup`, `/nominate`, `/forgot-password`, `/reset-password`, `/unsubscribe`, or any other public route. No unauthenticated support surface.
+1. The dialog's open trigger is the whole `<TableRow>` (Radix `DialogTrigger asChild` forwards its click handler onto the `<tr>`).
+2. The Manage `<Button>` explicitly calls `e.stopPropagation()` in its `onClick`, so its click never bubbles up to the `<tr>` — and the button has no other handler that opens the dialog. Result: clicking Manage does absolutely nothing, no dialog, no network, no console error.
 
-**Admin-side ticket management** — `src/pages/AdminTickets.tsx`
-- Master list (open / pending / resolved), filters by role (realtor vs client), search.
-- Detail view: full transcript (AI + user + admin replies), user context (name, email, role, route captured at ticket time), status controls, internal notes, reply composer.
-- Sidebar link "Support Tickets" under Admin section in `AppSidebar.tsx` (admin/owner only).
-- Route added in `App.tsx` under the admin guard.
+Clicking elsewhere on the row *does* open the dialog today, but the user (correctly) expects the explicit Manage button to be the primary affordance, and it's broken.
 
----
+There is also a secondary structural smell: wrapping a `<TableRow>` as the `DialogTrigger asChild` child means the `<tr>` becomes the interactive element and receives ARIA props like `aria-haspopup`/`aria-expanded`, which is not ideal for a table row.
 
-## 2. Database
+## Fix
 
-New tables (all with RLS + GRANTs, `updated_at` trigger):
+Restructure the row so the **Manage button is the dialog trigger**, and the row itself is a plain row (still styled for hover, but no longer the click target). This makes the affordance match what the user clicks, and removes the stopPropagation trap.
 
-**`support_tickets`**
-- `user_id`, `user_email`, `user_type` ('realtor' | 'client'), `subject` (AI-generated), `status` ('ai_active' | 'escalated' | 'in_progress' | 'resolved' | 'closed'), `priority`, `context_route`, `context_metadata` (jsonb), `assigned_admin_id`, `resolved_at`.
+Edit `src/pages/AdminClientPortals.tsx` only:
 
-**`support_messages`**
-- `ticket_id` FK, `sender_type` ('user' | 'ai' | 'admin' | 'system'), `sender_user_id`, `content`, `metadata` (jsonb).
+- In the `filtered.map((r) => …)` render, replace the current `<AgentPortalDialog trigger={<TableRow …>…</TableRow>} />` structure with:
+  - A normal `<TableRow key={r.id} className={…}>` (no cursor-pointer, no dialog wrapping).
+  - Inside the last cell, render `<AgentPortalDialog … trigger={<Button size="sm" variant="outline" className="gap-2"><Settings/> Manage</Button>} />`.
+  - Remove `onClick={(e) => e.stopPropagation()}` from the Manage button — no longer needed.
+- Drop the `clickable` variable and the `cursor-pointer hover:bg-muted/40` classes that only made sense when the whole row was the trigger. Keep the health-tone background (`h.tone`) and `border-border/50` styling so the visual health cue is preserved.
+- Leave all data fetching, filters, health scoring, and `AgentPortalDialog` internals unchanged.
 
-**RLS**
-- Users select/insert their own tickets and messages (`user_id = auth.uid()`).
-- Admins/owners (via existing `has_role`) select/update all.
-- Message inserts require ticket ownership OR admin role.
+## Verification
 
-**Default assignment on escalation**
-- A DB trigger on `support_tickets` fires when `status` transitions to `escalated`: looks up the auth user for `info@luxerealtygroup.ca` and sets `assigned_admin_id` to Kristen's `user_id` if the column is null. Also inserts an in-app row into the existing `notifications` table for that user, and calls the transactional email function (via `pg_net`) or — cleaner — the escalation is triggered from the edge function which handles both (see §3).
-
----
-
-## 3. AI diagnostic chat
-
-**Edge function** — `supabase/functions/support-chat/index.ts` (`verify_jwt = true`)
-- Input: `{ ticket_id?, message, context: { route, user_type } }`.
-- If no `ticket_id`, creates a new ticket (status `ai_active`) seeded with user role, email, and app context.
-- Loads full transcript, streams a response from Lovable AI Gateway (`openai/gpt-5.5`, AI SDK `streamText` + `toUIMessageStreamResponse`).
-- System prompt: LUXEhub support agent — familiar with Pipeline, Portals, FUB sync, CMA, Business Planning, Notifications, etc. — asks clarifying questions, gives step-by-step fixes, offers to escalate.
-- Persists user + assistant messages via `onFinish`.
-
-**Escalation path (handled centrally)**
-- Tool `escalate_to_human({ reason, summary })` the AI can call, plus a direct "Talk to a human" client action, both hit the same server handler.
-- Handler steps (single transaction where possible):
-  1. Update the ticket: `status = 'escalated'`, `assigned_admin_id = <Kristen's user_id>` (looked up once from `auth.users` by email `info@luxerealtygroup.ca`, cached in an env var `ESCALATION_ADMIN_USER_ID` for reliability), `escalation_reason`, `escalated_at`.
-  2. Insert a `system` message summarizing the AI's diagnosis so admins have context.
-  3. Insert an in-app `notifications` row for Kristen (existing bell system picks it up automatically).
-  4. Invoke `send-transactional-email` with a new template `support-ticket-escalated` → `info@luxerealtygroup.ca`, idempotency key `escalation-<ticket_id>`.
-
-**New email template** — `supabase/functions/_shared/transactional-email-templates/support-ticket-escalated.tsx`
-- Registered in `registry.ts`.
-- Fields: user name/email/role, subject, AI-generated summary, escalation reason, timestamp, deep link to `/dashboard/admin/tickets/<id>`.
-- Subject example: `[LUXEhub Support] New escalated ticket — {user_name}`.
-
-**Model**: `openai/gpt-5.5` via existing `LOVABLE_API_KEY`.
-
----
-
-## 4. Admin flow
-
-- Kristen receives both an in-app notification (bell) and an email at `info@luxerealtygroup.ca` on every escalation.
-- Ticket appears in `/dashboard/admin/tickets` already assigned to her (visible in the "Assigned" column, filterable). Other admins/owners can still view, reassign, or reply.
-- Admin reply inserts a `support_messages` row (`sender_type='admin'`); user sees it via realtime and gets a notification.
-- Status transitions: `escalated` → `in_progress` (first admin reply) → `resolved` (admin action) → auto-close after N days.
-
----
-
-## 5. Realtime
-
-- Widget subscribes to `support_messages` filtered by `ticket_id` (same pattern as `PortalChatPanel`).
-- Admin ticket detail subscribes the same way.
-
----
-
-## Technical section
-
-**Files to add**
-- `src/components/support/SupportChatWidget.tsx`
-- `src/hooks/useSupportTicket.ts`
-- `src/pages/AdminTickets.tsx`
-- `supabase/functions/support-chat/index.ts` (+ `deno.json`)
-- `supabase/functions/_shared/transactional-email-templates/support-ticket-escalated.tsx`
-
-**Files to modify**
-- `src/App.tsx` — add `/dashboard/admin/tickets` route (admin guard).
-- `src/components/DashboardLayout.tsx` — mount widget (authed realtor area).
-- `src/pages/client-portal/ClientDashboard.tsx` — mount widget (authed client area).
-- `src/components/AppSidebar.tsx` — admin sidebar link.
-- `supabase/functions/_shared/transactional-email-templates/registry.ts` — register new template.
-- `supabase/config.toml` — register `support-chat` function.
-
-**Migrations**
-- Create `support_tickets`, `support_messages` with GRANTs, RLS, policies, and `update_updated_at_column` triggers.
-
-**Secrets**
-- Add `ESCALATION_ADMIN_EMAIL` = `info@luxerealtygroup.ca` and (optional cache) `ESCALATION_ADMIN_USER_ID`. `LOVABLE_API_KEY` already exists.
-
-**Deploys**
-- After creating template + function, deploy `send-transactional-email` and `support-chat`.
-
----
-
-## Confirmed decisions
-1. Widget is authenticated-only — no public/logged-out support surface.
-2. Escalations send an email to `info@luxerealtygroup.ca` (Kristen) via the existing app-email system, in addition to the in-app notification.
-3. Escalated tickets are auto-assigned to Kristen's account by default (other admins can still reassign).
+- Click Manage on a portal row → `AgentPortalDialog` opens with the correct client prefilled (name, email, FUB id, client type).
+- Clicking anywhere else on the row no longer opens the dialog (intentional; the Manage button is now the single, obvious entry point).
+- No other pages or components change.
