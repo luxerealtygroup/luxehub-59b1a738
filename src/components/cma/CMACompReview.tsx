@@ -236,7 +236,7 @@ const CMACompReview = ({
               <p className="text-sm">No comps extracted. Add comps manually or retry extraction.</p>
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <table className="w-full min-w-max text-sm">
               <thead>
                 <tr className="border-b border-border">
                   <th className="text-center py-2 px-1 text-[10px] text-muted-foreground font-medium w-[30px]">⚡</th>
@@ -246,8 +246,8 @@ const CMACompReview = ({
                   <th className="text-right py-2 px-1 text-[10px] text-muted-foreground font-medium w-[104px] min-w-[104px]">Sold $</th>
                   <th className="text-center py-2 px-1 text-[10px] text-muted-foreground font-medium w-[110px]">Sale Date</th>
                   <th className="text-center py-2 px-1 text-[10px] text-muted-foreground font-medium w-[80px]">DOM</th>
-                  <th className="text-center py-2 px-1 text-[10px] text-muted-foreground font-medium w-[70px]">Bd</th>
-                  <th className="text-center py-2 px-1 text-[10px] text-muted-foreground font-medium w-[70px]">Ba</th>
+                  <th className="text-center py-2 px-1 text-[10px] text-muted-foreground font-medium w-[70px] min-w-[40px]">Bd</th>
+                  <th className="text-center py-2 px-1 text-[10px] text-muted-foreground font-medium w-[70px] min-w-[40px]">Ba</th>
                   <th className="text-center py-2 px-1 text-[10px] text-muted-foreground font-medium w-[115px] min-w-[115px]">SqFt</th>
                   <th className="text-left py-2 px-1 text-[10px] text-muted-foreground font-medium min-w-[120px]">Notes</th>
                   <th className="text-center py-2 px-1 text-[10px] text-muted-foreground font-medium w-[60px]">Actions</th>
@@ -328,7 +328,7 @@ const CMACompReview = ({
                         placeholder="0"
                       />
                     </td>
-                    <td className="py-1 px-1">
+                    <td className="py-1 px-1 min-w-[40px]">
                       <Input
                         type="number"
                         value={comp.beds ?? ''}
@@ -337,7 +337,7 @@ const CMACompReview = ({
                         placeholder="0"
                       />
                     </td>
-                    <td className="py-1 px-1">
+                    <td className="py-1 px-1 min-w-[40px]">
                       <Input
                         type="number"
                         value={comp.baths ?? ''}
