@@ -1821,6 +1821,42 @@ export type Database = {
         }
         Relationships: []
       }
+      organizations: {
+        Row: {
+          branding_logo_url: string | null
+          branding_primary_color: string | null
+          created_at: string
+          id: string
+          name: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscription_status: string | null
+          tier: string
+        }
+        Insert: {
+          branding_logo_url?: string | null
+          branding_primary_color?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_status?: string | null
+          tier?: string
+        }
+        Update: {
+          branding_logo_url?: string | null
+          branding_primary_color?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_status?: string | null
+          tier?: string
+        }
+        Relationships: []
+      }
       pipeline_clients: {
         Row: {
           client_name: string
@@ -2232,6 +2268,7 @@ export type Database = {
           full_name: string | null
           id: string
           is_demo_account: boolean
+          org_id: string | null
           signature_emoji: string | null
           updated_at: string
         }
@@ -2246,6 +2283,7 @@ export type Database = {
           full_name?: string | null
           id: string
           is_demo_account?: boolean
+          org_id?: string | null
           signature_emoji?: string | null
           updated_at?: string
         }
@@ -2260,10 +2298,19 @@ export type Database = {
           full_name?: string | null
           id?: string
           is_demo_account?: boolean
+          org_id?: string | null
           signature_emoji?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       recruiting_pipeline: {
         Row: {
