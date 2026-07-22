@@ -18,9 +18,9 @@ export default function Upgrade() {
   const success = searchParams.get("success") === "true";
   const canceled = searchParams.get("canceled") === "true";
   const tierParam = searchParams.get("tier") as 'pro' | 'team' | null;
-  const purchasedTier = tierParam ?? tier;
   const { user } = useAuth();
   const { orgId, tier, loading: orgLoading } = useOrgTier();
+  const purchasedTier = tierParam ?? tier;
   const { openCheckout, checkoutElement, isOpen } = useStripeCheckout();
 
   const baseReturnUrl = `${window.location.origin}/dashboard/upgrade?success=true`;
