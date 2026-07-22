@@ -137,7 +137,7 @@ const App = () => (
               <Route path="settings" element={<AccountSettings />} />
               <Route path="notifications" element={<Notifications />} />
               <Route path="client-portals" element={<RoleGuard><TierGuard feature="canAccessClientPortals" featureName="Client Portals" requiredTierLabel="Pro+ or Team"><AdminClientPortals /></TierGuard></RoleGuard>} />
-              <Route path="nominations" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><Nominations /></RoleGuard>} />
+              <Route path="nominations" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><TierGuard feature="canAccessNominations" featureName="Nominations" requiredTierLabel="original organization"><Nominations /></TierGuard></RoleGuard>} />
               <Route path="upgrade" element={<Upgrade />} />
               <Route path="admin" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><TierGuard feature="canAccessCompanyDashboard"><AdminReports /></TierGuard></RoleGuard>} />
               <Route path="admin/business-planning" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><TierGuard feature="canAccessCompanyBusinessPlanning" featureName="Company Business Planning" requiredTierLabel="Team"><CompanyBusinessPlanningPage /></TierGuard></RoleGuard>} />
