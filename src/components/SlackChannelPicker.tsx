@@ -36,17 +36,24 @@ export function SlackChannelPicker({ value, onChange }: Props) {
   const loadChannels = async () => {
     setLoading(true);
     setError(null);
-    const { data, error: fnError } = await supabase.functions.invoke('slack-list-channels');
-    if (fnError) {
-      setError(fnError.message);
-      toast({ title: 'Could not load Slack channels', description: fnError.message, variant: 'destructive' });
-    } else if (data?.error) {
-      setError(data.error);
-      toast({ title: 'Slack error', description: data.error, variant: 'destructive' });
-    } else {
-      setChannels((data?.channels ?? []) as SlackChannel[]);
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('slack-list-channels');
+      if (fnError) {
+        setError(fnError.message);
+        toast({ title: 'Could not load Slack channels', description: fnError.message, variant: 'destructive' });
+      } else if (data?.error) {
+        setError(data.error);
+        toast({ title: 'Slack error', description: data.error, variant: 'destructive' });
+      } else {
+        setChannels((data?.channels ?? []) as SlackChannel[]);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unable to load Slack channels';
+      setError(message);
+      toast({ title: 'Unable to load Slack channels', description: message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -95,9 +102,10 @@ export function SlackChannelPicker({ value, onChange }: Props) {
               </div>
             )}
             {!loading && error && (
-              <div className="px-3 py-4 text-sm text-destructive">
-                {error}
-                <Button size="sm" variant="ghost" className="mt-2" onClick={loadChannels}>
+              <div className="px-3 py-4 text-sm">
+                <p className="text-destructive font-medium">Unable to load Slack channels</p>
+                <p className="text-muted-foreground text-xs mt-1">{error}</p>
+                <Button size="sm" variant="ghost" className="mt-2 h-7 px-2 text-xs" onClick={loadChannels}>
                   Retry
                 </Button>
               </div>
