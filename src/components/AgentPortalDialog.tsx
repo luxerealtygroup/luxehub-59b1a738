@@ -24,6 +24,7 @@ import { PortalDocumentsPanel } from '@/components/portal/PortalDocumentsPanel';
 import { PortalPhotosPanel } from '@/components/portal/PortalPhotosPanel';
 import { PortalChatPanel } from '@/components/portal/PortalChatPanel';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useOrgTier } from '@/hooks/useOrgTier';
 
 interface AgentPortalDialogProps {
   clientName?: string;
