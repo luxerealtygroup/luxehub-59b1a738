@@ -48,6 +48,9 @@ verify_jwt = false
 [functions.handle-email-suppression]
 verify_jwt = false
 
+[functions.stripe-admin]
+verify_jwt = false
+
 [functions.slack-portal-webhook]
 verify_jwt = false
 
