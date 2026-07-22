@@ -36,17 +36,24 @@ export function SlackChannelPicker({ value, onChange }: Props) {
   const loadChannels = async () => {
     setLoading(true);
     setError(null);
-    const { data, error: fnError } = await supabase.functions.invoke('slack-list-channels');
-    if (fnError) {
-      setError(fnError.message);
-      toast({ title: 'Could not load Slack channels', description: fnError.message, variant: 'destructive' });
-    } else if (data?.error) {
-      setError(data.error);
-      toast({ title: 'Slack error', description: data.error, variant: 'destructive' });
-    } else {
-      setChannels((data?.channels ?? []) as SlackChannel[]);
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('slack-list-channels');
+      if (fnError) {
+        setError(fnError.message);
+        toast({ title: 'Could not load Slack channels', description: fnError.message, variant: 'destructive' });
+      } else if (data?.error) {
+        setError(data.error);
+        toast({ title: 'Slack error', description: data.error, variant: 'destructive' });
+      } else {
+        setChannels((data?.channels ?? []) as SlackChannel[]);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unable to load Slack channels';
+      setError(message);
+      toast({ title: 'Unable to load Slack channels', description: message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
