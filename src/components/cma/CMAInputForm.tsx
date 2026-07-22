@@ -529,6 +529,10 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
       needs_review_reason: c.needs_review_reason || null,
     }));
 
+    // [DEBUG-LOG-C] Final mappedComps right before saving to state
+    console.log('[DEBUG-LOG-C] aiComps from edge function (pre-map):', JSON.stringify(aiComps, null, 2));
+    console.log('[DEBUG-LOG-C] Final mappedComps before setState:', JSON.stringify(mappedComps, null, 2));
+
     return { comps: mappedComps, summary };
   };
 
