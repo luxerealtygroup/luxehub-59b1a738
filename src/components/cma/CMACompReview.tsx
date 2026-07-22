@@ -236,7 +236,7 @@ const CMACompReview = ({
               <p className="text-sm">No comps extracted. Add comps manually or retry extraction.</p>
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <table className="w-full min-w-max text-sm">
               <thead>
                 <tr className="border-b border-border">
                   <th className="text-center py-2 px-1 text-[10px] text-muted-foreground font-medium w-[30px]">⚡</th>
