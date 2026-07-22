@@ -13,9 +13,10 @@ function getSupabase() {
 }
 
 // Map human-readable price id → org tier (USD + CAD variants)
-function tierForPrice(priceLookupKey: string | null | undefined): 'pro' | 'team' | null {
+function tierForPrice(priceLookupKey: string | null | undefined): 'pro' | 'pro_plus' | 'team' | null {
   if (!priceLookupKey) return null;
   if (priceLookupKey === 'pro_monthly' || priceLookupKey === 'pro_monthly_cad') return 'pro';
+  if (priceLookupKey === 'pro_plus_monthly' || priceLookupKey === 'pro_plus_monthly_cad') return 'pro_plus';
   if (priceLookupKey === 'team_monthly' || priceLookupKey === 'team_monthly_cad') return 'team';
   return null;
 }
