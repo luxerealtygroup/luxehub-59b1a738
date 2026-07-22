@@ -1856,6 +1856,7 @@ export type Database = {
           branding_primary_color: string | null
           created_at: string
           id: string
+          is_original_org: boolean
           name: string
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
@@ -1867,6 +1868,7 @@ export type Database = {
           branding_primary_color?: string | null
           created_at?: string
           id?: string
+          is_original_org?: boolean
           name: string
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
@@ -1878,6 +1880,7 @@ export type Database = {
           branding_primary_color?: string | null
           created_at?: string
           id?: string
+          is_original_org?: boolean
           name?: string
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
