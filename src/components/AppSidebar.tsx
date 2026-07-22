@@ -33,6 +33,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useOrgTier } from '@/hooks/useOrgTier';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -130,6 +131,7 @@ const planningPerformanceItems = ['Goals', 'Weekly Coaching', 'Reports', 'Busine
 export function AppSidebar() {
   const { signOut, user } = useAuth();
   const { isAdmin, isOwner, isPlanningAccess, isAgent } = useUserRole();
+  const { canAccessCompanyDashboard } = useOrgTier();
   const { state } = useSidebar();
   const navigate = useNavigate();
   const location = useLocation();
@@ -297,6 +299,7 @@ export function AppSidebar() {
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
+                  {canAccessCompanyDashboard && (
                   <SidebarMenuItem>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -319,6 +322,7 @@ export function AppSidebar() {
                       )}
                     </Tooltip>
                   </SidebarMenuItem>
+                  )}
                   <SidebarMenuItem>
                     <Tooltip>
                       <TooltipTrigger asChild>

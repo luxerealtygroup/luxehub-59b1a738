@@ -24,6 +24,7 @@ import { PortalDocumentsPanel } from '@/components/portal/PortalDocumentsPanel';
 import { PortalPhotosPanel } from '@/components/portal/PortalPhotosPanel';
 import { PortalChatPanel } from '@/components/portal/PortalChatPanel';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useOrgTier } from '@/hooks/useOrgTier';
 
 interface AgentPortalDialogProps {
   clientName?: string;
@@ -55,6 +56,7 @@ export function AgentPortalDialog({
 }: AgentPortalDialogProps) {
   const { user } = useAuth();
   const { isAdmin } = useUserRole();
+  const { canAccessCRMConnections } = useOrgTier();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -285,11 +287,15 @@ export function AgentPortalDialog({
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label>Slack channel</Label>
-                  <SlackChannelPicker
-                    value={form.slack_channel_id}
-                    onChange={(id) => setForm({ ...form, slack_channel_id: id })}
-                  />
+                  {canAccessCRMConnections && (
+                    <>
+                      <Label>Slack channel</Label>
+                      <SlackChannelPicker
+                        value={form.slack_channel_id}
+                        onChange={(id) => setForm({ ...form, slack_channel_id: id })}
+                      />
+                    </>
+                  )}
                 </div>
               </div>
               <div className="flex flex-wrap gap-2 pt-2">

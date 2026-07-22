@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-route
 import { AuthProvider } from "@/hooks/useAuth";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import RoleGuard from "@/components/RoleGuard";
+import { TierGuard } from "@/components/TierGuard";
 import DashboardLayout from "@/components/DashboardLayout";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -136,7 +137,7 @@ const App = () => (
               <Route path="notifications" element={<Notifications />} />
               <Route path="client-portals" element={<RoleGuard><AdminClientPortals /></RoleGuard>} />
               <Route path="nominations" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><Nominations /></RoleGuard>} />
-              <Route path="admin" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><AdminReports /></RoleGuard>} />
+              <Route path="admin" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><TierGuard feature="canAccessCompanyDashboard"><AdminReports /></TierGuard></RoleGuard>} />
               <Route path="admin/business-planning" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><CompanyBusinessPlanningPage /></RoleGuard>} />
               <Route path="admin/client-portals" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><AdminClientPortals /></RoleGuard>} />
               <Route path="admin/tickets" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><AdminTickets /></RoleGuard>} />
