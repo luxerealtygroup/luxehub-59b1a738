@@ -50,6 +50,7 @@ import Unsubscribe from "./pages/Unsubscribe";
 import GoogleDriveCallback from "./pages/GoogleDriveCallback";
 import Nominate from "./pages/Nominate";
 import Nominations from "./pages/Nominations";
+import Upgrade from "./pages/Upgrade";
 
 const queryClient = new QueryClient();
 
@@ -137,6 +138,7 @@ const App = () => (
               <Route path="notifications" element={<Notifications />} />
               <Route path="client-portals" element={<RoleGuard><AdminClientPortals /></RoleGuard>} />
               <Route path="nominations" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><Nominations /></RoleGuard>} />
+              <Route path="upgrade" element={<Upgrade />} />
               <Route path="admin" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><TierGuard feature="canAccessCompanyDashboard"><AdminReports /></TierGuard></RoleGuard>} />
               <Route path="admin/business-planning" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><CompanyBusinessPlanningPage /></RoleGuard>} />
               <Route path="admin/client-portals" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><AdminClientPortals /></RoleGuard>} />

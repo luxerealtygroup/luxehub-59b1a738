@@ -14,6 +14,8 @@ import CMAAuditView from '@/components/cma/CMAAuditView';
 import CMAClientReport from '@/components/cma/CMAClientReport';
 import CMAPerformanceDashboard from '@/components/cma/CMAPerformanceDashboard';
 import { CMAStatusBadge } from '@/components/cma/CMALifecycleStatus';
+import { useCmaMonthlyUsage } from '@/hooks/useCmaMonthlyUsage';
+import { Link } from 'react-router-dom';
 
 interface CMAReport {
   id: string;
@@ -49,6 +51,7 @@ const CMABoss = () => {
   const [activeTab, setActiveTab] = useState('reports');
   const [generating, setGenerating] = useState(false);
   const [generatedHtml, setGeneratedHtml] = useState<string | null>(null);
+  const cmaUsage = useCmaMonthlyUsage();
 
   const handleGenerateCma = async (reportId: string) => {
     setGenerating(true);
@@ -118,6 +121,7 @@ const CMABoss = () => {
 
       setGeneratedHtml(data.html);
       setViewMode('generated');
+      cmaUsage.refresh();
     } catch (e: any) {
       console.error('Generate CMA failed:', e);
       toast.error(e?.message || 'Failed to generate CMA');
@@ -307,7 +311,7 @@ const CMABoss = () => {
             <Button
               size="sm"
               onClick={() => handleGenerateCma(selectedReportId)}
-              disabled={generating}
+              disabled={generating || cmaUsage.atLimit}
               className="bg-gold hover:bg-gold/90 text-gold-foreground"
             >
               {generating
@@ -324,6 +328,28 @@ const CMABoss = () => {
             </Button>
           </div>
         </div>
+        {cmaUsage.isFree && !cmaUsage.loading && (
+          <div
+            className={`rounded-md border px-3 py-2 text-xs flex items-center justify-between gap-3 ${
+              cmaUsage.atLimit
+                ? 'border-amber-300 bg-amber-50 text-amber-900'
+                : cmaUsage.onLastOne
+                ? 'border-amber-300 bg-amber-50 text-amber-900'
+                : 'border-muted bg-muted/40 text-muted-foreground'
+            }`}
+          >
+            <span>
+              {cmaUsage.atLimit
+                ? "You've used all 5 free CMAs this month. Upgrade to Pro for unlimited reports."
+                : `${cmaUsage.used} of ${cmaUsage.limit} CMAs used this month`}
+            </span>
+            {(cmaUsage.atLimit || cmaUsage.onLastOne) && (
+              <Link to="/dashboard/upgrade" className="font-medium underline underline-offset-2">
+                Upgrade
+              </Link>
+            )}
+          </div>
+        )}
         <CMAAuditView reportId={selectedReportId} />
       </div>
     );

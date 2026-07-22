@@ -1,6 +1,9 @@
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const SYSTEM_PROMPT = `LUXE CMA STUDIO — EDGE FUNCTION SYSTEM PROMPT
 
@@ -184,6 +187,26 @@ Deno.serve(async (req) => {
     const body = await req.json();
     console.log("generate-cma: request", { client: body?.clientName, address: body?.subjectProperty?.address });
 
+    // Identify caller (for usage tracking). verify_jwt is off, so parse the
+    // Authorization header ourselves using the anon key.
+    const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const authHeader = req.headers.get("Authorization") || "";
+    const token = authHeader.replace(/^Bearer\s+/i, "");
+    let callerUserId: string | null = null;
+    let callerOrgId: string | null = null;
+    if (token) {
+      const { data: userData } = await admin.auth.getUser(token);
+      callerUserId = userData?.user?.id ?? null;
+      if (callerUserId) {
+        const { data: prof } = await admin
+          .from("profiles")
+          .select("org_id")
+          .eq("id", callerUserId)
+          .maybeSingle();
+        callerOrgId = (prof as any)?.org_id ?? null;
+      }
+    }
+
     const messages: any[] = [
       { role: "user", content: JSON.stringify(body) },
     ];
@@ -229,6 +252,16 @@ Deno.serve(async (req) => {
     if (!html || !/<[a-z!]/i.test(html)) {
       console.error("generate-cma: no HTML in final response", final);
       throw new Error("Model did not return HTML");
+    }
+
+    // Log successful generation for monthly usage caps (best-effort).
+    if (callerUserId && callerOrgId) {
+      const { error: logErr } = await admin
+        .from("cma_generations")
+        .insert({ user_id: callerUserId, org_id: callerOrgId });
+      if (logErr) console.error("generate-cma: usage log failed", logErr);
+    } else {
+      console.warn("generate-cma: skipped usage log (missing user/org)", { callerUserId, callerOrgId });
     }
 
     return new Response(JSON.stringify({ success: true, html }), {
