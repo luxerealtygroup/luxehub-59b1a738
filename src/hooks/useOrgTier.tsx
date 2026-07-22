@@ -7,6 +7,7 @@ export type OrgTier = 'free' | 'pro' | 'team';
 interface OrgTierResult {
   tier: OrgTier | null;
   loading: boolean;
+  orgId: string | null;
   canAccessCRMConnections: boolean;
   canAccessCompanyDashboard: boolean;
   canAccessBranding: boolean;
@@ -24,6 +25,7 @@ interface OrgTierResult {
 export function useOrgTier(): OrgTierResult {
   const { user } = useAuth();
   const [tier, setTier] = useState<OrgTier | null>(null);
+  const [orgId, setOrgId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -32,6 +34,7 @@ export function useOrgTier(): OrgTierResult {
       if (!user) {
         if (!cancelled) {
           setTier(null);
+          setOrgId(null);
           setLoading(false);
         }
         return;
@@ -47,6 +50,7 @@ export function useOrgTier(): OrgTierResult {
       if (!orgId) {
         if (!cancelled) {
           setTier(null);
+          setOrgId(null);
           setLoading(false);
         }
         return;
@@ -60,6 +64,7 @@ export function useOrgTier(): OrgTierResult {
 
       if (!cancelled) {
         setTier(((org as { tier: OrgTier } | null)?.tier ?? null));
+        setOrgId(orgId);
         setLoading(false);
       }
     }
@@ -72,6 +77,7 @@ export function useOrgTier(): OrgTierResult {
   return {
     tier,
     loading,
+    orgId,
     canAccessCRMConnections: tier === 'pro' || tier === 'team',
     canAccessCompanyDashboard: tier === 'team',
     canAccessBranding: tier === 'team',
