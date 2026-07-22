@@ -291,7 +291,7 @@ export function AppSidebar() {
             </SidebarGroup>
           ))}
 
-          {isAdmin && canAccessCompanyDashboard && (
+          {isAdmin && (
             <SidebarGroup className="pt-1">
               <div className="mx-3 mb-1 border-t border-gold/5" />
               <SidebarGroupLabel className="text-blue-500/60 uppercase text-[10px] font-semibold tracking-[0.12em] px-3 mb-0.5">
@@ -299,6 +299,7 @@ export function AppSidebar() {
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
+                  {canAccessCompanyDashboard && (
                   <SidebarMenuItem>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -321,6 +322,7 @@ export function AppSidebar() {
                       )}
                     </Tooltip>
                   </SidebarMenuItem>
+                  )}
                   <SidebarMenuItem>
                     <Tooltip>
                       <TooltipTrigger asChild>
