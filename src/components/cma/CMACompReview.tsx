@@ -324,7 +324,7 @@ const CMACompReview = ({
                         type="number"
                         value={comp.days_on_market ?? ''}
                         onChange={e => updateComp(comp.id, 'days_on_market', e.target.value ? Number(e.target.value) : null)}
-                        className="h-7 text-xs text-center no-spin"
+                        className="h-7 px-1 text-xs text-center no-spin"
                         placeholder="0"
                       />
                     </td>
@@ -333,7 +333,7 @@ const CMACompReview = ({
                         type="number"
                         value={comp.beds ?? ''}
                         onChange={e => updateComp(comp.id, 'beds', e.target.value ? Number(e.target.value) : null)}
-                        className="h-7 text-xs text-center no-spin"
+                        className="h-7 px-1 text-xs text-center no-spin"
                         placeholder="0"
                       />
                     </td>
@@ -342,7 +342,7 @@ const CMACompReview = ({
                         type="number"
                         value={comp.baths ?? ''}
                         onChange={e => updateComp(comp.id, 'baths', e.target.value ? Number(e.target.value) : null)}
-                        className="h-7 text-xs text-center no-spin"
+                        className="h-7 px-1 text-xs text-center no-spin"
                         placeholder="0"
                       />
                     </td>
@@ -351,7 +351,7 @@ const CMACompReview = ({
                         type="number"
                         value={comp.sqft ?? ''}
                         onChange={e => updateComp(comp.id, 'sqft', e.target.value ? Number(e.target.value) : null)}
-                        className="h-7 text-xs text-center no-spin"
+                        className="h-7 px-1 text-xs text-center no-spin"
                         placeholder="0"
                       />
                     </td>
