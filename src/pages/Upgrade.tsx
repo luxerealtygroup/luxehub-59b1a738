@@ -2,7 +2,7 @@ import { useSearchParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, ArrowLeft, Building2, Check } from "lucide-react";
+import { Sparkles, ArrowLeft, Building2, Check, Calendar } from "lucide-react";
 import { useStripeCheckout } from "@/hooks/useStripeCheckout";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrgTier } from "@/hooks/useOrgTier";
@@ -10,25 +10,29 @@ import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
 
 const PRO_PRICE_IDS = ["pro_monthly_cad"];
 const TEAM_PRICE_IDS = ["team_monthly_cad", "team_setup_cad"];
+const PRO_ONBOARDING_URL = "https://cal.com/kristen-schulz-wnjxcs/luxehub-pro-onboarding";
+const TEAM_ONBOARDING_URL = "https://cal.com/kristen-schulz-wnjxcs/luxehub-team-onboarding";
 
 export default function Upgrade() {
   const [searchParams] = useSearchParams();
   const success = searchParams.get("success") === "true";
   const canceled = searchParams.get("canceled") === "true";
+  const tierParam = searchParams.get("tier") as 'pro' | 'team' | null;
   const { user } = useAuth();
   const { orgId, tier, loading: orgLoading } = useOrgTier();
+  const purchasedTier = tierParam ?? tier;
   const { openCheckout, checkoutElement, isOpen } = useStripeCheckout();
 
-  const returnUrl = `${window.location.origin}/dashboard/upgrade?success=true`;
+  const baseReturnUrl = `${window.location.origin}/dashboard/upgrade?success=true`;
 
-  const handleUpgrade = (priceIds: string[]) => {
+  const handleUpgrade = (priceIds: string[], tier: 'pro' | 'team') => {
     if (!orgId || !user) return;
     openCheckout({
       priceIds,
       customerEmail: user.email,
       userId: user.id,
       orgId,
-      returnUrl,
+      returnUrl: `${baseReturnUrl}&tier=${tier}`,
     });
   };
 
@@ -51,9 +55,36 @@ export default function Upgrade() {
         </div>
 
         {success && (
-          <div className="bg-green-100 border border-green-300 text-green-800 px-4 py-3 rounded-md text-center">
-            🎉 Your upgrade is processing. It may take a moment to activate.
-          </div>
+          <>
+            <div className="bg-green-100 border border-green-300 text-green-800 px-4 py-3 rounded-md text-center">
+              🎉 Your upgrade is processing. It may take a moment to activate.
+            </div>
+            <Card className="border-gold/30">
+              <CardHeader>
+                <CardTitle className="font-display text-xl flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-gold" />
+                  Book your onboarding call
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Schedule a quick onboarding call with Kristen so we can get you set up and answer any questions.
+                </p>
+                <Button
+                  className="w-full bg-gold hover:bg-gold/90 text-gold-foreground"
+                  asChild
+                >
+                  <a
+                    href={purchasedTier === "team" ? TEAM_ONBOARDING_URL : PRO_ONBOARDING_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Schedule onboarding
+                  </a>
+                </Button>
+              </CardContent>
+            </Card>
+          </>
         )}
         {canceled && (
           <div className="bg-amber-100 border border-amber-300 text-amber-800 px-4 py-3 rounded-md text-center">
@@ -92,7 +123,7 @@ export default function Upgrade() {
               </ul>
               <Button
                 className="w-full bg-gold hover:bg-gold/90 text-gold-foreground"
-                onClick={() => handleUpgrade(PRO_PRICE_IDS)}
+                onClick={() => handleUpgrade(PRO_PRICE_IDS, "pro")}
                 disabled={orgLoading || !orgId || !user}
               >
                 Upgrade to Pro
@@ -133,7 +164,7 @@ export default function Upgrade() {
               </ul>
               <Button
                 className="w-full bg-gold hover:bg-gold/90 text-gold-foreground"
-                onClick={() => handleUpgrade(TEAM_PRICE_IDS)}
+                onClick={() => handleUpgrade(TEAM_PRICE_IDS, "team")}
                 disabled={orgLoading || !orgId || !user}
               >
                 Upgrade to Team
