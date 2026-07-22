@@ -328,7 +328,7 @@ const CMACompReview = ({
                         placeholder="0"
                       />
                     </td>
-                    <td className="py-1 px-1">
+                    <td className="py-1 px-1 min-w-[40px]">
                       <Input
                         type="number"
                         value={comp.beds ?? ''}
