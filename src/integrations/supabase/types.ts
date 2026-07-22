@@ -1615,6 +1615,7 @@ export type Database = {
           file_size: number | null
           file_type: string | null
           id: string
+          org_id: string
           title: string
           updated_at: string
           uploaded_by: string
@@ -1628,6 +1629,7 @@ export type Database = {
           file_size?: number | null
           file_type?: string | null
           id?: string
+          org_id: string
           title: string
           updated_at?: string
           uploaded_by: string
@@ -1641,11 +1643,20 @@ export type Database = {
           file_size?: number | null
           file_type?: string | null
           id?: string
+          org_id?: string
           title?: string
           updated_at?: string
           uploaded_by?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "important_documents_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       manual_production: {
         Row: {
@@ -1849,6 +1860,53 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      org_resources: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          href: string
+          icon: string
+          id: string
+          org_id: string
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string | null
+          href: string
+          icon?: string
+          id?: string
+          org_id: string
+          sort_order?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          href?: string
+          icon?: string
+          id?: string
+          org_id?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_resources_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       organizations: {
         Row: {
@@ -2764,6 +2822,7 @@ export type Database = {
           file_size: number | null
           file_type: string | null
           id: string
+          org_id: string
           title: string
           updated_at: string
           uploaded_by: string
@@ -2777,6 +2836,7 @@ export type Database = {
           file_size?: number | null
           file_type?: string | null
           id?: string
+          org_id: string
           title: string
           updated_at?: string
           uploaded_by: string
@@ -2790,11 +2850,20 @@ export type Database = {
           file_size?: number | null
           file_type?: string | null
           id?: string
+          org_id?: string
           title?: string
           updated_at?: string
           uploaded_by?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "training_documents_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       transaction_milestones: {
         Row: {
@@ -3001,6 +3070,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      current_user_org_id: { Args: never; Returns: string }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
