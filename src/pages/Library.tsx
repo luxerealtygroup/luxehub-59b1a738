@@ -329,7 +329,7 @@ const Library = () => {
       
       if (uploadError) throw uploadError;
       
-      const { error: dbError } = await supabase.from('training_documents').insert({
+      const { error: dbError } = await (supabase.from('training_documents') as any).insert({
         title: trainingForm.title,
         description: trainingForm.description || null,
         file_path: filePath,
