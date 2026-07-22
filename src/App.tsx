@@ -8,7 +8,6 @@ import { AuthProvider } from "@/hooks/useAuth";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import RoleGuard from "@/components/RoleGuard";
 import { TierGuard } from "@/components/TierGuard";
-import { OriginalOrgOnly } from "@/components/OriginalOrgOnly";
 import DashboardLayout from "@/components/DashboardLayout";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
