@@ -472,6 +472,8 @@ There are no comparable properties extracted from a PDF. Provide analysis based 
       console.log(`Deterministic MLS parse found ${mlsParsedComps.length} Member Full comps`);
       console.log(`First deterministic comp: ${JSON.stringify(mlsParsedComps[0])}`);
     }
+    // [DEBUG-LOG-B] Full deterministic parser output BEFORE merging
+    console.log(`[DEBUG-LOG-B] Deterministic parser output (pre-merge, ${mlsParsedComps.length} comps):\n${JSON.stringify(mlsParsedComps, null, 2)}`);
     
     const MAX_CHUNK_SIZE = 45000;
     const chunks = chunkText(processedText, MAX_CHUNK_SIZE);
@@ -511,6 +513,8 @@ Remember: Extract EVERY property found. Even partial data is valuable. Do not sk
       try {
         const result = await callAI(LOVABLE_API_KEY, EXTRACTION_SYSTEM_PROMPT, extractionPrompt);
         const comps = result.extracted_comps || [];
+        // [DEBUG-LOG-A] Raw AI JSON extracted_comps BEFORE any processing (chunk ${i + 1})
+        console.log(`[DEBUG-LOG-A] Raw AI extracted_comps chunk ${i + 1} (${comps.length} comps):\n${JSON.stringify(comps, null, 2)}`);
         console.log(`Chunk ${i + 1}: extracted ${comps.length} comps`);
         if (comps.length > 0) {
           console.log(`First comp: ${JSON.stringify(comps[0])}`);
