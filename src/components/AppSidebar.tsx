@@ -131,7 +131,12 @@ const planningPerformanceItems = ['Goals', 'Weekly Coaching', 'Reports', 'Busine
 export function AppSidebar() {
   const { signOut, user } = useAuth();
   const { isAdmin, isOwner, isPlanningAccess, isAgent } = useUserRole();
-  const { canAccessCompanyDashboard } = useOrgTier();
+  const {
+    canAccessCompanyDashboard,
+    canAccessCompanyBusinessPlanning,
+    canAccessClientPortals,
+    canAccessNominations,
+  } = useOrgTier();
   const { state } = useSidebar();
   const navigate = useNavigate();
   const location = useLocation();
@@ -153,7 +158,12 @@ export function AppSidebar() {
       }
       return {
         ...section,
-        items: section.items.filter(item => !item.adminOnly || isAdmin),
+        items: section.items.filter(item => {
+          if (item.adminOnly && !isAdmin) return false;
+          if (item.title === 'Nominations' && !canAccessNominations) return false;
+          if (item.title === 'Client Portals' && !canAccessClientPortals) return false;
+          return true;
+        }),
       };
     });
 
