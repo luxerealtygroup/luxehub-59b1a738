@@ -307,7 +307,7 @@ const CMACompReview = ({
                         type="number"
                         value={comp.sold_price ?? ''}
                         onChange={e => updateComp(comp.id, 'sold_price', e.target.value ? Number(e.target.value) : null)}
-                        className={`h-7 text-xs text-right no-spin ${comp.needs_review && comp.list_price == null && comp.sold_price == null ? 'border-amber-500' : ''}`}
+                        className={`h-7 px-1 text-xs text-right no-spin ${comp.needs_review && comp.list_price == null && comp.sold_price == null ? 'border-amber-500' : ''}`}
                         placeholder="0"
                       />
                     </td>
