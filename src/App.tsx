@@ -136,12 +136,12 @@ const App = () => (
               <Route path="business-planning" element={<BusinessPlanning />} />
               <Route path="settings" element={<AccountSettings />} />
               <Route path="notifications" element={<Notifications />} />
-              <Route path="client-portals" element={<RoleGuard><AdminClientPortals /></RoleGuard>} />
+              <Route path="client-portals" element={<RoleGuard><TierGuard feature="canAccessClientPortals" featureName="Client Portals" requiredTierLabel="Pro+ or Team"><AdminClientPortals /></TierGuard></RoleGuard>} />
               <Route path="nominations" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><Nominations /></RoleGuard>} />
               <Route path="upgrade" element={<Upgrade />} />
               <Route path="admin" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><TierGuard feature="canAccessCompanyDashboard"><AdminReports /></TierGuard></RoleGuard>} />
-              <Route path="admin/business-planning" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><CompanyBusinessPlanningPage /></RoleGuard>} />
-              <Route path="admin/client-portals" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><AdminClientPortals /></RoleGuard>} />
+              <Route path="admin/business-planning" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><TierGuard feature="canAccessCompanyBusinessPlanning" featureName="Company Business Planning" requiredTierLabel="Team"><CompanyBusinessPlanningPage /></TierGuard></RoleGuard>} />
+              <Route path="admin/client-portals" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><TierGuard feature="canAccessClientPortals" featureName="Client Portals" requiredTierLabel="Pro+ or Team"><AdminClientPortals /></TierGuard></RoleGuard>} />
               <Route path="admin/tickets" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><AdminTickets /></RoleGuard>} />
               <Route path="admin/coaching-notes" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><CoachingNotes /></RoleGuard>} />
               <Route path="admin/agent/:agentId" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><AgentProfile /></RoleGuard>} />
