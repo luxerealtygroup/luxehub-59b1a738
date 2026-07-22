@@ -56,3 +56,6 @@ verify_jwt = true
 
 [functions.generate-coaching-notes]
 verify_jwt = true
+
+[functions.payments-webhook]
+verify_jwt = false
