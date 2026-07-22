@@ -333,6 +333,7 @@ export function AppSidebar() {
                     </Tooltip>
                   </SidebarMenuItem>
                   )}
+                  {canAccessCompanyBusinessPlanning && (
                   <SidebarMenuItem>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -355,6 +356,8 @@ export function AppSidebar() {
                       )}
                     </Tooltip>
                   </SidebarMenuItem>
+                  )}
+                  {canAccessClientPortals && (
                   <SidebarMenuItem>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -377,6 +380,7 @@ export function AppSidebar() {
                       )}
                     </Tooltip>
                   </SidebarMenuItem>
+                  )}
                   <SidebarMenuItem>
                     <Tooltip>
                       <TooltipTrigger asChild>
