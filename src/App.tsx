@@ -8,6 +8,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import RoleGuard from "@/components/RoleGuard";
 import { TierGuard } from "@/components/TierGuard";
+import { OriginalOrgOnly } from "@/components/OriginalOrgOnly";
 import DashboardLayout from "@/components/DashboardLayout";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -122,13 +123,13 @@ const App = () => (
               <Route path="goals" element={<Goals />} />
               <Route path="411" element={<FourOneOne />} />
               <Route path="reports" element={<Reports />} />
-              <Route path="library" element={<RoleGuard><Library /></RoleGuard>} />
-              <Route path="resources/listings" element={<RoleGuard><ListingsResources /></RoleGuard>} />
-              <Route path="resources/buyers" element={<RoleGuard><BuyersResources /></RoleGuard>} />
-              <Route path="resources/commercial" element={<RoleGuard><CommercialResources /></RoleGuard>} />
-              <Route path="resources/landlords" element={<RoleGuard><LandlordsResources /></RoleGuard>} />
-              <Route path="resources/newsletters" element={<RoleGuard><NewslettersResources /></RoleGuard>} />
-              <Route path="resources/tenants" element={<RoleGuard><TenantsResources /></RoleGuard>} />
+              <Route path="library" element={<RoleGuard><OriginalOrgOnly sectionName="Your document library"><Library /></OriginalOrgOnly></RoleGuard>} />
+              <Route path="resources/listings" element={<RoleGuard><OriginalOrgOnly sectionName="Listings resources"><ListingsResources /></OriginalOrgOnly></RoleGuard>} />
+              <Route path="resources/buyers" element={<RoleGuard><OriginalOrgOnly sectionName="Buyers resources"><BuyersResources /></OriginalOrgOnly></RoleGuard>} />
+              <Route path="resources/commercial" element={<RoleGuard><OriginalOrgOnly sectionName="Commercial resources"><CommercialResources /></OriginalOrgOnly></RoleGuard>} />
+              <Route path="resources/landlords" element={<RoleGuard><OriginalOrgOnly sectionName="Landlords resources"><LandlordsResources /></OriginalOrgOnly></RoleGuard>} />
+              <Route path="resources/newsletters" element={<RoleGuard><OriginalOrgOnly sectionName="Newsletters resources"><NewslettersResources /></OriginalOrgOnly></RoleGuard>} />
+              <Route path="resources/tenants" element={<RoleGuard><OriginalOrgOnly sectionName="Tenants resources"><TenantsResources /></OriginalOrgOnly></RoleGuard>} />
               <Route path="resources/open-house-tracker" element={<RoleGuard><MyOpenHouse /></RoleGuard>} />
               <Route path="resources/myopenhouse" element={<Navigate to="/dashboard/resources/open-house-tracker" replace />} />
               <Route path="my-open-house" element={<RoleGuard><MyOpenHouse /></RoleGuard>} />
@@ -136,12 +137,12 @@ const App = () => (
               <Route path="business-planning" element={<BusinessPlanning />} />
               <Route path="settings" element={<AccountSettings />} />
               <Route path="notifications" element={<Notifications />} />
-              <Route path="client-portals" element={<RoleGuard><AdminClientPortals /></RoleGuard>} />
-              <Route path="nominations" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><Nominations /></RoleGuard>} />
+              <Route path="client-portals" element={<RoleGuard><TierGuard feature="canAccessClientPortals" featureName="Client Portals" requiredTierLabel="Pro+ or Team"><AdminClientPortals /></TierGuard></RoleGuard>} />
+              <Route path="nominations" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><TierGuard feature="canAccessNominations" featureName="Nominations" requiredTierLabel="original organization"><Nominations /></TierGuard></RoleGuard>} />
               <Route path="upgrade" element={<Upgrade />} />
               <Route path="admin" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><TierGuard feature="canAccessCompanyDashboard"><AdminReports /></TierGuard></RoleGuard>} />
-              <Route path="admin/business-planning" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><CompanyBusinessPlanningPage /></RoleGuard>} />
-              <Route path="admin/client-portals" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><AdminClientPortals /></RoleGuard>} />
+              <Route path="admin/business-planning" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><TierGuard feature="canAccessCompanyBusinessPlanning" featureName="Company Business Planning" requiredTierLabel="Team"><CompanyBusinessPlanningPage /></TierGuard></RoleGuard>} />
+              <Route path="admin/client-portals" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><TierGuard feature="canAccessClientPortals" featureName="Client Portals" requiredTierLabel="Pro+ or Team"><AdminClientPortals /></TierGuard></RoleGuard>} />
               <Route path="admin/tickets" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><AdminTickets /></RoleGuard>} />
               <Route path="admin/coaching-notes" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><CoachingNotes /></RoleGuard>} />
               <Route path="admin/agent/:agentId" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><AgentProfile /></RoleGuard>} />
