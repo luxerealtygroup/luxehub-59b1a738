@@ -1,44 +1,41 @@
-# Fix: "Manage" button does nothing on Client Portals page
+# Fix: Coaching notes not appearing on the agent's Weekly Coaching page
 
-## Root cause (confirmed by reading `src/pages/AdminClientPortals.tsx`)
+## Root cause (verified)
 
-In the portals table, each row is wrapped like this:
+The `coaching_sessions` table currently has **two rows** for Lexi (`a836b0cc…`) with the same `week_of = 2026-07-20` (created at 3:22pm and 3:44pm on Jul 21). This is because there is no unique constraint on `(agent_id, week_of)`, so `generate-coaching-notes` fell through its `onConflict` upsert path and inserted a duplicate row instead of updating.
 
+On `/dashboard/411`, `FourOneOne.tsx` fetches the note with:
+
+```ts
+supabase
+  .from('coaching_sessions')
+  .select('generated_notes')
+  .eq('agent_id', queryUserId)
+  .eq('week_of', weekStart)
+  .maybeSingle();
 ```
-<AgentPortalDialog trigger={
-  <TableRow ...>
-    ...cells...
-    <TableCell>
-      <Button onClick={(e) => e.stopPropagation()}>Manage</Button>
-    </TableCell>
-  </TableRow>
-} />
-```
 
-Two problems combine to make the Manage button a silent no-op:
+`.maybeSingle()` errors when more than one row matches (PGRST116), so `data` is `null`, `coachingNote` stays `null`, and the "Coaching Notes — Week of …" card at line 1073 never renders. Nothing else on the page pulls the AI note, so the agent sees no coaching content.
 
-1. The dialog's open trigger is the whole `<TableRow>` (Radix `DialogTrigger asChild` forwards its click handler onto the `<tr>`).
-2. The Manage `<Button>` explicitly calls `e.stopPropagation()` in its `onClick`, so its click never bubbles up to the `<tr>` — and the button has no other handler that opens the dialog. Result: clicking Manage does absolutely nothing, no dialog, no network, no console error.
+Note: the "Accountability Notes" text fields (Wins This Week / Challenges / Next Steps / Additional Notes) are the agent's own free-form inputs bound to `weeklyData` — they were never designed to be filled by the AI-generated note. The AI note has its own dedicated card directly beneath them. The user's report of "empty placeholders" is really "the AI note card isn't showing up at all."
 
-Clicking elsewhere on the row *does* open the dialog today, but the user (correctly) expects the explicit Manage button to be the primary affordance, and it's broken.
-
-There is also a secondary structural smell: wrapping a `<TableRow>` as the `DialogTrigger asChild` child means the `<tr>` becomes the interactive element and receives ARIA props like `aria-haspopup`/`aria-expanded`, which is not ideal for a table row.
+RLS is fine: `Agents can view their own coaching sessions` (`auth.uid() = agent_id`) covers Lexi, and admins are covered by `is_admin_or_owner`. Week normalization is fine: both the admin generator and `FourOneOne` use `startOfWeek(..., { weekStartsOn: 1 })`, and the stored `week_of` values are Mondays.
 
 ## Fix
 
-Restructure the row so the **Manage button is the dialog trigger**, and the row itself is a plain row (still styled for hover, but no longer the click target). This makes the affordance match what the user clicks, and removes the stopPropagation trap.
+### 1. Deduplicate existing rows (migration)
+For every `(agent_id, week_of)` group with more than one row in `coaching_sessions`, keep the newest by `created_at` and delete the older duplicates. This resolves Lexi's immediate case and any other silently-duplicated pairs.
 
-Edit `src/pages/AdminClientPortals.tsx` only:
+### 2. Add a unique constraint (migration)
+Add `UNIQUE (agent_id, week_of)` on `public.coaching_sessions` so the existing `onConflict: "agent_id,week_of"` upsert in `supabase/functions/generate-coaching-notes/index.ts` actually merges instead of inserting duplicates. Future re-generations for the same week will overwrite the prior note as intended.
 
-- In the `filtered.map((r) => …)` render, replace the current `<AgentPortalDialog trigger={<TableRow …>…</TableRow>} />` structure with:
-  - A normal `<TableRow key={r.id} className={…}>` (no cursor-pointer, no dialog wrapping).
-  - Inside the last cell, render `<AgentPortalDialog … trigger={<Button size="sm" variant="outline" className="gap-2"><Settings/> Manage</Button>} />`.
-  - Remove `onClick={(e) => e.stopPropagation()}` from the Manage button — no longer needed.
-- Drop the `clickable` variable and the `cursor-pointer hover:bg-muted/40` classes that only made sense when the whole row was the trigger. Keep the health-tone background (`h.tone`) and `border-border/50` styling so the visual health cue is preserved.
-- Leave all data fetching, filters, health scoring, and `AgentPortalDialog` internals unchanged.
+### 3. Harden the fetch in `src/pages/FourOneOne.tsx`
+Replace the `.maybeSingle()` call in the coaching-note fetch effect (around line 340) with an `.order('created_at', { ascending: false }).limit(1)` query and read `data?.[0]?.generated_notes`. This makes the page resilient if any historical duplicates ever slip through again.
+
+No other files change. The admin `CoachingNotes.tsx` page keeps working as-is; the constraint just makes its "regenerate for same week" behavior update instead of duplicate.
 
 ## Verification
 
-- Click Manage on a portal row → `AgentPortalDialog` opens with the correct client prefilled (name, email, FUB id, client type).
-- Clicking anywhere else on the row no longer opens the dialog (intentional; the Manage button is now the single, obvious entry point).
-- No other pages or components change.
+- Query `coaching_sessions` for Lexi + `2026-07-20` and confirm exactly one row remains (the newer 3:44pm one, 8005 chars).
+- Load `/dashboard/411` while impersonating Lexi for the week of Jul 20, 2026 and confirm the "Coaching Notes — Week of Jul 20, 2026" card renders below the Accountability Notes with the generated content and a working Copy button.
+- Re-run "Generate Notes" from the admin page for the same agent/week and confirm the row is updated (same `id`), not duplicated.
