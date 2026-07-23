@@ -23,10 +23,11 @@ import {
   KeyRound,
   Mail,
   DoorOpen,
-  Users2
-  ,Bell
-  ,Heart
-  ,Headset
+  Users2,
+  FileBarChart,
+  Bell,
+  Heart,
+  Headset,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -123,6 +124,7 @@ const agentResourcesItems = [
   { title: 'Landlords', url: '/dashboard/resources/landlords', icon: KeyRound },
   { title: 'Newsletters', url: '/dashboard/resources/newsletters', icon: Mail },
   { title: 'Open House Tracker', url: '/dashboard/resources/open-house-tracker', icon: DoorOpen },
+  { title: 'CMA Boss', url: '/dashboard/cma-boss', icon: FileBarChart },
 ];
 
 // Planning-only users see only planningVisible sections, and within Performance only Goals, Weekly Coaching, Reports
