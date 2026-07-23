@@ -342,8 +342,9 @@ const FourOneOne = () => {
         .select('generated_notes')
         .eq('agent_id', queryUserId)
         .eq('week_of', weekStart)
-        .maybeSingle();
-      setCoachingNote(data?.generated_notes || null);
+        .order('created_at', { ascending: false })
+        .limit(1);
+      setCoachingNote(data?.[0]?.generated_notes || null);
     })();
   }, [user, queryUserId, currentWeek]);
 
