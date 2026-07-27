@@ -175,22 +175,35 @@ async function getTasks(token: string, projectId: string) {
   });
 }
 
-async function uploadAttachmentToTask(token: string, taskGid: string, fileUrl: string, fileName: string) {
+async function uploadAttachmentToTask(
+  token: string,
+  taskGid: string,
+  fileUrl: string,
+  fileName: string,
+  storagePath?: string,
+) {
   try {
     console.log(`[ATTACHMENT] Starting upload: ${fileName}`);
-    console.log(`[ATTACHMENT] URL: ${fileUrl.substring(0, 100)}...`);
-    
-    // Fetch the file from the signed URL
-    const fileResponse = await fetch(fileUrl);
-    console.log(`[ATTACHMENT] Fetch response status: ${fileResponse.status}`);
-    
-    if (!fileResponse.ok) {
-      const errorText = await fileResponse.text();
-      console.error(`[ATTACHMENT] Failed to fetch file: ${fileResponse.status} - ${errorText}`);
-      return null;
+
+    // Prefer server-side storage download (service role); fall back to signed URL.
+    let fileBlob: Blob | null = storagePath ? await downloadFromStorage(storagePath) : null;
+
+    if (!fileBlob && fileUrl) {
+      console.log(`[ATTACHMENT] Falling back to signed URL fetch`);
+      const fileResponse = await fetch(fileUrl);
+      console.log(`[ATTACHMENT] Fetch response status: ${fileResponse.status}`);
+      if (!fileResponse.ok) {
+        const errorText = await fileResponse.text();
+        console.error(`[ATTACHMENT] Failed to fetch file: ${fileResponse.status} - ${errorText}`);
+        return null;
+      }
+      fileBlob = await fileResponse.blob();
     }
 
-    const fileBlob = await fileResponse.blob();
+    if (!fileBlob) {
+      console.error(`[ATTACHMENT] Could not obtain file contents for ${fileName}`);
+      return null;
+    }
     console.log(`[ATTACHMENT] File blob size: ${fileBlob.size} bytes, type: ${fileBlob.type}`);
     
     if (fileBlob.size === 0) {
@@ -451,9 +464,17 @@ async function createTask(token: string, body: any) {
     
     for (const attachment of attachment_urls) {
       console.log(`[ATTACHMENTS] Processing: ${attachment.name} - URL exists: ${!!attachment.url}`);
-      const uploaded = await uploadAttachmentToTask(token, taskGid, attachment.url, attachment.name);
+      const uploaded = await uploadAttachmentToTask(
+        token,
+        taskGid,
+        attachment.url,
+        attachment.name,
+        attachment.path,
+      );
       if (uploaded) {
         uploadedAttachments.push(uploaded);
+      } else {
+        console.error(`[ATTACHMENTS] FAILED to attach ${attachment.name} (path: ${attachment.path || 'n/a'})`);
       }
     }
     
