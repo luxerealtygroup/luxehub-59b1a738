@@ -2519,6 +2519,11 @@ export type Database = {
       submissions: {
         Row: {
           agent_name: string | null
+          asana_attachments_sent: number | null
+          asana_attachments_uploaded: number | null
+          asana_pushed_at: string | null
+          asana_task_gid: string | null
+          asana_task_url: string | null
           attachments: Json | null
           bmo_flyers_needed: string | null
           bmo_rep_needed: string | null
@@ -2578,6 +2583,11 @@ export type Database = {
         }
         Insert: {
           agent_name?: string | null
+          asana_attachments_sent?: number | null
+          asana_attachments_uploaded?: number | null
+          asana_pushed_at?: string | null
+          asana_task_gid?: string | null
+          asana_task_url?: string | null
           attachments?: Json | null
           bmo_flyers_needed?: string | null
           bmo_rep_needed?: string | null
@@ -2637,6 +2647,11 @@ export type Database = {
         }
         Update: {
           agent_name?: string | null
+          asana_attachments_sent?: number | null
+          asana_attachments_uploaded?: number | null
+          asana_pushed_at?: string | null
+          asana_task_gid?: string | null
+          asana_task_url?: string | null
           attachments?: Json | null
           bmo_flyers_needed?: string | null
           bmo_rep_needed?: string | null
