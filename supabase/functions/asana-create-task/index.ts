@@ -1,9 +1,31 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const ATTACHMENT_BUCKET = 'client-documents';
+
+// Download a submission file directly from storage using the service role.
+// More reliable than a client-generated signed URL (no expiry / auth issues).
+async function downloadFromStorage(path: string): Promise<Blob | null> {
+  try {
+    const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+    const { data, error } = await admin.storage.from(ATTACHMENT_BUCKET).download(path);
+    if (error || !data) {
+      console.error(`[ATTACHMENT] Storage download failed for ${path}:`, error?.message);
+      return null;
+    }
+    return data;
+  } catch (e) {
+    console.error(`[ATTACHMENT] Storage download error for ${path}:`, e);
+    return null;
+  }
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -153,22 +175,35 @@ async function getTasks(token: string, projectId: string) {
   });
 }
 
-async function uploadAttachmentToTask(token: string, taskGid: string, fileUrl: string, fileName: string) {
+async function uploadAttachmentToTask(
+  token: string,
+  taskGid: string,
+  fileUrl: string,
+  fileName: string,
+  storagePath?: string,
+) {
   try {
     console.log(`[ATTACHMENT] Starting upload: ${fileName}`);
-    console.log(`[ATTACHMENT] URL: ${fileUrl.substring(0, 100)}...`);
-    
-    // Fetch the file from the signed URL
-    const fileResponse = await fetch(fileUrl);
-    console.log(`[ATTACHMENT] Fetch response status: ${fileResponse.status}`);
-    
-    if (!fileResponse.ok) {
-      const errorText = await fileResponse.text();
-      console.error(`[ATTACHMENT] Failed to fetch file: ${fileResponse.status} - ${errorText}`);
-      return null;
+
+    // Prefer server-side storage download (service role); fall back to signed URL.
+    let fileBlob: Blob | null = storagePath ? await downloadFromStorage(storagePath) : null;
+
+    if (!fileBlob && fileUrl) {
+      console.log(`[ATTACHMENT] Falling back to signed URL fetch`);
+      const fileResponse = await fetch(fileUrl);
+      console.log(`[ATTACHMENT] Fetch response status: ${fileResponse.status}`);
+      if (!fileResponse.ok) {
+        const errorText = await fileResponse.text();
+        console.error(`[ATTACHMENT] Failed to fetch file: ${fileResponse.status} - ${errorText}`);
+        return null;
+      }
+      fileBlob = await fileResponse.blob();
     }
 
-    const fileBlob = await fileResponse.blob();
+    if (!fileBlob) {
+      console.error(`[ATTACHMENT] Could not obtain file contents for ${fileName}`);
+      return null;
+    }
     console.log(`[ATTACHMENT] File blob size: ${fileBlob.size} bytes, type: ${fileBlob.type}`);
     
     if (fileBlob.size === 0) {
@@ -429,9 +464,17 @@ async function createTask(token: string, body: any) {
     
     for (const attachment of attachment_urls) {
       console.log(`[ATTACHMENTS] Processing: ${attachment.name} - URL exists: ${!!attachment.url}`);
-      const uploaded = await uploadAttachmentToTask(token, taskGid, attachment.url, attachment.name);
+      const uploaded = await uploadAttachmentToTask(
+        token,
+        taskGid,
+        attachment.url,
+        attachment.name,
+        attachment.path,
+      );
       if (uploaded) {
         uploadedAttachments.push(uploaded);
+      } else {
+        console.error(`[ATTACHMENTS] FAILED to attach ${attachment.name} (path: ${attachment.path || 'n/a'})`);
       }
     }
     
