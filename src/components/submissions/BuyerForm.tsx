@@ -43,6 +43,7 @@ type FormData = z.infer<typeof formSchema>;
 interface BuyerFormProps {
   agents: Array<{ id: string; full_name: string | null }>;
   onSuccess?: (data: { 
+    submission_id?: string;
     client_name: string; 
     property_address?: string; 
     purchase_price?: string; 
