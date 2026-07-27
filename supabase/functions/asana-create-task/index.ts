@@ -433,7 +433,7 @@ async function createTask(token: string, body: any) {
     taskData.data.due_on = closing_date;
   }
 
-  const createResponse = await fetch('https://app.asana.com/api/1.0/tasks', {
+  const createResponse = await fetch('https://app.asana.com/api/1.0/tasks?opt_fields=name,gid,permalink_url,custom_fields,due_on,notes', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`,
