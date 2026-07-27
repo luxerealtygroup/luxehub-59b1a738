@@ -245,6 +245,7 @@ async function uploadAttachmentToTask(
 async function createTask(token: string, body: any) {
   const { 
     form_type, 
+    submission_id,
     property_address, 
     client_name, 
     agent_name,
@@ -481,6 +482,26 @@ async function createTask(token: string, body: any) {
     console.log(`[ATTACHMENTS] Successfully uploaded ${uploadedAttachments.length} of ${attachment_urls.length} attachments`);
   } else {
     console.log(`[ATTACHMENTS] No attachments to upload. Conditions: urls=${!!attachment_urls}, isArray=${Array.isArray(attachment_urls)}, length=${attachment_urls?.length || 0}, taskGid=${!!taskGid}`);
+  }
+
+  // Record the sync outcome on the submission row so incomplete transfers can be flagged later.
+  if (submission_id) {
+    try {
+      const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+      const { error: trackError } = await admin
+        .from('submissions')
+        .update({
+          asana_task_gid: taskGid ?? null,
+          asana_task_url: result.data?.permalink_url ?? (taskGid ? `https://app.asana.com/0/0/${taskGid}` : null),
+          asana_pushed_at: new Date().toISOString(),
+          asana_attachments_sent: Array.isArray(attachment_urls) ? attachment_urls.length : 0,
+          asana_attachments_uploaded: uploadedAttachments.length,
+        })
+        .eq('id', submission_id);
+      if (trackError) console.error('[TRACKING] Failed to record Asana sync:', trackError.message);
+    } catch (e) {
+      console.error('[TRACKING] Error recording Asana sync:', e);
+    }
   }
 
   return new Response(JSON.stringify({ 

@@ -291,6 +291,7 @@ export function SubmissionsTab() {
     try {
       const requestBody = {
         form_type: formType,
+        submission_id: formData.submission_id,
         property_address: formData.property_address,
         client_name: formData.client_name,
         agent_name: formData.agent_name,
