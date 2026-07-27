@@ -1,9 +1,31 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const ATTACHMENT_BUCKET = 'client-documents';
+
+// Download a submission file directly from storage using the service role.
+// More reliable than a client-generated signed URL (no expiry / auth issues).
+async function downloadFromStorage(path: string): Promise<Blob | null> {
+  try {
+    const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+    const { data, error } = await admin.storage.from(ATTACHMENT_BUCKET).download(path);
+    if (error || !data) {
+      console.error(`[ATTACHMENT] Storage download failed for ${path}:`, error?.message);
+      return null;
+    }
+    return data;
+  } catch (e) {
+    console.error(`[ATTACHMENT] Storage download error for ${path}:`, e);
+    return null;
+  }
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
