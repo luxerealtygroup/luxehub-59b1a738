@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, ExternalLink, RefreshCw } from 'lucide-react';
+import { AlertTriangle, ExternalLink, RefreshCw, Upload } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface FlaggedSubmission {
   id: string;
@@ -12,14 +13,17 @@ interface FlaggedSubmission {
   property_address: string | null;
   created_at: string;
   asana_task_url: string | null;
+  asana_pushed_at: string | null;
   asana_attachments_sent: number | null;
   asana_attachments_uploaded: number | null;
   fileCount: number;
+  paths: string[];
 }
 
-const countFiles = (row: any) =>
-  ['attachments', 'bra_reco_files', 'ids_files', 'fintracker_files', 'other_docs_files']
-    .reduce((sum, key) => sum + (Array.isArray(row[key]) ? row[key].length : 0), 0);
+const FILE_KEYS = ['attachments', 'bra_reco_files', 'ids_files', 'fintracker_files', 'other_docs_files'];
+
+const collectPaths = (row: any): string[] =>
+  FILE_KEYS.flatMap((key) => (Array.isArray(row[key]) ? (row[key] as string[]) : []));
 
 /**
  * Flags submissions that have uploaded files but where the Asana push
@@ -28,6 +32,7 @@ const countFiles = (row: any) =>
 export function AsanaSyncAlert() {
   const [flagged, setFlagged] = useState<FlaggedSubmission[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pushingId, setPushingId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -41,17 +46,57 @@ export function AsanaSyncAlert() {
 
     if (!error && data) {
       const rows = (data as any[])
-        .map((row) => ({ ...row, fileCount: countFiles(row) }))
-        // Only rows that actually had files AND were pushed to Asana with a shortfall
-        .filter(
-          (row) =>
-            row.fileCount > 0 &&
-            row.asana_pushed_at &&
-            (row.asana_attachments_uploaded ?? 0) < row.fileCount
+        .map((row) => {
+          const paths = collectPaths(row);
+          return { ...row, paths, fileCount: paths.length };
+        })
+        // Flag anything that never reached Asana, or landed with fewer files than uploaded
+        .filter((row) =>
+          !row.asana_pushed_at
+            ? true
+            : row.fileCount > 0 && (row.asana_attachments_uploaded ?? 0) < row.fileCount
         );
       setFlagged(rows as FlaggedSubmission[]);
     }
     setLoading(false);
+  };
+
+  const pushToAsana = async (row: FlaggedSubmission) => {
+    setPushingId(row.id);
+    try {
+      const { data: settings } = await supabase.from('asana_settings').select('projects').limit(1).single();
+      const projectId = (settings?.projects as any)?.[row.form_type];
+
+      const { data, error } = await supabase.functions.invoke('asana-create-task', {
+        body: {
+          form_type: row.form_type,
+          submission_id: row.id,
+          client_name: row.client_name,
+          agent_name: row.agent_name,
+          property_address: row.property_address,
+          project_id: projectId || undefined,
+          attachment_urls: row.paths.map((p) => ({
+            url: '',
+            name: p.split('/').pop() || 'file',
+            path: p,
+          })),
+        },
+      });
+      if (error) throw error;
+
+      const uploaded = (data as any)?.attachments_uploaded ?? 0;
+      if (row.fileCount > 0 && uploaded < row.fileCount) {
+        toast.warning(`Task created, but only ${uploaded} of ${row.fileCount} files attached.`);
+      } else {
+        toast.success('Pushed to Asana.');
+      }
+      await load();
+    } catch (e: any) {
+      console.error('Re-push to Asana failed:', e);
+      toast.error('Failed to push to Asana');
+    } finally {
+      setPushingId(null);
+    }
   };
 
   useEffect(() => {
@@ -65,7 +110,7 @@ export function AsanaSyncAlert() {
       <AlertTriangle className="h-4 w-4" />
       <AlertTitle className="flex items-center justify-between gap-2">
         <span>
-          {flagged.length} submission{flagged.length > 1 ? 's' : ''} with incomplete Asana attachments
+          {flagged.length} submission{flagged.length > 1 ? 's' : ''} not fully synced to Asana
         </span>
         <Button variant="ghost" size="sm" onClick={load}>
           <RefreshCw className="h-3.5 w-3.5" />
@@ -73,7 +118,8 @@ export function AsanaSyncAlert() {
       </AlertTitle>
       <AlertDescription>
         <p className="mb-2 text-sm">
-          Files are safe in LUXEhub, but fewer files reached the Asana task than were uploaded.
+          Everything is safe in LUXEhub, but these either never created an Asana task or arrived with
+          missing files. Use Push to Asana to retry.
         </p>
         <ul className="space-y-1.5">
           {flagged.map((row) => (
@@ -84,8 +130,20 @@ export function AsanaSyncAlert() {
                 {row.agent_name ? ` — ${row.agent_name}` : ''}
               </span>
               <span className="opacity-80">
-                ({row.asana_attachments_uploaded ?? 0} of {row.fileCount} files attached)
+                {row.asana_pushed_at
+                  ? `(${row.asana_attachments_uploaded ?? 0} of ${row.fileCount} files attached)`
+                  : `(no Asana task${row.fileCount ? ` — ${row.fileCount} files` : ''})`}
               </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7"
+                disabled={pushingId === row.id}
+                onClick={() => pushToAsana(row)}
+              >
+                <Upload className="mr-1 h-3 w-3" />
+                {pushingId === row.id ? 'Pushing…' : 'Push to Asana'}
+              </Button>
               {row.asana_task_url && (
                 <a
                   href={row.asana_task_url}
