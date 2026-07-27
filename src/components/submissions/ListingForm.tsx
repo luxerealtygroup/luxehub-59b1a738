@@ -88,7 +88,7 @@ export function ListingForm({ agents, onSuccess }: ListingFormProps) {
 
       const selectedAgent = agents.find(a => a.id === data.agent_id);
       
-      const { error } = await supabase.from('submissions').insert({
+      const { data: insertedRow, error } = await supabase.from('submissions').insert({
         form_type: 'listing',
         user_id: user.id,
         agent_name: selectedAgent?.full_name || '',
@@ -114,7 +114,7 @@ export function ListingForm({ agents, onSuccess }: ListingFormProps) {
             : null,
         ].filter(Boolean).join('\n') || null,
         attachments: attachmentPaths,
-      });
+      }).select('id').single();
 
       if (error) throw error;
 
@@ -138,6 +138,7 @@ export function ListingForm({ agents, onSuccess }: ListingFormProps) {
       setSelectedFubClient(null);
       setAttachments([]);
       onSuccess?.({
+        submission_id: insertedRow?.id,
         submission_type: data.submission_type,
         property_address: data.property_address,
         seller_names: data.seller_names,
