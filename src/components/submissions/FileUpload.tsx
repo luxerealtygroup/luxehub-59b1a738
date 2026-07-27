@@ -170,8 +170,8 @@ export async function copyFilesToClientDocuments(
 export async function getFilePublicUrls(
   files: File[],
   filePaths: string[]
-): Promise<Array<{ url: string; name: string }>> {
-  const results: Array<{ url: string; name: string }> = [];
+): Promise<Array<{ url: string; name: string; path: string }>> {
+  const results: Array<{ url: string; name: string; path: string }> = [];
   
   for (let i = 0; i < filePaths.length; i++) {
     const path = filePaths[i];
@@ -180,14 +180,16 @@ export async function getFilePublicUrls(
       .from('client-documents')
       .createSignedUrl(path, 3600); // 1 hour expiry
     
-    if (data?.signedUrl) {
-      results.push({
-        url: data.signedUrl,
-        name: files[i]?.name || path.split('/').pop() || 'file',
-      });
-    } else {
+    if (!data?.signedUrl) {
       console.error('Failed to create signed URL for:', path, error);
     }
+    // Always include the storage path so the Asana function can download the
+    // file server-side (service role) even if the signed URL is missing/expired.
+    results.push({
+      url: data?.signedUrl || '',
+      name: files[i]?.name || path.split('/').pop() || 'file',
+      path,
+    });
   }
   
   return results;
