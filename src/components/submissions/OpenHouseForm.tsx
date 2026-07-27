@@ -37,6 +37,7 @@ type FormData = z.infer<typeof formSchema>;
 interface OpenHouseFormProps {
   agents: Array<{ id: string; full_name: string | null }>;
   onSuccess?: (data: { 
+    submission_id?: string;
     property_address: string; 
     agent_name: string; 
     open_house_date: string; 
@@ -94,7 +95,7 @@ export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
 
       const selectedAgent = agents.find(a => a.id === data.agent_id);
       
-      const { error } = await supabase.from('submissions').insert({
+      const { data: insertedRow, error } = await supabase.from('submissions').insert({
         form_type: 'open_house',
         user_id: user.id,
         agent_name: selectedAgent?.full_name || '',
@@ -112,7 +113,7 @@ export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
           : null,
         notes: data.notes || null,
         attachments: attachmentPaths,
-      });
+      }).select('id').single();
 
       if (error) throw error;
 
@@ -123,6 +124,7 @@ export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
       form.reset();
       setAttachments([]);
       onSuccess?.({
+        submission_id: insertedRow?.id,
         property_address: data.property_address,
         agent_name: selectedAgent?.full_name || '',
         open_house_date: data.open_house_date,

@@ -43,6 +43,7 @@ type FormData = z.infer<typeof formSchema>;
 interface BuyerFormProps {
   agents: Array<{ id: string; full_name: string | null }>;
   onSuccess?: (data: { 
+    submission_id?: string;
     client_name: string; 
     property_address?: string; 
     purchase_price?: string; 
@@ -127,7 +128,7 @@ export function BuyerForm({ agents, onSuccess }: BuyerFormProps) {
 
       const selectedAgent = agents.find(a => a.id === data.agent_id);
       
-      const { error } = await supabase.from('submissions').insert({
+      const { data: insertedRow, error } = await supabase.from('submissions').insert({
         form_type: 'buyer',
         user_id: user.id,
         agent_name: selectedAgent?.full_name || '',
@@ -152,7 +153,7 @@ export function BuyerForm({ agents, onSuccess }: BuyerFormProps) {
         ids_files: idsPaths,
         fintracker_files: fintrackerPaths,
         other_docs_files: otherDocsPaths,
-      });
+      }).select('id').single();
 
       if (error) throw error;
 
@@ -182,6 +183,7 @@ export function BuyerForm({ agents, onSuccess }: BuyerFormProps) {
       setFintrackerFiles([]);
       setOtherDocsFiles([]);
       onSuccess?.({
+        submission_id: insertedRow?.id,
         client_name: data.client_name,
         property_address: data.property_address,
         purchase_price: data.purchase_price,

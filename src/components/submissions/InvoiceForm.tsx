@@ -31,6 +31,7 @@ type FormData = z.infer<typeof formSchema>;
 interface InvoiceFormProps {
   agents: Array<{ id: string; full_name: string | null }>;
   onSuccess?: (data: { 
+    submission_id?: string;
     vendor_name: string; 
     vendor_type: string; 
     invoice_amount: string; 
@@ -76,7 +77,7 @@ export function InvoiceForm({ agents, onSuccess }: InvoiceFormProps) {
 
       const selectedAgent = agents.find(a => a.id === data.agent_id);
       
-      const { error } = await supabase.from('submissions').insert({
+      const { data: insertedRow, error } = await supabase.from('submissions').insert({
         form_type: 'invoice',
         user_id: user.id,
         agent_name: selectedAgent?.full_name || '',
@@ -87,7 +88,7 @@ export function InvoiceForm({ agents, onSuccess }: InvoiceFormProps) {
         property_address: data.property_address || null,
         notes: data.notes || null,
         attachments: attachmentPaths,
-      });
+      }).select('id').single();
 
       if (error) throw error;
 
@@ -98,6 +99,7 @@ export function InvoiceForm({ agents, onSuccess }: InvoiceFormProps) {
       form.reset();
       setAttachments([]);
       onSuccess?.({
+        submission_id: insertedRow?.id,
         vendor_name: data.vendor_name,
         vendor_type: data.vendor_type,
         invoice_amount: data.invoice_amount,

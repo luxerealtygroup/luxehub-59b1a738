@@ -9,6 +9,7 @@ import { InvoiceForm } from './InvoiceForm';
 import { ListingForm } from './ListingForm';
 import { BuyerForm } from './BuyerForm';
 import { AsanaFieldMapping } from './AsanaFieldMapping';
+import { AsanaSyncAlert } from './AsanaSyncAlert';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -291,6 +292,7 @@ export function SubmissionsTab() {
     try {
       const requestBody = {
         form_type: formType,
+        submission_id: formData.submission_id,
         property_address: formData.property_address,
         client_name: formData.client_name,
         agent_name: formData.agent_name,
@@ -351,6 +353,7 @@ export function SubmissionsTab() {
 
   return (
     <div className="space-y-6">
+      <AsanaSyncAlert />
       <div className="flex justify-end">
         <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
           <DialogTrigger asChild>
