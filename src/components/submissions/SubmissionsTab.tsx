@@ -310,12 +310,19 @@ export function SubmissionsTab() {
       
       console.log('Request body to Asana:', requestBody);
 
-      const { error } = await supabase.functions.invoke('asana-create-task', {
+      const { data, error } = await supabase.functions.invoke('asana-create-task', {
         body: requestBody,
       });
 
       if (error) throw error;
-      toast.success('Asana task created!');
+
+      const sent = formData.attachment_urls?.length || 0;
+      const uploaded = (data as any)?.attachments_uploaded ?? 0;
+      if (sent > 0 && uploaded < sent) {
+        toast.warning(`Asana task created, but only ${uploaded} of ${sent} attachments transferred.`);
+      } else {
+        toast.success('Asana task created!');
+      }
     } catch (error) {
       console.error('Failed to create Asana task:', error);
       toast.error('Failed to create Asana task');
