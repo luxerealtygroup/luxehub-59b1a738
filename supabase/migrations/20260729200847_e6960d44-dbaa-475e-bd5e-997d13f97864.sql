@@ -1,0 +1,2 @@
+UPDATE public.profiles SET fub_user_id = 14 WHERE id = '4ab11461-fd13-405d-9521-82665c094f86';
+CREATE UNIQUE INDEX IF NOT EXISTS profiles_fub_user_id_unique ON public.profiles (fub_account, fub_user_id) WHERE fub_user_id IS NOT NULL;
