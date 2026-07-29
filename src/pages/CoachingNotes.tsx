@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { format, startOfWeek } from "date-fns";
-import { CalendarIcon, Copy, Loader2, Save, Sparkles } from "lucide-react";
+import { CalendarIcon, Copy, Loader2, Save, Sparkles, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +46,8 @@ export default function CoachingNotes() {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [pastSessions, setPastSessions] = useState<PastSession[]>([]);
+  const [deleteTarget, setDeleteTarget] = useState<PastSession | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -135,6 +147,25 @@ export default function CoachingNotes() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    const { error } = await supabase.from("coaching_sessions").delete().eq("id", deleteTarget.id);
+    setDeleting(false);
+    if (error) {
+      toast.error("Failed to delete note");
+      return;
+    }
+    if (sessionId === deleteTarget.id) {
+      setSessionId(null);
+      setGenerated("");
+      setDirty(false);
+    }
+    setDeleteTarget(null);
+    toast.success("Coaching note deleted");
+    loadPastSessions(agentId);
+  };
+
   const loadSession = (s: PastSession) => {
     setSessionId(s.id);
     setGenerated(s.generated_notes ?? "");
@@ -229,6 +260,18 @@ export default function CoachingNotes() {
                 <Button size="sm" variant="outline" onClick={handleCopy}>
                   <Copy className="mr-2 h-4 w-4" /> Copy
                 </Button>
+                {sessionId && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => setDeleteTarget(pastSessions.find((s) => s.id === sessionId) ?? {
+                      id: sessionId, week_of: weekOfISO, generated_notes: generated, transcript_text: transcript, created_at: "",
+                    })}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                  </Button>
+                )}
                 <Button size="sm" onClick={handleSave} disabled={saving || !sessionId || !dirty}>
                   {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                   Save
@@ -260,26 +303,58 @@ export default function CoachingNotes() {
           </CardHeader>
           <CardContent className="space-y-2">
             {pastSessions.map((s) => (
-              <button
+              <div
                 key={s.id}
-                onClick={() => loadSession(s)}
                 className={cn(
-                  "w-full text-left rounded-lg border p-3 hover:bg-muted/50 transition",
+                  "flex items-start gap-2 rounded-lg border p-3 transition hover:bg-muted/50",
                   sessionId === s.id && "border-primary bg-muted/40"
                 )}
               >
-                <div className="flex items-center justify-between">
-                  <div className="font-medium">Week of {format(new Date(s.week_of + "T12:00:00"), "PP")}</div>
-                  <div className="text-xs text-muted-foreground">{format(new Date(s.created_at), "PP p")}</div>
-                </div>
-                <div className="text-xs text-muted-foreground line-clamp-2 mt-1">
-                  {(s.generated_notes ?? "").slice(0, 200) || "No generated note yet"}
-                </div>
-              </button>
+                <button onClick={() => loadSession(s)} className="flex-1 text-left">
+                  <div className="flex items-center justify-between">
+                    <div className="font-medium">Week of {format(new Date(s.week_of + "T12:00:00"), "PP")}</div>
+                    <div className="text-xs text-muted-foreground">{format(new Date(s.created_at), "PP p")}</div>
+                  </div>
+                  <div className="text-xs text-muted-foreground line-clamp-2 mt-1">
+                    {(s.generated_notes ?? "").slice(0, 200) || "No generated note yet"}
+                  </div>
+                </button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="text-muted-foreground hover:text-destructive shrink-0"
+                  onClick={() => setDeleteTarget(s)}
+                  aria-label="Delete coaching note"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
             ))}
           </CardContent>
         </Card>
       )}
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this coaching note?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget && `The note and transcript for the week of ${format(new Date(deleteTarget.week_of + "T12:00:00"), "PP")} will be permanently removed. This can't be undone.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleDelete(); }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
