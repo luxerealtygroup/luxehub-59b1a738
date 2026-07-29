@@ -92,6 +92,22 @@ Deno.serve(async (req) => {
     let fubDealsForAgent: any[] = [];
     let fubFetchError: string | null = null;
     try {
+      // Guard: if another profile shares this FUB user id, the deal filter would
+      // attribute someone else's book of business to this agent. Skip FUB deals.
+      let sharedMapping = false;
+      if (profile.fub_user_id) {
+        const { data: dupes } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .eq("fub_user_id", profile.fub_user_id)
+          .eq("fub_account", profile.fub_account ?? "primary");
+        if ((dupes ?? []).length > 1) {
+          sharedMapping = true;
+          fubFetchError = `Follow Up Boss user id ${profile.fub_user_id} is mapped to more than one profile (${(dupes ?? []).map((d: any) => d.full_name).join(", ")}). Deal data was excluded to avoid attributing another agent's deals.`;
+          console.error(fubFetchError);
+        }
+      }
+      if (sharedMapping) throw new Error("SKIP_FUB");
       const fubRes = await supabase.functions.invoke("follow-up-boss", {
         body: { action: "get_deals", params: { all: true, limit: 100 } },
         headers: { "x-view-as-user-id": agent_id },
@@ -104,8 +120,12 @@ Deno.serve(async (req) => {
         fubFetchError = "Agent has no fub_user_id set on profile.";
       }
     } catch (e) {
-      fubFetchError = e instanceof Error ? e.message : String(e);
-      console.error("FUB fetch failed:", fubFetchError);
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg !== "SKIP_FUB") {
+        fubFetchError = msg;
+        console.error("FUB fetch failed:", fubFetchError);
+      }
+      fubDealsForAgent = [];
     }
 
     const closedDeals = fubDealsForAgent.filter((d) => classifyFubStage(d.stageName) === "closed");
