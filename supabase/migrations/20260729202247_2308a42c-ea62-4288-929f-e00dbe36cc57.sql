@@ -1,0 +1,1 @@
+CREATE POLICY "Admins can delete coaching sessions" ON public.coaching_sessions FOR DELETE TO authenticated USING (public.is_admin_or_owner(auth.uid()));
