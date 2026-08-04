@@ -21,7 +21,13 @@ export const isConditionalStage = (stageName: string): boolean => {
   return s.includes('conditional') || s.includes('offer');
 };
 
-const getDealGci = (deal: any): number => Number(deal.commissionValue ?? deal.agentCommission ?? 0) || 0;
+// Agent-facing GCI must respect the agent's split. FUB's `commissionValue` is the
+// gross/total commission on the deal; `agentCommission` is the agent's share.
+const getDealGci = (deal: any): number => {
+  const agent = Number(deal.agentCommission ?? 0) || 0;
+  if (agent > 0) return agent;
+  return Number(deal.commissionValue ?? 0) || 0;
+};
 
 // ── Deal-side inference ──────────────────────────────────────────────────
 /** Infer whether a deal is listing/seller-side or buyer-side.
