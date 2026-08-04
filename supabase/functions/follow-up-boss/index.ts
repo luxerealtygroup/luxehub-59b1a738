@@ -11,6 +11,30 @@ const FUB_API_KEY_SECONDARY = Deno.env.get('FOLLOW_UP_BOSS_API_KEY_2');
 const FUB_BASE_URL = 'https://api.followupboss.com/v1';
 
 async function resolveApiKey(req: Request): Promise<string | null> {
+  return await _resolveApiKey(req);
+}
+
+// Retry transient network failures (connection reset, timeouts) against FUB.
+async function fubFetch(url: string, init: RequestInit, attempts = 4): Promise<Response> {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await fetch(url, init);
+      if (res.status >= 500 && i < attempts - 1) {
+        await new Promise((r) => setTimeout(r, 300 * 2 ** i));
+        continue;
+      }
+      return res;
+    } catch (e) {
+      lastErr = e;
+      console.warn(`FUB fetch attempt ${i + 1} failed:`, (e as Error).message);
+      if (i < attempts - 1) await new Promise((r) => setTimeout(r, 300 * 2 ** i));
+    }
+  }
+  throw lastErr;
+}
+
+async function _resolveApiKey(req: Request): Promise<string | null> {
   try {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) return FUB_API_KEY_PRIMARY ?? null;
@@ -142,7 +166,7 @@ serve(async (req) => {
           if (params?.stage) dp.append('stage', params.stage);
           const url = `${FUB_BASE_URL}/deals?${dp.toString()}`;
           console.log('Calling FUB endpoint:', url, `(page offset=${offset})`);
-          const r = await fetch(url, {
+          const r = await fubFetch(url, {
             method: 'GET',
             headers: {
               'Authorization': authHeader,
@@ -304,7 +328,7 @@ serve(async (req) => {
 
     console.log('Calling FUB endpoint:', FUB_BASE_URL + endpoint);
 
-    const response = await fetch(FUB_BASE_URL + endpoint, {
+    const response = await fubFetch(FUB_BASE_URL + endpoint, {
       method,
       headers: {
         'Authorization': authHeader,
