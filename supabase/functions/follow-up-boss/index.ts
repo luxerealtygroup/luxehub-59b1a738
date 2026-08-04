@@ -166,7 +166,7 @@ serve(async (req) => {
           if (params?.stage) dp.append('stage', params.stage);
           const url = `${FUB_BASE_URL}/deals?${dp.toString()}`;
           console.log('Calling FUB endpoint:', url, `(page offset=${offset})`);
-          const r = await fetch(url, {
+          const r = await fubFetch(url, {
             method: 'GET',
             headers: {
               'Authorization': authHeader,
@@ -328,7 +328,7 @@ serve(async (req) => {
 
     console.log('Calling FUB endpoint:', FUB_BASE_URL + endpoint);
 
-    const response = await fetch(FUB_BASE_URL + endpoint, {
+    const response = await fubFetch(FUB_BASE_URL + endpoint, {
       method,
       headers: {
         'Authorization': authHeader,
