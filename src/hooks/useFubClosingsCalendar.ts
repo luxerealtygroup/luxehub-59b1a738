@@ -30,7 +30,12 @@ function resolveCloseDate(deal: any): { date: string | null; source: ClosingDate
   return { date: null, source: null };
 }
 
-const getGci = (d: any): number => Number(d.commissionValue ?? d.agentCommission ?? 0) || 0;
+// Prefer the agent's split (`agentCommission`) over the deal's gross commission.
+const getGci = (d: any): number => {
+  const agent = Number(d.agentCommission ?? 0) || 0;
+  if (agent > 0) return agent;
+  return Number(d.commissionValue ?? 0) || 0;
+};
 
 function getAddress(d: any): string {
   // Prefer FUB custom address fields when present, otherwise fall back to deal name.
