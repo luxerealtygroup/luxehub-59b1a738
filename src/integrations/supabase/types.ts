@@ -3085,6 +3085,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_table_grants: {
+        Args: { _tables: string[] }
+        Returns: {
+          can_delete: boolean
+          can_insert: boolean
+          can_select: boolean
+          can_update: boolean
+          rls_enabled: boolean
+          table_exists: boolean
+          table_name: string
+        }[]
+      }
       current_user_org_id: { Args: never; Returns: string }
       delete_email: {
         Args: { message_id: number; queue_name: string }
