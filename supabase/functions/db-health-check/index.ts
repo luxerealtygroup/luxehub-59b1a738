@@ -52,6 +52,16 @@ Deno.serve(async (req) => {
   )
 
   const failures: string[] = []
+  const isTest = new URL(req.url).searchParams.get('test') === '1'
+
+  if (isTest) {
+    const slack = await postToSlack(
+      ':white_check_mark: *LUXEhub health monitor test* — alerts will post here if the database ever breaks.',
+    )
+    return new Response(JSON.stringify({ test: true, slack }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
 
   try {
     // 1. Grant check — does the `authenticated` role still have CRUD on each table?
