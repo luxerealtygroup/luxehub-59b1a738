@@ -19,26 +19,61 @@ const CRITICAL_TABLES = [
 
 const SLACK_CHANNEL = Deno.env.get('SLACK_ALERT_CHANNEL') ?? '#general'
 
+async function slackPost(token: string, method: string, body: Record<string, unknown>) {
+  const resp = await fetch(`https://slack.com/api/${method}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json; charset=utf-8' },
+    body: JSON.stringify(body),
+  })
+  return await resp.json()
+}
+
+async function findChannelId(token: string, name: string): Promise<string | null> {
+  const target = name.replace(/^#/, '')
+  let cursor = ''
+  do {
+    const url = new URL('https://slack.com/api/conversations.list')
+    url.searchParams.set('limit', '200')
+    url.searchParams.set('exclude_archived', 'true')
+    url.searchParams.set('types', 'public_channel')
+    if (cursor) url.searchParams.set('cursor', cursor)
+    const data = await (await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } })).json()
+    if (!data.ok) return null
+    const hit = (data.channels ?? []).find((c: { name: string }) => c.name === target)
+    if (hit) return hit.id
+    cursor = data.response_metadata?.next_cursor || ''
+  } while (cursor)
+  return null
+}
+
 async function postToSlack(text: string) {
   const token = Deno.env.get('SLACK_BOT_TOKEN')
   if (!token) return { ok: false, error: 'SLACK_BOT_TOKEN not configured' }
-  const resp = await fetch('https://slack.com/api/chat.postMessage', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json; charset=utf-8',
-    },
-    body: JSON.stringify({
-      channel: SLACK_CHANNEL,
-      username: 'LUXEhub Health',
-      icon_emoji: ':rotating_light:',
-      text,
-    }),
-  })
-  const data = await resp.json()
-  if (!resp.ok || !data.ok) {
-    console.error('slack chat.postMessage failed', resp.status, data)
-    return { ok: false, error: data.error ?? `HTTP ${resp.status}` }
+
+  const payload = {
+    channel: SLACK_CHANNEL,
+    username: 'LUXEhub Health',
+    icon_emoji: ':rotating_light:',
+    text,
+  }
+
+  let data = await slackPost(token, 'chat.postMessage', payload)
+
+  // The bot may not be a member of the target channel yet — join and retry once.
+  if (!data.ok && (data.error === 'not_in_channel' || data.error === 'channel_not_found')) {
+    const channelId = SLACK_CHANNEL.startsWith('C')
+      ? SLACK_CHANNEL
+      : await findChannelId(token, SLACK_CHANNEL)
+    if (channelId) {
+      const joined = await slackPost(token, 'conversations.join', { channel: channelId })
+      if (!joined.ok) console.error('conversations.join failed', joined)
+      data = await slackPost(token, 'chat.postMessage', { ...payload, channel: channelId })
+    }
+  }
+
+  if (!data.ok) {
+    console.error('slack chat.postMessage failed', data)
+    return { ok: false, error: data.error ?? 'unknown slack error' }
   }
   return { ok: true }
 }
@@ -52,6 +87,16 @@ Deno.serve(async (req) => {
   )
 
   const failures: string[] = []
+  const isTest = new URL(req.url).searchParams.get('test') === '1'
+
+  if (isTest) {
+    const slack = await postToSlack(
+      ':white_check_mark: *LUXEhub health monitor test* — alerts will post here if the database ever breaks.',
+    )
+    return new Response(JSON.stringify({ test: true, slack }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
 
   try {
     // 1. Grant check — does the `authenticated` role still have CRUD on each table?
