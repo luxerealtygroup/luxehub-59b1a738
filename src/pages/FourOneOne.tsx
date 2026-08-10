@@ -375,6 +375,7 @@ const FourOneOne = () => {
         appointments_held: appointmentRecords.length,
       };
       let savedRow: any = null;
+      let saveError: string | null = null;
       if (weeklyData.id) {
         const { data, error } = await supabase
           .from('weekly_411')
@@ -383,6 +384,7 @@ const FourOneOne = () => {
           .select()
           .maybeSingle();
         if (!error) savedRow = data;
+        else saveError = error.message;
       } else {
         const { data, error } = await supabase
           .from('weekly_411')
@@ -393,10 +395,14 @@ const FourOneOne = () => {
           savedRow = data;
           setWeeklyData(prev => ({ ...prev, id: data.id }));
         }
+        if (error) saveError = error.message;
       }
       if (savedRow) {
         lastSavedSnapshotRef.current = JSON.stringify({ ...savedRow });
         setLastAutoSavedAt(new Date());
+      } else if (saveError) {
+        console.error('weekly_411 autosave failed:', saveError);
+        toast({ title: "Couldn't save", description: saveError, variant: 'destructive' });
       }
       setAutoSaving(false);
     }, 1200);
