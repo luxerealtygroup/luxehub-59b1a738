@@ -61,9 +61,12 @@ async function postToSlack(text: string) {
 
   // The bot may not be a member of the target channel yet — join and retry once.
   if (!data.ok && (data.error === 'not_in_channel' || data.error === 'channel_not_found')) {
-    const channelId = await findChannelId(token, SLACK_CHANNEL)
+    const channelId = SLACK_CHANNEL.startsWith('C')
+      ? SLACK_CHANNEL
+      : await findChannelId(token, SLACK_CHANNEL)
     if (channelId) {
-      await slackPost(token, 'conversations.join', { channel: channelId })
+      const joined = await slackPost(token, 'conversations.join', { channel: channelId })
+      if (!joined.ok) console.error('conversations.join failed', joined)
       data = await slackPost(token, 'chat.postMessage', { ...payload, channel: channelId })
     }
   }
