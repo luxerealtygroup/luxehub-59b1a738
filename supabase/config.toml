@@ -63,3 +63,6 @@ verify_jwt = false
 
 [functions.create-checkout]
 verify_jwt = false
+
+[functions.db-health-check]
+verify_jwt = true
