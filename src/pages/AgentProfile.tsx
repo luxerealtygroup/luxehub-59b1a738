@@ -15,6 +15,7 @@ import {
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, Legend } from 'recharts';
 import { format } from 'date-fns';
 import { formatCurrency, formatNumber } from '@/lib/utils';
+import { LaunchpadAssignmentCard } from '@/components/launchpad/LaunchpadAssignmentCard';
 
 interface AgentProfileData {
   id: string;
@@ -251,6 +252,8 @@ const AgentProfile = () => {
           <p className="text-muted-foreground">Agent Profile</p>
         </div>
       </div>
+
+      {agentId ? <LaunchpadAssignmentCard agentId={agentId} /> : null}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

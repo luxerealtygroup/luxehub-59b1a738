@@ -13,6 +13,7 @@ import {
   Phone,
   ExternalLink,
   Compass,
+  Rocket,
   Settings,
   ChevronDown,
   BookOpen,
@@ -112,6 +113,7 @@ const allSections: MenuSection[] = [
     label: 'Resources',
     items: [
       { title: 'Library', url: '/dashboard/library', icon: Library },
+      { title: 'Launchpad', url: '/dashboard/launchpad', icon: Rocket },
     ],
   },
 ];
