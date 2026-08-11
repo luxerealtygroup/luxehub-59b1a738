@@ -528,6 +528,8 @@ serve(async (req) => {
 
     // If agent already reviewed comps, skip extraction and go straight to analysis
     if (reviewedComps && Array.isArray(reviewedComps) && reviewedComps.length > 0) {
+      const compStats = computeCompDerivedStats(reviewedComps);
+      const webContext = await fetchWebMarketContext(subjectProperty);
       const analysisPrompt = `Analyze this CMA data using the agent-reviewed comparable properties:
 
 SUBJECT PROPERTY:
@@ -536,8 +538,7 @@ ${JSON.stringify(subjectProperty, null, 2)}
 CLIENT PURCHASE HISTORY:
 ${JSON.stringify(purchaseHistory, null, 2)}
 
-MARKET STATS:
-${JSON.stringify(marketStats, null, 2)}
+${buildMarketStatsBlock(compStats, marketStats, webContext)}
 
 COMPARABLE PROPERTIES (agent-reviewed):
 ${JSON.stringify(reviewedComps, null, 2)}
@@ -550,6 +551,8 @@ Provide your complete analysis as a JSON object.`;
         success: true,
         analysis: {
           ...analysis,
+          market_stats_derived: compStats,
+          web_market_context: webContext,
           extracted_comps: reviewedComps,
           extraction_summary: {
             total_comps_found: reviewedComps.length,
@@ -570,6 +573,8 @@ Provide your complete analysis as a JSON object.`;
 
     // === NO PDF TEXT ===
     if (!pdfText) {
+      const compStats = computeCompDerivedStats([]);
+      const webContext = await fetchWebMarketContext(subjectProperty);
       const analysisPrompt = `Analyze this CMA data (no PDF comps available):
 
 SUBJECT PROPERTY:
@@ -578,8 +583,7 @@ ${JSON.stringify(subjectProperty, null, 2)}
 CLIENT PURCHASE HISTORY:
 ${JSON.stringify(purchaseHistory, null, 2)}
 
-MARKET STATS:
-${JSON.stringify(marketStats, null, 2)}
+${buildMarketStatsBlock(compStats, marketStats, webContext)}
 
 There are no comparable properties extracted from a PDF. Provide analysis based on market stats only.`;
 
@@ -589,6 +593,8 @@ There are no comparable properties extracted from a PDF. Provide analysis based 
         success: true,
         analysis: {
           ...analysis,
+          market_stats_derived: compStats,
+          web_market_context: webContext,
           extracted_comps: [],
           extraction_summary: {
             total_comps_found: 0, sold_count: 0, pending_count: 0, active_count: 0, expired_count: 0,
