@@ -775,6 +775,8 @@ Extract any properties you find, even with minimal data.`;
     }
 
     // Now run the analysis pass with the extracted comps
+    const compStats = computeCompDerivedStats(allComps);
+    const webContext = await fetchWebMarketContext(subjectProperty);
     const analysisPrompt = `Analyze this CMA data with ${allComps.length} comparable properties:
 
 SUBJECT PROPERTY:
@@ -783,8 +785,7 @@ ${JSON.stringify(subjectProperty, null, 2)}
 CLIENT PURCHASE HISTORY:
 ${JSON.stringify(purchaseHistory, null, 2)}
 
-MARKET STATS:
-${JSON.stringify(marketStats, null, 2)}
+${buildMarketStatsBlock(compStats, marketStats, webContext)}
 
 COMPARABLE PROPERTIES:
 ${JSON.stringify(allComps, null, 2)}
@@ -816,6 +817,8 @@ Provide your complete analysis. Grade quality, generate pricing bands, flag risk
       success: true,
       analysis: {
         ...analysis,
+        market_stats_derived: compStats,
+        web_market_context: webContext,
         extracted_comps: allComps,
         extraction_summary: extractionSummary,
       },
