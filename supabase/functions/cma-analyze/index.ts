@@ -487,6 +487,187 @@ function hasManualStats(marketStats: any): boolean {
   ].some((k) => marketStats[k] != null && String(marketStats[k]).trim() !== '');
 }
 
+// ---------- Market condition classification (data-grounded, never boilerplate) ----------
+function classifyMarket(compStats: any) {
+  const spLp = compStats?.avg_sale_to_list_ratio_pct ?? null;
+  const dom = compStats?.median_days_on_market ?? compStats?.avg_days_on_market ?? null;
+  const soldSample = compStats?.sale_to_list_sample_size ?? 0;
+
+  if (soldSample < 3 || spLp == null || dom == null) {
+    return {
+      classification: 'insufficient_data',
+      label: 'Insufficient data to characterise market conditions',
+      permitted_tone: 'Describe the market as indeterminate for this comp set. Do NOT call it strong, hot, robust, or seller-favourable.',
+      basis: { avg_sale_to_list_ratio_pct: spLp, median_days_on_market: dom, sold_sample_size: soldSample },
+    };
+  }
+  let classification: string;
+  let label: string;
+  if (spLp >= 100 && dom <= 15) {
+    classification = 'seller_favourable';
+    label = "Seller-favourable";
+  } else if (spLp < 97 || dom > 30) {
+    classification = 'buyer_favourable';
+    label = "Buyer-favourable / cooling";
+  } else {
+    classification = 'balanced';
+    label = 'Balanced';
+  }
+  return {
+    classification,
+    label,
+    permitted_tone:
+      classification === 'seller_favourable'
+        ? 'Seller-favourable language is supported by the data. Still cite the actual SP/LP and DOM figures.'
+        : classification === 'balanced'
+          ? 'Describe the market as balanced. Do NOT use "strong", "hot", or "robust".'
+          : 'Describe the market as softening/buyer-favourable. Do NOT use optimistic language.',
+    basis: { avg_sale_to_list_ratio_pct: spLp, median_days_on_market: dom, sold_sample_size: soldSample },
+  };
+}
+
+// ---------- Basement-finish segmentation ($/sqft above grade) ----------
+function subjectBasementFinish(subjectProperty: any): 'finished' | 'unfinished' | null {
+  const bg = Number(subjectProperty?.finishedBasementSqFt);
+  if (Number.isFinite(bg)) return bg > 0 ? 'finished' : 'unfinished';
+  return null;
+}
+
+function compBasementFinish(comp: any): 'finished' | 'unfinished' | null {
+  if (comp?.basement_finish === 'finished' || comp?.basement_finish === 'unfinished') return comp.basement_finish;
+  const bg = Number(comp?.bg_sqft);
+  if (Number.isFinite(bg)) return bg > 0 ? 'finished' : 'unfinished';
+  const notes = String(comp?.notes || '').toLowerCase();
+  if (/\bunfinished basement|unspoiled basement|no basement\b/.test(notes)) return 'unfinished';
+  if (/finished basement|fully finished|walkout basement|in-?law suite|rec room/.test(notes)) return 'finished';
+  return null;
+}
+
+function computeBasementSegmentation(comps: any[], subjectProperty: any) {
+  const subject = subjectBasementFinish(subjectProperty);
+  const sold = (Array.isArray(comps) ? comps : []).filter(
+    (c) => String(c?.comp_category || '').toLowerCase() === 'sold',
+  );
+
+  const ppsf = (c: any): number | null => {
+    const price = Number(c?.sold_price);
+    const ag = Number(c?.ag_sqft);
+    const area = Number.isFinite(ag) && ag > 0 ? ag : null;
+    if (!Number.isFinite(price) || price <= 0 || !area) return null;
+    return Math.round((price / area) * 100) / 100;
+  };
+
+  const match: number[] = [];
+  const mismatch: number[] = [];
+  const unknown: number[] = [];
+  for (const c of sold) {
+    const v = ppsf(c);
+    if (v == null) continue;
+    const f = compBasementFinish(c);
+    if (!subject || !f) unknown.push(v);
+    else if (f === subject) match.push(v);
+    else mismatch.push(v);
+  }
+
+  const subjectAg = Number(subjectProperty?.aboveGradeSqFt);
+  const usableAg = Number.isFinite(subjectAg) && subjectAg > 0 ? subjectAg : null;
+  const matchAvg = mean(match);
+  const mismatchAvg = mean(mismatch);
+
+  return {
+    subject_basement_finish: subject,
+    subject_above_grade_sqft: usableAg,
+    matching_comps: { count: match.length, avg_price_per_ag_sqft: matchAvg, median_price_per_ag_sqft: median(match) },
+    non_matching_comps: { count: mismatch.length, avg_price_per_ag_sqft: mismatchAvg, median_price_per_ag_sqft: median(mismatch) },
+    unclassified_comps: { count: unknown.length, avg_price_per_ag_sqft: mean(unknown) },
+    implied_value_from_matching_comps:
+      usableAg && matchAvg ? Math.round((usableAg * matchAvg) / 1000) * 1000 : null,
+    implied_value_from_non_matching_comps:
+      usableAg && mismatchAvg ? Math.round((usableAg * mismatchAvg) / 1000) * 1000 : null,
+    adjustment_applicable: match.length > 0 && mismatch.length > 0,
+  };
+}
+
+// ---------- Post-analysis guardrails ----------
+function stripBannedBranding<T>(value: T): T {
+  const clean = (s: string) =>
+    s
+      .replace(/\bCMA\s*Boss\b/gi, 'Luxe Realty Group')
+      .replace(/\bRealty\s*Hub\b/gi, 'Luxe Realty Group')
+      .replace(/\bCloud\s*CMA\b/gi, 'the MLS comparable data');
+  const walk = (v: any): any => {
+    if (typeof v === 'string') return clean(v);
+    if (Array.isArray(v)) return v.map(walk);
+    if (v && typeof v === 'object') {
+      const out: any = {};
+      for (const [k, val] of Object.entries(v)) out[k] = walk(val);
+      return out;
+    }
+    return v;
+  };
+  return walk(value);
+}
+
+// Force every dollar figure in prose that is "about" the recommended price to be
+// the single canonical recommended value, so the report can never disagree with itself.
+function normalizeRecommendedPrice<T>(value: T, recommended: number | null): T {
+  if (!recommended || !Number.isFinite(recommended)) return value;
+  const canonical = `$${Math.round(recommended).toLocaleString('en-US')}`;
+  const fix = (s: string) =>
+    s.replace(/\$\s?([\d,]{4,})(?:\.\d{2})?/g, (full, digits: string) => {
+      const n = Number(String(digits).replace(/,/g, ''));
+      if (!Number.isFinite(n) || n <= 0) return full;
+      const drift = Math.abs(n - recommended) / recommended;
+      return drift > 0 && drift <= 0.05 ? canonical : full;
+    });
+  const walk = (v: any): any => {
+    if (typeof v === 'string') return fix(v);
+    if (Array.isArray(v)) return v.map(walk);
+    if (v && typeof v === 'object') {
+      const out: any = {};
+      for (const [k, val] of Object.entries(v)) out[k] = walk(val);
+      return out;
+    }
+    return v;
+  };
+  return walk(value);
+}
+
+// Remove "pending" commentary when the comp set contains no pending comps.
+function stripUnsupportedPendingClaims<T>(value: T, pendingCount: number): T {
+  if (pendingCount > 0) return value;
+  const hasPending = (s: string) => /\bpending\b/i.test(s);
+  const scrubSentences = (s: string) =>
+    s
+      .split(/(?<=[.!?])\s+/)
+      .filter((sentence) => !hasPending(sentence))
+      .join(' ')
+      .trim();
+  const walk = (v: any): any => {
+    if (typeof v === 'string') return scrubSentences(v);
+    if (Array.isArray(v)) return v.map(walk).filter((x: any) => !(typeof x === 'string' && x.trim() === ''));
+    if (v && typeof v === 'object') {
+      const out: any = {};
+      for (const [k, val] of Object.entries(v)) out[k] = walk(val);
+      return out;
+    }
+    return v;
+  };
+  return walk(value);
+}
+
+function finalizeAnalysis(analysis: any, compStats: any, extras: Record<string, unknown>) {
+  const recommended = Number(analysis?.pricing_band_recommended);
+  let out: any = { ...analysis };
+  out = stripBannedBranding(out);
+  out = stripUnsupportedPendingClaims(out, compStats?.comp_counts?.pending ?? 0);
+  out = normalizeRecommendedPrice(out, Number.isFinite(recommended) ? recommended : null);
+  // One canonical recommended value, referenced by every template slot.
+  out.recommended_price = Number.isFinite(recommended) ? Math.round(recommended) : null;
+  out.pricing_band_recommended = out.recommended_price;
+  return { ...out, ...extras };
+}
+
 // ---------- Layer 2: web-sourced general market context (best effort) ----------
 async function fetchWebMarketContext(subjectProperty: any): Promise<any | null> {
   const key = Deno.env.get("ANTHROPIC_API_KEY");
