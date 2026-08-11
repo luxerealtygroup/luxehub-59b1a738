@@ -1,44 +1,68 @@
-## Root cause — confirmed by database read
+# Launchpad — 90-Day Onboarding Curriculum
 
-**Terra White and Kristen Schulz (Owner) both have `fub_user_id = 1`.**
+A new top-level nav item where agents step through a 12-module onboarding curriculum as a slide-deck experience, with track-based content (Junior / Associate) and per-agent progress tracking.
 
-| Agent | fub_user_id |
-|---|---|
-| Kristen Schulz (Owner) | **1** |
-| **Terra White** | **1** |
-| Lexi Vanderwerf-Mcneil | 2 |
-| Hana Karimi | 3 |
-| Marie Zinger | 8 |
-| Nick Dertinger | 10 |
-| Melissa Carter | 11 |
+## 1. Data model
 
-### Why the note is wrong
+Four new tables plus two profile fields.
 
-The generator's scoping is otherwise correct — `CoachingNotes.tsx` sends the selected agent's id, and every DB query in `generate-coaching-notes/index.ts` (profile, weekly goals, annual goals, pipeline clients, gap settings) filters on that `agent_id`. Nothing comes from the admin's own session.
+**profiles (add two columns)**
+- `launchpad_track` — `junior` | `associate` | null (set by admin, editable by admin; agent sees it read-only)
+- `mentor_id` — the profile of the agent's mentor (no mentor concept exists in the app today, so this is new)
 
-The leak is entirely in the Follow Up Boss deal step:
+**launchpad_modules** — the 12 module definitions
+- `module_number` (1–12), `title`, `subtitle`
+- `track` — `junior` | `associate` | `unified` (Modules 2, 11, 12 are `unified`; others get two rows, one per track)
+- `day_range_start`, `day_range_end` (e.g. 1–15, 16–45, 46–75, 76–90)
+- `kind` — `module` | `reference` (Module 10, the Vendor & Preferred Partner list, is `reference`: no practice assignment, no knowledge check)
+- `has_practice_assignment`, `has_knowledge_check` (booleans)
+- `sort_order`, `is_published`
 
-1. The function fetches the **entire company-wide** FUB deal list (`get_deals`, all: true).
-2. It narrows with `dealBelongsToAgent(deal, profile.fub_user_id)`, which keeps any deal whose assigned FUB `users` array contains that id.
-3. Since Terra's profile carries the Owner's id (1), **every one of Kristen's deals matches Terra** — which is exactly why the closed/pending GCI totals equal the Owner's company-wide numbers.
-4. "117 Mary Street" (Nick's deal) appears because FUB deals can have multiple assigned users; the Owner is also on that deal, so id 1 matches and it sweeps in.
+**launchpad_slides** — the pages inside a module
+- `module_id`, `slide_number`, `title`
+- `slide_type` — `content` | `practice_assignment` | `knowledge_check`
+- `body` (rich text, empty placeholder for now)
+- `content` (JSON — holds knowledge-check questions or assignment checklist later; empty for now)
 
-The note is effectively the Owner's book of business with Terra's name on it.
+**launchpad_progress** — one row per agent per slide
+- `user_id`, `module_id`, `slide_id`, `completed_at`
 
-## Two things need fixing
+**launchpad_module_progress** — rollup per agent per module (kept as its own row so mentors can read status cheaply)
+- `user_id`, `module_id`, `status` (`not_started` | `in_progress` | `completed`), `last_slide_number`, `started_at`, `completed_at`
 
-**A. Data** — Terra's FUB mapping is wrong. It must be her real FUB user id, or `NULL` if she has no FUB seat. (When NULL the function already degrades safely to "Agent has no fub_user_id set on profile" rather than leaking.)
+Module and slide definitions are seeded as data (titles + day ranges only, empty slide bodies) so content can be edited later without a code change.
 
-**B. Code** — nothing prevents the collision recurring on the next agent onboarding.
+**Access rules**
+- Modules and slides: readable by any signed-in team member; only admins/owners can create or edit them.
+- Progress: an agent reads and writes only their own rows; their mentor and admins can read them.
+- Track: only admins can change `launchpad_track` and `mentor_id`.
 
-## Proposed fix (pending approval)
+## 2. Track-based visibility
 
-1. **Correct Terra's mapping** — I need her real FUB user id from you, or confirmation to set it to `NULL`.
-2. **Partial unique index** on `profiles.fub_user_id` (where not null) so two profiles can never share an id again.
-3. **Guard in the generator** — before filtering deals, check whether the agent's `fub_user_id` is shared by another profile; if so, skip FUB deals and record a warning instead of attributing someone else's book.
-4. **Regenerate Terra's Jul 27 note** once the mapping is correct, and review any earlier notes generated for her.
+Each agent has one track on their profile. The module list query returns modules where `track = <agent's track> OR track = 'unified'`, ordered by day range then module number. That yields 12 visible modules per agent: 9 track-specific, 3 unified. Module 8 naturally renders as "Negotiation Fundamentals" for Junior and "Negotiation Scriptbook" for Associate because they are separate rows.
+
+If an agent has no track set, Launchpad shows a short "ask your admin to assign your track" state rather than a broken list. Admins/owners can toggle between tracks to preview either curriculum.
+
+## 3. Navigation and progress
+
+**Launchpad home** (`/dashboard/launchpad`) — the 12 modules grouped by day range (Days 1–15, 16–45, 46–75, 76–90), each card showing title, slide count, and a progress ring. Module 10 is visually marked as a reference document.
+
+**Module viewer** (`/dashboard/launchpad/:moduleId/:slideNumber`) — the slide-deck experience:
+- One slide at a time in a fixed content frame, Back / Next controls, a progress bar with slide counter, and a slide-jump strip so agents can revisit an earlier slide.
+- Keyboard arrows for forward/back, and the URL carries the slide number so refreshing or sharing lands on the same slide.
+- Slide order: content slides → practice assignment slide (mentor-led) → knowledge check slide. Module 10 ends after its content slides.
+- Advancing past a slide marks it complete; finishing the last slide marks the module complete and offers "Next module".
+
+**Progress visibility**
+- Agent: progress rings on the home page plus an overall "X of 12 modules complete" header.
+- Mentor/admin: a Launchpad progress view listing their assigned agents, each agent's track, modules completed, current module, and last activity date.
+
+**Navigation entry:** a top-level "Launchpad" item in the main sidebar (rocket icon), visible to agents and admins.
 
 ## Technical notes
 
-- Files: `supabase/functions/generate-coaching-notes/index.ts` (the `dealBelongsToAgent` filter and the `get_deals` fetch). `src/pages/CoachingNotes.tsx` needs no change.
-- Secondary latent issue, **not** the cause here: `follow-up-boss` resolves its API key from the caller's JWT, and the generator calls it with the service-role key, so the `x-view-as-user-id` header is ignored and the primary FUB account is always queried. Every agent is on `primary` today, so this has no current effect.
+- Migration adds the five schema changes above with grants and RLS, plus a seed insert of the 21 module rows (9 titles × 2 tracks + 3 unified) and empty placeholder slides per module.
+- Mentor reads use a security-definer helper (`is_mentor_of(user_id)`) so RLS policies stay non-recursive.
+- New files: `src/pages/Launchpad.tsx`, `src/pages/LaunchpadModule.tsx`, `src/components/launchpad/` (module card, slide frame, nav controls, progress rail, mentor progress table), `src/hooks/useLaunchpad.ts`.
+- Edited: `src/App.tsx` (routes), `src/components/AppSidebar.tsx` (nav entry), admin agent editing UI for track/mentor assignment.
+- No training content is authored — every slide body ships empty.
