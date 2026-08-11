@@ -751,6 +751,7 @@ serve(async (req) => {
     // If agent already reviewed comps, skip extraction and go straight to analysis
     if (reviewedComps && Array.isArray(reviewedComps) && reviewedComps.length > 0) {
       const compStats = computeCompDerivedStats(reviewedComps);
+      const segmentation = computeBasementSegmentation(reviewedComps, subjectProperty);
       const webContext = await fetchWebMarketContext(subjectProperty);
       const analysisPrompt = `Analyze this CMA data using the agent-reviewed comparable properties:
 
@@ -760,7 +761,7 @@ ${JSON.stringify(subjectProperty, null, 2)}
 CLIENT PURCHASE HISTORY:
 ${JSON.stringify(purchaseHistory, null, 2)}
 
-${buildMarketStatsBlock(compStats, marketStats, webContext)}
+${buildMarketStatsBlock(compStats, marketStats, webContext, segmentation)}
 
 COMPARABLE PROPERTIES (agent-reviewed):
 ${JSON.stringify(reviewedComps, null, 2)}
@@ -771,9 +772,10 @@ Provide your complete analysis as a JSON object.`;
       
       return new Response(JSON.stringify({
         success: true,
-        analysis: {
-          ...analysis,
+        analysis: finalizeAnalysis(analysis, compStats, {
           market_stats_derived: compStats,
+          market_classification: classifyMarket(compStats),
+          basement_segmentation: segmentation,
           web_market_context: webContext,
           extracted_comps: reviewedComps,
           extraction_summary: {
@@ -786,7 +788,7 @@ Provide your complete analysis as a JSON object.`;
             needs_review_count: 0,
             extraction_passes: 0,
           },
-        },
+        }),
       }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -796,6 +798,7 @@ Provide your complete analysis as a JSON object.`;
     // === NO PDF TEXT ===
     if (!pdfText) {
       const compStats = computeCompDerivedStats([]);
+      const segmentation = computeBasementSegmentation([], subjectProperty);
       const webContext = await fetchWebMarketContext(subjectProperty);
       const analysisPrompt = `Analyze this CMA data (no PDF comps available):
 
@@ -805,7 +808,7 @@ ${JSON.stringify(subjectProperty, null, 2)}
 CLIENT PURCHASE HISTORY:
 ${JSON.stringify(purchaseHistory, null, 2)}
 
-${buildMarketStatsBlock(compStats, marketStats, webContext)}
+${buildMarketStatsBlock(compStats, marketStats, webContext, segmentation)}
 
 There are no comparable properties extracted from a PDF. Provide analysis based on market stats only.`;
 
@@ -813,16 +816,17 @@ There are no comparable properties extracted from a PDF. Provide analysis based 
       
       return new Response(JSON.stringify({
         success: true,
-        analysis: {
-          ...analysis,
+        analysis: finalizeAnalysis(analysis, compStats, {
           market_stats_derived: compStats,
+          market_classification: classifyMarket(compStats),
+          basement_segmentation: segmentation,
           web_market_context: webContext,
           extracted_comps: [],
           extraction_summary: {
             total_comps_found: 0, sold_count: 0, pending_count: 0, active_count: 0, expired_count: 0,
             low_confidence_count: 0, needs_review_count: 0, extraction_passes: 0,
           },
-        },
+        }),
       }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -998,6 +1002,7 @@ Extract any properties you find, even with minimal data.`;
 
     // Now run the analysis pass with the extracted comps
     const compStats = computeCompDerivedStats(allComps);
+    const segmentation = computeBasementSegmentation(allComps, subjectProperty);
     const webContext = await fetchWebMarketContext(subjectProperty);
     const analysisPrompt = `Analyze this CMA data with ${allComps.length} comparable properties:
 
@@ -1007,7 +1012,7 @@ ${JSON.stringify(subjectProperty, null, 2)}
 CLIENT PURCHASE HISTORY:
 ${JSON.stringify(purchaseHistory, null, 2)}
 
-${buildMarketStatsBlock(compStats, marketStats, webContext)}
+${buildMarketStatsBlock(compStats, marketStats, webContext, segmentation)}
 
 COMPARABLE PROPERTIES:
 ${JSON.stringify(allComps, null, 2)}
@@ -1037,13 +1042,14 @@ Provide your complete analysis. Grade quality, generate pricing bands, flag risk
 
     return new Response(JSON.stringify({
       success: true,
-      analysis: {
-        ...analysis,
+      analysis: finalizeAnalysis(analysis, compStats, {
         market_stats_derived: compStats,
+        market_classification: classifyMarket(compStats),
+        basement_segmentation: segmentation,
         web_market_context: webContext,
         extracted_comps: allComps,
         extraction_summary: extractionSummary,
-      },
+      }),
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
