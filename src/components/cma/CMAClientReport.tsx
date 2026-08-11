@@ -314,7 +314,7 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
           {/* Pricing cards */}
           <div className="grid grid-cols-3 gap-4 mt-10">
             <PriceCard label="Conservative" value={fmt(report.pricing_band_low)} highlighted={false} />
-            <PriceCard label="Recommended" value={fmt(report.pricing_band_recommended)} highlighted />
+            <PriceCard label="Recommended" value={recommendedPriceText} highlighted />
             <PriceCard label="Aggressive" value={fmt(report.pricing_band_high)} highlighted={false} />
           </div>
 
