@@ -52,6 +52,9 @@ RESPOND WITH ONLY this JSON (no markdown, no code blocks):
       "beds": number or null,
       "baths": number or null,
       "sqft": number or null,
+      "ag_sqft": number or null,
+      "bg_sqft": number or null,
+      "basement_finish": "finished|unfinished|null",
       "list_price": number or null,
       "sold_price": number or null,
       "days_on_market": number or null,
@@ -80,7 +83,11 @@ RESPOND WITH ONLY this JSON (no markdown, no code blocks):
   }
 }`;
 
-const ANALYSIS_SYSTEM_PROMPT = `You are a real estate CMA (Comparative Market Analysis) expert analyst. Analyze the provided comparable data and market stats to produce a comprehensive CMA audit.
+const ANALYSIS_SYSTEM_PROMPT = `You are a real estate CMA (Comparative Market Analysis) expert analyst working exclusively for Luxe Realty Group, Brokered by eXp Realty, Brokerage (luxerealtygroup.ca). Analyze the provided comparable data and market stats to produce a comprehensive CMA audit.
+
+BRANDING — ABSOLUTE:
+- Never reference any other brand, product, template or vendor name in any output field. Specifically, the strings "RealtyHub", "CMA Boss", "CloudCMA", or any other third-party/template branding must NEVER appear in your output.
+- The only brokerage/brand named anywhere is Luxe Realty Group (Brokered by eXp Realty, Brokerage).
 
 You MUST respond with a JSON object using this exact structure (no markdown, no code blocks, just pure JSON):
 {
@@ -106,6 +113,26 @@ When analyzing:
 3. Flag weak comps (distance issues, outdated sales >6 months, size/type mismatch, price outliers >15% from median)
 4. Analyze market stats to determine market conditions
 5. Generate talking points and anticipate seller objections
+
+SINGLE RECOMMENDED PRICE — ABSOLUTE:
+- "pricing_band_recommended" is the ONE recommended price for this report. It is computed once and reused in every template slot.
+- Do NOT restate, re-derive, round, or vary that number anywhere in prose ("market_narrative", "talking_points", "adjustment_observations", "seller_objections", "strategy_recommendation"). Refer to it as "the recommended list price" in words instead of writing a dollar figure. Any dollar figure you write in prose that differs from pricing_band_recommended is an error.
+
+DATA-GROUNDED PROSE — ABSOLUTE (TRESA accuracy requirement):
+- Every factual claim must be traceable to a specific field in the structured data supplied below (comp fields, comp-derived stats, subject property fields, agent-provided stats, or clearly attributed web context). If it cannot be tied to a data field, do not write it.
+- Do NOT invent comp characteristics (status, condition, renovations, timing, buyer behaviour, multiple offers) that are not present in the comp records passed to you.
+- Only mention "pending" comparables if the comp set actually contains comps with comp_category "pending". The supplied "MARKET FACTS" block states explicitly whether pending comps exist — obey it.
+- Do not use generic optimistic boilerplate ("robust market", "quick sales", "strong buyer demand", "healthy seller's market") unless the computed sale-to-list ratio and days-on-market in this comp set support it.
+
+MARKET CONDITION CLASSIFICATION — use the supplied computed classification, do not invent your own tone:
+- Seller-favourable: avg SP/LP >= 100% AND median DOM <= 15
+- Balanced: SP/LP 97–100% OR median DOM 16–30
+- Buyer-favourable / cooling: SP/LP < 97% OR median DOM > 30
+- Insufficient data: fewer than 3 sold comps with both list and sold price — say so plainly and describe the market as indeterminate rather than characterising it.
+- The "market_narrative" MUST cite the actual computed numbers (avg and median SP/LP %, avg and median DOM, sold comp count, date range) and must match the supplied classification. Where regional board context (e.g. Cornerstone Association of REALTORS® / WRAR) is supplied, note explicitly when the local comp set performs differently from the regional trend.
+
+FEATURE ADJUSTMENT (basement finish and similar):
+- A "BASEMENT-FINISH SEGMENTATION" block is supplied with $/sqft of above-grade finished space computed separately for comps that MATCH the subject's basement-finish status and comps that do NOT. When both segments have data, weight the recommended price toward the matching segment and add a short entry to "adjustment_observations" explaining the adjustment and citing both $/sqft figures.
 
 MARKET STATS SOURCING RULES — STRICT:
 - "COMP-DERIVED MARKET STATS" are hard numbers computed directly from this report's comparable set. Treat them as the primary, citable market data.
@@ -293,6 +320,9 @@ function parseMLSMemberFullComps(pdfText: string, subjectAddress?: string): any[
       beds: cleanNumber(bedsMatch?.[1]),
       baths: cleanNumber(bathsMatch?.[1]),
       sqft: sqftTotal ?? (ag != null || bg != null ? (ag || 0) + (bg || 0) : null),
+      ag_sqft: ag,
+      bg_sqft: bg,
+      basement_finish: bg != null ? (bg > 0 ? 'finished' : 'unfinished') : null,
       sale_date: comp_category === 'pending' ? (pendingDate || closeDate) : (closeDate || pendingDate),
       notes: parsePublicRemarks(block),
       source_page: extractSourcePage(pdfText.slice(0, start.index)),
@@ -326,6 +356,9 @@ function mergeMLSCorrections(aiComps: any[], mlsComps: any[]): any[] {
       beds: correction.beds ?? comp.beds,
       baths: correction.baths ?? comp.baths,
       sqft: correction.sqft ?? comp.sqft,
+      ag_sqft: correction.ag_sqft ?? comp.ag_sqft ?? null,
+      bg_sqft: correction.bg_sqft ?? comp.bg_sqft ?? null,
+      basement_finish: correction.basement_finish ?? comp.basement_finish ?? null,
       sale_date: correction.sale_date ?? comp.sale_date,
       notes: comp.notes || correction.notes,
       source_page: correction.source_page ?? comp.source_page,
@@ -457,6 +490,187 @@ function hasManualStats(marketStats: any): boolean {
   ].some((k) => marketStats[k] != null && String(marketStats[k]).trim() !== '');
 }
 
+// ---------- Market condition classification (data-grounded, never boilerplate) ----------
+function classifyMarket(compStats: any) {
+  const spLp = compStats?.avg_sale_to_list_ratio_pct ?? null;
+  const dom = compStats?.median_days_on_market ?? compStats?.avg_days_on_market ?? null;
+  const soldSample = compStats?.sale_to_list_sample_size ?? 0;
+
+  if (soldSample < 3 || spLp == null || dom == null) {
+    return {
+      classification: 'insufficient_data',
+      label: 'Insufficient data to characterise market conditions',
+      permitted_tone: 'Describe the market as indeterminate for this comp set. Do NOT call it strong, hot, robust, or seller-favourable.',
+      basis: { avg_sale_to_list_ratio_pct: spLp, median_days_on_market: dom, sold_sample_size: soldSample },
+    };
+  }
+  let classification: string;
+  let label: string;
+  if (spLp >= 100 && dom <= 15) {
+    classification = 'seller_favourable';
+    label = "Seller-favourable";
+  } else if (spLp < 97 || dom > 30) {
+    classification = 'buyer_favourable';
+    label = "Buyer-favourable / cooling";
+  } else {
+    classification = 'balanced';
+    label = 'Balanced';
+  }
+  return {
+    classification,
+    label,
+    permitted_tone:
+      classification === 'seller_favourable'
+        ? 'Seller-favourable language is supported by the data. Still cite the actual SP/LP and DOM figures.'
+        : classification === 'balanced'
+          ? 'Describe the market as balanced. Do NOT use "strong", "hot", or "robust".'
+          : 'Describe the market as softening/buyer-favourable. Do NOT use optimistic language.',
+    basis: { avg_sale_to_list_ratio_pct: spLp, median_days_on_market: dom, sold_sample_size: soldSample },
+  };
+}
+
+// ---------- Basement-finish segmentation ($/sqft above grade) ----------
+function subjectBasementFinish(subjectProperty: any): 'finished' | 'unfinished' | null {
+  const bg = Number(subjectProperty?.finishedBasementSqFt);
+  if (Number.isFinite(bg)) return bg > 0 ? 'finished' : 'unfinished';
+  return null;
+}
+
+function compBasementFinish(comp: any): 'finished' | 'unfinished' | null {
+  if (comp?.basement_finish === 'finished' || comp?.basement_finish === 'unfinished') return comp.basement_finish;
+  const bg = Number(comp?.bg_sqft);
+  if (Number.isFinite(bg)) return bg > 0 ? 'finished' : 'unfinished';
+  const notes = String(comp?.notes || '').toLowerCase();
+  if (/\bunfinished basement|unspoiled basement|no basement\b/.test(notes)) return 'unfinished';
+  if (/finished basement|fully finished|walkout basement|in-?law suite|rec room/.test(notes)) return 'finished';
+  return null;
+}
+
+function computeBasementSegmentation(comps: any[], subjectProperty: any) {
+  const subject = subjectBasementFinish(subjectProperty);
+  const sold = (Array.isArray(comps) ? comps : []).filter(
+    (c) => String(c?.comp_category || '').toLowerCase() === 'sold',
+  );
+
+  const ppsf = (c: any): number | null => {
+    const price = Number(c?.sold_price);
+    const ag = Number(c?.ag_sqft);
+    const area = Number.isFinite(ag) && ag > 0 ? ag : null;
+    if (!Number.isFinite(price) || price <= 0 || !area) return null;
+    return Math.round((price / area) * 100) / 100;
+  };
+
+  const match: number[] = [];
+  const mismatch: number[] = [];
+  const unknown: number[] = [];
+  for (const c of sold) {
+    const v = ppsf(c);
+    if (v == null) continue;
+    const f = compBasementFinish(c);
+    if (!subject || !f) unknown.push(v);
+    else if (f === subject) match.push(v);
+    else mismatch.push(v);
+  }
+
+  const subjectAg = Number(subjectProperty?.aboveGradeSqFt);
+  const usableAg = Number.isFinite(subjectAg) && subjectAg > 0 ? subjectAg : null;
+  const matchAvg = mean(match);
+  const mismatchAvg = mean(mismatch);
+
+  return {
+    subject_basement_finish: subject,
+    subject_above_grade_sqft: usableAg,
+    matching_comps: { count: match.length, avg_price_per_ag_sqft: matchAvg, median_price_per_ag_sqft: median(match) },
+    non_matching_comps: { count: mismatch.length, avg_price_per_ag_sqft: mismatchAvg, median_price_per_ag_sqft: median(mismatch) },
+    unclassified_comps: { count: unknown.length, avg_price_per_ag_sqft: mean(unknown) },
+    implied_value_from_matching_comps:
+      usableAg && matchAvg ? Math.round((usableAg * matchAvg) / 1000) * 1000 : null,
+    implied_value_from_non_matching_comps:
+      usableAg && mismatchAvg ? Math.round((usableAg * mismatchAvg) / 1000) * 1000 : null,
+    adjustment_applicable: match.length > 0 && mismatch.length > 0,
+  };
+}
+
+// ---------- Post-analysis guardrails ----------
+function stripBannedBranding<T>(value: T): T {
+  const clean = (s: string) =>
+    s
+      .replace(/\bCMA\s*Boss\b/gi, 'Luxe Realty Group')
+      .replace(/\bRealty\s*Hub\b/gi, 'Luxe Realty Group')
+      .replace(/\bCloud\s*CMA\b/gi, 'the MLS comparable data');
+  const walk = (v: any): any => {
+    if (typeof v === 'string') return clean(v);
+    if (Array.isArray(v)) return v.map(walk);
+    if (v && typeof v === 'object') {
+      const out: any = {};
+      for (const [k, val] of Object.entries(v)) out[k] = walk(val);
+      return out;
+    }
+    return v;
+  };
+  return walk(value);
+}
+
+// Force every dollar figure in prose that is "about" the recommended price to be
+// the single canonical recommended value, so the report can never disagree with itself.
+function normalizeRecommendedPrice<T>(value: T, recommended: number | null): T {
+  if (!recommended || !Number.isFinite(recommended)) return value;
+  const canonical = `$${Math.round(recommended).toLocaleString('en-US')}`;
+  const fix = (s: string) =>
+    s.replace(/\$\s?([\d,]{4,})(?:\.\d{2})?/g, (full, digits: string) => {
+      const n = Number(String(digits).replace(/,/g, ''));
+      if (!Number.isFinite(n) || n <= 0) return full;
+      const drift = Math.abs(n - recommended) / recommended;
+      return drift > 0 && drift <= 0.05 ? canonical : full;
+    });
+  const walk = (v: any): any => {
+    if (typeof v === 'string') return fix(v);
+    if (Array.isArray(v)) return v.map(walk);
+    if (v && typeof v === 'object') {
+      const out: any = {};
+      for (const [k, val] of Object.entries(v)) out[k] = walk(val);
+      return out;
+    }
+    return v;
+  };
+  return walk(value);
+}
+
+// Remove "pending" commentary when the comp set contains no pending comps.
+function stripUnsupportedPendingClaims<T>(value: T, pendingCount: number): T {
+  if (pendingCount > 0) return value;
+  const hasPending = (s: string) => /\bpending\b/i.test(s);
+  const scrubSentences = (s: string) =>
+    s
+      .split(/(?<=[.!?])\s+/)
+      .filter((sentence) => !hasPending(sentence))
+      .join(' ')
+      .trim();
+  const walk = (v: any): any => {
+    if (typeof v === 'string') return scrubSentences(v);
+    if (Array.isArray(v)) return v.map(walk).filter((x: any) => !(typeof x === 'string' && x.trim() === ''));
+    if (v && typeof v === 'object') {
+      const out: any = {};
+      for (const [k, val] of Object.entries(v)) out[k] = walk(val);
+      return out;
+    }
+    return v;
+  };
+  return walk(value);
+}
+
+function finalizeAnalysis(analysis: any, compStats: any, extras: Record<string, unknown>) {
+  const recommended = Number(analysis?.pricing_band_recommended);
+  let out: any = { ...analysis };
+  out = stripBannedBranding(out);
+  out = stripUnsupportedPendingClaims(out, compStats?.comp_counts?.pending ?? 0);
+  out = normalizeRecommendedPrice(out, Number.isFinite(recommended) ? recommended : null);
+  // One canonical recommended value, referenced by every template slot.
+  out.recommended_price = Number.isFinite(recommended) ? Math.round(recommended) : null;
+  out.pricing_band_recommended = out.recommended_price;
+  return { ...out, ...extras };
+}
+
 // ---------- Layer 2: web-sourced general market context (best effort) ----------
 async function fetchWebMarketContext(subjectProperty: any): Promise<any | null> {
   const key = Deno.env.get("ANTHROPIC_API_KEY");
@@ -473,11 +687,11 @@ async function fetchWebMarketContext(subjectProperty: any): Promise<any | null> 
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
         max_tokens: 1200,
-        system: "You are a real estate market researcher. Use web search to summarize CURRENT general market conditions for the requested municipality/neighbourhood. Be brief and factual. Respond with plain prose (3-6 sentences) plus a final line 'SOURCES: ...' listing publication names and the timeframe the data covers. If you cannot find reliable current data, respond with exactly: NO_RELIABLE_DATA",
+        system: "You are a real estate market researcher. Use web search to summarize CURRENT general market conditions for the requested municipality/neighbourhood. Prioritize official regional real estate board monthly statistics — Cornerstone Association of REALTORS® (formerly WRAR / Waterloo Region Association of REALTORS®), the local board covering the subject area, and CREA — over blog or portal estimates. Be brief and factual, quote actual figures (average/median sale price, sales volume, months of inventory, average days on market, year-over-year change) and name the reporting month. Respond with plain prose (3-6 sentences) plus a final line 'SOURCES: ...' listing publication names and the timeframe the data covers. If you cannot find reliable current data, respond with exactly: NO_RELIABLE_DATA",
         tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 4 }],
         messages: [{
           role: "user",
-          content: `Current real estate market conditions for: ${location}. Is it trending as a buyer's, seller's, or balanced market? Include months of inventory, average days on market, and price trend direction if reported, plus any notable recent local commentary. Today's date: ${new Date().toISOString().slice(0, 10)}.`,
+          content: `Current real estate market conditions for: ${location}. Prefer the most recent monthly statistics release from the regional real estate board (Cornerstone Association of REALTORS® / WRAR for Waterloo Region, otherwise the board covering this municipality). Is it trending as a buyer's, seller's, or balanced market? Include months of inventory, average days on market, and price trend direction if reported, plus any notable recent local commentary. Today's date: ${new Date().toISOString().slice(0, 10)}.`,
         }],
       }),
     });
@@ -505,9 +719,20 @@ async function fetchWebMarketContext(subjectProperty: any): Promise<any | null> 
   }
 }
 
-function buildMarketStatsBlock(compStats: any, marketStats: any, webContext: any): string {
+function buildMarketStatsBlock(compStats: any, marketStats: any, webContext: any, segmentation?: any): string {
   const manual = hasManualStats(marketStats);
-  return `COMP-DERIVED MARKET STATS (PRIMARY — hard data computed from this report's comps):
+  const classification = classifyMarket(compStats);
+  const pending = compStats?.comp_counts?.pending ?? 0;
+  return `MARKET FACTS — the ONLY permitted basis for market-conditions prose:
+- Computed market classification: ${classification.label} (${classification.classification})
+- Tone rule: ${classification.permitted_tone}
+- Classification basis: ${JSON.stringify(classification.basis)}
+- Pending comparables in this comp set: ${pending}. ${pending > 0 ? 'You MAY reference pending comps.' : 'You MUST NOT reference pending sales anywhere in this report.'}
+
+BASEMENT-FINISH SEGMENTATION (price per above-grade finished sqft, sold comps):
+${segmentation ? JSON.stringify(segmentation, null, 2) : 'Not applicable.'}
+
+COMP-DERIVED MARKET STATS (PRIMARY — hard data computed from this report's comps):
 ${JSON.stringify(compStats, null, 2)}
 
 AGENT-PROVIDED MARKET STATS (OVERRIDE — official board-level stats, takes precedence when present):
@@ -529,6 +754,7 @@ serve(async (req) => {
     // If agent already reviewed comps, skip extraction and go straight to analysis
     if (reviewedComps && Array.isArray(reviewedComps) && reviewedComps.length > 0) {
       const compStats = computeCompDerivedStats(reviewedComps);
+      const segmentation = computeBasementSegmentation(reviewedComps, subjectProperty);
       const webContext = await fetchWebMarketContext(subjectProperty);
       const analysisPrompt = `Analyze this CMA data using the agent-reviewed comparable properties:
 
@@ -538,7 +764,7 @@ ${JSON.stringify(subjectProperty, null, 2)}
 CLIENT PURCHASE HISTORY:
 ${JSON.stringify(purchaseHistory, null, 2)}
 
-${buildMarketStatsBlock(compStats, marketStats, webContext)}
+${buildMarketStatsBlock(compStats, marketStats, webContext, segmentation)}
 
 COMPARABLE PROPERTIES (agent-reviewed):
 ${JSON.stringify(reviewedComps, null, 2)}
@@ -549,9 +775,10 @@ Provide your complete analysis as a JSON object.`;
       
       return new Response(JSON.stringify({
         success: true,
-        analysis: {
-          ...analysis,
+        analysis: finalizeAnalysis(analysis, compStats, {
           market_stats_derived: compStats,
+          market_classification: classifyMarket(compStats),
+          basement_segmentation: segmentation,
           web_market_context: webContext,
           extracted_comps: reviewedComps,
           extraction_summary: {
@@ -564,7 +791,7 @@ Provide your complete analysis as a JSON object.`;
             needs_review_count: 0,
             extraction_passes: 0,
           },
-        },
+        }),
       }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -574,6 +801,7 @@ Provide your complete analysis as a JSON object.`;
     // === NO PDF TEXT ===
     if (!pdfText) {
       const compStats = computeCompDerivedStats([]);
+      const segmentation = computeBasementSegmentation([], subjectProperty);
       const webContext = await fetchWebMarketContext(subjectProperty);
       const analysisPrompt = `Analyze this CMA data (no PDF comps available):
 
@@ -583,7 +811,7 @@ ${JSON.stringify(subjectProperty, null, 2)}
 CLIENT PURCHASE HISTORY:
 ${JSON.stringify(purchaseHistory, null, 2)}
 
-${buildMarketStatsBlock(compStats, marketStats, webContext)}
+${buildMarketStatsBlock(compStats, marketStats, webContext, segmentation)}
 
 There are no comparable properties extracted from a PDF. Provide analysis based on market stats only.`;
 
@@ -591,16 +819,17 @@ There are no comparable properties extracted from a PDF. Provide analysis based 
       
       return new Response(JSON.stringify({
         success: true,
-        analysis: {
-          ...analysis,
+        analysis: finalizeAnalysis(analysis, compStats, {
           market_stats_derived: compStats,
+          market_classification: classifyMarket(compStats),
+          basement_segmentation: segmentation,
           web_market_context: webContext,
           extracted_comps: [],
           extraction_summary: {
             total_comps_found: 0, sold_count: 0, pending_count: 0, active_count: 0, expired_count: 0,
             low_confidence_count: 0, needs_review_count: 0, extraction_passes: 0,
           },
-        },
+        }),
       }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -776,6 +1005,7 @@ Extract any properties you find, even with minimal data.`;
 
     // Now run the analysis pass with the extracted comps
     const compStats = computeCompDerivedStats(allComps);
+    const segmentation = computeBasementSegmentation(allComps, subjectProperty);
     const webContext = await fetchWebMarketContext(subjectProperty);
     const analysisPrompt = `Analyze this CMA data with ${allComps.length} comparable properties:
 
@@ -785,7 +1015,7 @@ ${JSON.stringify(subjectProperty, null, 2)}
 CLIENT PURCHASE HISTORY:
 ${JSON.stringify(purchaseHistory, null, 2)}
 
-${buildMarketStatsBlock(compStats, marketStats, webContext)}
+${buildMarketStatsBlock(compStats, marketStats, webContext, segmentation)}
 
 COMPARABLE PROPERTIES:
 ${JSON.stringify(allComps, null, 2)}
@@ -815,13 +1045,14 @@ Provide your complete analysis. Grade quality, generate pricing bands, flag risk
 
     return new Response(JSON.stringify({
       success: true,
-      analysis: {
-        ...analysis,
+      analysis: finalizeAnalysis(analysis, compStats, {
         market_stats_derived: compStats,
+        market_classification: classifyMarket(compStats),
+        basement_segmentation: segmentation,
         web_market_context: webContext,
         extracted_comps: allComps,
         extraction_summary: extractionSummary,
-      },
+      }),
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

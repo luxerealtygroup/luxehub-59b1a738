@@ -19,6 +19,7 @@ interface Comp {
   sold_price: number | null;
   days_on_market: number | null;
   sale_date: string | null;
+  comp_category?: string | null;
   is_weak: boolean;
   weak_reason: string | null;
 }
@@ -68,12 +69,14 @@ interface CMAReportFull {
   approved_price_narrative: string | null;
   approved_strategy: string | null;
   approved_market_conditions: string | null;
+  user_id?: string | null;
 }
 
 const CMAClientReport = ({ reportId }: { reportId: string }) => {
   const [report, setReport] = useState<CMAReportFull | null>(null);
   const [loading, setLoading] = useState(true);
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
+  const [agentName, setAgentName] = useState<string>('');
   const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -102,6 +105,15 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
           approval_status: r.approval_status || 'draft',
         };
         setReport(reportData);
+
+        if (reportData.user_id) {
+          const { data: prof } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', reportData.user_id)
+            .maybeSingle();
+          if ((prof as any)?.full_name) setAgentName((prof as any).full_name);
+        }
 
         const photos: string[] = reportData.subject_photos;
         if (photos.length > 0) {
@@ -141,12 +153,41 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
 
   const fmt = (n: number | null | undefined) => n != null ? `$${n.toLocaleString()}` : '—';
 
+  // ── SINGLE SOURCE OF TRUTH for the recommended price ──
+  // Computed once and referenced by every slot (summary, price card, strategy, next steps).
+  const recommendedPrice = report.pricing_band_recommended;
+  const recommendedPriceText = fmt(recommendedPrice);
+
+  // Any dollar figure in AI-authored prose that drifts within 5% of the canonical
+  // recommended price is rewritten to it, so the report can never contradict itself.
+  const reconcilePrice = (text: string | null | undefined): string | null => {
+    if (!text) return text ?? null;
+    if (recommendedPrice == null) return text;
+    return text.replace(/\$\s?([\d,]{4,})(?:\.\d{2})?/g, (full, digits: string) => {
+      const n = Number(String(digits).replace(/,/g, ''));
+      if (!Number.isFinite(n) || n <= 0) return full;
+      const drift = Math.abs(n - recommendedPrice) / recommendedPrice;
+      return drift > 0 && drift <= 0.05 ? recommendedPriceText : full;
+    });
+  };
+
+  const compStatusLabel = (c: Comp) => {
+    const cat = (c.comp_category || '').toLowerCase();
+    if (cat === 'pending') return { label: 'Pending', tone: 'amber' as const };
+    if (cat === 'active') return { label: 'Active', tone: 'muted' as const };
+    if (cat === 'expired') return { label: 'Expired', tone: 'muted' as const };
+    if (cat === 'sold' || c.sold_price) return { label: 'Closed', tone: 'emerald' as const };
+    return { label: '—', tone: 'muted' as const };
+  };
+  const fmtDate = (d: string | null) =>
+    d ? new Date(`${d}T00:00:00`).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' }) : null;
+
   // Approved text with fallbacks
-  const executiveSummary = report.approved_executive_summary ||
-    `Based on a comprehensive analysis of comparable properties and current market conditions in ${report.city_area}, we recommend a listing price of ${fmt(report.pricing_band_recommended)} for ${report.property_address}. The recommended price band ranges from ${fmt(report.pricing_band_low)} to ${fmt(report.pricing_band_high)}, with a ${report.pricing_confidence?.toLowerCase() || 'moderate'} confidence level.`;
-  const marketConditionsText = report.approved_market_conditions || report.market_narrative;
-  const strategyText = report.approved_strategy || `Strategy: ${report.strategy_recommendation}\n\n${report.talking_points.map((tp, i) => `${i + 1}. ${tp}`).join('\n')}`;
-  const priceNarrativeText = report.approved_price_narrative;
+  const executiveSummary = reconcilePrice(report.approved_executive_summary) ||
+    `Based on an analysis of the comparable properties in this report and current conditions in ${report.city_area}, we recommend a listing price of ${recommendedPriceText} for ${report.property_address}. The recommended price band ranges from ${fmt(report.pricing_band_low)} to ${fmt(report.pricing_band_high)}, with a ${report.pricing_confidence?.toLowerCase() || 'moderate'} confidence level.`;
+  const marketConditionsText = reconcilePrice(report.approved_market_conditions || report.market_narrative);
+  const strategyText = reconcilePrice(report.approved_strategy) || `Strategy: ${report.strategy_recommendation}\n\n${report.talking_points.map((tp, i) => `${i + 1}. ${tp}`).join('\n')}`;
+  const priceNarrativeText = reconcilePrice(report.approved_price_narrative);
 
   const strongComps = report.extracted_comps.filter(c => !c.is_weak);
   const topComps = strongComps.slice(0, 6);
@@ -273,7 +314,7 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
           {/* Pricing cards */}
           <div className="grid grid-cols-3 gap-4 mt-10">
             <PriceCard label="Conservative" value={fmt(report.pricing_band_low)} highlighted={false} />
-            <PriceCard label="Recommended" value={fmt(report.pricing_band_recommended)} highlighted />
+            <PriceCard label="Recommended" value={recommendedPriceText} highlighted />
             <PriceCard label="Aggressive" value={fmt(report.pricing_band_high)} highlighted={false} />
           </div>
 
@@ -367,22 +408,45 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
                   <thead>
                     <tr className="bg-muted/50">
                       <th className="text-left py-3 px-4 text-xs text-muted-foreground font-semibold uppercase tracking-wider">Address</th>
+                      <th className="text-left py-3 px-3 text-xs text-muted-foreground font-semibold uppercase tracking-wider">Status</th>
                       <th className="text-center py-3 px-3 text-xs text-muted-foreground font-semibold uppercase tracking-wider">Beds / Baths</th>
                       <th className="text-right py-3 px-3 text-xs text-muted-foreground font-semibold uppercase tracking-wider">List Price</th>
-                      <th className="text-right py-3 px-3 text-xs text-muted-foreground font-semibold uppercase tracking-wider">Sold Price</th>
+                      <th className="text-right py-3 px-3 text-xs text-muted-foreground font-semibold uppercase tracking-wider">Sale Price</th>
                       <th className="text-center py-3 px-4 text-xs text-muted-foreground font-semibold uppercase tracking-wider">DOM</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {topComps.map((comp, i) => (
+                    {topComps.map((comp, i) => {
+                      const status = compStatusLabel(comp);
+                      const dateLabel = fmtDate(comp.sale_date);
+                      return (
                       <tr key={i} className={`border-t border-border/40 ${i % 2 === 0 ? '' : 'bg-muted/20'}`}>
                         <td className="py-3 px-4 font-medium text-foreground">{comp.address}</td>
+                        <td className="py-3 px-3">
+                          <span
+                            className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
+                              status.tone === 'emerald'
+                                ? 'bg-emerald-500/10 text-emerald-600'
+                                : status.tone === 'amber'
+                                  ? 'bg-amber-500/10 text-amber-600'
+                                  : 'bg-muted text-muted-foreground'
+                            }`}
+                          >
+                            {status.label}
+                          </span>
+                          {dateLabel && (
+                            <span className="block text-[10px] text-muted-foreground mt-0.5">
+                              {status.label === 'Pending' ? `Expected close ${dateLabel}` : status.label === 'Closed' ? `Closed ${dateLabel}` : dateLabel}
+                            </span>
+                          )}
+                        </td>
                         <td className="py-3 px-3 text-center text-muted-foreground">{comp.beds ?? '—'} / {comp.baths ?? '—'}</td>
                         <td className="py-3 px-3 text-right text-muted-foreground">{comp.list_price ? `$${comp.list_price.toLocaleString()}` : '—'}</td>
                         <td className="py-3 px-3 text-right font-medium">{comp.sold_price ? `$${comp.sold_price.toLocaleString()}` : '—'}</td>
                         <td className="py-3 px-4 text-center text-muted-foreground">{comp.days_on_market ?? '—'}</td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </CardContent>
@@ -515,7 +579,7 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
               <div className="max-w-2xl mx-auto space-y-5">
                 <NextStep step={1} text="Review this report and identify your preferred pricing strategy." />
                 <NextStep step={2} text="Schedule a listing appointment to discuss timing, staging, and marketing." />
-                <NextStep step={3} text="Finalize your listing price, sign paperwork, and go live!" />
+                <NextStep step={3} text={`Finalize your listing price — our recommendation is ${recommendedPriceText} — sign paperwork, and go live.`} />
               </div>
 
               <div className="mt-8 text-center">
@@ -543,7 +607,10 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
 
         {/* Footer */}
         <div className="text-center border-t border-border pt-6 pb-4">
-          <p className="text-xs text-muted-foreground">Prepared by RealtyHub · CMA Boss</p>
+          <p className="text-xs text-muted-foreground">
+            Prepared by {agentName || 'your agent'}, Salesperson · Luxe Realty Group, Brokered by eXp Realty, Brokerage
+          </p>
+          <p className="text-[10px] text-muted-foreground/70 mt-1">luxerealtygroup.ca</p>
           <p className="text-[10px] text-muted-foreground/60 mt-1">
             {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
           </p>

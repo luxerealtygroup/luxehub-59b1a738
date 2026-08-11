@@ -305,7 +305,7 @@ async function createTask(token: string, body: any) {
     invoice_amount ? `Amount: $${invoice_amount}` : null,
     notes ? `Notes: ${notes}` : null,
     `Submitted: ${new Date().toLocaleString()}`,
-    `Source: RealtyHub Submissions`
+    `Source: LUXEhub Submissions`
   ].filter(Boolean).join('\n');
 
   // First, get workspaces if no workspace_id provided

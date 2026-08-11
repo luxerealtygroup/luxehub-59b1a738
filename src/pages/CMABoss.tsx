@@ -419,7 +419,7 @@ const CMABoss = () => {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-display font-bold text-foreground">CMA Boss</h1>
+          <h1 className="text-2xl font-display font-bold text-foreground">CMA Studio</h1>
           <p className="text-sm text-muted-foreground">AI-powered Comparative Market Analysis</p>
         </div>
         {/* Only show "New CMA" when NOT viewing as another agent (read-only mode) */}
