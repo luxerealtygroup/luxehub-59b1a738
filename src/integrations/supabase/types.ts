@@ -2402,6 +2402,54 @@ export type Database = {
           },
         ]
       }
+      profiles_backup_pre_launchpad_20260811: {
+        Row: {
+          access_expires_at: string | null
+          avatar_url: string | null
+          coaching_history_seed: string | null
+          created_at: string | null
+          email: string | null
+          fub_account: string | null
+          fub_user_id: number | null
+          full_name: string | null
+          id: string | null
+          is_demo_account: boolean | null
+          org_id: string | null
+          signature_emoji: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          access_expires_at?: string | null
+          avatar_url?: string | null
+          coaching_history_seed?: string | null
+          created_at?: string | null
+          email?: string | null
+          fub_account?: string | null
+          fub_user_id?: number | null
+          full_name?: string | null
+          id?: string | null
+          is_demo_account?: boolean | null
+          org_id?: string | null
+          signature_emoji?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          access_expires_at?: string | null
+          avatar_url?: string | null
+          coaching_history_seed?: string | null
+          created_at?: string | null
+          email?: string | null
+          fub_account?: string | null
+          fub_user_id?: number | null
+          full_name?: string | null
+          id?: string | null
+          is_demo_account?: boolean | null
+          org_id?: string | null
+          signature_emoji?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       recruiting_pipeline: {
         Row: {
           accepted: number
