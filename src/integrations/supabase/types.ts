@@ -1658,6 +1658,190 @@ export type Database = {
           },
         ]
       }
+      launchpad_module_progress: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          last_slide_number: number
+          module_id: string
+          started_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          last_slide_number?: number
+          module_id: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          last_slide_number?: number
+          module_id?: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "launchpad_module_progress_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "launchpad_modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      launchpad_modules: {
+        Row: {
+          created_at: string
+          day_range_end: number
+          day_range_start: number
+          has_knowledge_check: boolean
+          has_practice_assignment: boolean
+          id: string
+          is_published: boolean
+          kind: string
+          module_number: number
+          sort_order: number
+          subtitle: string | null
+          title: string
+          track: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          day_range_end: number
+          day_range_start: number
+          has_knowledge_check?: boolean
+          has_practice_assignment?: boolean
+          id?: string
+          is_published?: boolean
+          kind?: string
+          module_number: number
+          sort_order?: number
+          subtitle?: string | null
+          title: string
+          track: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          day_range_end?: number
+          day_range_start?: number
+          has_knowledge_check?: boolean
+          has_practice_assignment?: boolean
+          id?: string
+          is_published?: boolean
+          kind?: string
+          module_number?: number
+          sort_order?: number
+          subtitle?: string | null
+          title?: string
+          track?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      launchpad_progress: {
+        Row: {
+          completed_at: string
+          created_at: string
+          id: string
+          module_id: string
+          slide_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string
+          created_at?: string
+          id?: string
+          module_id: string
+          slide_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string
+          created_at?: string
+          id?: string
+          module_id?: string
+          slide_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "launchpad_progress_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "launchpad_modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "launchpad_progress_slide_id_fkey"
+            columns: ["slide_id"]
+            isOneToOne: false
+            referencedRelation: "launchpad_slides"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      launchpad_slides: {
+        Row: {
+          body: string
+          content: Json
+          created_at: string
+          id: string
+          module_id: string
+          slide_number: number
+          slide_type: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body?: string
+          content?: Json
+          created_at?: string
+          id?: string
+          module_id: string
+          slide_number: number
+          slide_type?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          content?: Json
+          created_at?: string
+          id?: string
+          module_id?: string
+          slide_number?: number
+          slide_type?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "launchpad_slides_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "launchpad_modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       manual_production: {
         Row: {
           closed_deals: number
@@ -2358,6 +2542,8 @@ export type Database = {
           full_name: string | null
           id: string
           is_demo_account: boolean
+          launchpad_track: string | null
+          mentor_id: string | null
           org_id: string | null
           signature_emoji: string | null
           updated_at: string
@@ -2373,6 +2559,8 @@ export type Database = {
           full_name?: string | null
           id: string
           is_demo_account?: boolean
+          launchpad_track?: string | null
+          mentor_id?: string | null
           org_id?: string | null
           signature_emoji?: string | null
           updated_at?: string
@@ -2388,11 +2576,20 @@ export type Database = {
           full_name?: string | null
           id?: string
           is_demo_account?: boolean
+          launchpad_track?: string | null
+          mentor_id?: string | null
           org_id?: string | null
           signature_emoji?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "profiles_mentor_id_fkey"
+            columns: ["mentor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "profiles_org_id_fkey"
             columns: ["org_id"]
@@ -3174,6 +3371,7 @@ export type Database = {
       is_admin_or_owner: { Args: { _user_id: string }; Returns: boolean }
       is_client: { Args: { _user_id: string }; Returns: boolean }
       is_demo_account: { Args: { _user_id: string }; Returns: boolean }
+      is_mentor_of: { Args: { _agent_id: string }; Returns: boolean }
       is_team_member: { Args: { _user_id: string }; Returns: boolean }
       move_to_dlq: {
         Args: {
