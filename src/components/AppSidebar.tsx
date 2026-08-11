@@ -124,7 +124,7 @@ const agentResourcesItems = [
   { title: 'Landlords', url: '/dashboard/resources/landlords', icon: KeyRound },
   { title: 'Newsletters', url: '/dashboard/resources/newsletters', icon: Mail },
   { title: 'Open House Tracker', url: '/dashboard/resources/open-house-tracker', icon: DoorOpen },
-  { title: 'CMA Boss', url: '/dashboard/cma-boss', icon: FileBarChart },
+  { title: 'CMA Studio', url: '/dashboard/cma-boss', icon: FileBarChart },
 ];
 
 // Planning-only users see only planningVisible sections, and within Performance only Goals, Weekly Coaching, Reports
@@ -179,7 +179,7 @@ export function AppSidebar() {
             </div>
             {!collapsed && (
               <div>
-                <h1 className="font-display text-lg font-semibold text-foreground">RealtyHub</h1>
+                <h1 className="font-display text-lg font-semibold text-foreground">LUXEhub</h1>
                 <p className="text-xs text-muted-foreground">Agent Portal</p>
               </div>
             )}
