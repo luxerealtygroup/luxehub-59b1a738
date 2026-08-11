@@ -408,22 +408,45 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
                   <thead>
                     <tr className="bg-muted/50">
                       <th className="text-left py-3 px-4 text-xs text-muted-foreground font-semibold uppercase tracking-wider">Address</th>
+                      <th className="text-left py-3 px-3 text-xs text-muted-foreground font-semibold uppercase tracking-wider">Status</th>
                       <th className="text-center py-3 px-3 text-xs text-muted-foreground font-semibold uppercase tracking-wider">Beds / Baths</th>
                       <th className="text-right py-3 px-3 text-xs text-muted-foreground font-semibold uppercase tracking-wider">List Price</th>
-                      <th className="text-right py-3 px-3 text-xs text-muted-foreground font-semibold uppercase tracking-wider">Sold Price</th>
+                      <th className="text-right py-3 px-3 text-xs text-muted-foreground font-semibold uppercase tracking-wider">Sale Price</th>
                       <th className="text-center py-3 px-4 text-xs text-muted-foreground font-semibold uppercase tracking-wider">DOM</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {topComps.map((comp, i) => (
+                    {topComps.map((comp, i) => {
+                      const status = compStatusLabel(comp);
+                      const dateLabel = fmtDate(comp.sale_date);
+                      return (
                       <tr key={i} className={`border-t border-border/40 ${i % 2 === 0 ? '' : 'bg-muted/20'}`}>
                         <td className="py-3 px-4 font-medium text-foreground">{comp.address}</td>
+                        <td className="py-3 px-3">
+                          <span
+                            className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
+                              status.tone === 'emerald'
+                                ? 'bg-emerald-500/10 text-emerald-600'
+                                : status.tone === 'amber'
+                                  ? 'bg-amber-500/10 text-amber-600'
+                                  : 'bg-muted text-muted-foreground'
+                            }`}
+                          >
+                            {status.label}
+                          </span>
+                          {dateLabel && (
+                            <span className="block text-[10px] text-muted-foreground mt-0.5">
+                              {status.label === 'Pending' ? `Expected close ${dateLabel}` : status.label === 'Closed' ? `Closed ${dateLabel}` : dateLabel}
+                            </span>
+                          )}
+                        </td>
                         <td className="py-3 px-3 text-center text-muted-foreground">{comp.beds ?? '—'} / {comp.baths ?? '—'}</td>
                         <td className="py-3 px-3 text-right text-muted-foreground">{comp.list_price ? `$${comp.list_price.toLocaleString()}` : '—'}</td>
                         <td className="py-3 px-3 text-right font-medium">{comp.sold_price ? `$${comp.sold_price.toLocaleString()}` : '—'}</td>
                         <td className="py-3 px-4 text-center text-muted-foreground">{comp.days_on_market ?? '—'}</td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </CardContent>
