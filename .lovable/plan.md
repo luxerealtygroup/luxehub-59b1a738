@@ -62,9 +62,59 @@ If an agent has no track set, Launchpad shows a short "ask your admin to assign 
 ## Deployment and blast radius
 
 - **No staging database.** The project has one backend; approving the migration applies it to the live database agents are using right now. There is no separate preview database to test against first.
-- **Nothing existing is modified.** The migration only creates new objects: 4 new tables, their grants and policies, and 1 new security-definer helper (`is_mentor_of`). No existing policy, function, trigger, or table is altered or dropped.
-- **One exception worth naming:** the two new columns on `profiles` (`launchpad_track`, `mentor_id`) do touch an existing shared table. They are added nullable, with no default and no backfill, so existing rows and every current query are unaffected. The existing `profiles` access rules are left exactly as they are and simply extend to cover the new columns.
-- Seed rows are inserted only into the new Launchpad tables. No existing data is written or deleted.
+- **Almost everything is new.** 4 new tables, their grants and policies, and 1 new security-definer helper (`is_mentor_of`). No existing function or trigger is altered or dropped, and no existing data is written or deleted. Seed rows go only into the new Launchpad tables.
+- **The one existing shared object touched is `profiles`:** two nullable columns, no default and no backfill, so existing rows and every current query are unaffected.
+- **Correction to my earlier answer on policies.** `profiles` today has a policy `Users can update their own profile` with `USING (auth.uid() = id)` and **no WITH CHECK clause and no column restriction**. That means any signed-in agent could set their own `launchpad_track` and `mentor_id` — self-assigning their curriculum track and their mentor. Preventing that requires touching an existing policy path. Two options:
+  - **Option A (recommended, no policy change):** leave all existing policies untouched and add a new `BEFORE UPDATE` trigger on `profiles` that raises an error if a non-admin changes `launchpad_track` or `mentor_id`. New object only; existing policies stay byte-identical.
+  - **Option B:** replace `Users can update their own profile` with a version that blocks changes to those two columns. This edits a live policy that governs all profile self-updates — higher risk, not recommended without staging.
+  The plan assumes **Option A** unless you say otherwise.
+
+### Exact SQL against the existing `profiles` table
+
+```sql
+-- 1. Two new nullable columns. No default, no backfill, no rewrite of existing rows.
+ALTER TABLE public.profiles
+  ADD COLUMN launchpad_track text
+    CHECK (launchpad_track IN ('junior','associate')),
+  ADD COLUMN mentor_id uuid REFERENCES public.profiles(id) ON DELETE SET NULL;
+
+CREATE INDEX idx_profiles_mentor_id ON public.profiles(mentor_id);
+
+-- 2. No GRANT change needed: `authenticated` already holds table-level
+--    SELECT/UPDATE on public.profiles, which covers new columns automatically.
+
+-- 3. No existing RLS policy is dropped or replaced. Reads and admin writes are
+--    already covered by the current policies:
+--      SELECT "Team members can view profiles" -> is_team_member(auth.uid()) OR auth.uid() = id
+--      UPDATE "Admins can update any profile"  -> is_admin_or_owner(auth.uid())
+--      UPDATE "Users can update their own profile" -> auth.uid() = id
+--    Instead, a NEW trigger guards the two new columns from agent self-edits:
+CREATE OR REPLACE FUNCTION public.guard_launchpad_profile_fields()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF (NEW.launchpad_track IS DISTINCT FROM OLD.launchpad_track
+      OR NEW.mentor_id IS DISTINCT FROM OLD.mentor_id)
+     AND NOT public.is_admin_or_owner(auth.uid()) THEN
+    RAISE EXCEPTION 'Only an admin can change Launchpad track or mentor assignment';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER guard_launchpad_profile_fields
+  BEFORE UPDATE ON public.profiles
+  FOR EACH ROW EXECUTE FUNCTION public.guard_launchpad_profile_fields();
+```
+
+Rollback for this block is `DROP TRIGGER ... ; DROP FUNCTION ... ; ALTER TABLE public.profiles DROP COLUMN launchpad_track, DROP COLUMN mentor_id;`
+
+### Backups
+
+On Lovable Cloud I can't inspect or trigger backups, and point-in-time recovery is not something this project has enabled — so plainly: **assume there is no verified recent restore point you can roll back to.** The mitigation is that the migration is additive and fully reversible by the DROP statements above; nothing it does destroys existing data. If you want a guaranteed restore point first, the practical move is to hold approval until you have exported the data you care about.
 
 ## Technical notes
 
