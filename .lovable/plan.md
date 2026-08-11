@@ -39,7 +39,7 @@ Module and slide definitions are seeded as data (titles + day ranges only, empty
 
 ## 2. Track-based visibility
 
-Each agent has one track on their profile. The module list query returns modules where `track = <agent's track> OR track = 'unified'`, ordered by day range then module number. That yields 12 visible modules per agent: 9 track-specific, 3 unified. Module 8 naturally renders as "Negotiation Fundamentals" for Junior and "Negotiation Scriptbook" for Associate because they are separate rows.
+Each agent has one track on their profile. The module list query returns modules where `track = <agent's track> OR track = 'unified'`, ordered by day range then module number. That yields 12 visible modules per agent: 8 track-specific, 4 unified (Modules 2, 10, 11, 12). Module 8 naturally renders as "Negotiation Fundamentals" for Junior and "Negotiation Scriptbook" for Associate because they are separate rows.
 
 If an agent has no track set, Launchpad shows a short "ask your admin to assign your track" state rather than a broken list. Admins/owners can toggle between tracks to preview either curriculum.
 
