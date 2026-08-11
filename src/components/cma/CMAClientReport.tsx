@@ -19,6 +19,7 @@ interface Comp {
   sold_price: number | null;
   days_on_market: number | null;
   sale_date: string | null;
+  comp_category?: string | null;
   is_weak: boolean;
   weak_reason: string | null;
 }
@@ -68,12 +69,14 @@ interface CMAReportFull {
   approved_price_narrative: string | null;
   approved_strategy: string | null;
   approved_market_conditions: string | null;
+  user_id?: string | null;
 }
 
 const CMAClientReport = ({ reportId }: { reportId: string }) => {
   const [report, setReport] = useState<CMAReportFull | null>(null);
   const [loading, setLoading] = useState(true);
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
+  const [agentName, setAgentName] = useState<string>('');
   const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -102,6 +105,15 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
           approval_status: r.approval_status || 'draft',
         };
         setReport(reportData);
+
+        if (reportData.user_id) {
+          const { data: prof } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', reportData.user_id)
+            .maybeSingle();
+          if ((prof as any)?.full_name) setAgentName((prof as any).full_name);
+        }
 
         const photos: string[] = reportData.subject_photos;
         if (photos.length > 0) {
