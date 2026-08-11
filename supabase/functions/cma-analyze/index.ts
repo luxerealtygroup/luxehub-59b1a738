@@ -105,7 +105,13 @@ When analyzing:
 2. Generate a pricing band based on comp analysis
 3. Flag weak comps (distance issues, outdated sales >6 months, size/type mismatch, price outliers >15% from median)
 4. Analyze market stats to determine market conditions
-5. Generate talking points and anticipate seller objections`;
+5. Generate talking points and anticipate seller objections
+
+MARKET STATS SOURCING RULES — STRICT:
+- "COMP-DERIVED MARKET STATS" are hard numbers computed directly from this report's comparable set. Treat them as the primary, citable market data.
+- "AGENT-PROVIDED MARKET STATS (OVERRIDE)" are official board-level stats. When present, they take precedence over comp-derived numbers; say so and cite them first.
+- "GENERAL WEB MARKET CONTEXT" is supplementary background gathered from public web sources. It is NOT hard data for this comp set. Reference it only as general framing and always attribute it (e.g. "General web market context (as of <timeframe>) suggests ..."). Never blend it into, or present it as, comp-derived figures.
+- In "market_narrative", explicitly cite the comp-derived numbers (sale-to-list ratio, days on market, median sold price, comp counts, date range). If no reliable web context was supplied, simply omit web framing — never say stats are unavailable when comp-derived stats exist.`;
 
 async function callAI(apiKey: string, systemPrompt: string, userPrompt: string, model = "google/gemini-2.5-flash") {
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -378,6 +384,137 @@ function preProcessCloudCMAText(text: string): string {
   processed = processed.replace(/(\$\s*[\d,]+(?:\.\d{2})?)/g, '\n[PRICE_MARKER] $1');
   
   return processed;
+}
+
+// ---------- Layer 1: comp-derived market stats (always runs) ----------
+function median(values: number[]): number | null {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
+}
+
+function mean(values: number[]): number | null {
+  if (!values.length) return null;
+  return Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 100) / 100;
+}
+
+function computeCompDerivedStats(comps: any[]) {
+  const list = Array.isArray(comps) ? comps : [];
+  const cat = (c: any) => String(c?.comp_category || '').toLowerCase();
+  const sold = list.filter((c) => cat(c) === 'sold');
+  const pending = list.filter((c) => cat(c) === 'pending');
+  const active = list.filter((c) => cat(c) === 'active');
+  const expired = list.filter((c) => cat(c) === 'expired');
+
+  const num = (v: unknown) => {
+    const n = typeof v === 'string' ? Number(v.replace(/[^0-9.]/g, '')) : Number(v);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+
+  const ratios: number[] = [];
+  for (const c of sold) {
+    const sp = num(c.sold_price);
+    const lp = num(c.list_price);
+    if (sp && lp) ratios.push(Math.round((sp / lp) * 10000) / 100); // percent
+  }
+
+  const doms = list.map((c) => num(c.days_on_market)).filter((n): n is number => n != null);
+  const soldPrices = sold.map((c) => num(c.sold_price)).filter((n): n is number => n != null);
+
+  const dates = list
+    .map((c) => (typeof c.sale_date === 'string' ? c.sale_date.trim() : null))
+    .filter((d): d is string => !!d && /^\d{4}-\d{2}-\d{2}$/.test(d))
+    .sort();
+
+  return {
+    source: 'comp_derived' as const,
+    computed_at: new Date().toISOString(),
+    comp_counts: {
+      total: list.length,
+      sold: sold.length,
+      pending: pending.length,
+      active: active.length,
+      expired: expired.length,
+    },
+    avg_sale_to_list_ratio_pct: mean(ratios),
+    median_sale_to_list_ratio_pct: median(ratios),
+    sale_to_list_sample_size: ratios.length,
+    avg_days_on_market: mean(doms),
+    median_days_on_market: median(doms),
+    days_on_market_sample_size: doms.length,
+    median_sold_price: median(soldPrices),
+    sold_price_sample_size: soldPrices.length,
+    date_range: dates.length ? { earliest: dates[0], latest: dates[dates.length - 1] } : null,
+  };
+}
+
+function hasManualStats(marketStats: any): boolean {
+  if (!marketStats || typeof marketStats !== 'object') return false;
+  return [
+    'activeListings', 'soldListings', 'medianSalePrice',
+    'avgDOM', 'saleToListRatio', 'monthsOfInventory', 'pastedText', 'notes',
+  ].some((k) => marketStats[k] != null && String(marketStats[k]).trim() !== '');
+}
+
+// ---------- Layer 2: web-sourced general market context (best effort) ----------
+async function fetchWebMarketContext(subjectProperty: any): Promise<any | null> {
+  const key = Deno.env.get("ANTHROPIC_API_KEY");
+  const location = [subjectProperty?.city, subjectProperty?.address].filter(Boolean).join(' — ');
+  if (!key || !location) return null;
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1200,
+        system: "You are a real estate market researcher. Use web search to summarize CURRENT general market conditions for the requested municipality/neighbourhood. Be brief and factual. Respond with plain prose (3-6 sentences) plus a final line 'SOURCES: ...' listing publication names and the timeframe the data covers. If you cannot find reliable current data, respond with exactly: NO_RELIABLE_DATA",
+        tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 4 }],
+        messages: [{
+          role: "user",
+          content: `Current real estate market conditions for: ${location}. Is it trending as a buyer's, seller's, or balanced market? Include months of inventory, average days on market, and price trend direction if reported, plus any notable recent local commentary. Today's date: ${new Date().toISOString().slice(0, 10)}.`,
+        }],
+      }),
+    });
+    if (!res.ok) {
+      console.warn("web market context: anthropic error", res.status);
+      return null;
+    }
+    const data = await res.json();
+    const text = (data.content || [])
+      .filter((b: any) => b.type === 'text')
+      .map((b: any) => b.text || '')
+      .join('\n')
+      .trim();
+    if (!text || /NO_RELIABLE_DATA/i.test(text)) return null;
+    return {
+      source: 'web_search' as const,
+      provider: 'Anthropic web search',
+      retrieved_at: new Date().toISOString(),
+      location,
+      summary: text,
+    };
+  } catch (err) {
+    console.warn("web market context lookup failed:", err);
+    return null;
+  }
+}
+
+function buildMarketStatsBlock(compStats: any, marketStats: any, webContext: any): string {
+  const manual = hasManualStats(marketStats);
+  return `COMP-DERIVED MARKET STATS (PRIMARY — hard data computed from this report's comps):
+${JSON.stringify(compStats, null, 2)}
+
+AGENT-PROVIDED MARKET STATS (OVERRIDE — official board-level stats, takes precedence when present):
+${manual ? JSON.stringify(marketStats, null, 2) : 'None provided.'}
+
+GENERAL WEB MARKET CONTEXT (SUPPLEMENTARY — general framing only, not comp data):
+${webContext ? JSON.stringify(webContext, null, 2) : 'Unavailable — rely solely on the comp-derived stats above.'}`;
 }
 
 serve(async (req) => {
