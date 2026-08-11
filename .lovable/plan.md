@@ -30,6 +30,7 @@ Adding, reordering, or removing slides later is a data change only. No UI rework
 - One slide in a fixed frame, Back / Next controls, progress bar with counter, and a slide-jump strip.
 - Left/right arrow keys navigate; the URL carries the slide number so refresh and link-sharing land on the same slide.
 - Advancing past a slide records completion; the last slide marks the module complete and offers "Next module".
+- Completion is "current slide index === slides.length - 1", never "reached the knowledge check". For Module 10 (3 content slides, no assignment, no check) the Next button on slide 3 reads "Finish module", marks the module complete, and offers the next module in day-range order — exactly as a 5-slide module does on its slide 5.
 - Empty slide bodies show a neutral "Content coming soon" placeholder rather than a blank frame.
 
 **Mentor / admin progress** — a tab on Launchpad home, visible to mentors and admins
@@ -52,3 +53,15 @@ A top-level "Launchpad" item with a rocket icon in the main sidebar, visible to 
 - Data access via React Query hooks against `launchpad_modules`, `launchpad_slides`, `launchpad_progress`, `launchpad_module_progress`. Module query filters `track IN (agent track, 'unified')` and orders by `sort_order`.
 - Progress writes are upserts on the existing unique keys `(user_id, slide_id)` and `(user_id, module_id)`, so re-visiting a slide is idempotent.
 - Styling uses the existing LUXEhub semantic tokens; no new color values.
+
+## Verification before hand-off
+
+The mentor progress tab will not ship on the assumption that `is_mentor_of()` works. Once built I will:
+
+1. Assign a test account as mentor of exactly one agent, leaving at least one other agent assigned to a different mentor.
+2. Sign in as that test account through the real client (normal auth, anon key) and query `launchpad_module_progress` and `launchpad_progress`.
+3. Confirm the response contains only the assigned agent's rows and that the other mentor's agent is absent — a positive and a negative case, not just "the query returned something".
+4. Confirm an agent with no mentees sees only their own rows, and that an admin still sees all.
+5. Remove the temporary mentor assignments afterward and paste the actual output.
+
+If any case comes back wrong, the policy gets fixed before the feature is called done.
