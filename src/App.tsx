@@ -33,6 +33,8 @@ import MyOpenHouse from "./pages/MyOpenHouse";
 import Submissions from "./pages/Submissions";
 import CMABoss from "./pages/CMABoss";
 import BusinessPlanning from "./pages/BusinessPlanning";
+import Launchpad from "./pages/Launchpad";
+import LaunchpadModule from "./pages/LaunchpadModule";
 import CompanyBusinessPlanningPage from "./pages/CompanyBusinessPlanningPage";
 import AdminClientPortals from "./pages/AdminClientPortals";
 import AdminTickets from "./pages/AdminTickets";
@@ -134,6 +136,8 @@ const App = () => (
               <Route path="my-open-house" element={<RoleGuard><MyOpenHouse /></RoleGuard>} />
               <Route path="cma-boss" element={<RoleGuard><CMABoss /></RoleGuard>} />
               <Route path="business-planning" element={<BusinessPlanning />} />
+              <Route path="launchpad" element={<Launchpad />} />
+              <Route path="launchpad/:moduleId/:slideNumber" element={<LaunchpadModule />} />
               <Route path="settings" element={<AccountSettings />} />
               <Route path="notifications" element={<Notifications />} />
               <Route path="client-portals" element={<RoleGuard><TierGuard feature="canAccessClientPortals" featureName="Client Portals" requiredTierLabel="Pro+ or Team"><AdminClientPortals /></TierGuard></RoleGuard>} />
