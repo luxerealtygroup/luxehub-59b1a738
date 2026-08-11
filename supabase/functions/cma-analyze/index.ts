@@ -684,11 +684,11 @@ async function fetchWebMarketContext(subjectProperty: any): Promise<any | null> 
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
         max_tokens: 1200,
-        system: "You are a real estate market researcher. Use web search to summarize CURRENT general market conditions for the requested municipality/neighbourhood. Be brief and factual. Respond with plain prose (3-6 sentences) plus a final line 'SOURCES: ...' listing publication names and the timeframe the data covers. If you cannot find reliable current data, respond with exactly: NO_RELIABLE_DATA",
+        system: "You are a real estate market researcher. Use web search to summarize CURRENT general market conditions for the requested municipality/neighbourhood. Prioritize official regional real estate board monthly statistics — Cornerstone Association of REALTORS® (formerly WRAR / Waterloo Region Association of REALTORS®), the local board covering the subject area, and CREA — over blog or portal estimates. Be brief and factual, quote actual figures (average/median sale price, sales volume, months of inventory, average days on market, year-over-year change) and name the reporting month. Respond with plain prose (3-6 sentences) plus a final line 'SOURCES: ...' listing publication names and the timeframe the data covers. If you cannot find reliable current data, respond with exactly: NO_RELIABLE_DATA",
         tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 4 }],
         messages: [{
           role: "user",
-          content: `Current real estate market conditions for: ${location}. Is it trending as a buyer's, seller's, or balanced market? Include months of inventory, average days on market, and price trend direction if reported, plus any notable recent local commentary. Today's date: ${new Date().toISOString().slice(0, 10)}.`,
+          content: `Current real estate market conditions for: ${location}. Prefer the most recent monthly statistics release from the regional real estate board (Cornerstone Association of REALTORS® / WRAR for Waterloo Region, otherwise the board covering this municipality). Is it trending as a buyer's, seller's, or balanced market? Include months of inventory, average days on market, and price trend direction if reported, plus any notable recent local commentary. Today's date: ${new Date().toISOString().slice(0, 10)}.`,
         }],
       }),
     });
@@ -716,9 +716,20 @@ async function fetchWebMarketContext(subjectProperty: any): Promise<any | null> 
   }
 }
 
-function buildMarketStatsBlock(compStats: any, marketStats: any, webContext: any): string {
+function buildMarketStatsBlock(compStats: any, marketStats: any, webContext: any, segmentation?: any): string {
   const manual = hasManualStats(marketStats);
-  return `COMP-DERIVED MARKET STATS (PRIMARY — hard data computed from this report's comps):
+  const classification = classifyMarket(compStats);
+  const pending = compStats?.comp_counts?.pending ?? 0;
+  return `MARKET FACTS — the ONLY permitted basis for market-conditions prose:
+- Computed market classification: ${classification.label} (${classification.classification})
+- Tone rule: ${classification.permitted_tone}
+- Classification basis: ${JSON.stringify(classification.basis)}
+- Pending comparables in this comp set: ${pending}. ${pending > 0 ? 'You MAY reference pending comps.' : 'You MUST NOT reference pending sales anywhere in this report.'}
+
+BASEMENT-FINISH SEGMENTATION (price per above-grade finished sqft, sold comps):
+${segmentation ? JSON.stringify(segmentation, null, 2) : 'Not applicable.'}
+
+COMP-DERIVED MARKET STATS (PRIMARY — hard data computed from this report's comps):
 ${JSON.stringify(compStats, null, 2)}
 
 AGENT-PROVIDED MARKET STATS (OVERRIDE — official board-level stats, takes precedence when present):
