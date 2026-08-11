@@ -579,7 +579,7 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
               <div className="max-w-2xl mx-auto space-y-5">
                 <NextStep step={1} text="Review this report and identify your preferred pricing strategy." />
                 <NextStep step={2} text="Schedule a listing appointment to discuss timing, staging, and marketing." />
-                <NextStep step={3} text="Finalize your listing price, sign paperwork, and go live!" />
+                <NextStep step={3} text={`Finalize your listing price — our recommendation is ${recommendedPriceText} — sign paperwork, and go live.`} />
               </div>
 
               <div className="mt-8 text-center">
@@ -607,7 +607,10 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
 
         {/* Footer */}
         <div className="text-center border-t border-border pt-6 pb-4">
-          <p className="text-xs text-muted-foreground">Prepared by RealtyHub · CMA Boss</p>
+          <p className="text-xs text-muted-foreground">
+            Prepared by {agentName || 'your agent'}, Salesperson · Luxe Realty Group, Brokered by eXp Realty, Brokerage
+          </p>
+          <p className="text-[10px] text-muted-foreground/70 mt-1">luxerealtygroup.ca</p>
           <p className="text-[10px] text-muted-foreground/60 mt-1">
             {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
