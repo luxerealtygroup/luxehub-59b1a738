@@ -11,15 +11,13 @@ Both currently hold 5 empty placeholder slides (3 content, 1 practice_assignment
 
 ## Target end state
 
-Junior — 11 slides:
+Junior — 10 slides:
 
 ```text
 1-8   content             (3 existing rows reused for 1-3, 5 new rows inserted for 4-8)
 9     practice_assignment (existing row, renumbered 4 -> 9)
 10    knowledge_check     (existing row, renumbered 5 -> 10)
 ```
-
-Wait — Junior is 8 content + PA + KC = 10 slides. Final numbering: content 1-8, practice_assignment 9, knowledge_check 10.
 
 Associate — 6 slides:
 
