@@ -22,6 +22,12 @@ interface FlaggedSubmission {
 
 const FILE_KEYS = ['attachments', 'bra_reco_files', 'ids_files', 'fintracker_files', 'other_docs_files'];
 
+// Asana sync tracking went live on this date. Submissions created before it
+// were never meant to create Asana tasks, so they must not be flagged.
+const ASANA_TRACKING_START = '2026-07-27T00:00:00Z';
+
+const VISIBLE_LIMIT = 5;
+
 const collectPaths = (row: any): string[] =>
   FILE_KEYS.flatMap((key) => (Array.isArray(row[key]) ? (row[key] as string[]) : []));
 
@@ -33,6 +39,7 @@ export function AsanaSyncAlert() {
   const [flagged, setFlagged] = useState<FlaggedSubmission[]>([]);
   const [loading, setLoading] = useState(true);
   const [pushingId, setPushingId] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -41,6 +48,7 @@ export function AsanaSyncAlert() {
       .select(
         'id, form_type, agent_name, client_name, property_address, created_at, attachments, bra_reco_files, ids_files, fintracker_files, other_docs_files, asana_task_url, asana_pushed_at, asana_attachments_sent, asana_attachments_uploaded'
       )
+      .gte('created_at', ASANA_TRACKING_START)
       .order('created_at', { ascending: false })
       .limit(100);
 
@@ -105,6 +113,8 @@ export function AsanaSyncAlert() {
 
   if (loading || flagged.length === 0) return null;
 
+  const visible = expanded ? flagged : flagged.slice(0, VISIBLE_LIMIT);
+
   return (
     <Alert variant="destructive">
       <AlertTriangle className="h-4 w-4" />
@@ -122,7 +132,7 @@ export function AsanaSyncAlert() {
           missing files. Use Push to Asana to retry.
         </p>
         <ul className="space-y-1.5">
-          {flagged.map((row) => (
+          {visible.map((row) => (
             <li key={row.id} className="flex flex-wrap items-center gap-2 text-sm">
               <span className="font-medium capitalize">{row.form_type.replace('_', ' ')}</span>
               <span>
@@ -157,6 +167,16 @@ export function AsanaSyncAlert() {
             </li>
           ))}
         </ul>
+        {flagged.length > VISIBLE_LIMIT && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mt-2 h-7 px-0 underline"
+            onClick={() => setExpanded((v) => !v)}
+          >
+            {expanded ? 'Show less' : `Show all ${flagged.length}`}
+          </Button>
+        )}
       </AlertDescription>
     </Alert>
   );
