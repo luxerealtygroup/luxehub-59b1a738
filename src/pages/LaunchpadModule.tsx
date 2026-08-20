@@ -142,7 +142,7 @@ const LaunchpadModule = () => {
         <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard/launchpad')}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="text-xs font-mono text-muted-foreground">Module {module.module_number}</span>
             {module.kind === 'reference' ? (
@@ -151,6 +151,16 @@ const LaunchpadModule = () => {
           </div>
           <h1 className="truncate font-display text-2xl font-bold text-foreground">{module.title}</h1>
         </div>
+        {(isAdmin || isOwner) && slide && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => setHistoryOpen(true)}
+          >
+            <History className="h-4 w-4" /> History
+          </Button>
+        )}
       </div>
 
       <SlideFrame slide={slide} />
@@ -166,6 +176,15 @@ const LaunchpadModule = () => {
         onNext={handleNext}
         isLast={isLast}
       />
+
+      {(isAdmin || isOwner) && slide && (
+        <SlideVersionHistory
+          slide={slide}
+          moduleTitle={module.title}
+          open={historyOpen}
+          onOpenChange={setHistoryOpen}
+        />
+      )}
     </div>
   );
 };
