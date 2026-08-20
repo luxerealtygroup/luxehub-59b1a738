@@ -1798,66 +1798,6 @@ export type Database = {
           },
         ]
       }
-      launchpad_slide_versions: {
-        Row: {
-          body: string
-          changed_at: string
-          changed_by: string | null
-          created_at: string
-          id: string
-          module_id: string
-          slide_id: string
-          slide_number: number
-          slide_type: string
-          title: string
-          updated_at: string
-          version_number: number
-        }
-        Insert: {
-          body: string
-          changed_at?: string
-          changed_by?: string | null
-          created_at?: string
-          id?: string
-          module_id: string
-          slide_id: string
-          slide_number: number
-          slide_type: string
-          title: string
-          updated_at?: string
-          version_number?: number
-        }
-        Update: {
-          body?: string
-          changed_at?: string
-          changed_by?: string | null
-          created_at?: string
-          id?: string
-          module_id?: string
-          slide_id?: string
-          slide_number?: number
-          slide_type?: string
-          title?: string
-          updated_at?: string
-          version_number?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "launchpad_slide_versions_module_id_fkey"
-            columns: ["module_id"]
-            isOneToOne: false
-            referencedRelation: "launchpad_modules"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "launchpad_slide_versions_slide_id_fkey"
-            columns: ["slide_id"]
-            isOneToOne: false
-            referencedRelation: "launchpad_slides"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       launchpad_slides: {
         Row: {
           body: string
