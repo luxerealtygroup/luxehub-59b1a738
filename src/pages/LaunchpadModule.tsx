@@ -22,6 +22,7 @@ const LaunchpadModule = () => {
   const { moduleId, slideNumber } = useParams<{ moduleId: string; slideNumber: string }>();
   const navigate = useNavigate();
   const { isAdmin, isOwner } = useUserRole();
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const { data: module, isLoading: moduleLoading } = useLaunchpadModule(moduleId);
   const { data: slides = [], isLoading: slidesLoading } = useModuleSlides(moduleId);
