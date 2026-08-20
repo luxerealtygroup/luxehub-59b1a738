@@ -150,16 +150,6 @@ const LaunchpadModule = () => {
           </div>
           <h1 className="truncate font-display text-2xl font-bold text-foreground">{module.title}</h1>
         </div>
-        {(isAdmin || isOwner) && slide && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => setHistoryOpen(true)}
-          >
-            <History className="h-4 w-4" /> History
-          </Button>
-        )}
       </div>
 
       <SlideFrame slide={slide} />
@@ -175,15 +165,6 @@ const LaunchpadModule = () => {
         onNext={handleNext}
         isLast={isLast}
       />
-
-      {(isAdmin || isOwner) && slide && (
-        <SlideVersionHistory
-          slide={slide}
-          moduleTitle={module.title}
-          open={historyOpen}
-          onOpenChange={setHistoryOpen}
-        />
-      )}
     </div>
   );
 };
