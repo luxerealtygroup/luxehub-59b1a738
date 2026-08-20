@@ -30,6 +30,38 @@ export interface LaunchpadSlide {
   body: string;
 }
 
+export interface LaunchpadSlideVersion {
+  id: string;
+  slide_id: string;
+  module_id: string;
+  slide_number: number;
+  title: string;
+  slide_type: string;
+  body: string;
+  changed_by: string | null;
+  version_number: number;
+  changed_at: string;
+}
+
+/** Prior versions of a single slide, newest first. Admin/owner review tool. */
+export function useSlideVersions(slideId: string | undefined) {
+  return useQuery({
+    queryKey: ['launchpad-slide-versions', slideId],
+    enabled: !!slideId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('launchpad_slide_versions')
+        .select(
+          'id, slide_id, module_id, slide_number, title, slide_type, body, changed_by, version_number, changed_at',
+        )
+        .eq('slide_id', slideId!)
+        .order('version_number', { ascending: false });
+      if (error) throw error;
+      return (data || []) as LaunchpadSlideVersion[];
+    },
+  });
+}
+
 export interface ModuleProgressRow {
   module_id: string;
   user_id: string;

@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, History, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   useLaunchpadModule,
@@ -15,12 +15,14 @@ import {
 } from '@/hooks/useLaunchpad';
 import { SlideFrame } from '@/components/launchpad/SlideFrame';
 import { SlideNav } from '@/components/launchpad/SlideNav';
+import { SlideVersionHistory } from '@/components/launchpad/SlideVersionHistory';
 import { useUserRole } from '@/hooks/useUserRole';
 
 const LaunchpadModule = () => {
   const { moduleId, slideNumber } = useParams<{ moduleId: string; slideNumber: string }>();
   const navigate = useNavigate();
   const { isAdmin, isOwner } = useUserRole();
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const { data: module, isLoading: moduleLoading } = useLaunchpadModule(moduleId);
   const { data: slides = [], isLoading: slidesLoading } = useModuleSlides(moduleId);
@@ -140,7 +142,7 @@ const LaunchpadModule = () => {
         <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard/launchpad')}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="text-xs font-mono text-muted-foreground">Module {module.module_number}</span>
             {module.kind === 'reference' ? (
@@ -149,6 +151,16 @@ const LaunchpadModule = () => {
           </div>
           <h1 className="truncate font-display text-2xl font-bold text-foreground">{module.title}</h1>
         </div>
+        {(isAdmin || isOwner) && slide && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => setHistoryOpen(true)}
+          >
+            <History className="h-4 w-4" /> History
+          </Button>
+        )}
       </div>
 
       <SlideFrame slide={slide} />
@@ -164,6 +176,15 @@ const LaunchpadModule = () => {
         onNext={handleNext}
         isLast={isLast}
       />
+
+      {(isAdmin || isOwner) && slide && (
+        <SlideVersionHistory
+          slide={slide}
+          moduleTitle={module.title}
+          open={historyOpen}
+          onOpenChange={setHistoryOpen}
+        />
+      )}
     </div>
   );
 };
