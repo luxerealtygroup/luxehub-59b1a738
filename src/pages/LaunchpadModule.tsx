@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, History, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   useLaunchpadModule,
@@ -15,6 +15,7 @@ import {
 } from '@/hooks/useLaunchpad';
 import { SlideFrame } from '@/components/launchpad/SlideFrame';
 import { SlideNav } from '@/components/launchpad/SlideNav';
+import { SlideVersionHistory } from '@/components/launchpad/SlideVersionHistory';
 import { useUserRole } from '@/hooks/useUserRole';
 
 const LaunchpadModule = () => {
