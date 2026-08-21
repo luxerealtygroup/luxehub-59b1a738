@@ -913,14 +913,14 @@ const AdminDashboard = () => {
       )}
 
       {/* Company-wide Stats from FUB */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         <Card className="border-green-500/20 bg-gradient-to-br from-card to-green-500/5">
           <CardContent className="p-5">
             <div className="flex items-center gap-2 mb-2">
               <DollarSign className="h-5 w-5 text-green-500" />
               <span className="text-sm text-muted-foreground">Sales GCI</span>
             </div>
-            <p className="text-2xl xl:text-3xl font-bold tabular-nums break-words leading-tight text-foreground">
+            <p className="text-xl md:text-2xl xl:text-xl font-bold tabular-nums break-words leading-tight text-foreground">
               {formatCurrency((fubStats?.saleClosedGci || 0) + (fubStats?.salePendingGci || 0) + (fubStats?.saleConditionalGci || 0))}
             </p>
             <p className="text-xs font-medium text-green-500 mt-1">
@@ -940,7 +940,7 @@ const AdminDashboard = () => {
               <ArrowRightLeft className="h-5 w-5 text-teal-500" />
               <span className="text-sm text-muted-foreground">Lease GCI</span>
             </div>
-            <p className="text-2xl xl:text-3xl font-bold tabular-nums break-words leading-tight text-teal-500">
+            <p className="text-xl md:text-2xl xl:text-xl font-bold tabular-nums break-words leading-tight text-teal-500">
               {formatCurrency((fubStats?.leaseClosedGci || 0) + (fubStats?.leasePendingGci || 0) + (fubStats?.leaseConditionalGci || 0))}
             </p>
             <p className="text-xs font-medium text-teal-500 mt-1">
@@ -960,15 +960,17 @@ const AdminDashboard = () => {
               <Building2 className="h-5 w-5 text-blue-500" />
               <span className="text-sm text-muted-foreground">Company Revenue</span>
             </div>
-            <p className="text-2xl xl:text-3xl font-bold tabular-nums break-words leading-tight text-blue-500">
+            <p className="text-xl md:text-2xl xl:text-xl font-bold tabular-nums break-words leading-tight text-blue-500">
               {formatCurrency((fubStats?.companyRevenueEarned || 0) + (fubStats?.companyRevenuePending || 0) + (fubStats?.companyRevenueConditional || 0))}
             </p>
             <p className="text-xs font-medium text-blue-500 mt-1">
               {formatWeightedDeals((fubStats?.closedDeals || 0) + (fubStats?.pendingDeals || 0) + (fubStats?.conditionalDeals || 0))} total units
             </p>
-            <p className="text-xs text-muted-foreground mt-1 break-words">
-              {formatCurrency(fubStats?.companyRevenueEarned)} earned / {formatCurrency(fubStats?.companyRevenuePending)} pending / {formatCurrency(fubStats?.companyRevenueConditional)} conditional
-            </p>
+            <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+              <p>{formatCurrency(fubStats?.companyRevenueEarned)} earned</p>
+              <p>{formatCurrency(fubStats?.companyRevenuePending)} pending</p>
+              <p>{formatCurrency(fubStats?.companyRevenueConditional)} conditional</p>
+            </div>
           </CardContent>
         </Card>
 
@@ -978,7 +980,7 @@ const AdminDashboard = () => {
               <TrendingUp className="h-5 w-5 text-amber-500" />
               <span className="text-sm text-muted-foreground">Sales Volume</span>
             </div>
-            <p className="text-2xl xl:text-3xl font-bold tabular-nums break-words leading-tight text-amber-500">
+            <p className="text-xl md:text-2xl xl:text-xl font-bold tabular-nums break-words leading-tight text-amber-500">
               {formatCurrency((fubStats?.closedVolume || 0) + (fubStats?.pendingVolume || 0) + (fubStats?.conditionalVolume || 0))}
             </p>
             <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
@@ -995,7 +997,7 @@ const AdminDashboard = () => {
               <Users className="h-5 w-5 text-purple-500" />
               <span className="text-sm text-muted-foreground">Pipeline Clients</span>
             </div>
-            <p className="text-2xl xl:text-3xl font-bold tabular-nums break-words leading-tight text-purple-500">{stats?.totalPipelineClients || 0}</p>
+            <p className="text-xl md:text-2xl xl:text-xl font-bold tabular-nums break-words leading-tight text-purple-500">{stats?.totalPipelineClients || 0}</p>
             <p className="text-xs text-muted-foreground mt-1 break-words">
               {stats?.closedDeals || 0} closed / {stats?.activeDeals || 0} active
             </p>
@@ -1044,19 +1046,19 @@ const AdminDashboard = () => {
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center p-4 rounded-lg bg-purple-500/10">
-                  <p className="text-2xl xl:text-3xl font-bold tabular-nums break-words leading-tight text-purple-500">{teamPipelineSummary.totalClients}</p>
+                  <p className="text-2xl font-bold tabular-nums break-words leading-tight text-purple-500">{teamPipelineSummary.totalClients}</p>
                   <p className="text-sm text-muted-foreground">Total Pipeline Clients</p>
                 </div>
                 <div className="text-center p-4 rounded-lg bg-gold/10">
-                  <p className="text-2xl xl:text-3xl font-bold tabular-nums break-words leading-tight text-gold">{formatCurrency(teamPipelineSummary.totalProjectedGci)}</p>
+                  <p className="text-2xl font-bold tabular-nums break-words leading-tight text-gold">{formatCurrency(teamPipelineSummary.totalProjectedGci)}</p>
                   <p className="text-sm text-muted-foreground">Projected Pipeline GCI</p>
                 </div>
                 <div className="text-center p-4 rounded-lg bg-green-500/10">
-                  <p className="text-2xl xl:text-3xl font-bold tabular-nums break-words leading-tight text-green-500">{teamPipelineSummary.totalDealsGoal}</p>
+                  <p className="text-2xl font-bold tabular-nums break-words leading-tight text-green-500">{teamPipelineSummary.totalDealsGoal}</p>
                   <p className="text-sm text-muted-foreground">Team Sales Goal</p>
                 </div>
                 <div className="text-center p-4 rounded-lg bg-blue-500/10">
-                  <p className="text-2xl xl:text-3xl font-bold tabular-nums break-words leading-tight text-blue-500">{formatCurrency(teamPipelineSummary.totalGciGoal)}</p>
+                  <p className="text-2xl font-bold tabular-nums break-words leading-tight text-blue-500">{formatCurrency(teamPipelineSummary.totalGciGoal)}</p>
                   <p className="text-sm text-muted-foreground">Team GCI Goal</p>
                 </div>
               </div>
@@ -1259,11 +1261,11 @@ const AdminDashboard = () => {
                           <p className="text-xs text-muted-foreground">Conditional</p>
                         </div>
                         <div className="bg-gold/10 border border-gold/20 rounded-lg p-3 text-center">
-                          <p className="text-lg font-bold text-gold">{formatCurrency(totalGci)}</p>
+                          <p className="text-lg font-bold tabular-nums break-words leading-tight text-gold">{formatCurrency(totalGci)}</p>
                           <p className="text-xs text-muted-foreground">Gross GCI</p>
                         </div>
                         <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 text-center col-span-2 md:col-span-1">
-                          <p className="text-lg font-bold text-blue-400">{formatCurrency(totalRevenue)}</p>
+                          <p className="text-lg font-bold tabular-nums break-words leading-tight text-blue-400">{formatCurrency(totalRevenue)}</p>
                           <p className="text-xs text-muted-foreground">Company Revenue</p>
                         </div>
                       </div>
@@ -1535,19 +1537,19 @@ const AdminDashboard = () => {
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                   <div className="text-center">
-                    <p className="text-2xl xl:text-3xl font-bold tabular-nums break-words leading-tight text-green-500">${selectedAgentData.totalGci.toLocaleString()}</p>
+                    <p className="text-2xl font-bold tabular-nums break-words leading-tight text-green-500">${selectedAgentData.totalGci.toLocaleString()}</p>
                     <p className="text-sm text-muted-foreground">Total GCI Earned</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-2xl xl:text-3xl font-bold tabular-nums break-words leading-tight text-gold">${selectedAgentData.pendingGci.toLocaleString()}</p>
+                    <p className="text-2xl font-bold tabular-nums break-words leading-tight text-gold">${selectedAgentData.pendingGci.toLocaleString()}</p>
                     <p className="text-sm text-muted-foreground">Pending GCI</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-2xl xl:text-3xl font-bold tabular-nums break-words leading-tight text-foreground">{formatWeightedDeals(selectedAgentData.closedDeals + selectedAgentData.activeDeals)}</p>
+                    <p className="text-2xl font-bold tabular-nums break-words leading-tight text-foreground">{formatWeightedDeals(selectedAgentData.closedDeals + selectedAgentData.activeDeals)}</p>
                     <p className="text-sm text-muted-foreground">Total Deals</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-2xl xl:text-3xl font-bold tabular-nums break-words leading-tight text-purple-500">{selectedAgentData.pipelineClients}</p>
+                    <p className="text-2xl font-bold tabular-nums break-words leading-tight text-purple-500">{selectedAgentData.pipelineClients}</p>
                     <p className="text-sm text-muted-foreground">Pipeline Clients</p>
                   </div>
                 </div>
