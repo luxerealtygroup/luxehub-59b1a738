@@ -913,7 +913,7 @@ const AdminDashboard = () => {
       )}
 
       {/* Company-wide Stats from FUB */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         <Card className="border-green-500/20 bg-gradient-to-br from-card to-green-500/5">
           <CardContent className="p-5">
             <div className="flex items-center gap-2 mb-2">
@@ -966,9 +966,11 @@ const AdminDashboard = () => {
             <p className="text-xs font-medium text-blue-500 mt-1">
               {formatWeightedDeals((fubStats?.closedDeals || 0) + (fubStats?.pendingDeals || 0) + (fubStats?.conditionalDeals || 0))} total units
             </p>
-            <p className="text-xs text-muted-foreground mt-1 break-words">
-              {formatCurrency(fubStats?.companyRevenueEarned)} earned / {formatCurrency(fubStats?.companyRevenuePending)} pending / {formatCurrency(fubStats?.companyRevenueConditional)} conditional
-            </p>
+            <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+              <p>{formatCurrency(fubStats?.companyRevenueEarned)} earned</p>
+              <p>{formatCurrency(fubStats?.companyRevenuePending)} pending</p>
+              <p>{formatCurrency(fubStats?.companyRevenueConditional)} conditional</p>
+            </div>
           </CardContent>
         </Card>
 
@@ -1259,11 +1261,11 @@ const AdminDashboard = () => {
                           <p className="text-xs text-muted-foreground">Conditional</p>
                         </div>
                         <div className="bg-gold/10 border border-gold/20 rounded-lg p-3 text-center">
-                          <p className="text-lg font-bold text-gold">{formatCurrency(totalGci)}</p>
+                          <p className="text-lg font-bold tabular-nums break-words leading-tight text-gold">{formatCurrency(totalGci)}</p>
                           <p className="text-xs text-muted-foreground">Gross GCI</p>
                         </div>
                         <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 text-center col-span-2 md:col-span-1">
-                          <p className="text-lg font-bold text-blue-400">{formatCurrency(totalRevenue)}</p>
+                          <p className="text-lg font-bold tabular-nums break-words leading-tight text-blue-400">{formatCurrency(totalRevenue)}</p>
                           <p className="text-xs text-muted-foreground">Company Revenue</p>
                         </div>
                       </div>
