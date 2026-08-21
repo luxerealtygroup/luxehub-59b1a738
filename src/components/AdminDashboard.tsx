@@ -920,7 +920,7 @@ const AdminDashboard = () => {
               <DollarSign className="h-5 w-5 text-green-500" />
               <span className="text-sm text-muted-foreground">Sales GCI</span>
             </div>
-            <p className="text-2xl font-bold tabular-nums break-words leading-tight text-foreground">
+            <p className="text-xl md:text-2xl xl:text-xl font-bold tabular-nums break-words leading-tight text-foreground">
               {formatCurrency((fubStats?.saleClosedGci || 0) + (fubStats?.salePendingGci || 0) + (fubStats?.saleConditionalGci || 0))}
             </p>
             <p className="text-xs font-medium text-green-500 mt-1">
@@ -940,7 +940,7 @@ const AdminDashboard = () => {
               <ArrowRightLeft className="h-5 w-5 text-teal-500" />
               <span className="text-sm text-muted-foreground">Lease GCI</span>
             </div>
-            <p className="text-2xl font-bold tabular-nums break-words leading-tight text-teal-500">
+            <p className="text-xl md:text-2xl xl:text-xl font-bold tabular-nums break-words leading-tight text-teal-500">
               {formatCurrency((fubStats?.leaseClosedGci || 0) + (fubStats?.leasePendingGci || 0) + (fubStats?.leaseConditionalGci || 0))}
             </p>
             <p className="text-xs font-medium text-teal-500 mt-1">
@@ -960,7 +960,7 @@ const AdminDashboard = () => {
               <Building2 className="h-5 w-5 text-blue-500" />
               <span className="text-sm text-muted-foreground">Company Revenue</span>
             </div>
-            <p className="text-2xl font-bold tabular-nums break-words leading-tight text-blue-500">
+            <p className="text-xl md:text-2xl xl:text-xl font-bold tabular-nums break-words leading-tight text-blue-500">
               {formatCurrency((fubStats?.companyRevenueEarned || 0) + (fubStats?.companyRevenuePending || 0) + (fubStats?.companyRevenueConditional || 0))}
             </p>
             <p className="text-xs font-medium text-blue-500 mt-1">
