@@ -920,7 +920,7 @@ const AdminDashboard = () => {
               <DollarSign className="h-5 w-5 text-green-500" />
               <span className="text-sm text-muted-foreground">Sales GCI</span>
             </div>
-            <p className="text-2xl xl:text-3xl font-bold tabular-nums break-words leading-tight text-foreground">
+            <p className="text-2xl font-bold tabular-nums break-words leading-tight text-foreground">
               {formatCurrency((fubStats?.saleClosedGci || 0) + (fubStats?.salePendingGci || 0) + (fubStats?.saleConditionalGci || 0))}
             </p>
             <p className="text-xs font-medium text-green-500 mt-1">
@@ -940,7 +940,7 @@ const AdminDashboard = () => {
               <ArrowRightLeft className="h-5 w-5 text-teal-500" />
               <span className="text-sm text-muted-foreground">Lease GCI</span>
             </div>
-            <p className="text-2xl xl:text-3xl font-bold tabular-nums break-words leading-tight text-teal-500">
+            <p className="text-2xl font-bold tabular-nums break-words leading-tight text-teal-500">
               {formatCurrency((fubStats?.leaseClosedGci || 0) + (fubStats?.leasePendingGci || 0) + (fubStats?.leaseConditionalGci || 0))}
             </p>
             <p className="text-xs font-medium text-teal-500 mt-1">
@@ -960,7 +960,7 @@ const AdminDashboard = () => {
               <Building2 className="h-5 w-5 text-blue-500" />
               <span className="text-sm text-muted-foreground">Company Revenue</span>
             </div>
-            <p className="text-2xl xl:text-3xl font-bold tabular-nums break-words leading-tight text-blue-500">
+            <p className="text-2xl font-bold tabular-nums break-words leading-tight text-blue-500">
               {formatCurrency((fubStats?.companyRevenueEarned || 0) + (fubStats?.companyRevenuePending || 0) + (fubStats?.companyRevenueConditional || 0))}
             </p>
             <p className="text-xs font-medium text-blue-500 mt-1">
@@ -978,7 +978,7 @@ const AdminDashboard = () => {
               <TrendingUp className="h-5 w-5 text-amber-500" />
               <span className="text-sm text-muted-foreground">Sales Volume</span>
             </div>
-            <p className="text-2xl xl:text-3xl font-bold tabular-nums break-words leading-tight text-amber-500">
+            <p className="text-2xl font-bold tabular-nums break-words leading-tight text-amber-500">
               {formatCurrency((fubStats?.closedVolume || 0) + (fubStats?.pendingVolume || 0) + (fubStats?.conditionalVolume || 0))}
             </p>
             <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
@@ -995,7 +995,7 @@ const AdminDashboard = () => {
               <Users className="h-5 w-5 text-purple-500" />
               <span className="text-sm text-muted-foreground">Pipeline Clients</span>
             </div>
-            <p className="text-2xl xl:text-3xl font-bold tabular-nums break-words leading-tight text-purple-500">{stats?.totalPipelineClients || 0}</p>
+            <p className="text-2xl font-bold tabular-nums break-words leading-tight text-purple-500">{stats?.totalPipelineClients || 0}</p>
             <p className="text-xs text-muted-foreground mt-1 break-words">
               {stats?.closedDeals || 0} closed / {stats?.activeDeals || 0} active
             </p>
@@ -1044,19 +1044,19 @@ const AdminDashboard = () => {
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center p-4 rounded-lg bg-purple-500/10">
-                  <p className="text-2xl xl:text-3xl font-bold tabular-nums break-words leading-tight text-purple-500">{teamPipelineSummary.totalClients}</p>
+                  <p className="text-2xl font-bold tabular-nums break-words leading-tight text-purple-500">{teamPipelineSummary.totalClients}</p>
                   <p className="text-sm text-muted-foreground">Total Pipeline Clients</p>
                 </div>
                 <div className="text-center p-4 rounded-lg bg-gold/10">
-                  <p className="text-2xl xl:text-3xl font-bold tabular-nums break-words leading-tight text-gold">{formatCurrency(teamPipelineSummary.totalProjectedGci)}</p>
+                  <p className="text-2xl font-bold tabular-nums break-words leading-tight text-gold">{formatCurrency(teamPipelineSummary.totalProjectedGci)}</p>
                   <p className="text-sm text-muted-foreground">Projected Pipeline GCI</p>
                 </div>
                 <div className="text-center p-4 rounded-lg bg-green-500/10">
-                  <p className="text-2xl xl:text-3xl font-bold tabular-nums break-words leading-tight text-green-500">{teamPipelineSummary.totalDealsGoal}</p>
+                  <p className="text-2xl font-bold tabular-nums break-words leading-tight text-green-500">{teamPipelineSummary.totalDealsGoal}</p>
                   <p className="text-sm text-muted-foreground">Team Sales Goal</p>
                 </div>
                 <div className="text-center p-4 rounded-lg bg-blue-500/10">
-                  <p className="text-2xl xl:text-3xl font-bold tabular-nums break-words leading-tight text-blue-500">{formatCurrency(teamPipelineSummary.totalGciGoal)}</p>
+                  <p className="text-2xl font-bold tabular-nums break-words leading-tight text-blue-500">{formatCurrency(teamPipelineSummary.totalGciGoal)}</p>
                   <p className="text-sm text-muted-foreground">Team GCI Goal</p>
                 </div>
               </div>
@@ -1535,19 +1535,19 @@ const AdminDashboard = () => {
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                   <div className="text-center">
-                    <p className="text-2xl xl:text-3xl font-bold tabular-nums break-words leading-tight text-green-500">${selectedAgentData.totalGci.toLocaleString()}</p>
+                    <p className="text-2xl font-bold tabular-nums break-words leading-tight text-green-500">${selectedAgentData.totalGci.toLocaleString()}</p>
                     <p className="text-sm text-muted-foreground">Total GCI Earned</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-2xl xl:text-3xl font-bold tabular-nums break-words leading-tight text-gold">${selectedAgentData.pendingGci.toLocaleString()}</p>
+                    <p className="text-2xl font-bold tabular-nums break-words leading-tight text-gold">${selectedAgentData.pendingGci.toLocaleString()}</p>
                     <p className="text-sm text-muted-foreground">Pending GCI</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-2xl xl:text-3xl font-bold tabular-nums break-words leading-tight text-foreground">{formatWeightedDeals(selectedAgentData.closedDeals + selectedAgentData.activeDeals)}</p>
+                    <p className="text-2xl font-bold tabular-nums break-words leading-tight text-foreground">{formatWeightedDeals(selectedAgentData.closedDeals + selectedAgentData.activeDeals)}</p>
                     <p className="text-sm text-muted-foreground">Total Deals</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-2xl xl:text-3xl font-bold tabular-nums break-words leading-tight text-purple-500">{selectedAgentData.pipelineClients}</p>
+                    <p className="text-2xl font-bold tabular-nums break-words leading-tight text-purple-500">{selectedAgentData.pipelineClients}</p>
                     <p className="text-sm text-muted-foreground">Pipeline Clients</p>
                   </div>
                 </div>
