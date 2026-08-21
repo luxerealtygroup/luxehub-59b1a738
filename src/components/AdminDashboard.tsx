@@ -980,7 +980,7 @@ const AdminDashboard = () => {
               <TrendingUp className="h-5 w-5 text-amber-500" />
               <span className="text-sm text-muted-foreground">Sales Volume</span>
             </div>
-            <p className="text-2xl font-bold tabular-nums break-words leading-tight text-amber-500">
+            <p className="text-xl md:text-2xl xl:text-xl font-bold tabular-nums break-words leading-tight text-amber-500">
               {formatCurrency((fubStats?.closedVolume || 0) + (fubStats?.pendingVolume || 0) + (fubStats?.conditionalVolume || 0))}
             </p>
             <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
@@ -997,7 +997,7 @@ const AdminDashboard = () => {
               <Users className="h-5 w-5 text-purple-500" />
               <span className="text-sm text-muted-foreground">Pipeline Clients</span>
             </div>
-            <p className="text-2xl font-bold tabular-nums break-words leading-tight text-purple-500">{stats?.totalPipelineClients || 0}</p>
+            <p className="text-xl md:text-2xl xl:text-xl font-bold tabular-nums break-words leading-tight text-purple-500">{stats?.totalPipelineClients || 0}</p>
             <p className="text-xs text-muted-foreground mt-1 break-words">
               {stats?.closedDeals || 0} closed / {stats?.activeDeals || 0} active
             </p>
