@@ -228,8 +228,60 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ---- Single source of truth -------------------------------------------
+    // cma-analyze owns pricing. When a reportId is supplied we load the audited
+    // analysis straight from the report row so the client document can never
+    // disagree with the audit view. A caller-supplied `analysis` is a fallback.
+    let analysis: any = body?.analysis ?? null;
+    let pendingCount = 0;
+    if (body?.reportId) {
+      const { data: r, error: rErr } = await admin
+        .from("cma_reports")
+        .select(
+          "cma_grade, pricing_band_low, pricing_band_recommended, pricing_band_high, pricing_confidence, strategy_recommendation, risk_flags, weak_comp_alerts, adjustment_observations, feature_adjustments, price_per_sqft_cross_check, valuation_scenarios, talking_points, seller_objections, market_narrative, extracted_comps, ai_raw_response",
+        )
+        .eq("id", body.reportId)
+        .maybeSingle();
+      if (rErr) console.error("generate-cma: report load failed", rErr);
+      if (r) {
+        const raw = (r as any).ai_raw_response || {};
+        analysis = {
+          cma_grade: r.cma_grade,
+          pricing_band_low: r.pricing_band_low,
+          pricing_band_recommended: r.pricing_band_recommended,
+          pricing_band_high: r.pricing_band_high,
+          pricing_confidence: r.pricing_confidence,
+          strategy_recommendation: r.strategy_recommendation,
+          risk_flags: Array.isArray(r.risk_flags) ? r.risk_flags : [],
+          weak_comp_alerts: Array.isArray(r.weak_comp_alerts) ? r.weak_comp_alerts : [],
+          adjustment_observations: Array.isArray(r.adjustment_observations) ? r.adjustment_observations : [],
+          feature_adjustments: Array.isArray((r as any).feature_adjustments) ? (r as any).feature_adjustments : [],
+          price_per_sqft_cross_check: (r as any).price_per_sqft_cross_check ?? null,
+          valuation_scenarios: (r as any).valuation_scenarios ?? null,
+          talking_points: Array.isArray(r.talking_points) ? r.talking_points : [],
+          seller_objections: Array.isArray(r.seller_objections) ? r.seller_objections : [],
+          market_narrative: r.market_narrative,
+          market_classification: raw.market_classification ?? null,
+          market_stats_derived: raw.market_stats_derived ?? null,
+          web_market_context: raw.web_market_context ?? null,
+        };
+        const comps = Array.isArray(r.extracted_comps) ? r.extracted_comps : [];
+        pendingCount = comps.filter(
+          (c: any) => String(c?.comp_category || "").toLowerCase() === "pending",
+        ).length;
+      }
+    }
+    if (!pendingCount && Array.isArray(body?.comparables)) {
+      pendingCount = body.comparables.filter(
+        (c: any) => String(c?.status || "").toLowerCase() === "pending",
+      ).length;
+    }
+
+    const recommended = Number(analysis?.pricing_band_recommended);
+    const payload = { ...body, analysis: analysis ?? undefined };
+
     const messages: any[] = [
-      { role: "user", content: JSON.stringify(body) },
+      { role: "user", content: JSON.stringify(payload) },
     ];
 
     let final: any = null;
