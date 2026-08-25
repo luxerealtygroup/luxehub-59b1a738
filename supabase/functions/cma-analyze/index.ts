@@ -919,6 +919,7 @@ serve(async (req) => {
     if (reviewedComps && Array.isArray(reviewedComps) && reviewedComps.length > 0) {
       const compStats = computeCompDerivedStats(reviewedComps);
       const segmentation = computeBasementSegmentation(reviewedComps, subjectProperty);
+      const areaStats = computeTotalFinishedAreaStats(reviewedComps, subjectProperty);
       const webContext = await fetchWebMarketContext(subjectProperty);
       const analysisPrompt = `Analyze this CMA data using the agent-reviewed comparable properties:
 
@@ -928,14 +929,14 @@ ${JSON.stringify(subjectProperty, null, 2)}
 CLIENT PURCHASE HISTORY:
 ${JSON.stringify(purchaseHistory, null, 2)}
 
-${buildMarketStatsBlock(compStats, marketStats, webContext, segmentation)}
+${buildMarketStatsBlock(compStats, marketStats, webContext, segmentation, areaStats)}
 
 COMPARABLE PROPERTIES (agent-reviewed):
 ${JSON.stringify(reviewedComps, null, 2)}
 
 Provide your complete analysis as a JSON object.`;
 
-      const analysis = await callAI(LOVABLE_API_KEY, ANALYSIS_SYSTEM_PROMPT, analysisPrompt);
+      const analysis = await callAnalysisAI(LOVABLE_API_KEY, ANALYSIS_SYSTEM_PROMPT, analysisPrompt);
       
       return new Response(JSON.stringify({
         success: true,
@@ -943,6 +944,7 @@ Provide your complete analysis as a JSON object.`;
           market_stats_derived: compStats,
           market_classification: classifyMarket(compStats),
           basement_segmentation: segmentation,
+          total_finished_area_stats: areaStats,
           web_market_context: webContext,
           extracted_comps: reviewedComps,
           extraction_summary: {
@@ -966,6 +968,7 @@ Provide your complete analysis as a JSON object.`;
     if (!pdfText) {
       const compStats = computeCompDerivedStats([]);
       const segmentation = computeBasementSegmentation([], subjectProperty);
+      const areaStats = computeTotalFinishedAreaStats([], subjectProperty);
       const webContext = await fetchWebMarketContext(subjectProperty);
       const analysisPrompt = `Analyze this CMA data (no PDF comps available):
 
@@ -975,11 +978,11 @@ ${JSON.stringify(subjectProperty, null, 2)}
 CLIENT PURCHASE HISTORY:
 ${JSON.stringify(purchaseHistory, null, 2)}
 
-${buildMarketStatsBlock(compStats, marketStats, webContext, segmentation)}
+${buildMarketStatsBlock(compStats, marketStats, webContext, segmentation, areaStats)}
 
 There are no comparable properties extracted from a PDF. Provide analysis based on market stats only.`;
 
-      const analysis = await callAI(LOVABLE_API_KEY, ANALYSIS_SYSTEM_PROMPT, analysisPrompt);
+      const analysis = await callAnalysisAI(LOVABLE_API_KEY, ANALYSIS_SYSTEM_PROMPT, analysisPrompt);
       
       return new Response(JSON.stringify({
         success: true,
@@ -987,6 +990,7 @@ There are no comparable properties extracted from a PDF. Provide analysis based 
           market_stats_derived: compStats,
           market_classification: classifyMarket(compStats),
           basement_segmentation: segmentation,
+          total_finished_area_stats: areaStats,
           web_market_context: webContext,
           extracted_comps: [],
           extraction_summary: {
@@ -1170,6 +1174,7 @@ Extract any properties you find, even with minimal data.`;
     // Now run the analysis pass with the extracted comps
     const compStats = computeCompDerivedStats(allComps);
     const segmentation = computeBasementSegmentation(allComps, subjectProperty);
+    const areaStats = computeTotalFinishedAreaStats(allComps, subjectProperty);
     const webContext = await fetchWebMarketContext(subjectProperty);
     const analysisPrompt = `Analyze this CMA data with ${allComps.length} comparable properties:
 
@@ -1179,7 +1184,7 @@ ${JSON.stringify(subjectProperty, null, 2)}
 CLIENT PURCHASE HISTORY:
 ${JSON.stringify(purchaseHistory, null, 2)}
 
-${buildMarketStatsBlock(compStats, marketStats, webContext, segmentation)}
+${buildMarketStatsBlock(compStats, marketStats, webContext, segmentation, areaStats)}
 
 COMPARABLE PROPERTIES:
 ${JSON.stringify(allComps, null, 2)}
@@ -1188,7 +1193,7 @@ Provide your complete analysis. Grade quality, generate pricing bands, flag risk
 
     let analysis: any;
     try {
-      analysis = await callAI(LOVABLE_API_KEY, ANALYSIS_SYSTEM_PROMPT, analysisPrompt);
+      analysis = await callAnalysisAI(LOVABLE_API_KEY, ANALYSIS_SYSTEM_PROMPT, analysisPrompt);
     } catch (err) {
       console.error("Analysis pass failed:", err);
       analysis = {
@@ -1213,6 +1218,7 @@ Provide your complete analysis. Grade quality, generate pricing bands, flag risk
         market_stats_derived: compStats,
         market_classification: classifyMarket(compStats),
         basement_segmentation: segmentation,
+        total_finished_area_stats: areaStats,
         web_market_context: webContext,
         extracted_comps: allComps,
         extraction_summary: extractionSummary,
