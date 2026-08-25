@@ -1,32 +1,38 @@
-# Verify the Follow Up Boss document push end to end
+# Verify the Follow Up Boss push with a throwaway test contact
 
-## What I could confirm read-only (no changes made)
+## Answer: yes, we can avoid involving Kristen
 
-- The `fub-push-attachment` function is deployed and reachable. A live call with a fake document id returned `404 {"error":"Document not found"}`, so auth passes and it reaches the database lookup.
-- The tracking columns exist on `portal_documents`: `fub_attachment_id`, `fub_pushed_at`, `fub_push_error`.
-- There are **zero** rows in `portal_documents` — no document has ever been uploaded to a portal.
-- All three client portals (`Lee Carter`, two `Kristen Schulz` rows) have `fub_person_id = NULL` — **no portal is linked to a Follow Up Boss contact.**
+Follow Up Boss's API does support creating a person, and we already have two working code paths that do it:
 
-## Honest conclusion
+- `supabase/functions/follow-up-boss/index.ts` — the `create_person` action does `POST /people` with name, email, source and tags.
+- `supabase/functions/fub-create-contact/index.ts` — a simpler `POST /people` used by the open-house form.
 
-The push path has **never actually run against Follow Up Boss**. Nothing has been proven beyond "the function deploys, authenticates, and looks up documents". The claim that the file transfer works is unverified: no call to `POST /personAttachments` has happened, so the method (direct server-side byte upload as multipart form data, no signed URL) is what the code does but is **not confirmed working**.
+So a disposable test person can be created entirely through the API, with no real client involved.
 
-Verification requires writes (linking a FUB contact and uploading a file), which plan mode does not allow. Here is the test to run on approval.
+**One caveat on cleanup:** FUB's API does expose `DELETE /people/{id}`, but nothing in our codebase calls it today — the `follow-up-boss` wrapper only has create/update/read actions. Deleting the test person therefore needs either a one-off delete action added to the wrapper, or Kristen deleting the single test contact manually from the FUB UI (10 seconds). I'd rather not permanently widen our FUB wrapper with a delete capability just for a test, so my recommendation is the manual removal, clearly named so it's unmistakable.
 
-## Verification steps to run
+## Current state I confirmed (read-only)
 
-1. Link a FUB contact to one test portal: set `fub_person_id` on the `Lee Carter` portal to a real Follow Up Boss person id (I need which contact is safe to use — see question below).
-2. Upload a small throwaway PDF through the portal's Documents tab as the agent, so the real client-side code path fires (not a hand-crafted invocation).
-3. Read the resulting `portal_documents` row and report the raw values of `fub_attachment_id`, `fub_pushed_at`, `fub_push_error`.
-4. Pull `fub-push-attachment` edge logs for that invocation and quote the actual lines: the FUB response status, and the error body verbatim if non-2xx.
-5. Confirm in Follow Up Boss that the attachment appears on that contact's record.
-6. Clean up: delete the test document row plus the storage object, and reset `fub_person_id` to `NULL` if it was only set for the test.
+- `fub-push-attachment` is deployed and reachable — a call with a fake id returned `404 {"error":"Document not found"}`, so auth and the DB lookup work.
+- `portal_documents` has `fub_attachment_id`, `fub_pushed_at`, `fub_push_error`, and **zero rows** — no document has ever been uploaded.
+- All three portals have `fub_person_id = NULL`, so the FUB push has **never actually run**. Nothing about the file transfer to FUB is proven yet.
 
-## Risk to expect in step 3/4
+## Test plan
 
-Follow Up Boss's `/personAttachments` endpoint may expect a JSON body with a publicly fetchable `uri` for the file rather than a `multipart/form-data` byte upload. The current implementation sends raw bytes as multipart. If the test returns a `400`, that is the likely cause, and the fix is to switch to a short-lived signed URL from the private `portal-documents` bucket and post that `uri` instead. I will report the exact error text before changing anything.
+1. Create a throwaway FUB person via the API, named unambiguously (e.g. first name `ZZ-LUXEHUB`, last name `TEST-DELETE-ME`, source `LUXEhub Integration Test`, no phone, dummy email). Record the returned person id.
+2. Temporarily set `fub_person_id` to that id on one of the two `Kristen Schulz` test portals (the older duplicate, so the live-looking one is untouched).
+3. Upload a small throwaway PDF to that portal's Documents tab through the real app UI as the agent, so the actual client-side fire-and-forget path runs rather than a hand-crafted invocation.
+4. Read the resulting `portal_documents` row and report raw values of `fub_attachment_id`, `fub_pushed_at`, `fub_push_error`.
+5. Pull `fub-push-attachment` edge logs for that invocation and quote the real lines — the HTTP status FUB returned and, if non-2xx, the verbatim error body.
+6. Confirm the attachment is actually on that test person by reading it back from FUB.
+7. Clean up: delete the `portal_documents` row, remove the object from the `portal-documents` storage bucket, reset `fub_person_id` to `NULL` on that portal, and delete the test person in FUB (via a temporary delete call, or Kristen removes the one clearly-labelled contact — your call).
+
+## Risk this test is designed to catch
+
+The current implementation posts raw file bytes to `/personAttachments` as `multipart/form-data`. FUB may instead require a JSON body with a publicly fetchable `uri`. If step 4/5 shows a `400`, that is the likely cause, and the fix would be to generate a short-lived signed URL from the private `portal-documents` bucket and send that `uri`. I will report the exact error text before changing any code.
 
 ## Technical notes
 
-- File bytes are read server-side with the service role, so the `portal-documents` bucket stays private; no public URL is created today.
-- The push is fire-and-forget from `PortalDocumentsPanel.tsx` and swallows failures, so a broken push is silent in the UI — the only evidence is `fub_push_error` and the edge logs. That is why this test matters.
+- Today the bucket stays private and bytes are read server-side with the service role — no public URL is created. That method is what the code does but is **not yet confirmed working against FUB**.
+- The push is fire-and-forget and swallows failures, so a broken push is invisible in the UI; `fub_push_error` and the edge logs are the only evidence. That's exactly why this empirical test matters.
+- Steps 1, 2, 3 and 7 are writes (FUB record, database, storage), so they need your approval before I run them.
