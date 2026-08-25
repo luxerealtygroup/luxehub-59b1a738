@@ -76,16 +76,25 @@ export function PortalDocumentsPanel({ portalId, canManage }: Props) {
         toast({ title: `Upload failed: ${file.name}`, description: up.error.message, variant: 'destructive' });
         continue;
       }
-      const { error } = await supabase.from('portal_documents').insert({
+      const { data: inserted, error } = await supabase.from('portal_documents').insert({
         portal_id: portalId,
         file_name: file.name,
         file_path: path,
         file_type: file.type || null,
         file_size: file.size,
         uploaded_by: user?.id,
-      });
+      }).select('id').single();
       if (error) toast({ title: 'Record failed', description: error.message, variant: 'destructive' });
+
+      // Fire-and-forget copy into Follow Up Boss. Never blocks or fails the upload;
+      // skips silently server-side when the portal has no FUB contact linked.
+      if (inserted?.id) {
+        void supabase.functions
+          .invoke('fub-push-attachment', { body: { document_id: inserted.id } })
+          .catch(() => {});
+      }
     }
+
     setUploading(false);
     if (inputRef.current) inputRef.current.value = '';
     load();

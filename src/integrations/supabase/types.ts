@@ -2348,6 +2348,9 @@ export type Database = {
           file_path: string
           file_size: number | null
           file_type: string | null
+          fub_attachment_id: number | null
+          fub_push_error: string | null
+          fub_pushed_at: string | null
           id: string
           portal_id: string
           uploaded_by: string | null
@@ -2358,6 +2361,9 @@ export type Database = {
           file_path: string
           file_size?: number | null
           file_type?: string | null
+          fub_attachment_id?: number | null
+          fub_push_error?: string | null
+          fub_pushed_at?: string | null
           id?: string
           portal_id: string
           uploaded_by?: string | null
@@ -2368,6 +2374,9 @@ export type Database = {
           file_path?: string
           file_size?: number | null
           file_type?: string | null
+          fub_attachment_id?: number | null
+          fub_push_error?: string | null
+          fub_pushed_at?: string | null
           id?: string
           portal_id?: string
           uploaded_by?: string | null
