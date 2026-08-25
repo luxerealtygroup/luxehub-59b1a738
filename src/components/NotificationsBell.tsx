@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
-import { Bell, Check, MessageSquare } from 'lucide-react';
+import { Bell, Check } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AgentPortalDialog } from '@/components/AgentPortalDialog';
 import { useNotifications, NotificationRow } from '@/hooks/useNotifications';
+import { notificationMeta } from '@/lib/notificationMeta';
 import { cn } from '@/lib/utils';
 
 export function NotificationsBell() {
