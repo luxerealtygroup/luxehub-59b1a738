@@ -874,7 +874,13 @@ async function fetchWebMarketContext(subjectProperty: any): Promise<any | null> 
   }
 }
 
-function buildMarketStatsBlock(compStats: any, marketStats: any, webContext: any, segmentation?: any): string {
+function buildMarketStatsBlock(
+  compStats: any,
+  marketStats: any,
+  webContext: any,
+  segmentation?: any,
+  areaStats?: any,
+): string {
   const manual = hasManualStats(marketStats);
   const classification = classifyMarket(compStats);
   const pending = compStats?.comp_counts?.pending ?? 0;
@@ -884,8 +890,11 @@ function buildMarketStatsBlock(compStats: any, marketStats: any, webContext: any
 - Classification basis: ${JSON.stringify(classification.basis)}
 - Pending comparables in this comp set: ${pending}. ${pending > 0 ? 'You MAY reference pending comps.' : 'You MUST NOT reference pending sales anywhere in this report.'}
 
-BASEMENT-FINISH SEGMENTATION (price per above-grade finished sqft, sold comps):
+BASEMENT-FINISH SEGMENTATION (one input to the feature-adjustment framework — price per above-grade finished sqft, sold comps):
 ${segmentation ? JSON.stringify(segmentation, null, 2) : 'Not applicable.'}
+
+TOTAL FINISHED AREA CROSS-CHECK INPUTS (above grade + finished basement, sold comps ranked by closeness to the subject):
+${areaStats ? JSON.stringify(areaStats, null, 2) : 'Not available — return price_per_sqft_cross_check.verdict = "inconclusive".'}
 
 COMP-DERIVED MARKET STATS (PRIMARY — hard data computed from this report's comps):
 ${JSON.stringify(compStats, null, 2)}
@@ -893,8 +902,8 @@ ${JSON.stringify(compStats, null, 2)}
 AGENT-PROVIDED MARKET STATS (OVERRIDE — official board-level stats, takes precedence when present):
 ${manual ? JSON.stringify(marketStats, null, 2) : 'None provided.'}
 
-GENERAL WEB MARKET CONTEXT (SUPPLEMENTARY — general framing only, not comp data):
-${webContext ? JSON.stringify(webContext, null, 2) : 'Unavailable — rely solely on the comp-derived stats above.'}`;
+REGIONAL MARKET CONTEXT (REQUIRED WEIGHTED INPUT when present — must be cited in market_narrative and must shift where the recommendation sits inside the band):
+${webContext ? JSON.stringify(webContext, null, 2) : 'Unavailable — omit regional framing entirely and rely solely on the comp-derived stats above.'}`;
 }
 
 serve(async (req) => {
