@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { format, formatDistanceToNow } from 'date-fns';
-import { Bell, Check, MessageSquare, Loader2 } from 'lucide-react';
+import { Bell, Check, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AgentPortalDialog } from '@/components/AgentPortalDialog';
 import { useNotifications } from '@/hooks/useNotifications';
+import { notificationMeta } from '@/lib/notificationMeta';
 import { cn } from '@/lib/utils';
 
 type FilterKey = 'all' | 'unread' | 'read';
@@ -72,18 +73,28 @@ export default function Notifications() {
                   <TableRow>
                     <TableHead className="w-8" />
                     <TableHead>Client</TableHead>
-                    <TableHead>Message</TableHead>
+                    <TableHead>Activity</TableHead>
+                    <TableHead>Details</TableHead>
                     <TableHead>When</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((n) => (
+                  {filtered.map((n) => {
+                    const meta = notificationMeta(n.type);
+                    const Icon = meta.Icon;
+                    return (
                     <TableRow key={n.id} className={cn('border-border/50', !n.is_read && 'bg-blue-500/5')}>
                       <TableCell>
                         <span className={cn('block h-2 w-2 rounded-full', n.is_read ? 'bg-muted' : 'bg-red-500')} />
                       </TableCell>
                       <TableCell className="font-medium">{n.client_name || 'Client'}</TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        <span className="flex items-center gap-1.5 text-sm">
+                          <Icon className="h-3.5 w-3.5 text-gold" />
+                          {n.title || meta.label}
+                        </span>
+                      </TableCell>
                       <TableCell className="text-muted-foreground max-w-md truncate">
                         {n.message_preview || '—'}
                       </TableCell>
@@ -100,7 +111,7 @@ export default function Notifications() {
                             clientEmail={n.client_accounts?.email}
                             fubPersonId={n.client_accounts?.fub_person_id ?? null}
                             defaultType={(n.client_accounts?.client_type as 'buyer' | 'seller') || undefined}
-                            initialTab="messages"
+                            initialTab={meta.tab}
                             trigger={
                               <Button
                                 size="sm"
@@ -108,8 +119,8 @@ export default function Notifications() {
                                 className="h-8 text-xs gap-1"
                                 onClick={() => !n.is_read && markRead(n.id)}
                               >
-                                <MessageSquare className="h-3 w-3" />
-                                Open chat
+                                <Icon className="h-3 w-3" />
+                                {meta.action}
                               </Button>
                             }
                           />
@@ -127,7 +138,8 @@ export default function Notifications() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
