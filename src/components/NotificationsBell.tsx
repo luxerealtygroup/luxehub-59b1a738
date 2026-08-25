@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
-import { Bell, Check, MessageSquare } from 'lucide-react';
+import { Bell, Check } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AgentPortalDialog } from '@/components/AgentPortalDialog';
 import { useNotifications, NotificationRow } from '@/hooks/useNotifications';
+import { notificationMeta } from '@/lib/notificationMeta';
 import { cn } from '@/lib/utils';
 
 export function NotificationsBell() {
@@ -76,18 +77,23 @@ export function NotificationsBell() {
 }
 
 function NotificationItem({ n, onMarkRead }: { n: NotificationRow; onMarkRead: () => void }) {
+  const meta = notificationMeta(n.type);
+  const Icon = meta.Icon;
   return (
     <li className={cn('px-4 py-3 flex gap-3', !n.is_read && 'bg-blue-500/5')}>
       <div className={cn('mt-1 h-2 w-2 rounded-full shrink-0', n.is_read ? 'bg-transparent' : 'bg-red-500')} />
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
-          <span className="text-sm font-medium truncate">{n.client_name || 'Client'}</span>
+          <span className="text-sm font-medium truncate flex items-center gap-1.5">
+            <Icon className="h-3.5 w-3.5 text-gold" />
+            {n.client_name || 'Client'}
+          </span>
           <span className="text-[10px] text-muted-foreground whitespace-nowrap">
             {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
           </span>
         </div>
         <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
-          {n.message_preview || '(new message)'}
+          {n.message_preview || n.title || '(new activity)'}
         </p>
         <div className="flex gap-1 mt-2">
           <AgentPortalDialog
@@ -95,7 +101,7 @@ function NotificationItem({ n, onMarkRead }: { n: NotificationRow; onMarkRead: (
             clientEmail={n.client_accounts?.email}
             fubPersonId={n.client_accounts?.fub_person_id ?? null}
             defaultType={(n.client_accounts?.client_type as 'buyer' | 'seller') || undefined}
-            initialTab="messages"
+            initialTab={meta.tab}
             trigger={
               <Button
                 size="sm"
@@ -103,8 +109,8 @@ function NotificationItem({ n, onMarkRead }: { n: NotificationRow; onMarkRead: (
                 className="h-7 text-xs gap-1"
                 onClick={() => !n.is_read && onMarkRead()}
               >
-                <MessageSquare className="h-3 w-3" />
-                Reply
+                <Icon className="h-3 w-3" />
+                {n.type === 'message' || !n.type ? 'Reply' : meta.action}
               </Button>
             }
           />

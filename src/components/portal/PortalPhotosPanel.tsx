@@ -203,7 +203,7 @@ export function PortalPhotosPanel({ portalId, canManage }: Props) {
             <ImageIcon className="h-6 w-6" />
           </div>
           <h3 className="font-display text-lg font-semibold tracking-tight mb-1">
-            {canManage ? 'No photos yet' : 'Photos coming soon'}
+            No photos yet
           </h3>
           <p className="text-sm text-muted-foreground max-w-sm">
             {canManage ? 'Upload the first photo above to share it with your client.' : 'Your agent will add photos here soon.'}
