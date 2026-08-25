@@ -3,6 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { ViewAsAgentContext } from '@/hooks/useViewAsAgent';
 
+export type NotificationType = 'message' | 'document' | 'photo' | 'task';
+
 export interface NotificationRow {
   id: string;
   user_id: string;
@@ -10,6 +12,9 @@ export interface NotificationRow {
   message_id: string | null;
   client_name: string | null;
   message_preview: string | null;
+  type: NotificationType;
+  title: string | null;
+  link: string | null;
   is_read: boolean;
   created_at: string;
   client_accounts?: {
