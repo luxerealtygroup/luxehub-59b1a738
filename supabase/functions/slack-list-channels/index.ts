@@ -26,11 +26,12 @@ Deno.serve(async (req) => {
       const url = new URL('https://slack.com/api/conversations.list')
       url.searchParams.set('limit', '200')
       url.searchParams.set('exclude_archived', 'true')
-      // Only request public channels — private channels require the `groups:read`
-      // scope which the connected bot may not have. Requesting them causes the
-      // whole call to fail with `missing_scope` even when public channels are
-      // available.
-      url.searchParams.set('types', 'public_channel')
+      // Request both public and private channels. Private channels require the
+      // `groups:read` (and `channels:read`) scope on the bot token; without it
+      // Slack returns `missing_scope` and the whole call fails, so the bot must
+      // have those scopes granted and be a member of any private channel it
+      // should list.
+      url.searchParams.set('types', 'public_channel,private_channel')
       if (cursor) url.searchParams.set('cursor', cursor)
 
       const resp = await fetch(url.toString(), {
