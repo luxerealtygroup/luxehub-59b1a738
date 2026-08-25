@@ -321,11 +321,18 @@ Deno.serve(async (req) => {
 
     if (!final) throw new Error("No final response from Anthropic");
 
-    const html = extractFinalHtml(final.content || []);
-    if (!html || !/<[a-z!]/i.test(html)) {
+    const rawHtml = extractFinalHtml(final.content || []);
+    if (!rawHtml || !/<[a-z!]/i.test(rawHtml)) {
       console.error("generate-cma: no HTML in final response", final);
       throw new Error("Model did not return HTML");
     }
+
+    // Same guardrails cma-analyze applies to its JSON: no banned branding, one
+    // canonical recommended price, no pending claims without pending comps.
+    const html = applyHtmlGuardrails(rawHtml, {
+      recommended: Number.isFinite(recommended) ? recommended : null,
+      pendingCount,
+    });
 
     // Log successful generation for monthly usage caps (best-effort).
     if (callerUserId && callerOrgId) {
