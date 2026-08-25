@@ -37,6 +37,43 @@ interface Objection {
   response: string;
 }
 
+const formatSignedDollars = (n: number) =>
+  `${n < 0 ? '−' : '+'}$${Math.abs(Math.round(n)).toLocaleString()}`;
+
+const formatAdjustmentRange = (low: number | null, high: number | null) => {
+  if (low == null && high == null) return '—';
+  if (low == null) return formatSignedDollars(high as number);
+  if (high == null) return formatSignedDollars(low);
+  if (Math.round(low) === Math.round(high)) return formatSignedDollars(low);
+  return `${formatSignedDollars(low)} – ${formatSignedDollars(high)}`;
+};
+
+interface FeatureAdjustment {
+  feature: string;
+  adjustment_low: number | null;
+  adjustment_high: number | null;
+  rationale: string | null;
+}
+
+interface PricePerSqftCrossCheck {
+  comps_used?: string[] | null;
+  implied_low?: number | null;
+  implied_high?: number | null;
+  verdict?: string | null;
+  commentary?: string | null;
+}
+
+interface ValuationScenario {
+  price?: number | null;
+  rationale?: string | null;
+}
+
+interface ValuationScenarios {
+  conservative?: ValuationScenario | null;
+  most_probable?: ValuationScenario | null;
+  optimistic?: ValuationScenario | null;
+}
+
 interface CMAReportFull {
   id: string;
   created_at: string;
@@ -60,6 +97,9 @@ interface CMAReportFull {
   risk_flags: string[];
   weak_comp_alerts: string[];
   adjustment_observations: string[];
+  feature_adjustments: FeatureAdjustment[];
+  price_per_sqft_cross_check: PricePerSqftCrossCheck | null;
+  valuation_scenarios: ValuationScenarios | null;
   talking_points: string[];
   seller_objections: Objection[];
   strategy_recommendation: string | null;
@@ -122,6 +162,9 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
         risk_flags: Array.isArray(r.risk_flags) ? r.risk_flags : [],
         weak_comp_alerts: Array.isArray(r.weak_comp_alerts) ? r.weak_comp_alerts : [],
         adjustment_observations: Array.isArray(r.adjustment_observations) ? r.adjustment_observations : [],
+        feature_adjustments: Array.isArray(r.feature_adjustments) ? r.feature_adjustments : [],
+        price_per_sqft_cross_check: r.price_per_sqft_cross_check ?? null,
+        valuation_scenarios: r.valuation_scenarios ?? null,
         talking_points: Array.isArray(r.talking_points) ? r.talking_points : [],
         seller_objections: Array.isArray(r.seller_objections) ? r.seller_objections : [],
         extracted_comps: Array.isArray(r.extracted_comps) ? r.extracted_comps : [],
@@ -674,6 +717,102 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
           </CardContent>
         </Card>
       )}
+
+      {/* Feature Adjustments */}
+      {report.feature_adjustments.length > 0 && (
+        <Card className="border-gold/20">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Feature Adjustments</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {report.feature_adjustments.map((fa, i) => (
+              <div key={i} className="rounded-md border border-border/60 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-sm font-medium">{fa.feature}</span>
+                  <span className="text-sm font-semibold text-gold whitespace-nowrap">
+                    {formatAdjustmentRange(fa.adjustment_low, fa.adjustment_high)}
+                  </span>
+                </div>
+                {fa.rationale && (
+                  <p className="mt-1 text-xs text-muted-foreground">{fa.rationale}</p>
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Price Per Sq Ft Cross-Check */}
+      {report.price_per_sqft_cross_check && (
+        <Card className="border-gold/20">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">$/Sq Ft Cross-Check</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            {(report.price_per_sqft_cross_check.implied_low ||
+              report.price_per_sqft_cross_check.implied_high) && (
+              <div>
+                <span className="text-muted-foreground">Implied value range: </span>
+                <span className="font-semibold">
+                  {report.price_per_sqft_cross_check.implied_low
+                    ? `$${Math.round(report.price_per_sqft_cross_check.implied_low).toLocaleString()}`
+                    : '—'}
+                  {' – '}
+                  {report.price_per_sqft_cross_check.implied_high
+                    ? `$${Math.round(report.price_per_sqft_cross_check.implied_high).toLocaleString()}`
+                    : '—'}
+                </span>
+              </div>
+            )}
+            {report.price_per_sqft_cross_check.verdict && (
+              <div>
+                <span className="text-muted-foreground">Verdict: </span>
+                <span className="font-medium">{report.price_per_sqft_cross_check.verdict}</span>
+              </div>
+            )}
+            {report.price_per_sqft_cross_check.commentary && (
+              <p className="text-muted-foreground">
+                {report.price_per_sqft_cross_check.commentary}
+              </p>
+            )}
+            {Array.isArray(report.price_per_sqft_cross_check.comps_used) &&
+              report.price_per_sqft_cross_check.comps_used.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Comps used: {report.price_per_sqft_cross_check.comps_used.join(', ')}
+                </p>
+              )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Valuation Scenarios */}
+      {report.valuation_scenarios && (
+        <Card className="border-gold/20">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Valuation Scenarios</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 sm:grid-cols-3">
+            {([
+              ['Conservative', report.valuation_scenarios.conservative],
+              ['Most Probable', report.valuation_scenarios.most_probable],
+              ['Optimistic', report.valuation_scenarios.optimistic],
+            ] as const).map(([label, sc]) =>
+              sc ? (
+                <div key={label} className="rounded-md border border-border/60 p-3">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
+                  <p className="mt-1 text-lg font-semibold text-gold">
+                    {sc.price ? `$${Math.round(sc.price).toLocaleString()}` : '—'}
+                  </p>
+                  {sc.rationale && (
+                    <p className="mt-1 text-xs text-muted-foreground">{sc.rationale}</p>
+                  )}
+                </div>
+              ) : null,
+            )}
+          </CardContent>
+        </Card>
+      )}
+
 
       {/* Market Narrative */}
       {report.market_narrative && (

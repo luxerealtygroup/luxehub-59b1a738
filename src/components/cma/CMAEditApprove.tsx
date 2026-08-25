@@ -224,6 +224,7 @@ const CMAEditApprove = ({
         },
         comps: Array.isArray(r.extracted_comps) ? r.extracted_comps : [],
         agentNotes: (r as any).agent_notes || null,
+        reportId,
         analysis: {
           cma_grade: r.cma_grade,
           pricing_band_low: r.pricing_band_low,
@@ -234,6 +235,9 @@ const CMAEditApprove = ({
           risk_flags: Array.isArray(r.risk_flags) ? r.risk_flags : [],
           weak_comp_alerts: Array.isArray(r.weak_comp_alerts) ? r.weak_comp_alerts : [],
           adjustment_observations: Array.isArray(r.adjustment_observations) ? r.adjustment_observations : [],
+          feature_adjustments: Array.isArray((r as any).feature_adjustments) ? (r as any).feature_adjustments : [],
+          price_per_sqft_cross_check: (r as any).price_per_sqft_cross_check ?? null,
+          valuation_scenarios: (r as any).valuation_scenarios ?? null,
           talking_points: Array.isArray(r.talking_points) ? r.talking_points : [],
           seller_objections: Array.isArray(r.seller_objections) ? r.seller_objections : [],
           market_narrative: r.market_narrative || null,

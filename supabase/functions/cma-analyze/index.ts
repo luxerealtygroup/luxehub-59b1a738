@@ -1,4 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import {
+  stripBannedBranding,
+  normalizeRecommendedPrice,
+  stripUnsupportedPendingClaims,
+} from "../_shared/cmaGuardrails.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -89,6 +94,8 @@ BRANDING — ABSOLUTE:
 - Never reference any other brand, product, template or vendor name in any output field. Specifically, the strings "RealtyHub", "CMA Boss", "CloudCMA", or any other third-party/template branding must NEVER appear in your output.
 - The only brokerage/brand named anywhere is Luxe Realty Group (Brokered by eXp Realty, Brokerage).
 
+You are the SINGLE SOURCE OF TRUTH for this report. Every number you produce here is copied verbatim into the client-facing document by a downstream writer that is forbidden from re-deriving pricing. Be decisive and internally consistent.
+
 You MUST respond with a JSON object using this exact structure (no markdown, no code blocks, just pure JSON):
 {
   "cma_grade": "A|B|C|D|F",
@@ -99,6 +106,24 @@ You MUST respond with a JSON object using this exact structure (no markdown, no 
   "risk_flags": ["string"],
   "weak_comp_alerts": ["string"],
   "adjustment_observations": ["string"],
+  "feature_adjustments": [
+    { "feature": "string", "adjustment_low": number, "adjustment_high": number, "rationale": "string" }
+  ],
+  "price_per_sqft_cross_check": {
+    "subject_total_finished_sqft": number | null,
+    "comps_used": [
+      { "address": "string", "total_finished_sqft": number, "sold_price": number, "price_per_sqft": number }
+    ],
+    "implied_low": number | null,
+    "implied_high": number | null,
+    "verdict": "confirms|challenges|inconclusive",
+    "commentary": "string"
+  },
+  "valuation_scenarios": {
+    "conservative": { "price": number, "rationale": "string" },
+    "most_probable": { "price": number, "rationale": "string" },
+    "optimistic": { "price": number, "rationale": "string" }
+  },
   "talking_points": ["string"],
   "seller_objections": [
     { "objection": "string", "response": "string" }
@@ -117,6 +142,7 @@ When analyzing:
 SINGLE RECOMMENDED PRICE — ABSOLUTE:
 - "pricing_band_recommended" is the ONE recommended price for this report. It is computed once and reused in every template slot.
 - Do NOT restate, re-derive, round, or vary that number anywhere in prose ("market_narrative", "talking_points", "adjustment_observations", "seller_objections", "strategy_recommendation"). Refer to it as "the recommended list price" in words instead of writing a dollar figure. Any dollar figure you write in prose that differs from pricing_band_recommended is an error.
+- "valuation_scenarios.most_probable.price" MUST equal "pricing_band_recommended" exactly. "conservative.price" <= "most_probable.price" <= "optimistic.price". Conservative = minimal prep and standard marketing; most probable = professional staging and targeted marketing; optimistic = ideal conditions, competing offers, prime timing. Each scenario needs a one-sentence rationale tied to real data or preparation assumptions.
 
 DATA-GROUNDED PROSE — ABSOLUTE (TRESA accuracy requirement):
 - Every factual claim must be traceable to a specific field in the structured data supplied below (comp fields, comp-derived stats, subject property fields, agent-provided stats, or clearly attributed web context). If it cannot be tied to a data field, do not write it.
@@ -131,14 +157,25 @@ MARKET CONDITION CLASSIFICATION — use the supplied computed classification, do
 - Insufficient data: fewer than 3 sold comps with both list and sold price — say so plainly and describe the market as indeterminate rather than characterising it.
 - The "market_narrative" MUST cite the actual computed numbers (avg and median SP/LP %, avg and median DOM, sold comp count, date range) and must match the supplied classification. Where regional board context (e.g. Cornerstone Association of REALTORS® / WRAR) is supplied, note explicitly when the local comp set performs differently from the regional trend.
 
-FEATURE ADJUSTMENT (basement finish and similar):
-- A "BASEMENT-FINISH SEGMENTATION" block is supplied with $/sqft of above-grade finished space computed separately for comps that MATCH the subject's basement-finish status and comps that do NOT. When both segments have data, weight the recommended price toward the matching segment and add a short entry to "adjustment_observations" explaining the adjustment and citing both $/sqft figures.
+FEATURE ADJUSTMENT FRAMEWORK — REQUIRED, EXPLICIT DOLLAR RANGES:
+- "feature_adjustments" is the complete adjustment grid that moves the subject off the sold-comp midpoint. Every entry states a signed dollar range: "adjustment_low" and "adjustment_high" are POSITIVE numbers when the feature adds value to the subject relative to the comp set and NEGATIVE numbers when it subtracts. "rationale" cites the driver (buyer preference, replacement cost, scarcity in this submarket, comp evidence).
+- You MUST evaluate each of the following whenever the subject and/or comp data speak to it, and you MUST say so in the rationale when the data is too thin to size an adjustment (use adjustment_low = adjustment_high = 0 with an explanatory rationale rather than omitting the row):
+  1. POOL — never assume a pool is "already priced in" to the comps. If the subject has a pool, state an explicit dollar range and whether comps with pools exist. If the subject has no pool and comps do, state the offsetting negative range.
+  2. GARAGE TYPE — single vs double vs detached vs none. Where doubles are the norm in the comp set, a single or absent garage is a STRUCTURAL LIABILITY that narrows the buyer pool: say so plainly and size it as a negative adjustment, not a footnote.
+  3. LOT SIZE — frontage/depth/area versus the comp set; premium or discount.
+  4. RENOVATIONS / FINISH LEVEL — kitchens, baths, mechanicals, windows, flooring; cite what the subject data or agent notes actually claim.
+  5. BASEMENT FINISH — the supplied "BASEMENT-FINISH SEGMENTATION" block gives $/sqft of above-grade finished space for comps that MATCH the subject's basement-finish status and comps that do NOT. When both segments have data, fold that into ONE feature_adjustments entry citing both $/sqft figures, and weight the recommended price toward the matching segment.
+- Net the adjustment range and apply it to the comparable midpoint when setting the pricing band. Summarise the material adjustments in "adjustment_observations" as prose as well, so existing report sections keep working.
+
+PRICE PER SQFT CROSS-CHECK — REQUIRED:
+- A "TOTAL FINISHED AREA CROSS-CHECK INPUTS" block is supplied with the subject's total finished area (above grade + finished basement) and per-comp total finished area and $/sqft for sold comps. Select the 2–3 most functionally similar sold comps from it, populate "comps_used" with their real figures, and compute "implied_low"/"implied_high" by applying their $/sqft range to the subject's total finished area.
+- State a "verdict": "confirms" when pricing_band_recommended sits inside (or within ~2% of) the implied range, "challenges" when it sits clearly outside, "inconclusive" when the area data is missing for too many comps. "commentary" must be one or two plain sentences naming the implied range in words relative to the recommendation, and if the verdict is "challenges" explain which evidence you trusted and why.
 
 MARKET STATS SOURCING RULES — STRICT:
 - "COMP-DERIVED MARKET STATS" are hard numbers computed directly from this report's comparable set. Treat them as the primary, citable market data.
 - "AGENT-PROVIDED MARKET STATS (OVERRIDE)" are official board-level stats. When present, they take precedence over comp-derived numbers; say so and cite them first.
-- "GENERAL WEB MARKET CONTEXT" is supplementary background gathered from public web sources. It is NOT hard data for this comp set. Reference it only as general framing and always attribute it (e.g. "General web market context (as of <timeframe>) suggests ..."). Never blend it into, or present it as, comp-derived figures.
-- In "market_narrative", explicitly cite the comp-derived numbers (sale-to-list ratio, days on market, median sold price, comp counts, date range). If no reliable web context was supplied, simply omit web framing — never say stats are unavailable when comp-derived stats exist.`;
+- "REGIONAL MARKET CONTEXT (REQUIRED WEIGHTED INPUT)" is board/regional data gathered from public sources. When it is supplied it is NOT optional background: you MUST cite it in "market_narrative" with its reporting period and source, and it MUST actively influence where "pricing_band_recommended" sits inside the band (a tightening/appreciating regional trend pushes the recommendation toward the upper half; a softening trend, rising inventory or lengthening DOM pushes it toward the lower half). State in one sentence how it moved the recommendation, and call out explicitly when this comp set diverges from the regional trend and which one you weighted more heavily. Never present it as a comp-derived figure and never blend its averages into this comp set's statistics.
+- In "market_narrative", explicitly cite the comp-derived numbers (sale-to-list ratio, days on market, median sold price, comp counts, date range). If no regional context was supplied, simply omit regional framing — never say stats are unavailable when comp-derived stats exist.`;
 
 async function callAI(apiKey: string, systemPrompt: string, userPrompt: string, model = "google/gemini-2.5-flash") {
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -591,72 +628,137 @@ function computeBasementSegmentation(comps: any[], subjectProperty: any) {
   };
 }
 
+// ---------- Total finished area ($/sqft cross-check inputs) ----------
+function compTotalFinishedSqft(comp: any): number | null {
+  const ag = Number(comp?.ag_sqft);
+  const bg = Number(comp?.bg_sqft);
+  const sqft = Number(comp?.sqft);
+  const above = Number.isFinite(ag) && ag > 0 ? ag : null;
+  const below = Number.isFinite(bg) && bg > 0 ? bg : 0;
+  if (above) return above + below;
+  return Number.isFinite(sqft) && sqft > 0 ? sqft : null;
+}
+
+function computeTotalFinishedAreaStats(comps: any[], subjectProperty: any) {
+  const above = Number(subjectProperty?.aboveGradeSqFt);
+  const basement = Number(subjectProperty?.finishedBasementSqFt);
+  const subjectAbove = Number.isFinite(above) && above > 0 ? above : null;
+  const subjectBasement = Number.isFinite(basement) && basement > 0 ? basement : 0;
+  const subjectTotal = subjectAbove ? subjectAbove + subjectBasement : null;
+
+  const soldComps = (Array.isArray(comps) ? comps : []).filter(
+    (c) => String(c?.comp_category || '').toLowerCase() === 'sold',
+  );
+
+  const rows = soldComps
+    .map((c) => {
+      const total = compTotalFinishedSqft(c);
+      const price = Number(c?.sold_price);
+      if (!total || !Number.isFinite(price) || price <= 0) return null;
+      return {
+        address: c?.address ?? null,
+        beds: c?.beds ?? null,
+        baths: c?.baths ?? null,
+        above_grade_sqft: Number(c?.ag_sqft) || null,
+        finished_basement_sqft: Number(c?.bg_sqft) || 0,
+        total_finished_sqft: total,
+        sold_price: Math.round(price),
+        price_per_sqft: Math.round((price / total) * 100) / 100,
+        sale_date: c?.sale_date ?? null,
+        sqft_delta_vs_subject: subjectTotal ? total - subjectTotal : null,
+      };
+    })
+    .filter(Boolean) as any[];
+
+  // Rank by closeness in total finished area to the subject so the model can pick
+  // the 2-3 most functionally similar comps without guessing.
+  const ranked = subjectTotal
+    ? [...rows].sort(
+        (a, b) => Math.abs(a.sqft_delta_vs_subject) - Math.abs(b.sqft_delta_vs_subject),
+      )
+    : rows;
+
+  const ppsfValues = ranked.slice(0, 3).map((r) => r.price_per_sqft);
+  const impliedLow = subjectTotal && ppsfValues.length ? Math.round((subjectTotal * Math.min(...ppsfValues)) / 1000) * 1000 : null;
+  const impliedHigh = subjectTotal && ppsfValues.length ? Math.round((subjectTotal * Math.max(...ppsfValues)) / 1000) * 1000 : null;
+
+  return {
+    subject_above_grade_sqft: subjectAbove,
+    subject_finished_basement_sqft: subjectBasement,
+    subject_total_finished_sqft: subjectTotal,
+    sold_comps_with_area_data: ranked.length,
+    sold_comps_missing_area_data: soldComps.length - ranked.length,
+    most_similar_by_total_area: ranked.slice(0, 3),
+    all_sold_comp_area_rows: ranked,
+    computed_implied_range_from_top3: { low: impliedLow, high: impliedHigh },
+    usable: ranked.length >= 2 && !!subjectTotal,
+  };
+}
+
 // ---------- Post-analysis guardrails ----------
-function stripBannedBranding<T>(value: T): T {
-  const clean = (s: string) =>
-    s
-      .replace(/\bCMA\s*Boss\b/gi, 'Luxe Realty Group')
-      .replace(/\bRealty\s*Hub\b/gi, 'Luxe Realty Group')
-      .replace(/\bCloud\s*CMA\b/gi, 'the MLS comparable data');
-  const walk = (v: any): any => {
-    if (typeof v === 'string') return clean(v);
-    if (Array.isArray(v)) return v.map(walk);
-    if (v && typeof v === 'object') {
-      const out: any = {};
-      for (const [k, val] of Object.entries(v)) out[k] = walk(val);
-      return out;
-    }
-    return v;
-  };
-  return walk(value);
-}
+// stripBannedBranding / normalizeRecommendedPrice / stripUnsupportedPendingClaims
+// live in ../_shared/cmaGuardrails.ts and are shared with generate-cma.
 
-// Force every dollar figure in prose that is "about" the recommended price to be
-// the single canonical recommended value, so the report can never disagree with itself.
-function normalizeRecommendedPrice<T>(value: T, recommended: number | null): T {
-  if (!recommended || !Number.isFinite(recommended)) return value;
-  const canonical = `$${Math.round(recommended).toLocaleString('en-US')}`;
-  const fix = (s: string) =>
-    s.replace(/\$\s?([\d,]{4,})(?:\.\d{2})?/g, (full, digits: string) => {
-      const n = Number(String(digits).replace(/,/g, ''));
-      if (!Number.isFinite(n) || n <= 0) return full;
-      const drift = Math.abs(n - recommended) / recommended;
-      return drift > 0 && drift <= 0.05 ? canonical : full;
+const EMPTY_CROSS_CHECK = {
+  subject_total_finished_sqft: null,
+  comps_used: [],
+  implied_low: null,
+  implied_high: null,
+  verdict: 'inconclusive',
+  commentary: null,
+};
+
+function normalizeFeatureAdjustments(value: any): any[] {
+  if (!Array.isArray(value)) return [];
+  const num = (v: unknown) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.round(n) : null;
+  };
+  return value
+    .filter((e) => e && typeof e === 'object' && String(e.feature || '').trim() !== '')
+    .map((e) => {
+      let low = num(e.adjustment_low);
+      let high = num(e.adjustment_high);
+      if (low != null && high != null && low > high) [low, high] = [high, low];
+      return {
+        feature: String(e.feature).trim(),
+        adjustment_low: low,
+        adjustment_high: high,
+        rationale: e.rationale ? String(e.rationale) : null,
+      };
     });
-  const walk = (v: any): any => {
-    if (typeof v === 'string') return fix(v);
-    if (Array.isArray(v)) return v.map(walk);
-    if (v && typeof v === 'object') {
-      const out: any = {};
-      for (const [k, val] of Object.entries(v)) out[k] = walk(val);
-      return out;
-    }
-    return v;
-  };
-  return walk(value);
 }
 
-// Remove "pending" commentary when the comp set contains no pending comps.
-function stripUnsupportedPendingClaims<T>(value: T, pendingCount: number): T {
-  if (pendingCount > 0) return value;
-  const hasPending = (s: string) => /\bpending\b/i.test(s);
-  const scrubSentences = (s: string) =>
-    s
-      .split(/(?<=[.!?])\s+/)
-      .filter((sentence) => !hasPending(sentence))
-      .join(' ')
-      .trim();
-  const walk = (v: any): any => {
-    if (typeof v === 'string') return scrubSentences(v);
-    if (Array.isArray(v)) return v.map(walk).filter((x: any) => !(typeof x === 'string' && x.trim() === ''));
-    if (v && typeof v === 'object') {
-      const out: any = {};
-      for (const [k, val] of Object.entries(v)) out[k] = walk(val);
-      return out;
-    }
-    return v;
+function normalizeScenarios(value: any, recommended: number | null): any {
+  const num = (v: unknown) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
   };
-  return walk(value);
+  const pick = (k: string) => {
+    const s = value?.[k];
+    if (s == null) return null;
+    if (typeof s === 'number') return { price: num(s), rationale: null };
+    return { price: num(s.price), rationale: s.rationale ? String(s.rationale) : null };
+  };
+  const conservative = pick('conservative');
+  const mostProbable = pick('most_probable');
+  const optimistic = pick('optimistic');
+  if (!conservative && !mostProbable && !optimistic) return null;
+
+  // The canonical recommended price always wins for "most probable".
+  const mp = {
+    price: recommended ?? mostProbable?.price ?? null,
+    rationale: mostProbable?.rationale ?? null,
+  };
+  const out: any = { conservative, most_probable: mp, optimistic };
+  // Enforce conservative <= most_probable <= optimistic.
+  if (out.conservative?.price && mp.price && out.conservative.price > mp.price) {
+    out.conservative.price = mp.price;
+  }
+  if (out.optimistic?.price && mp.price && out.optimistic.price < mp.price) {
+    out.optimistic.price = mp.price;
+  }
+  return out;
 }
 
 function finalizeAnalysis(analysis: any, compStats: any, extras: Record<string, unknown>) {
@@ -668,7 +770,60 @@ function finalizeAnalysis(analysis: any, compStats: any, extras: Record<string, 
   // One canonical recommended value, referenced by every template slot.
   out.recommended_price = Number.isFinite(recommended) ? Math.round(recommended) : null;
   out.pricing_band_recommended = out.recommended_price;
+  // New structured fields — always shape-stable for the UI.
+  out.feature_adjustments = normalizeFeatureAdjustments(out.feature_adjustments);
+  out.price_per_sqft_cross_check = out.price_per_sqft_cross_check &&
+    typeof out.price_per_sqft_cross_check === 'object'
+    ? { ...EMPTY_CROSS_CHECK, ...out.price_per_sqft_cross_check }
+    : null;
+  out.valuation_scenarios = normalizeScenarios(out.valuation_scenarios, out.recommended_price);
   return { ...out, ...extras };
+}
+
+// The analysis pass is the single source of truth for pricing, so it runs on
+// Claude (deeper appraisal reasoning). Extraction stays on Gemini Flash.
+async function callAnalysisAI(gatewayKey: string, systemPrompt: string, userPrompt: string) {
+  const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+  if (anthropicKey) {
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": anthropicKey,
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6",
+          max_tokens: 8000,
+          system: `${systemPrompt}\n\nRespond with the JSON object only — no preamble, no markdown fences.`,
+          messages: [{ role: "user", content: userPrompt }],
+        }),
+      });
+      if (res.status === 429) throw new Error("RATE_LIMIT");
+      if (!res.ok) {
+        const t = await res.text();
+        console.error("Anthropic analysis error:", res.status, t.slice(0, 500));
+        throw new Error(`ANTHROPIC_${res.status}`);
+      }
+      const data = await res.json();
+      const text = (data.content || [])
+        .filter((b: any) => b.type === 'text')
+        .map((b: any) => b.text || '')
+        .join('\n')
+        .replace(/```json\n?/g, '')
+        .replace(/```\n?/g, '')
+        .trim();
+      const start = text.indexOf('{');
+      const end = text.lastIndexOf('}');
+      return JSON.parse(start >= 0 && end > start ? text.slice(start, end + 1) : text);
+    } catch (err) {
+      if (err instanceof Error && err.message === "RATE_LIMIT") throw err;
+      console.warn("Claude analysis failed, falling back to Gemini Pro:", err);
+    }
+  }
+  // Fallback: strongest available model on the Lovable AI Gateway.
+  return await callAI(gatewayKey, systemPrompt, userPrompt, "google/gemini-2.5-pro");
 }
 
 // ---------- Layer 2: web-sourced general market context (best effort) ----------
@@ -719,7 +874,13 @@ async function fetchWebMarketContext(subjectProperty: any): Promise<any | null> 
   }
 }
 
-function buildMarketStatsBlock(compStats: any, marketStats: any, webContext: any, segmentation?: any): string {
+function buildMarketStatsBlock(
+  compStats: any,
+  marketStats: any,
+  webContext: any,
+  segmentation?: any,
+  areaStats?: any,
+): string {
   const manual = hasManualStats(marketStats);
   const classification = classifyMarket(compStats);
   const pending = compStats?.comp_counts?.pending ?? 0;
@@ -729,8 +890,11 @@ function buildMarketStatsBlock(compStats: any, marketStats: any, webContext: any
 - Classification basis: ${JSON.stringify(classification.basis)}
 - Pending comparables in this comp set: ${pending}. ${pending > 0 ? 'You MAY reference pending comps.' : 'You MUST NOT reference pending sales anywhere in this report.'}
 
-BASEMENT-FINISH SEGMENTATION (price per above-grade finished sqft, sold comps):
+BASEMENT-FINISH SEGMENTATION (one input to the feature-adjustment framework — price per above-grade finished sqft, sold comps):
 ${segmentation ? JSON.stringify(segmentation, null, 2) : 'Not applicable.'}
+
+TOTAL FINISHED AREA CROSS-CHECK INPUTS (above grade + finished basement, sold comps ranked by closeness to the subject):
+${areaStats ? JSON.stringify(areaStats, null, 2) : 'Not available — return price_per_sqft_cross_check.verdict = "inconclusive".'}
 
 COMP-DERIVED MARKET STATS (PRIMARY — hard data computed from this report's comps):
 ${JSON.stringify(compStats, null, 2)}
@@ -738,8 +902,8 @@ ${JSON.stringify(compStats, null, 2)}
 AGENT-PROVIDED MARKET STATS (OVERRIDE — official board-level stats, takes precedence when present):
 ${manual ? JSON.stringify(marketStats, null, 2) : 'None provided.'}
 
-GENERAL WEB MARKET CONTEXT (SUPPLEMENTARY — general framing only, not comp data):
-${webContext ? JSON.stringify(webContext, null, 2) : 'Unavailable — rely solely on the comp-derived stats above.'}`;
+REGIONAL MARKET CONTEXT (REQUIRED WEIGHTED INPUT when present — must be cited in market_narrative and must shift where the recommendation sits inside the band):
+${webContext ? JSON.stringify(webContext, null, 2) : 'Unavailable — omit regional framing entirely and rely solely on the comp-derived stats above.'}`;
 }
 
 serve(async (req) => {
@@ -755,6 +919,7 @@ serve(async (req) => {
     if (reviewedComps && Array.isArray(reviewedComps) && reviewedComps.length > 0) {
       const compStats = computeCompDerivedStats(reviewedComps);
       const segmentation = computeBasementSegmentation(reviewedComps, subjectProperty);
+      const areaStats = computeTotalFinishedAreaStats(reviewedComps, subjectProperty);
       const webContext = await fetchWebMarketContext(subjectProperty);
       const analysisPrompt = `Analyze this CMA data using the agent-reviewed comparable properties:
 
@@ -764,14 +929,14 @@ ${JSON.stringify(subjectProperty, null, 2)}
 CLIENT PURCHASE HISTORY:
 ${JSON.stringify(purchaseHistory, null, 2)}
 
-${buildMarketStatsBlock(compStats, marketStats, webContext, segmentation)}
+${buildMarketStatsBlock(compStats, marketStats, webContext, segmentation, areaStats)}
 
 COMPARABLE PROPERTIES (agent-reviewed):
 ${JSON.stringify(reviewedComps, null, 2)}
 
 Provide your complete analysis as a JSON object.`;
 
-      const analysis = await callAI(LOVABLE_API_KEY, ANALYSIS_SYSTEM_PROMPT, analysisPrompt);
+      const analysis = await callAnalysisAI(LOVABLE_API_KEY, ANALYSIS_SYSTEM_PROMPT, analysisPrompt);
       
       return new Response(JSON.stringify({
         success: true,
@@ -779,6 +944,7 @@ Provide your complete analysis as a JSON object.`;
           market_stats_derived: compStats,
           market_classification: classifyMarket(compStats),
           basement_segmentation: segmentation,
+          total_finished_area_stats: areaStats,
           web_market_context: webContext,
           extracted_comps: reviewedComps,
           extraction_summary: {
@@ -802,6 +968,7 @@ Provide your complete analysis as a JSON object.`;
     if (!pdfText) {
       const compStats = computeCompDerivedStats([]);
       const segmentation = computeBasementSegmentation([], subjectProperty);
+      const areaStats = computeTotalFinishedAreaStats([], subjectProperty);
       const webContext = await fetchWebMarketContext(subjectProperty);
       const analysisPrompt = `Analyze this CMA data (no PDF comps available):
 
@@ -811,11 +978,11 @@ ${JSON.stringify(subjectProperty, null, 2)}
 CLIENT PURCHASE HISTORY:
 ${JSON.stringify(purchaseHistory, null, 2)}
 
-${buildMarketStatsBlock(compStats, marketStats, webContext, segmentation)}
+${buildMarketStatsBlock(compStats, marketStats, webContext, segmentation, areaStats)}
 
 There are no comparable properties extracted from a PDF. Provide analysis based on market stats only.`;
 
-      const analysis = await callAI(LOVABLE_API_KEY, ANALYSIS_SYSTEM_PROMPT, analysisPrompt);
+      const analysis = await callAnalysisAI(LOVABLE_API_KEY, ANALYSIS_SYSTEM_PROMPT, analysisPrompt);
       
       return new Response(JSON.stringify({
         success: true,
@@ -823,6 +990,7 @@ There are no comparable properties extracted from a PDF. Provide analysis based 
           market_stats_derived: compStats,
           market_classification: classifyMarket(compStats),
           basement_segmentation: segmentation,
+          total_finished_area_stats: areaStats,
           web_market_context: webContext,
           extracted_comps: [],
           extraction_summary: {
@@ -1006,6 +1174,7 @@ Extract any properties you find, even with minimal data.`;
     // Now run the analysis pass with the extracted comps
     const compStats = computeCompDerivedStats(allComps);
     const segmentation = computeBasementSegmentation(allComps, subjectProperty);
+    const areaStats = computeTotalFinishedAreaStats(allComps, subjectProperty);
     const webContext = await fetchWebMarketContext(subjectProperty);
     const analysisPrompt = `Analyze this CMA data with ${allComps.length} comparable properties:
 
@@ -1015,7 +1184,7 @@ ${JSON.stringify(subjectProperty, null, 2)}
 CLIENT PURCHASE HISTORY:
 ${JSON.stringify(purchaseHistory, null, 2)}
 
-${buildMarketStatsBlock(compStats, marketStats, webContext, segmentation)}
+${buildMarketStatsBlock(compStats, marketStats, webContext, segmentation, areaStats)}
 
 COMPARABLE PROPERTIES:
 ${JSON.stringify(allComps, null, 2)}
@@ -1024,7 +1193,7 @@ Provide your complete analysis. Grade quality, generate pricing bands, flag risk
 
     let analysis: any;
     try {
-      analysis = await callAI(LOVABLE_API_KEY, ANALYSIS_SYSTEM_PROMPT, analysisPrompt);
+      analysis = await callAnalysisAI(LOVABLE_API_KEY, ANALYSIS_SYSTEM_PROMPT, analysisPrompt);
     } catch (err) {
       console.error("Analysis pass failed:", err);
       analysis = {
@@ -1036,6 +1205,9 @@ Provide your complete analysis. Grade quality, generate pricing bands, flag risk
         risk_flags: ["Analysis pass failed - please re-run"],
         weak_comp_alerts: [],
         adjustment_observations: [],
+        feature_adjustments: [],
+        price_per_sqft_cross_check: null,
+        valuation_scenarios: null,
         talking_points: [],
         seller_objections: [],
         strategy_recommendation: null,
@@ -1049,6 +1221,7 @@ Provide your complete analysis. Grade quality, generate pricing bands, flag risk
         market_stats_derived: compStats,
         market_classification: classifyMarket(compStats),
         basement_segmentation: segmentation,
+        total_finished_area_stats: areaStats,
         web_market_context: webContext,
         extracted_comps: allComps,
         extraction_summary: extractionSummary,

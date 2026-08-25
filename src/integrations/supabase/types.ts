@@ -801,6 +801,7 @@ export type Database = {
           equity_gain_low: number | null
           equity_recalc_count: number
           extracted_comps: Json | null
+          feature_adjustments: Json
           final_list_price: number | null
           final_sold_price: number | null
           finished_basement_sqft: number | null
@@ -828,6 +829,7 @@ export type Database = {
           months_of_inventory: number | null
           prev_avg_days_on_market: number | null
           prev_median_sale_price: number | null
+          price_per_sqft_cross_check: Json | null
           pricing_band_high: number | null
           pricing_band_low: number | null
           pricing_band_recommended: number | null
@@ -850,6 +852,7 @@ export type Database = {
           target_list_price: number | null
           updated_at: string
           user_id: string
+          valuation_scenarios: Json | null
           version_number: number
           weak_comp_alerts: Json | null
         }
@@ -885,6 +888,7 @@ export type Database = {
           equity_gain_low?: number | null
           equity_recalc_count?: number
           extracted_comps?: Json | null
+          feature_adjustments?: Json
           final_list_price?: number | null
           final_sold_price?: number | null
           finished_basement_sqft?: number | null
@@ -912,6 +916,7 @@ export type Database = {
           months_of_inventory?: number | null
           prev_avg_days_on_market?: number | null
           prev_median_sale_price?: number | null
+          price_per_sqft_cross_check?: Json | null
           pricing_band_high?: number | null
           pricing_band_low?: number | null
           pricing_band_recommended?: number | null
@@ -934,6 +939,7 @@ export type Database = {
           target_list_price?: number | null
           updated_at?: string
           user_id: string
+          valuation_scenarios?: Json | null
           version_number?: number
           weak_comp_alerts?: Json | null
         }
@@ -969,6 +975,7 @@ export type Database = {
           equity_gain_low?: number | null
           equity_recalc_count?: number
           extracted_comps?: Json | null
+          feature_adjustments?: Json
           final_list_price?: number | null
           final_sold_price?: number | null
           finished_basement_sqft?: number | null
@@ -996,6 +1003,7 @@ export type Database = {
           months_of_inventory?: number | null
           prev_avg_days_on_market?: number | null
           prev_median_sale_price?: number | null
+          price_per_sqft_cross_check?: Json | null
           pricing_band_high?: number | null
           pricing_band_low?: number | null
           pricing_band_recommended?: number | null
@@ -1018,6 +1026,7 @@ export type Database = {
           target_list_price?: number | null
           updated_at?: string
           user_id?: string
+          valuation_scenarios?: Json | null
           version_number?: number
           weak_comp_alerts?: Json | null
         }
