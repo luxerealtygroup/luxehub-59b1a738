@@ -19,4 +19,8 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'open-house-feedback': openHouseFeedback,
   'client-portal-invite': clientPortalInvite,
   'support-ticket-escalated': supportTicketEscalated,
+  'portal-new-documents': portalNewDocuments,
+  'portal-new-photos': portalNewPhotos,
+  'portal-new-task': portalNewTask,
+  'portal-new-message': portalNewMessage,
 }
