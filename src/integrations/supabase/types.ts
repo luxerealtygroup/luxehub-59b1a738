@@ -1908,9 +1908,12 @@ export type Database = {
           created_at: string
           id: string
           is_read: boolean
+          link: string | null
           message_id: string | null
           message_preview: string | null
           portal_id: string
+          title: string | null
+          type: string
           user_id: string
         }
         Insert: {
@@ -1918,9 +1921,12 @@ export type Database = {
           created_at?: string
           id?: string
           is_read?: boolean
+          link?: string | null
           message_id?: string | null
           message_preview?: string | null
           portal_id: string
+          title?: string | null
+          type?: string
           user_id: string
         }
         Update: {
@@ -1928,9 +1934,12 @@ export type Database = {
           created_at?: string
           id?: string
           is_read?: boolean
+          link?: string | null
           message_id?: string | null
           message_preview?: string | null
           portal_id?: string
+          title?: string | null
+          type?: string
           user_id?: string
         }
         Relationships: [
@@ -3393,6 +3402,19 @@ export type Database = {
       }
       owns_portal: {
         Args: { _portal_id: string; _user_id: string }
+        Returns: boolean
+      }
+      portal_send_email: {
+        Args: {
+          _data: Json
+          _idempotency_key: string
+          _recipient: string
+          _template: string
+        }
+        Returns: undefined
+      }
+      portal_should_email: {
+        Args: { _portal_id: string; _type: string }
         Returns: boolean
       }
       read_email_batch: {
