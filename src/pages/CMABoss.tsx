@@ -80,6 +80,9 @@ const CMABoss = () => {
       const comps = Array.isArray(r.extracted_comps) ? r.extracted_comps : [];
 
       const payload = {
+        // reportId lets generate-cma load the audited analysis as fixed input,
+        // so the client document can never disagree with the audit view.
+        reportId,
         clientName: r.fub_person_name || 'Valued Client',
         agentName,
         subjectProperty: {
