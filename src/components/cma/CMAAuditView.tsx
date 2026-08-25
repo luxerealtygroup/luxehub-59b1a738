@@ -37,6 +37,17 @@ interface Objection {
   response: string;
 }
 
+const formatSignedDollars = (n: number) =>
+  `${n < 0 ? '−' : '+'}$${Math.abs(Math.round(n)).toLocaleString()}`;
+
+const formatAdjustmentRange = (low: number | null, high: number | null) => {
+  if (low == null && high == null) return '—';
+  if (low == null) return formatSignedDollars(high as number);
+  if (high == null) return formatSignedDollars(low);
+  if (Math.round(low) === Math.round(high)) return formatSignedDollars(low);
+  return `${formatSignedDollars(low)} – ${formatSignedDollars(high)}`;
+};
+
 interface FeatureAdjustment {
   feature: string;
   adjustment_low: number | null;
