@@ -102,7 +102,8 @@ Deno.serve(async (req) => {
       method: 'POST',
       headers: {
         Authorization: `Basic ${btoa(`${apiKey}:`)}`,
-        'X-System': 'LUXEhub',
+        'X-System': 'Lovable Real Estate Hub',
+        'X-System-Key': 'lovable-hub',
       },
       body: form,
     });
