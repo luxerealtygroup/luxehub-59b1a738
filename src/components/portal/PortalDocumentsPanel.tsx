@@ -152,7 +152,7 @@ export function PortalDocumentsPanel({ portalId, canManage }: Props) {
             <FileText className="h-6 w-6" />
           </div>
           <h3 className="font-display text-lg font-semibold tracking-tight mb-1">
-            {canManage ? 'No documents yet' : 'Documents coming soon'}
+            No documents yet
           </h3>
           <p className="text-sm text-muted-foreground max-w-sm">
             {canManage ? 'Upload the first file above to share it with your client.' : 'Your agent will add your documents here soon.'}
