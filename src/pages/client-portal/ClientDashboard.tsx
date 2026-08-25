@@ -14,8 +14,6 @@ import { PortalChatPanel } from '@/components/portal/PortalChatPanel';
 import { PropertyDetails } from './components/PropertyDetails';
 import { ClientSidebar } from './components/ClientSidebar';
 import { FUBTimeline } from './components/FUBTimeline';
-import { DriveDocuments } from './components/DriveDocuments';
-import { DrivePhotos } from './components/DrivePhotos';
 import { PortalDocumentsPanel } from '@/components/portal/PortalDocumentsPanel';
 import { PortalPhotosPanel } from '@/components/portal/PortalPhotosPanel';
 import { SupportChatWidget } from '@/components/support/SupportChatWidget';
@@ -527,12 +525,12 @@ const ClientDashboard = () => {
                       ))}
                     </SelectContent>
                   </Select>
-                  <ClientNotificationsBell onOpenMessages={() => setActiveTab('messages')} />
+                  <ClientNotificationsBell onOpenTab={(tab) => setActiveTab(tab)} />
                 </div>
               )}
               {!(transactions.length > 1 && activeTab !== 'messages') && (
                 <div className="ml-auto">
-                  <ClientNotificationsBell onOpenMessages={() => setActiveTab('messages')} />
+                  <ClientNotificationsBell onOpenTab={(tab) => setActiveTab(tab)} />
                 </div>
               )}
             </div>
