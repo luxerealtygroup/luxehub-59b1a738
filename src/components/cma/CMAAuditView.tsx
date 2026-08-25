@@ -37,6 +37,32 @@ interface Objection {
   response: string;
 }
 
+interface FeatureAdjustment {
+  feature: string;
+  adjustment_low: number | null;
+  adjustment_high: number | null;
+  rationale: string | null;
+}
+
+interface PricePerSqftCrossCheck {
+  comps_used?: string[] | null;
+  implied_low?: number | null;
+  implied_high?: number | null;
+  verdict?: string | null;
+  commentary?: string | null;
+}
+
+interface ValuationScenario {
+  price?: number | null;
+  rationale?: string | null;
+}
+
+interface ValuationScenarios {
+  conservative?: ValuationScenario | null;
+  most_probable?: ValuationScenario | null;
+  optimistic?: ValuationScenario | null;
+}
+
 interface CMAReportFull {
   id: string;
   created_at: string;
@@ -60,6 +86,9 @@ interface CMAReportFull {
   risk_flags: string[];
   weak_comp_alerts: string[];
   adjustment_observations: string[];
+  feature_adjustments: FeatureAdjustment[];
+  price_per_sqft_cross_check: PricePerSqftCrossCheck | null;
+  valuation_scenarios: ValuationScenarios | null;
   talking_points: string[];
   seller_objections: Objection[];
   strategy_recommendation: string | null;
@@ -122,6 +151,9 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
         risk_flags: Array.isArray(r.risk_flags) ? r.risk_flags : [],
         weak_comp_alerts: Array.isArray(r.weak_comp_alerts) ? r.weak_comp_alerts : [],
         adjustment_observations: Array.isArray(r.adjustment_observations) ? r.adjustment_observations : [],
+        feature_adjustments: Array.isArray(r.feature_adjustments) ? r.feature_adjustments : [],
+        price_per_sqft_cross_check: r.price_per_sqft_cross_check ?? null,
+        valuation_scenarios: r.valuation_scenarios ?? null,
         talking_points: Array.isArray(r.talking_points) ? r.talking_points : [],
         seller_objections: Array.isArray(r.seller_objections) ? r.seller_objections : [],
         extracted_comps: Array.isArray(r.extracted_comps) ? r.extracted_comps : [],
