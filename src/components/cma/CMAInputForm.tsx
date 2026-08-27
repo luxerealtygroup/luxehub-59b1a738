@@ -651,6 +651,37 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     return { comps: mappedComps, summary };
   };
 
+  // Shared handling for every extraction entry point: never report a failed or
+  // empty extraction as a success, and never wipe comps the agent already has.
+  const applyExtractionOutcome = (
+    outcome: ExtractionOutcome,
+    label: 'PDF' | 'link'
+  ) => {
+    const { comps: extracted, summary, error } = outcome;
+    if (extracted.length === 0) {
+      toast.error(
+        error ||
+          `No comparables could be read from this ${label}. Add comparables manually, or try a text-based CloudCMA ${label === 'PDF' ? 'PDF' : 'report link or PDF'}.`,
+        { duration: 8000 }
+      );
+      return false;
+    }
+    // Preserve manual comps, replace previous auto-extracted ones.
+    const manualComps = reviewComps.filter(c => c._manual_edit);
+    const manualAddresses = new Set(manualComps.map(c => c.address.toLowerCase().trim()));
+    const newAiComps = extracted.filter(
+      c => !c._manual_edit && !manualAddresses.has(c.address.toLowerCase().trim())
+    );
+    setReviewComps([...manualComps, ...newAiComps]);
+    setExtractionSummary(summary);
+    const reviewCount = newAiComps.filter(c => c.needs_review).length;
+    toast.success(
+      `Extracted ${newAiComps.length} comps from ${label}${reviewCount > 0 ? ` (${reviewCount} need review)` : ''}` +
+        (manualComps.length > 0 ? ` · ${manualComps.length} manual comps preserved` : '')
+    );
+    return true;
+  };
+
   // Step 1: Move to review (extract if PDF/link present, else empty review)
   const handleProceedToReview = async () => {
     if (!propertyAddress || !cityArea) {
@@ -661,11 +692,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     if (importMethod === 'pdf' && cmaPdf) {
       setExtracting(true);
       try {
-        const { comps: extracted, summary } = await runExtraction();
-        setReviewComps(extracted);
-        setExtractionSummary(summary);
-        const reviewCount = extracted.filter(c => c.needs_review).length;
-        toast.success(`Extracted ${extracted.length} comps from PDF${reviewCount > 0 ? ` (${reviewCount} need review)` : ''}`);
+        applyExtractionOutcome(await runExtraction(), 'PDF');
       } catch (err) {
         console.error('Extraction error:', err);
         toast.error('Failed to extract comps from PDF. You can add comparables manually.');
@@ -683,11 +710,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
       }
       setExtracting(true);
       try {
-        const { comps: extracted, summary } = await runLinkExtraction();
-        setReviewComps(extracted);
-        setExtractionSummary(summary);
-        const reviewCount = extracted.filter(c => c.needs_review).length;
-        toast.success(`Extracted ${extracted.length} comps from link${reviewCount > 0 ? ` (${reviewCount} need review)` : ''}`);
+        applyExtractionOutcome(await runLinkExtraction(), 'link');
       } catch (err) {
         console.error('Link extraction error:', err);
         toast.error('Unable to extract from link. You can add comparables manually.');
@@ -707,14 +730,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     }
     setExtracting(true);
     try {
-      const manualComps = reviewComps.filter(c => c._manual_edit);
-      const { comps: extracted, summary } = await runExtraction();
-      // Merge: keep all manual comps, add new AI comps not duplicating manual addresses
-      const manualAddresses = new Set(manualComps.map(c => c.address.toLowerCase().trim()));
-      const newAiComps = extracted.filter(c => !c._manual_edit && !manualAddresses.has(c.address.toLowerCase().trim()));
-      setReviewComps([...manualComps, ...newAiComps]);
-      setExtractionSummary(summary);
-      toast.success(`Re-extracted. ${newAiComps.length} new comps added, ${manualComps.length} manual comps preserved.`);
+      applyExtractionOutcome(await runExtraction(), 'PDF');
     } catch (err) {
       console.error('Re-extraction error:', err);
       toast.error('Re-extraction failed');
@@ -722,6 +738,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
       setExtracting(false);
     }
   };
+
 
   // Step 2: Confirm comps & generate report
   const handleConfirmAndAnalyze = async () => {
