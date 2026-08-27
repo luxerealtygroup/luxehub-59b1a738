@@ -1052,21 +1052,17 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     setExtracting(true);
     try {
       if (importMethod === 'pdf') {
-        const { comps: extracted, summary } = await runExtraction();
-        setReviewComps(extracted);
-        setExtractionSummary(summary);
-        toast.success(`Extracted ${extracted.length} comps from PDF`);
+        const ok = applyExtractionOutcome(await runExtraction(), 'PDF');
+        if (ok) setHasExtracted(true);
       } else if (importMethod === 'link') {
         try { new URL(cmaSourceUrl); } catch {
           toast.error('Please enter a valid URL');
           return;
         }
-        const { comps: extracted, summary } = await runLinkExtraction();
-        setReviewComps(extracted);
-        setExtractionSummary(summary);
-        toast.success(`Extracted ${extracted.length} comps from link`);
+        const ok = applyExtractionOutcome(await runLinkExtraction(), 'link');
+        if (ok) setHasExtracted(true);
       }
-      setHasExtracted(true);
+
     } catch (err) {
       console.error('Extraction error:', err);
       toast.error('Extraction failed. You can add comparables manually.');
