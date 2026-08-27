@@ -574,20 +574,29 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     return { comps: mappedComps, summary };
   };
 
-  // Extract from CloudCMA link
-  const runLinkExtraction = async (): Promise<{ comps: ReviewComp[]; summary: ExtractionSummary | null }> => {
-    if (!cmaSourceUrl) return { comps: [], summary: null };
-    
+  // Extract from CloudCMA link (HTML report page or PDF report link)
+  const runLinkExtraction = async (): Promise<ExtractionOutcome> => {
+    if (!cmaSourceUrl) return { comps: [], summary: null, error: 'No link provided' };
+
     const startTime = Date.now();
     const { data: fnData, error: fnError } = await supabase.functions.invoke('cma-scrape-link', {
       body: { url: cmaSourceUrl, subjectAddress: propertyAddress },
     });
 
-    if (fnError) throw fnError;
-    
-    if (!fnData?.success) {
-      toast.error(fnData?.error || 'Link extraction failed. You can still add comparables manually.');
-      return { comps: [], summary: null };
+    if (fnError || !fnData?.success) {
+      const msg = fnData?.error || fnError?.message || 'Link extraction failed. You can still add comparables manually.';
+      logImportAttempt({
+        source_type: 'link',
+        cma_source_url: cmaSourceUrl,
+        total_blocks_detected: 0,
+        comps_imported: 0,
+        comps_partial: 0,
+        comps_skipped: 0,
+        skip_reasons: [`link_extraction_failed: ${msg}`],
+        extraction_passes: 0,
+        extraction_duration_ms: Date.now() - startTime,
+      });
+      return { comps: [], summary: null, error: msg };
     }
 
     const aiComps: any[] = fnData.extracted_comps || [];
@@ -603,21 +612,18 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     };
 
     // Log import
-    if (user) {
-      const durationMs = Date.now() - startTime;
-      supabase.from('cma_import_logs').insert({
-        user_id: user.id,
-        source_type: 'link',
-        cma_source_url: cmaSourceUrl,
-        total_blocks_detected: summary.total_comps_found,
-        comps_imported: aiComps.filter((c: any) => !c.needs_review).length,
-        comps_partial: aiComps.filter((c: any) => c.needs_review).length,
-        comps_skipped: 0,
-        skip_reasons: [],
-        extraction_passes: 1,
-        extraction_duration_ms: durationMs,
-      } as any).then(() => {});
-    }
+    logImportAttempt({
+      source_type: 'link',
+      cma_source_url: cmaSourceUrl,
+      total_blocks_detected: summary.total_comps_found,
+      comps_imported: aiComps.filter((c: any) => !c.needs_review).length,
+      comps_partial: aiComps.filter((c: any) => c.needs_review).length,
+      comps_skipped: 0,
+      skip_reasons: aiComps.length === 0 ? ['zero_comps_returned'] : [],
+      extraction_passes: 1,
+      extraction_duration_ms: Date.now() - startTime,
+    });
+
 
     const mappedComps = aiComps.map((c: any) => ({
       id: crypto.randomUUID(),
