@@ -1,11 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { extractText, getDocumentProxy } from "npm:unpdf@0.12.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const EXTRACTION_SYSTEM_PROMPT = `You are a real estate CMA data extraction specialist. Extract ALL comparable property listings from the provided HTML content of a CloudCMA report page.
+const EXTRACTION_SYSTEM_PROMPT = `You are a real estate CMA data extraction specialist. Extract ALL comparable property listings from the provided CMA report content (it may be raw HTML from a report page, or plain text extracted from a report PDF).
 
 CloudCMA reports display properties as cards/blocks with:
 - Street address
@@ -59,6 +60,30 @@ RESPOND WITH ONLY this JSON (no markdown, no code blocks):
   }
 }`;
 
+const fail = (error: string, status = 200) =>
+  new Response(
+    JSON.stringify({
+      success: false,
+      error,
+      extracted_comps: [],
+      extraction_summary: { total_comps_found: 0 },
+    }),
+    { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+
+// Rough "is this a login / access-denied shell?" check for HTML pages.
+const looksLikeLoginPage = (html: string): boolean => {
+  const lower = html.toLowerCase();
+  const hasAuthMarkers =
+    /type=["']password["']/.test(lower) ||
+    /(sign in|log in|login|password required|access denied|not authorized|unauthorized)/.test(lower);
+  const visibleText = lower
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return hasAuthMarkers && visibleText.length < 3000;
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -69,10 +94,7 @@ serve(async (req) => {
     const { url, subjectAddress } = await req.json();
 
     if (!url || typeof url !== "string") {
-      return new Response(
-        JSON.stringify({ success: false, error: "URL is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return fail("URL is required", 400);
     }
 
     // Validate URL format
@@ -80,66 +102,95 @@ serve(async (req) => {
     try {
       parsedUrl = new URL(url);
     } catch {
-      return new Response(
-        JSON.stringify({ success: false, error: "Invalid URL format" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return fail("Invalid URL format", 400);
     }
 
-    console.log(`Fetching CloudCMA URL: ${parsedUrl.href}`);
+    console.log(`Fetching CMA URL: ${parsedUrl.href}`);
 
-    // Fetch the page HTML
     const fetchResponse = await fetch(parsedUrl.href, {
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept": "text/html,application/xhtml+xml,application/pdf,*/*;q=0.8",
       },
+      redirect: "follow",
     });
 
     if (!fetchResponse.ok) {
       console.error(`Fetch failed: ${fetchResponse.status}`);
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: `Failed to fetch the CloudCMA page (HTTP ${fetchResponse.status}). The link may be expired or private.`,
-        }),
-        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      return fail(
+        `Failed to fetch the CMA report (HTTP ${fetchResponse.status}). The link may be expired, private, or require a login.`
       );
     }
 
-    const html = await fetchResponse.text();
-    console.log(`Fetched HTML length: ${html.length}`);
+    const contentType = (fetchResponse.headers.get("content-type") || "").toLowerCase();
+    const pathname = new URL(fetchResponse.url || parsedUrl.href).pathname.toLowerCase();
+    const isPdf = contentType.includes("application/pdf") || pathname.endsWith(".pdf");
 
-    if (html.length < 200) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "The page appears to be empty or inaccessible. Check the link and try again.",
-        }),
-        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    let sourceText = "";
+    let sourceKind: "pdf" | "html" = isPdf ? "pdf" : "html";
+
+    if (isPdf) {
+      // CloudCMA "share PDF" links point straight at a PDF file. Extract real
+      // text from the bytes instead of treating the binary as HTML.
+      const bytes = new Uint8Array(await fetchResponse.arrayBuffer());
+      console.log(`Fetched PDF, ${bytes.length} bytes`);
+      try {
+        const pdf = await getDocumentProxy(bytes);
+        const { text } = await extractText(pdf, { mergePages: true });
+        sourceText = (Array.isArray(text) ? text.join("\n\n") : text) || "";
+      } catch (pdfErr) {
+        console.error("PDF text extraction failed:", pdfErr);
+        return fail(
+          "This link is a PDF, but its text could not be read (it may be a scanned/image-only PDF). Download it and upload it with the Upload PDF option, or add comparables manually."
+        );
+      }
+      console.log(`PDF text length: ${sourceText.length}`);
+      if (sourceText.trim().length < 200) {
+        return fail(
+          "This PDF contains no readable text (likely a scanned/image-only report). Add comparables manually, or export a text-based PDF from CloudCMA."
+        );
+      }
+    } else if (
+      contentType.includes("text/html") ||
+      contentType.includes("text/plain") ||
+      contentType.includes("xml") ||
+      contentType === ""
+    ) {
+      const html = await fetchResponse.text();
+      console.log(`Fetched HTML length: ${html.length}`);
+
+      if (html.length < 200) {
+        return fail("The page appears to be empty or inaccessible. Check the link and try again.");
+      }
+
+      if (looksLikeLoginPage(html)) {
+        return fail(
+          "This link opens a sign-in page, so the report can't be read. Use a public CloudCMA share link, or download the report as a PDF and upload it."
+        );
+      }
+
+      sourceText = html
+        .replace(/<script[\s\S]*?<\/script>/gi, "")
+        .replace(/<style[\s\S]*?<\/style>/gi, "")
+        .replace(/<noscript[\s\S]*?<\/noscript>/gi, "");
+      sourceKind = "html";
+    } else {
+      return fail(
+        `This link doesn't look like a CMA report (received "${contentType || "unknown content"}"). Paste the CloudCMA report or PDF link, or upload the PDF directly.`
       );
     }
-
-    // Strip script/style tags and extract meaningful text content
-    let cleanedHtml = html
-      .replace(/<script[\s\S]*?<\/script>/gi, "")
-      .replace(/<style[\s\S]*?<\/style>/gi, "")
-      .replace(/<noscript[\s\S]*?<\/noscript>/gi, "");
 
     // Limit to 100k chars for AI processing
-    if (cleanedHtml.length > 100000) {
-      cleanedHtml = cleanedHtml.substring(0, 100000);
-    }
+    if (sourceText.length > 100000) sourceText = sourceText.substring(0, 100000);
 
-    // Call AI to extract comps from the HTML
-    const extractionPrompt = `Extract ALL comparable properties from this CloudCMA report HTML page.
+    const extractionPrompt = `Extract ALL comparable properties from this CMA report ${sourceKind === "pdf" ? "text (extracted from a PDF)" : "HTML page"}.
 
 ${subjectAddress ? `SUBJECT PROPERTY (do NOT include as a comparable): ${subjectAddress}` : ""}
 
-HTML CONTENT:
-${cleanedHtml}
+REPORT CONTENT:
+${sourceText}
 
-Find every property listing on this page and extract all available data.`;
+Find every property listing in this content and extract all available data.`;
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -159,10 +210,7 @@ Find every property listing on this page and extract all available data.`;
     if (!aiResponse.ok) {
       const status = aiResponse.status;
       if (status === 429) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Rate limit exceeded. Please try again in a moment." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return fail("Rate limit exceeded. Please try again in a moment.", 429);
       }
       const errorText = await aiResponse.text();
       console.error("AI error:", status, errorText);
@@ -172,24 +220,25 @@ Find every property listing on this page and extract all available data.`;
     const aiResult = await aiResponse.json();
     const content = aiResult.choices?.[0]?.message?.content || "";
     const jsonStr = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    
+
     let parsed: any;
     try {
       parsed = JSON.parse(jsonStr);
     } catch {
       console.error("Failed to parse AI response:", jsonStr.substring(0, 500));
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "Unable to automatically extract comparables from this link. You can still add comparables manually.",
-          extracted_comps: [],
-          extraction_summary: { total_comps_found: 0 },
-        }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return fail("Unable to automatically extract comparables from this link. You can still add comparables manually.");
     }
 
     const comps = parsed.extracted_comps || [];
+
+    if (comps.length === 0) {
+      return fail(
+        sourceKind === "pdf"
+          ? "No comparable properties were found in this PDF report. You can add comparables manually."
+          : "No comparable properties were found at this link. CloudCMA share pages often load their data after the page opens — download the report as a PDF and upload it instead."
+      );
+    }
+
     const computedSummary = {
       total_comps_found: comps.length,
       sold_count: comps.filter((c: any) => c.comp_category === "sold").length,
@@ -200,7 +249,7 @@ Find every property listing on this page and extract all available data.`;
     };
     const summary = { ...computedSummary, ...(parsed.extraction_summary || {}), ...computedSummary };
 
-    console.log(`Extracted ${comps.length} comps from CloudCMA link`);
+    console.log(`Extracted ${comps.length} comps from ${sourceKind} link`);
 
     return new Response(
       JSON.stringify({
@@ -209,23 +258,16 @@ Find every property listing on this page and extract all available data.`;
         extraction_summary: {
           ...summary,
           source_type: "link",
+          source_format: sourceKind,
           source_url: parsedUrl.href,
-          html_length: html.length,
+          html_length: sourceText.length,
         },
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error";
-    console.error("CloudCMA link scrape error:", e);
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: `Unable to automatically extract comparables from this link. ${msg}`,
-        extracted_comps: [],
-        extraction_summary: { total_comps_found: 0 },
-      }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    console.error("CMA link scrape error:", e);
+    return fail(`Unable to automatically extract comparables from this link. ${msg}`);
   }
 });

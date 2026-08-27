@@ -13,6 +13,9 @@ import { Upload, Loader2, Home, DollarSign, BarChart3, FileUp, Users, Link2, Pen
 import { FUBContactTypeahead } from '@/components/FUBContactTypeahead';
 import { useHasFUB } from '@/hooks/useHasFUB';
 import CMACompReview, { type ReviewComp, type ExtractionSummary } from './CMACompReview';
+
+type ExtractionOutcome = { comps: ReviewComp[]; summary: ExtractionSummary | null; error?: string | null };
+
 import CMAPhotoUpload from './CMAPhotoUpload';
 import CMAImprovements, { type ImprovementItem } from './CMAImprovements';
 
@@ -464,18 +467,56 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     existingManualComps: manualComps.filter(c => c._manual_edit),
   });
 
-  const runExtraction = async (): Promise<{ comps: ReviewComp[]; summary: ExtractionSummary | null }> => {
-    if (!cmaPdf) return { comps: [], summary: null };
+  // Record every import attempt (success AND failure) so support can diagnose
+  // reports like "extraction isn't working" after the fact.
+  const logImportAttempt = (payload: Record<string, unknown>) => {
+    if (!user) return;
+    supabase.from('cma_import_logs').insert({ user_id: user.id, ...payload } as any).then(() => {});
+  };
+
+  const runExtraction = async (): Promise<ExtractionOutcome> => {
+    if (!cmaPdf) return { comps: [], summary: null, error: 'No PDF uploaded' };
     const startTime = Date.now();
-    const pdfText = await extractPdfText(cmaPdf);
+    let pdfText = '';
+    try {
+      pdfText = await extractPdfText(cmaPdf);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'PDF text extraction failed';
+      logImportAttempt({
+        file_name: cmaPdf.name,
+        file_size_bytes: cmaPdf.size,
+        total_blocks_detected: 0,
+        comps_imported: 0,
+        comps_partial: 0,
+        comps_skipped: 0,
+        skip_reasons: [`pdf_text_extraction_failed: ${msg}`],
+        extraction_passes: 0,
+        extraction_duration_ms: Date.now() - startTime,
+        raw_text_length: 0,
+      });
+      return { comps: [], summary: null, error: 'The text in this PDF could not be read. It may be a scanned/image-only file.' };
+    }
+
     const { data: fnData, error: fnError } = await supabase.functions.invoke('cma-analyze', {
       body: buildRequestBody(pdfText, reviewComps),
     });
-    if (fnError) throw fnError;
-    if (!fnData?.success || !fnData.analysis?.extracted_comps) {
-      toast.error(fnData?.error || 'Extraction failed');
-      return { comps: [], summary: null };
+    if (fnError || !fnData?.success || !fnData.analysis?.extracted_comps) {
+      const msg = fnError?.message || fnData?.error || 'Extraction failed';
+      logImportAttempt({
+        file_name: cmaPdf.name,
+        file_size_bytes: cmaPdf.size,
+        total_blocks_detected: 0,
+        comps_imported: 0,
+        comps_partial: 0,
+        comps_skipped: 0,
+        skip_reasons: [`analyze_failed: ${msg}`],
+        extraction_passes: 0,
+        extraction_duration_ms: Date.now() - startTime,
+        raw_text_length: pdfText.length,
+      });
+      return { comps: [], summary: null, error: msg };
     }
+
     const aiComps: any[] = fnData.analysis.extracted_comps || [];
     const summary: ExtractionSummary = fnData.analysis.extraction_summary || {
       total_comps_found: aiComps.length,
@@ -489,22 +530,19 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     };
 
     // Log import to cma_import_logs
-    if (user) {
-      const durationMs = Date.now() - startTime;
-      supabase.from('cma_import_logs').insert({
-        user_id: user.id,
-        file_name: cmaPdf.name,
-        file_size_bytes: cmaPdf.size,
-        total_blocks_detected: summary.total_comps_found,
-        comps_imported: aiComps.filter((c: any) => !c.needs_review).length,
-        comps_partial: aiComps.filter((c: any) => c.needs_review).length,
-        comps_skipped: 0,
-        skip_reasons: [],
-        extraction_passes: summary.extraction_passes,
-        extraction_duration_ms: durationMs,
-        raw_text_length: pdfText.length,
-      } as any).then(() => {});
-    }
+    logImportAttempt({
+      file_name: cmaPdf.name,
+      file_size_bytes: cmaPdf.size,
+      total_blocks_detected: summary.total_comps_found,
+      comps_imported: aiComps.filter((c: any) => !c.needs_review).length,
+      comps_partial: aiComps.filter((c: any) => c.needs_review).length,
+      comps_skipped: 0,
+      skip_reasons: aiComps.length === 0 ? ['zero_comps_returned'] : [],
+      extraction_passes: summary.extraction_passes,
+      extraction_duration_ms: Date.now() - startTime,
+      raw_text_length: pdfText.length,
+    });
+
 
     const mappedComps = aiComps.map((c: any) => ({
       id: crypto.randomUUID(),
@@ -536,20 +574,29 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     return { comps: mappedComps, summary };
   };
 
-  // Extract from CloudCMA link
-  const runLinkExtraction = async (): Promise<{ comps: ReviewComp[]; summary: ExtractionSummary | null }> => {
-    if (!cmaSourceUrl) return { comps: [], summary: null };
-    
+  // Extract from CloudCMA link (HTML report page or PDF report link)
+  const runLinkExtraction = async (): Promise<ExtractionOutcome> => {
+    if (!cmaSourceUrl) return { comps: [], summary: null, error: 'No link provided' };
+
     const startTime = Date.now();
     const { data: fnData, error: fnError } = await supabase.functions.invoke('cma-scrape-link', {
       body: { url: cmaSourceUrl, subjectAddress: propertyAddress },
     });
 
-    if (fnError) throw fnError;
-    
-    if (!fnData?.success) {
-      toast.error(fnData?.error || 'Link extraction failed. You can still add comparables manually.');
-      return { comps: [], summary: null };
+    if (fnError || !fnData?.success) {
+      const msg = fnData?.error || fnError?.message || 'Link extraction failed. You can still add comparables manually.';
+      logImportAttempt({
+        source_type: 'link',
+        cma_source_url: cmaSourceUrl,
+        total_blocks_detected: 0,
+        comps_imported: 0,
+        comps_partial: 0,
+        comps_skipped: 0,
+        skip_reasons: [`link_extraction_failed: ${msg}`],
+        extraction_passes: 0,
+        extraction_duration_ms: Date.now() - startTime,
+      });
+      return { comps: [], summary: null, error: msg };
     }
 
     const aiComps: any[] = fnData.extracted_comps || [];
@@ -565,21 +612,18 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     };
 
     // Log import
-    if (user) {
-      const durationMs = Date.now() - startTime;
-      supabase.from('cma_import_logs').insert({
-        user_id: user.id,
-        source_type: 'link',
-        cma_source_url: cmaSourceUrl,
-        total_blocks_detected: summary.total_comps_found,
-        comps_imported: aiComps.filter((c: any) => !c.needs_review).length,
-        comps_partial: aiComps.filter((c: any) => c.needs_review).length,
-        comps_skipped: 0,
-        skip_reasons: [],
-        extraction_passes: 1,
-        extraction_duration_ms: durationMs,
-      } as any).then(() => {});
-    }
+    logImportAttempt({
+      source_type: 'link',
+      cma_source_url: cmaSourceUrl,
+      total_blocks_detected: summary.total_comps_found,
+      comps_imported: aiComps.filter((c: any) => !c.needs_review).length,
+      comps_partial: aiComps.filter((c: any) => c.needs_review).length,
+      comps_skipped: 0,
+      skip_reasons: aiComps.length === 0 ? ['zero_comps_returned'] : [],
+      extraction_passes: 1,
+      extraction_duration_ms: Date.now() - startTime,
+    });
+
 
     const mappedComps = aiComps.map((c: any) => ({
       id: crypto.randomUUID(),
@@ -607,6 +651,37 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     return { comps: mappedComps, summary };
   };
 
+  // Shared handling for every extraction entry point: never report a failed or
+  // empty extraction as a success, and never wipe comps the agent already has.
+  const applyExtractionOutcome = (
+    outcome: ExtractionOutcome,
+    label: 'PDF' | 'link'
+  ) => {
+    const { comps: extracted, summary, error } = outcome;
+    if (extracted.length === 0) {
+      toast.error(
+        error ||
+          `No comparables could be read from this ${label}. Add comparables manually, or try a text-based CloudCMA ${label === 'PDF' ? 'PDF' : 'report link or PDF'}.`,
+        { duration: 8000 }
+      );
+      return false;
+    }
+    // Preserve manual comps, replace previous auto-extracted ones.
+    const manualComps = reviewComps.filter(c => c._manual_edit);
+    const manualAddresses = new Set(manualComps.map(c => c.address.toLowerCase().trim()));
+    const newAiComps = extracted.filter(
+      c => !c._manual_edit && !manualAddresses.has(c.address.toLowerCase().trim())
+    );
+    setReviewComps([...manualComps, ...newAiComps]);
+    setExtractionSummary(summary);
+    const reviewCount = newAiComps.filter(c => c.needs_review).length;
+    toast.success(
+      `Extracted ${newAiComps.length} comps from ${label}${reviewCount > 0 ? ` (${reviewCount} need review)` : ''}` +
+        (manualComps.length > 0 ? ` · ${manualComps.length} manual comps preserved` : '')
+    );
+    return true;
+  };
+
   // Step 1: Move to review (extract if PDF/link present, else empty review)
   const handleProceedToReview = async () => {
     if (!propertyAddress || !cityArea) {
@@ -617,11 +692,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     if (importMethod === 'pdf' && cmaPdf) {
       setExtracting(true);
       try {
-        const { comps: extracted, summary } = await runExtraction();
-        setReviewComps(extracted);
-        setExtractionSummary(summary);
-        const reviewCount = extracted.filter(c => c.needs_review).length;
-        toast.success(`Extracted ${extracted.length} comps from PDF${reviewCount > 0 ? ` (${reviewCount} need review)` : ''}`);
+        applyExtractionOutcome(await runExtraction(), 'PDF');
       } catch (err) {
         console.error('Extraction error:', err);
         toast.error('Failed to extract comps from PDF. You can add comparables manually.');
@@ -639,11 +710,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
       }
       setExtracting(true);
       try {
-        const { comps: extracted, summary } = await runLinkExtraction();
-        setReviewComps(extracted);
-        setExtractionSummary(summary);
-        const reviewCount = extracted.filter(c => c.needs_review).length;
-        toast.success(`Extracted ${extracted.length} comps from link${reviewCount > 0 ? ` (${reviewCount} need review)` : ''}`);
+        applyExtractionOutcome(await runLinkExtraction(), 'link');
       } catch (err) {
         console.error('Link extraction error:', err);
         toast.error('Unable to extract from link. You can add comparables manually.');
@@ -663,14 +730,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     }
     setExtracting(true);
     try {
-      const manualComps = reviewComps.filter(c => c._manual_edit);
-      const { comps: extracted, summary } = await runExtraction();
-      // Merge: keep all manual comps, add new AI comps not duplicating manual addresses
-      const manualAddresses = new Set(manualComps.map(c => c.address.toLowerCase().trim()));
-      const newAiComps = extracted.filter(c => !c._manual_edit && !manualAddresses.has(c.address.toLowerCase().trim()));
-      setReviewComps([...manualComps, ...newAiComps]);
-      setExtractionSummary(summary);
-      toast.success(`Re-extracted. ${newAiComps.length} new comps added, ${manualComps.length} manual comps preserved.`);
+      applyExtractionOutcome(await runExtraction(), 'PDF');
     } catch (err) {
       console.error('Re-extraction error:', err);
       toast.error('Re-extraction failed');
@@ -678,6 +738,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
       setExtracting(false);
     }
   };
+
 
   // Step 2: Confirm comps & generate report
   const handleConfirmAndAnalyze = async () => {
@@ -991,21 +1052,17 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     setExtracting(true);
     try {
       if (importMethod === 'pdf') {
-        const { comps: extracted, summary } = await runExtraction();
-        setReviewComps(extracted);
-        setExtractionSummary(summary);
-        toast.success(`Extracted ${extracted.length} comps from PDF`);
+        const ok = applyExtractionOutcome(await runExtraction(), 'PDF');
+        if (ok) setHasExtracted(true);
       } else if (importMethod === 'link') {
         try { new URL(cmaSourceUrl); } catch {
           toast.error('Please enter a valid URL');
           return;
         }
-        const { comps: extracted, summary } = await runLinkExtraction();
-        setReviewComps(extracted);
-        setExtractionSummary(summary);
-        toast.success(`Extracted ${extracted.length} comps from link`);
+        const ok = applyExtractionOutcome(await runLinkExtraction(), 'link');
+        if (ok) setHasExtracted(true);
       }
-      setHasExtracted(true);
+
     } catch (err) {
       console.error('Extraction error:', err);
       toast.error('Extraction failed. You can add comparables manually.');
