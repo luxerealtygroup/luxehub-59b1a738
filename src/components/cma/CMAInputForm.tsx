@@ -464,18 +464,56 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     existingManualComps: manualComps.filter(c => c._manual_edit),
   });
 
-  const runExtraction = async (): Promise<{ comps: ReviewComp[]; summary: ExtractionSummary | null }> => {
-    if (!cmaPdf) return { comps: [], summary: null };
+  // Record every import attempt (success AND failure) so support can diagnose
+  // reports like "extraction isn't working" after the fact.
+  const logImportAttempt = (payload: Record<string, unknown>) => {
+    if (!user) return;
+    supabase.from('cma_import_logs').insert({ user_id: user.id, ...payload } as any).then(() => {});
+  };
+
+  const runExtraction = async (): Promise<ExtractionOutcome> => {
+    if (!cmaPdf) return { comps: [], summary: null, error: 'No PDF uploaded' };
     const startTime = Date.now();
-    const pdfText = await extractPdfText(cmaPdf);
+    let pdfText = '';
+    try {
+      pdfText = await extractPdfText(cmaPdf);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'PDF text extraction failed';
+      logImportAttempt({
+        file_name: cmaPdf.name,
+        file_size_bytes: cmaPdf.size,
+        total_blocks_detected: 0,
+        comps_imported: 0,
+        comps_partial: 0,
+        comps_skipped: 0,
+        skip_reasons: [`pdf_text_extraction_failed: ${msg}`],
+        extraction_passes: 0,
+        extraction_duration_ms: Date.now() - startTime,
+        raw_text_length: 0,
+      });
+      return { comps: [], summary: null, error: 'The text in this PDF could not be read. It may be a scanned/image-only file.' };
+    }
+
     const { data: fnData, error: fnError } = await supabase.functions.invoke('cma-analyze', {
       body: buildRequestBody(pdfText, reviewComps),
     });
-    if (fnError) throw fnError;
-    if (!fnData?.success || !fnData.analysis?.extracted_comps) {
-      toast.error(fnData?.error || 'Extraction failed');
-      return { comps: [], summary: null };
+    if (fnError || !fnData?.success || !fnData.analysis?.extracted_comps) {
+      const msg = fnError?.message || fnData?.error || 'Extraction failed';
+      logImportAttempt({
+        file_name: cmaPdf.name,
+        file_size_bytes: cmaPdf.size,
+        total_blocks_detected: 0,
+        comps_imported: 0,
+        comps_partial: 0,
+        comps_skipped: 0,
+        skip_reasons: [`analyze_failed: ${msg}`],
+        extraction_passes: 0,
+        extraction_duration_ms: Date.now() - startTime,
+        raw_text_length: pdfText.length,
+      });
+      return { comps: [], summary: null, error: msg };
     }
+
     const aiComps: any[] = fnData.analysis.extracted_comps || [];
     const summary: ExtractionSummary = fnData.analysis.extraction_summary || {
       total_comps_found: aiComps.length,
