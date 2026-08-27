@@ -13,6 +13,9 @@ import { Upload, Loader2, Home, DollarSign, BarChart3, FileUp, Users, Link2, Pen
 import { FUBContactTypeahead } from '@/components/FUBContactTypeahead';
 import { useHasFUB } from '@/hooks/useHasFUB';
 import CMACompReview, { type ReviewComp, type ExtractionSummary } from './CMACompReview';
+
+type ExtractionOutcome = { comps: ReviewComp[]; summary: ExtractionSummary | null; error?: string | null };
+
 import CMAPhotoUpload from './CMAPhotoUpload';
 import CMAImprovements, { type ImprovementItem } from './CMAImprovements';
 
