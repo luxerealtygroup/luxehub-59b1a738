@@ -530,22 +530,19 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     };
 
     // Log import to cma_import_logs
-    if (user) {
-      const durationMs = Date.now() - startTime;
-      supabase.from('cma_import_logs').insert({
-        user_id: user.id,
-        file_name: cmaPdf.name,
-        file_size_bytes: cmaPdf.size,
-        total_blocks_detected: summary.total_comps_found,
-        comps_imported: aiComps.filter((c: any) => !c.needs_review).length,
-        comps_partial: aiComps.filter((c: any) => c.needs_review).length,
-        comps_skipped: 0,
-        skip_reasons: [],
-        extraction_passes: summary.extraction_passes,
-        extraction_duration_ms: durationMs,
-        raw_text_length: pdfText.length,
-      } as any).then(() => {});
-    }
+    logImportAttempt({
+      file_name: cmaPdf.name,
+      file_size_bytes: cmaPdf.size,
+      total_blocks_detected: summary.total_comps_found,
+      comps_imported: aiComps.filter((c: any) => !c.needs_review).length,
+      comps_partial: aiComps.filter((c: any) => c.needs_review).length,
+      comps_skipped: 0,
+      skip_reasons: aiComps.length === 0 ? ['zero_comps_returned'] : [],
+      extraction_passes: summary.extraction_passes,
+      extraction_duration_ms: Date.now() - startTime,
+      raw_text_length: pdfText.length,
+    });
+
 
     const mappedComps = aiComps.map((c: any) => ({
       id: crypto.randomUUID(),
