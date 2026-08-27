@@ -1,0 +1,22 @@
+
+REVOKE EXECUTE ON FUNCTION public.current_user_org_id() FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.get_team_agents() FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.is_mentor_of(uuid) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.owns_portal(uuid, uuid) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.set_doc_org_id() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.guard_launchpad_profile_fields() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.update_updated_at_column() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.delete_email(text, bigint) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.enqueue_email(text, jsonb) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.move_to_dlq(text, text, bigint, jsonb) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.read_email_batch(text, integer, integer) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.email_queue_dispatch() FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.email_queue_wake() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.current_user_org_id() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_team_agents() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_mentor_of(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.owns_portal(uuid, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.delete_email(text, bigint) TO service_role;
+GRANT EXECUTE ON FUNCTION public.enqueue_email(text, jsonb) TO service_role;
+GRANT EXECUTE ON FUNCTION public.move_to_dlq(text, text, bigint, jsonb) TO service_role;
+GRANT EXECUTE ON FUNCTION public.read_email_batch(text, integer, integer) TO service_role;
