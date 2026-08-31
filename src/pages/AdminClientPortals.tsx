@@ -188,7 +188,9 @@ export default function AdminClientPortals() {
 
   const filterChips: { key: FilterKey; label: string; count: number }[] = [
     { key: 'all', label: 'All', count: stats.all },
-    { key: 'not_invited', label: 'Not Invited', count: stats.not_invited },
+    { key: 'not_invited', label: 'Never Invited', count: stats.not_invited },
+    { key: 'awaiting_signup', label: 'Awaiting Signup', count: stats.awaiting_signup },
+
     { key: 'missing_slack', label: 'No Slack Channel', count: stats.missing_slack },
     { key: 'missing_docs', label: 'No Documents', count: stats.missing_docs },
     { key: 'missing_fub', label: 'No FUB Linked', count: stats.missing_fub },
