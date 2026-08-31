@@ -60,6 +60,7 @@ export function PortalPhotosPanel({ portalId, canManage }: Props) {
   const [photos, setPhotos] = useState<PortalPhoto[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
   const [category, setCategory] = useState<Category>('property');
   const [caption, setCaption] = useState('');
   const [lightbox, setLightbox] = useState<string | null>(null);
