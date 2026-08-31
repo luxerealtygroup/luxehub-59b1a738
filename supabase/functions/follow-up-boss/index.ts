@@ -87,6 +87,28 @@ async function resolveCaller(req: Request): Promise<Caller | null> {
     };
   }
 
+  // A portal client (every signup gets a profiles row, so client_accounts is
+  // checked BEFORE the profiles fallback). Strict allowlist, own FUB person only.
+  const email = (user.email ?? '').toLowerCase();
+  const { data: byUser } = await supabase
+    .from('client_accounts')
+    .select('fub_person_id')
+    .eq('user_id', user.id);
+  let accounts = byUser ?? [];
+  if (accounts.length === 0 && email) {
+    const { data: byEmail } = await supabase
+      .from('client_accounts')
+      .select('fub_person_id')
+      .ilike('email', email);
+    accounts = byEmail ?? [];
+  }
+  if (accounts.length > 0) {
+    const personIds = accounts
+      .map((a: { fub_person_id: number | string | null }) => Number(a.fub_person_id))
+      .filter((n) => Number.isFinite(n) && n > 0);
+    return { kind: 'client', userId: user.id, isAdmin: false, canWrite: false, personIds };
+  }
+
   // Fall back to a profiles row (team member without an explicit role row).
   const { data: profile } = await supabase
     .from('profiles')
@@ -97,15 +119,8 @@ async function resolveCaller(req: Request): Promise<Caller | null> {
     return { kind: 'staff', userId: user.id, isAdmin: false, canWrite: true };
   }
 
-  // Otherwise: portal client. Strict allowlist, scoped to their own FUB person.
-  const { data: accounts } = await supabase
-    .from('client_accounts')
-    .select('fub_person_id')
-    .eq('user_id', user.id);
-  const personIds = (accounts ?? [])
-    .map((a: { fub_person_id: number | string | null }) => Number(a.fub_person_id))
-    .filter((n) => Number.isFinite(n) && n > 0);
-  return { kind: 'client', userId: user.id, isAdmin: false, canWrite: false, personIds };
+  return { kind: 'client', userId: user.id, isAdmin: false, canWrite: false, personIds: [] };
+
 }
 
 /** Which FUB API key to use, honoring admin-only "view as" impersonation. */
