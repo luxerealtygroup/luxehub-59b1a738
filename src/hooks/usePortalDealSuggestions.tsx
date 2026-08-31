@@ -54,7 +54,15 @@ export function usePortalDealSuggestions(portalId: string | null, fubPersonId: n
       setLinkedDealIds([...onPortal]);
 
       const next: DealSuggestion[] = [];
-      const upserts: Record<string, unknown>[] = [];
+      const upserts: {
+        portal_id: string;
+        fub_deal_id: number;
+        deal_name: string | null;
+        pipeline_name: string | null;
+        last_seen_stage: string | null;
+        dismissed_stage: string | null;
+        linked_property_id: string | null;
+      }[] = [];
 
       for (const d of deals) {
         const prior = state.get(d.id);
@@ -72,8 +80,8 @@ export function usePortalDealSuggestions(portalId: string | null, fubPersonId: n
           upserts.push({
             portal_id: portalId,
             fub_deal_id: d.id,
-            deal_name: d.name,
-            pipeline_name: d.pipelineName,
+            deal_name: d.name ?? null,
+            pipeline_name: d.pipelineName ?? null,
             last_seen_stage: stage,
             dismissed_stage: prior?.dismissed_stage ?? null,
             linked_property_id: prior?.linked_property_id ?? null,
