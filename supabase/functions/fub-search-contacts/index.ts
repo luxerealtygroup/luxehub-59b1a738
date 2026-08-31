@@ -1,4 +1,5 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { requireStaff } from '../_shared/auth.ts';
 
 const FUB_API_KEY = Deno.env.get('FUB_API_KEY') || Deno.env.get('FOLLOW_UP_BOSS_API_KEY') || '';
 
@@ -8,6 +9,9 @@ function authHeader() {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+
+  const guard = await requireStaff(req, { cors: corsHeaders });
+  if (!guard.ok) return guard.response;
   try {
     const { query } = await req.json();
     if (!query || typeof query !== 'string' || query.trim().length < 2) {

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { extractText, getDocumentProxy } from "npm:unpdf@0.12.1";
+import { requireStaff } from '../_shared/auth.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -86,6 +87,9 @@ const looksLikeLoginPage = (html: string): boolean => {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const guard = await requireStaff(req, { cors: corsHeaders });
+  if (!guard.ok) return guard.response;
 
   try {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");

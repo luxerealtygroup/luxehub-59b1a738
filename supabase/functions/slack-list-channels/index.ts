@@ -1,4 +1,5 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors'
+import { requireStaff } from '../_shared/auth.ts';
 
 interface SlackChannel {
   id: string
@@ -9,6 +10,9 @@ interface SlackChannel {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+
+  const guard = await requireStaff(req, { cors: corsHeaders });
+  if (!guard.ok) return guard.response;
 
   const token = Deno.env.get('SLACK_BOT_TOKEN')
   if (!token) {
