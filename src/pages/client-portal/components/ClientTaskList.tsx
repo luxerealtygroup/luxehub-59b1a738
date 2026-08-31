@@ -133,6 +133,7 @@ export function ClientTaskList({ clientAccountId, canManage = false, transaction
         assigned_by: user.id,
         transaction_id: transactionId,
         property_id: scopePropertyId(scope),
+        is_internal: form.is_internal,
       })
       .select()
       .single();
@@ -142,7 +143,8 @@ export function ClientTaskList({ clientAccountId, canManage = false, transaction
       return;
     }
     setTasks([data as Task, ...tasks]);
-    setForm({ title: '', due_date: '', notes: '' });
+    setForm({ title: '', due_date: '', notes: '', is_internal: false });
+
     setDialogOpen(false);
   };
 
