@@ -18,7 +18,7 @@ export default function ClientPortalPreview() {
   const { portalId } = useParams<{ portalId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { isAdmin, loading: roleLoading } = useUserRole();
+  const { isAdmin, isLoading: roleLoading } = useUserRole();
   const [state, setState] = useState<'checking' | 'allowed' | 'denied'>('checking');
   const [clientName, setClientName] = useState<string | null>(null);
 
