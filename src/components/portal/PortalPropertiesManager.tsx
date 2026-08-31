@@ -16,6 +16,7 @@ import {
   usePortalProperties,
 } from '@/hooks/usePortalProperties';
 import { blockPortalWrite } from '@/hooks/usePortalPreview';
+import { PortalConditionsEditor } from '@/components/portal/PortalConditionsEditor';
 
 interface Props {
   portalId: string;
