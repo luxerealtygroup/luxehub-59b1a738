@@ -259,7 +259,9 @@ export function ClientTaskList({ clientAccountId, canManage = false, transaction
                     <div 
                       key={task.id} 
                       className={`group flex items-start gap-3 p-3.5 rounded-xl border transition-all duration-200 ${
-                        status === 'overdue' 
+                        task.is_internal
+                          ? 'border-dashed border-amber-500/50 bg-muted/50'
+                          : status === 'overdue'
                           ? 'border-destructive/40 bg-destructive/5 hover:border-destructive/60' 
                           : status === 'today'
                           ? 'border-primary/50 bg-primary/5 hover:border-primary/70'
@@ -273,7 +275,27 @@ export function ClientTaskList({ clientAccountId, canManage = false, transaction
                         className="mt-1 h-5 w-5 rounded-md border-2 border-muted-foreground/40 data-[state=checked]:border-primary data-[state=checked]:bg-primary transition-all"
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium leading-snug">{task.title}</p>
+                        <div className="flex items-start justify-between gap-2">
+                          <p className={`font-medium leading-snug ${task.is_internal ? 'text-muted-foreground' : ''}`}>{task.title}</p>
+                          {showInternal && (
+                            <div className="flex items-center gap-1 shrink-0">
+                              {task.is_internal && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 text-amber-700 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                                  <Lock className="h-3 w-3" /> Internal
+                                </span>
+                              )}
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7 rounded-full"
+                                title={task.is_internal ? 'Make visible to client' : 'Mark internal (agent-only)'}
+                                onClick={() => toggleInternal(task)}
+                              >
+                                {task.is_internal ? <EyeOff className="h-3.5 w-3.5 text-amber-600" /> : <Lock className="h-3.5 w-3.5" />}
+                              </Button>
+                            </div>
+                          )}
+                        </div>
                         {(task.notes || task.description) && (
                           <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap leading-relaxed">
                             {task.notes || task.description}
@@ -301,6 +323,7 @@ export function ClientTaskList({ clientAccountId, canManage = false, transaction
                       </div>
                     </div>
                   );
+
                 })}
               </div>
             )}
