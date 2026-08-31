@@ -11,6 +11,7 @@ import {
   rememberPendingInvite,
   clearPendingInvite,
 } from '@/lib/inviteLinks';
+import { tenant } from '@/config/tenant';
 
 type InviteStatus = 'checking' | 'valid' | 'expired' | 'used' | 'invalid';
 
@@ -192,7 +193,7 @@ const ClientSignup = () => {
             <Link to="/client-portal/login">Sign in to your portal</Link>
           </Button>
           <Button asChild variant="outline" className="w-full">
-            <a href="mailto:info@luxerealtygroup.ca?subject=New%20client%20portal%20invitation">
+            <a href={`mailto:${tenant.supportEmail}?subject=New%20client%20portal%20invitation`}>
               Request a new invitation
             </a>
           </Button>

@@ -3,8 +3,9 @@ import {
   Body, Button, Container, Head, Heading, Html, Preview, Section, Text,
 } from 'npm:@react-email/components@0.0.22'
 import type { TemplateEntry } from './registry.ts'
+import { tenant } from '../tenant.ts'
 
-const PORTAL_URL = 'https://luxerealtyhub.com/client-portal'
+const PORTAL_URL = `${tenant.appUrl}/client-portal`
 
 interface Props {
   clientName?: string
@@ -17,7 +18,7 @@ const Email = ({ clientName = 'there', category = 'Property photo' }: Props) => 
     <Preview>New photos were added to your client portal</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Heading style={h1}>LUXE Realty Group</Heading>
+        <Heading style={h1}>{tenant.brokerageName}</Heading>
         <Text style={tag}>New Photos</Text>
 
         <Text style={text}>Hi {clientName},</Text>

@@ -4,6 +4,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, ExternalLink, RefreshCw, Upload } from 'lucide-react';
 import { toast } from 'sonner';
+import { tenant } from '@/config/tenant';
 
 interface FlaggedSubmission {
   id: string;
@@ -128,7 +129,7 @@ export function AsanaSyncAlert() {
       </AlertTitle>
       <AlertDescription>
         <p className="mb-2 text-sm">
-          Everything is safe in LUXEhub, but these either never created an Asana task or arrived with
+          Everything is safe in {tenant.appName}, but these either never created an Asana task or arrived with
           missing files. Use Push to Asana to retry.
         </p>
         <ul className="space-y-1.5">

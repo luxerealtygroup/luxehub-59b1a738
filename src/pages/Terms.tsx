@@ -1,6 +1,7 @@
 import { ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { tenant } from '@/config/tenant';
 
 const Terms = () => {
   return (
@@ -25,7 +26,7 @@ const Terms = () => {
           <section className="space-y-4">
             <h2 className="text-2xl font-semibold">1. Acceptance of Terms</h2>
             <p>
-              By accessing and using LUXEhub, you accept and agree to be bound by the terms and provisions 
+              By accessing and using {tenant.appName}, you accept and agree to be bound by the terms and provisions 
               of this agreement. If you do not agree to these terms, please do not use our service.
             </p>
           </section>
@@ -33,7 +34,7 @@ const Terms = () => {
           <section className="space-y-4">
             <h2 className="text-2xl font-semibold">2. Description of Service</h2>
             <p>
-              LUXEhub is a real estate agent productivity platform that provides tools for tracking 
+              {tenant.appName} is a real estate agent productivity platform that provides tools for tracking 
               sales activities, managing pipelines, setting goals, and integrating with third-party 
               services such as Google Calendar and Follow Up Boss.
             </p>
@@ -72,7 +73,7 @@ const Terms = () => {
           <section className="space-y-4">
             <h2 className="text-2xl font-semibold">6. Intellectual Property</h2>
             <p>
-              The service and its original content, features, and functionality are owned by LUXEhub 
+              The service and its original content, features, and functionality are owned by {tenant.appName} 
               and are protected by international copyright, trademark, and other intellectual property laws.
             </p>
           </section>
@@ -89,7 +90,7 @@ const Terms = () => {
           <section className="space-y-4">
             <h2 className="text-2xl font-semibold">8. Limitation of Liability</h2>
             <p>
-              In no event shall LUXEhub be liable for any indirect, incidental, special, consequential, 
+              In no event shall {tenant.appName} be liable for any indirect, incidental, special, consequential, 
               or punitive damages arising out of or related to your use of the service.
             </p>
           </section>

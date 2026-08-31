@@ -16,6 +16,7 @@ import {
 import { SlideFrame } from '@/components/launchpad/SlideFrame';
 import { SlideNav } from '@/components/launchpad/SlideNav';
 import { useUserRole } from '@/hooks/useUserRole';
+import { tenant } from '@/config/tenant';
 
 const LaunchpadModule = () => {
   const { moduleId, slideNumber } = useParams<{ moduleId: string; slideNumber: string }>();
@@ -112,7 +113,7 @@ const LaunchpadModule = () => {
       document.title = `${current}/${total} — ${module.title} | Launchpad`;
     }
     return () => {
-      document.title = 'LUXEhub';
+      document.title = tenant.appName;
     };
   }, [module, slide, current, total]);
 

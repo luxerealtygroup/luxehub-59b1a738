@@ -57,6 +57,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { tenant } from '@/config/tenant';
 
 interface MenuItem {
   title: string;
@@ -181,7 +182,7 @@ export function AppSidebar() {
             </div>
             {!collapsed && (
               <div>
-                <h1 className="font-display text-lg font-semibold text-foreground">LUXEhub</h1>
+                <h1 className="font-display text-lg font-semibold text-foreground">{tenant.appName}</h1>
                 <p className="text-xs text-muted-foreground">Agent Portal</p>
               </div>
             )}

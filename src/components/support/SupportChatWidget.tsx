@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Headset, Send, X, Minus, Sparkles, User, ShieldCheck, MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLocation } from 'react-router-dom';
+import { tenant } from '@/config/tenant';
 
 type SenderType = 'user' | 'ai' | 'admin' | 'system';
 
@@ -23,7 +24,7 @@ interface SupportChatWidgetProps {
   userType: 'realtor' | 'client';
 }
 
-const STORAGE_KEY = 'luxehub-support-ticket-id';
+const STORAGE_KEY = `${tenant.storagePrefix}-support-ticket-id`;
 
 export function SupportChatWidget({ userType }: SupportChatWidgetProps) {
   const [open, setOpen] = useState(false);
@@ -211,9 +212,9 @@ export function SupportChatWidget({ userType }: SupportChatWidgetProps) {
       }
       const label =
         m.sender_type === 'ai'
-          ? { icon: <Sparkles className="h-3 w-3" />, name: 'LUXE Support AI' }
+          ? { icon: <Sparkles className="h-3 w-3" />, name: `${tenant.shortName} Support AI` }
           : m.sender_type === 'admin'
-          ? { icon: <ShieldCheck className="h-3 w-3" />, name: 'LUXE Support Team' }
+          ? { icon: <ShieldCheck className="h-3 w-3" />, name: `${tenant.shortName} Support Team` }
           : { icon: <User className="h-3 w-3" />, name: 'You' };
       return (
         <div key={m.id} className={cn('flex mb-3', mine ? 'justify-end' : 'justify-start')}>
@@ -263,7 +264,7 @@ export function SupportChatWidget({ userType }: SupportChatWidgetProps) {
               <Headset className="h-4 w-4" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">LUXEhub Support</p>
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{tenant.appName} Support</p>
               <h3 className="font-display text-sm font-semibold leading-tight">
                 {escalated ? 'A human is on the way' : 'Chat with support'}
               </h3>

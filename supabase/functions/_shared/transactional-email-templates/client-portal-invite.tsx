@@ -3,6 +3,7 @@ import {
   Body, Button, Container, Head, Heading, Html, Preview, Section, Text,
 } from 'npm:@react-email/components@0.0.22'
 import type { TemplateEntry } from './registry.ts'
+import { tenant } from '../tenant.ts'
 
 interface Props {
   clientName?: string
@@ -13,15 +14,15 @@ interface Props {
 const Email = ({ clientName = 'there', agentName = 'Your agent', inviteUrl }: Props) => (
   <Html lang="en" dir="ltr">
     <Head />
-    <Preview>Your LUXE Realty Group client portal is ready</Preview>
+    <Preview>Your {tenant.brokerageName} client portal is ready</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Heading style={h1}>LUXE Realty Group</Heading>
+        <Heading style={h1}>{tenant.brokerageName}</Heading>
         <Text style={tag}>Client Portal Invitation</Text>
 
         <Text style={text}>Hi {clientName},</Text>
         <Text style={text}>
-          {agentName} has invited you to your private LUXE Realty Group client portal — a single
+          {agentName} has invited you to your private {tenant.brokerageName} client portal — a single
           place to follow your transaction, review documents and photos, and message our team
           directly.
         </Text>
@@ -45,12 +46,12 @@ const Email = ({ clientName = 'there', agentName = 'Your agent', inviteUrl }: Pr
 
 export const template = {
   component: Email,
-  subject: 'Your LUXE Realty Group client portal is ready',
+  subject: `Your ${tenant.brokerageName} client portal is ready`,
   displayName: 'Client Portal Invite',
   previewData: {
     clientName: 'Kristen',
     agentName: 'Hana',
-    inviteUrl: 'https://luxehub.lovable.app/client-portal/signup?email=kristen@example.com',
+    inviteUrl: `${tenant.appUrl}/client-portal/signup?email=client@example.com`,
   },
 } satisfies TemplateEntry
 

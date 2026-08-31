@@ -26,6 +26,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { tenant } from '@/config/tenant';
 
 type OpenHouse = {
   id: string;
@@ -1027,7 +1028,7 @@ function AttendeeCard({
       toast.success('Attendee saved');
     }
 
-    // Email feedback to info@luxerealtygroup.ca (and listing agent if present)
+    // Email feedback to the brokerage inbox (and listing agent if present)
     const yn = (b: boolean) => b ? 'Yes' : 'No';
     const emailRows = [
       { label: 'Interest Level', value: form.interest_level ? INTEREST_LABEL[form.interest_level] : '—' },
@@ -1046,7 +1047,7 @@ function AttendeeCard({
       rows: emailRows,
       notes: form.notes?.trim() || '',
     };
-    const recipients = ['info@luxerealtygroup.ca'];
+    const recipients = [tenant.supportEmail];
     if (openHouse.listing_agent_email) recipients.push(openHouse.listing_agent_email);
     for (const recipient of recipients) {
       void supabase.functions.invoke('send-transactional-email', {

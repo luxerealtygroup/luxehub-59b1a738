@@ -33,6 +33,7 @@ import { SOURCE_OPTIONS } from '@/lib/constants/sourceOptions';
 import { formatCurrency, formatNumber, formatCurrencyCompact } from '@/lib/utils';
 import { useDemoMode } from '@/hooks/useDemoMode';
 import { DEMO_STATS, DEMO_MONTHLY_GCI, DEMO_FUB_METRICS } from '@/lib/demoData';
+import { tenant } from '@/config/tenant';
 
 interface Stats {
   totalDeals: number;
@@ -460,7 +461,7 @@ const Dashboard = () => {
         <div className="flex items-center gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3">
           <Info className="h-5 w-5 text-amber-500 shrink-0" />
           <p className="text-sm text-foreground">
-            You're currently in <span className="font-semibold">Preview Mode</span>. Full LuxeHub access unlocks upon joining Luxe.
+            You're currently in <span className="font-semibold">Preview Mode</span>. Full {tenant.appName} access unlocks upon joining {tenant.shortName}.
           </p>
         </div>
       )}

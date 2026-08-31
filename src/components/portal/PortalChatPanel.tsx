@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { blockPortalWrite, usePortalPreview } from '@/hooks/usePortalPreview';
 import { MessageCircle, Send, Headset, User, Briefcase, Lock, Eye, EyeOff, Hash } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
+import { tenant } from '@/config/tenant';
 
 type SenderType = 'client' | 'agent' | 'ops';
 
@@ -201,7 +202,7 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
 
   const headerFor = (m: PortalMessage) => {
     if (m.sender_type === 'ops') {
-      return { icon: <Headset className="h-3 w-3" />, label: 'Luxe Realty Support' };
+      return { icon: <Headset className="h-3 w-3" />, label: `${tenant.brokerageName} Support` };
     }
     if (m.sender_type === 'agent') {
       return { icon: <Briefcase className="h-3 w-3" />, label: m.sender_name || 'Your Agent' };
@@ -254,7 +255,7 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
             <h3 className="font-display text-lg font-semibold tracking-tight mb-1">Start the conversation</h3>
             <p className="text-sm text-muted-foreground max-w-sm">
               {viewerRole === 'client'
-                ? 'Send a message to your agent or the Luxe Realty support team below.'
+                ? `Send a message to your agent or the ${tenant.brokerageName} support team below.`
                 : 'Reply to this client — the message will also post to Slack for ops.'}
             </p>
           </div>

@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { tenant } from '@/config/tenant';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
@@ -55,7 +56,7 @@ export default function Unsubscribe() {
         )}
         {state === 'ready' && (
           <>
-            <p className="text-muted-foreground">Click below to unsubscribe from emails from LuxeHub.</p>
+            <p className="text-muted-foreground">Click below to unsubscribe from emails from {tenant.appName}.</p>
             <Button onClick={confirm} className="w-full">Confirm Unsubscribe</Button>
           </>
         )}

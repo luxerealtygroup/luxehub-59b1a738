@@ -1,5 +1,6 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors'
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { tenant } from '../_shared/tenant.ts'
 
 // Tables that must always be readable/writable by signed-in users.
 const CRITICAL_TABLES = [
@@ -52,7 +53,7 @@ async function postToSlack(text: string) {
 
   const payload = {
     channel: SLACK_CHANNEL,
-    username: 'LUXEhub Health',
+    username: `${tenant.appName} Health`,
     icon_emoji: ':rotating_light:',
     text,
   }
@@ -91,7 +92,7 @@ Deno.serve(async (req) => {
 
   if (isTest) {
     const slack = await postToSlack(
-      ':white_check_mark: *LUXEhub health monitor test* — alerts will post here if the database ever breaks.',
+      `:white_check_mark: *${tenant.appName} health monitor test* — alerts will post here if the database ever breaks.`,
     )
     return new Response(JSON.stringify({ test: true, slack }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -136,7 +137,7 @@ Deno.serve(async (req) => {
   let slack: { ok: boolean; error?: string } | null = null
   if (failures.length) {
     const body = [
-      ':rotating_light: *LUXEhub database health check FAILED*',
+      `:rotating_light: *${tenant.appName} database health check FAILED*`,
       '',
       ...failures.map((f) => `• ${f}`),
       '',

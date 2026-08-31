@@ -3846,6 +3846,10 @@ export type Database = {
       }
     }
     Functions: {
+      can_access_portal: {
+        Args: { _portal_id: string; _user_id: string }
+        Returns: boolean
+      }
       check_table_grants: {
         Args: { _tables: string[] }
         Returns: {

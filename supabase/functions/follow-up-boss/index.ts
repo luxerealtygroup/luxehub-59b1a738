@@ -1,14 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { FUB_BASE_URL, FubConfigError, fubAuthHeader } from "../_shared/fub.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-view-as-user-id, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
-
-const FUB_API_KEY_PRIMARY = Deno.env.get('FOLLOW_UP_BOSS_API_KEY');
-const FUB_API_KEY_SECONDARY = Deno.env.get('FOLLOW_UP_BOSS_API_KEY_2');
-const FUB_BASE_URL = 'https://api.followupboss.com/v1';
 
 // Retry transient network failures (connection reset, timeouts) against FUB.
 async function fubFetch(url: string, init: RequestInit, attempts = 4): Promise<Response> {
@@ -130,34 +127,19 @@ async function resolveCaller(req: Request): Promise<Caller | null> {
 
 }
 
-/** Which FUB API key to use, honoring admin-only "view as" impersonation. */
-async function resolveApiKey(req: Request, caller: Caller): Promise<string | null> {
-  try {
-    if (caller.kind === 'client') return FUB_API_KEY_PRIMARY ?? null;
-    const supabase = admin();
-
-    let targetUserId = caller.userId;
-    const viewAsUserId = req.headers.get('x-view-as-user-id');
-    if (viewAsUserId && viewAsUserId !== caller.userId) {
-      // Admin-only: verified against user_roles, never trusted from the header.
-      if (caller.isAdmin) targetUserId = viewAsUserId;
-      else console.warn('x-view-as-user-id ignored for non-admin caller', caller.userId);
-    }
-    if (!targetUserId) return FUB_API_KEY_PRIMARY ?? null;
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('fub_account')
-      .eq('id', targetUserId)
-      .maybeSingle();
-    if (profile?.fub_account === 'secondary' && FUB_API_KEY_SECONDARY) {
-      return FUB_API_KEY_SECONDARY;
-    }
-    return FUB_API_KEY_PRIMARY ?? null;
-  } catch (e) {
-    console.error('resolveApiKey error', e);
-    return FUB_API_KEY_PRIMARY ?? null;
+/**
+ * "View as agent" no longer selects a CRM. Each instance talks to exactly one
+ * Follow Up Boss account, so the header only affects which agent's data the UI
+ * asks for — it can never swap credentials. It is still admin-only.
+ */
+function resolveViewAsUserId(req: Request, caller: Caller): string | null {
+  const viewAsUserId = req.headers.get('x-view-as-user-id');
+  if (!viewAsUserId || viewAsUserId === caller.userId) return null;
+  if (!caller.isAdmin) {
+    console.warn('x-view-as-user-id ignored for non-admin caller', caller.userId);
+    return null;
   }
+  return viewAsUserId;
 }
 
 serve(async (req) => {
@@ -191,13 +173,23 @@ serve(async (req) => {
       }
     }
 
-    const apiKey = await resolveApiKey(req, caller);
-    if (!apiKey) {
-      console.error('FOLLOW_UP_BOSS_API_KEY not configured');
-      return json({ success: false, error: 'Follow Up Boss API key not configured' }, 500);
+    // Admin-only impersonation, logged. It selects whose data the UI is asking
+    // about — never which CRM credential is used.
+    const viewAsUserId = resolveViewAsUserId(req, caller);
+    if (viewAsUserId) console.log('FUB view-as active:', viewAsUserId);
+
+    // One instance, one CRM. Missing key = hard error, never a fallback.
+    let authHeader: string;
+    try {
+      authHeader = fubAuthHeader();
+    } catch (e) {
+      if (e instanceof FubConfigError) {
+        console.error(e.message);
+        return json({ success: false, error: e.message }, 503);
+      }
+      throw e;
     }
 
-    const authHeader = 'Basic ' + btoa(apiKey + ':');
 
 
     let endpoint = '';

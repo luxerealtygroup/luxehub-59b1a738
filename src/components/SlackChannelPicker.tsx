@@ -39,8 +39,18 @@ export function SlackChannelPicker({ value, onChange }: Props) {
     try {
       const { data, error: fnError } = await supabase.functions.invoke('slack-list-channels');
       if (fnError) {
-        setError(fnError.message);
-        if (!silent) toast({ title: 'Could not load Slack channels', description: fnError.message, variant: 'destructive' });
+        // Surface the function's own explanation (missing token, wrong
+        // workspace, rejected token) instead of a generic non-2xx message.
+        let message = fnError.message;
+        const res = (fnError as { context?: Response }).context;
+        if (res && typeof res.json === 'function') {
+          try {
+            const body = await res.clone().json();
+            if (body?.error) message = body.error as string;
+          } catch { /* keep the generic message */ }
+        }
+        setError(message);
+        if (!silent) toast({ title: 'Could not load Slack channels', description: message, variant: 'destructive' });
       } else if (data?.error) {
         setError(data.error);
         if (!silent) toast({ title: 'Slack error', description: data.error, variant: 'destructive' });
