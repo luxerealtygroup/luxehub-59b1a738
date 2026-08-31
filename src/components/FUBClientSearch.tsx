@@ -19,6 +19,7 @@ export const FUBClientSearch = ({ onSelectClient, trigger }: FUBClientSearchProp
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<FUBPerson[]>([]);
+  const [hasSearched, setHasSearched] = useState(false);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,10 +31,11 @@ export const FUBClientSearch = ({ onSelectClient, trigger }: FUBClientSearchProp
       const response = await followUpBossApi.searchPeople(query);
       if (response.success && response.data?.people) {
         setResults(response.data.people);
-        if (response.data.people.length === 0) {
-          toast({ title: 'No clients found', description: 'Try a different search term' });
-        }
+        setHasSearched(true);
       } else {
+        // Never leave stale/unfiltered contacts on screen after a failed search.
+        setResults([]);
+        setHasSearched(false);
         toast({ 
           title: 'Search failed', 
           description: response.error || 'Could not search Follow Up Boss', 
@@ -42,11 +44,14 @@ export const FUBClientSearch = ({ onSelectClient, trigger }: FUBClientSearchProp
       }
     } catch (error) {
       console.error('FUB search error:', error);
+      setResults([]);
+      setHasSearched(false);
       toast({ title: 'Error', description: 'Failed to search clients', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
   };
+
 
   const handleSelect = (person: FUBPerson, e: React.MouseEvent) => {
     e.preventDefault();
