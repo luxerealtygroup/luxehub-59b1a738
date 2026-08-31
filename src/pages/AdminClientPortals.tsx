@@ -214,6 +214,8 @@ export default function AdminClientPortals() {
           transactionSides: txSides.get(r.id) ?? new Set(),
           propertyCount: propCount.get(r.id) ?? 0,
           healthScore: score,
+          overdueConditions: overdueCond.get(r.id) ?? 0,
+          dueSoonConditions: soonCond.get(r.id) ?? 0,
         };
       });
 
