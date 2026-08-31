@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -16,10 +16,14 @@ import {
   Plus,
   Settings,
   Eye,
+  Send,
 } from 'lucide-react';
 import { AgentPortalDialog } from '@/components/AgentPortalDialog';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Link } from 'react-router-dom';
+import { useToast } from '@/hooks/use-toast';
+import { sendPortalInvite } from '@/lib/inviteLinks';
+
 
 type PortalRow = {
   id: string;
