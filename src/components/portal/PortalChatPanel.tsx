@@ -98,6 +98,8 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
         (payload) => {
           setMessages((prev) => {
             const next = payload.new as PortalMessage;
+            // Never surface an internal row in a client-facing view.
+            if ((isPreview || viewerRole === 'client') && next.is_internal) return prev;
             if (prev.some((m) => m.id === next.id)) return prev;
             return [...prev, next];
           });
@@ -114,7 +116,7 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
       cancelled = true;
       if (channel) supabase.removeChannel(channel);
     };
-  }, [portalId, viewerRole]);
+  }, [portalId, viewerRole, isPreview]);
 
   useEffect(() => {
     if (scrollRef.current) {
