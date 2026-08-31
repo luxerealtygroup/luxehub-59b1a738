@@ -33,24 +33,24 @@ export function SlackChannelPicker({ value, onChange }: Props) {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const loadChannels = async () => {
+  const loadChannels = async (silent = false) => {
     setLoading(true);
     setError(null);
     try {
       const { data, error: fnError } = await supabase.functions.invoke('slack-list-channels');
       if (fnError) {
         setError(fnError.message);
-        toast({ title: 'Could not load Slack channels', description: fnError.message, variant: 'destructive' });
+        if (!silent) toast({ title: 'Could not load Slack channels', description: fnError.message, variant: 'destructive' });
       } else if (data?.error) {
         setError(data.error);
-        toast({ title: 'Slack error', description: data.error, variant: 'destructive' });
+        if (!silent) toast({ title: 'Slack error', description: data.error, variant: 'destructive' });
       } else {
         setChannels((data?.channels ?? []) as SlackChannel[]);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unable to load Slack channels';
       setError(message);
-      toast({ title: 'Unable to load Slack channels', description: message, variant: 'destructive' });
+      if (!silent) toast({ title: 'Unable to load Slack channels', description: message, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -62,6 +62,15 @@ export function SlackChannelPicker({ value, onChange }: Props) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // Resolve a previously saved channel id to its name on mount
+  useEffect(() => {
+    if (value && channels.length === 0 && !loading) {
+      loadChannels(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
 
   const selected = useMemo(
     () => channels.find((c) => c.id === value) || null,
