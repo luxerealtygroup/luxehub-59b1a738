@@ -60,6 +60,7 @@ export function PortalPhotosPanel({ portalId, canManage }: Props) {
   const [photos, setPhotos] = useState<PortalPhoto[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
   const [category, setCategory] = useState<Category>('property');
   const [caption, setCaption] = useState('');
   const [lightbox, setLightbox] = useState<string | null>(null);
@@ -86,27 +87,52 @@ export function PortalPhotosPanel({ portalId, canManage }: Props) {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
     setUploading(true);
+    setProgress({ done: 0, total: files.length });
     const { data: { user } } = await supabase.auth.getUser();
-    for (const file of files) {
+    const cap = caption.trim() || null;
+    let failed = 0;
+
+    const uploadOne = async (file: File) => {
       const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       const path = `${portalId}/${category}/${crypto.randomUUID()}_${safe}`;
       const up = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type });
       if (up.error) {
+        failed++;
         toast({ title: `Upload failed: ${file.name}`, description: up.error.message, variant: 'destructive' });
-        continue;
+      } else {
+        const { error } = await supabase.from('portal_photos').insert({
+          portal_id: portalId,
+          file_path: path,
+          caption: cap,
+          category,
+          uploaded_by: user?.id,
+        });
+        if (error) {
+          failed++;
+          toast({ title: 'Record failed', description: error.message, variant: 'destructive' });
+        }
       }
-      const { error } = await supabase.from('portal_photos').insert({
-        portal_id: portalId,
-        file_path: path,
-        caption: caption.trim() || null,
-        category,
-        uploaded_by: user?.id,
-      });
-      if (error) toast({ title: 'Record failed', description: error.message, variant: 'destructive' });
-    }
+      setProgress((p) => ({ ...p, done: p.done + 1 }));
+    };
+
+    // Upload with limited concurrency so large batches finish fast without stalling.
+    const CONCURRENCY = 4;
+    const queue = [...files];
+    await Promise.all(
+      Array.from({ length: Math.min(CONCURRENCY, queue.length) }, async () => {
+        while (queue.length) {
+          const next = queue.shift();
+          if (next) await uploadOne(next);
+        }
+      })
+    );
+
     setUploading(false);
+    setProgress({ done: 0, total: 0 });
     setCaption('');
     if (inputRef.current) inputRef.current.value = '';
+    const ok = files.length - failed;
+    if (ok > 0) toast({ title: `Uploaded ${ok} photo${ok !== 1 ? 's' : ''}` });
     load();
   };
 
