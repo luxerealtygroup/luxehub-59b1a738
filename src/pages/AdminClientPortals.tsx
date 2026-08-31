@@ -61,7 +61,8 @@ type FilterKey =
   | 'missing_slack'
   | 'missing_docs'
   | 'missing_fub'
-  | 'unread';
+  | 'unread'
+  | 'conditions_risk';
 
 
 export default function AdminClientPortals() {
