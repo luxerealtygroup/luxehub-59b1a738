@@ -72,6 +72,8 @@ export function AgentPortalDialog({
   const [saving, setSaving] = useState(false);
   const [sendingInvite, setSendingInvite] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [agents, setAgents] = useState<{ id: string; full_name: string | null }[]>([]);
+  const [assignedAgentId, setAssignedAgentId] = useState<string>('');
 
   const lookupKey = useMemo(
     () => (form.email || clientEmail || '').trim().toLowerCase(),
