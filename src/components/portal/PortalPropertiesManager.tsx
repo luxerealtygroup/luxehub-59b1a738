@@ -241,8 +241,10 @@ export function PortalPropertiesManager({ portalId }: Props) {
                     </div>
                     {([
                       ['offer_date', 'Offer'],
+                      ['deposit_due_date', 'Deposit due'],
                       ['conditions_date', 'Conditions'],
                       ['firm_date', 'Firm'],
+                      ['requisition_date', 'Requisition'],
                       ['closing_date', 'Closing'],
                     ] as const).map(([field, label]) => (
                       <div key={field} className="space-y-1">
