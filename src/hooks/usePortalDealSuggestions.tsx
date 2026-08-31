@@ -68,7 +68,7 @@ export function usePortalDealSuggestions(portalId: string | null, fubPersonId: n
           next.push({ deal: d, previousStage: prior?.last_seen_stage ?? null });
         }
 
-        if (firstSight || prior?.last_seen_stage !== stage || prior?.deal_name_changed) {
+        if (firstSight || prior?.last_seen_stage !== stage) {
           upserts.push({
             portal_id: portalId,
             fub_deal_id: d.id,
