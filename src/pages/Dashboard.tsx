@@ -502,7 +502,11 @@ const Dashboard = () => {
         </CardContent>
       </Card>
 
+      {/* Active Listings — address list, agent-scoped */}
+      {hasEffectiveFUB && <ActiveListingsCard />}
+
       {/* My 2026 Closings Calendar — agent-scoped */}
+
       {hasEffectiveFUB && calendarFubUserId != null && (
         <ClosingsCalendar
           year={2026}
