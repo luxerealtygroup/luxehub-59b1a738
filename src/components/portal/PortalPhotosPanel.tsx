@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Download, ImageIcon, Loader2, Trash2, Upload, Home, Trophy } from 'lucide-react';
+import { Check, CheckSquare, Download, ImageIcon, Loader2, Trash2, Upload, Home, Trophy, X } from 'lucide-react';
 
 type Category = 'property' | 'milestone';
 
@@ -24,7 +24,7 @@ interface Props {
 
 const BUCKET = 'portal-photos';
 
-function PhotoThumb({ path, caption, onOpen }: { path: string; caption?: string | null; onOpen: (url: string) => void }) {
+function PhotoThumb({ path, caption, onOpen, selecting, selected, onToggle }: { path: string; caption?: string | null; onOpen: (url: string) => void; selecting?: boolean; selected?: boolean; onToggle?: () => void }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     let mounted = true;
@@ -35,12 +35,20 @@ function PhotoThumb({ path, caption, onOpen }: { path: string; caption?: string 
   }, [path]);
   if (!url) return <div className="aspect-[4/3] rounded-xl bg-muted animate-pulse" />;
   return (
-    <button onClick={() => onOpen(url)} className="aspect-[4/3] overflow-hidden rounded-xl bg-muted group relative shadow-sm hover:shadow-luxe-hover transition-all">
-      <img src={url} alt={caption ?? ''} className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-500" />
+    <button
+      onClick={() => (selecting ? onToggle?.() : onOpen(url))}
+      className={`aspect-[4/3] overflow-hidden rounded-xl bg-muted group relative shadow-sm hover:shadow-luxe-hover transition-all ${selected ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''}`}
+    >
+      <img src={url} alt={caption ?? ''} className={`w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-500 ${selected ? 'opacity-70' : ''}`} />
       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
       {caption && (
         <div className="absolute inset-x-0 bottom-0 p-3 text-left translate-y-2 group-hover:translate-y-0 opacity-0 group-hover:opacity-100 transition-all duration-300">
           <p className="text-white text-xs font-medium drop-shadow-md line-clamp-2">{caption}</p>
+        </div>
+      )}
+      {selecting && (
+        <div className={`absolute top-2 left-2 flex h-6 w-6 items-center justify-center rounded-full border-2 shadow-md transition-colors ${selected ? 'bg-primary border-primary text-primary-foreground' : 'bg-background/90 border-border'}`}>
+          {selected && <Check className="h-3.5 w-3.5" />}
         </div>
       )}
     </button>
@@ -55,6 +63,9 @@ export function PortalPhotosPanel({ portalId, canManage }: Props) {
   const [category, setCategory] = useState<Category>('property');
   const [caption, setCaption] = useState('');
   const [lightbox, setLightbox] = useState<string | null>(null);
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const load = async () => {
@@ -117,6 +128,36 @@ export function PortalPhotosPanel({ portalId, canManage }: Props) {
     load();
   };
 
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const exitSelecting = () => {
+    setSelecting(false);
+    setSelected(new Set());
+  };
+
+  const deleteSelected = async () => {
+    const targets = photos.filter((p) => selected.has(p.id));
+    if (!targets.length) return;
+    if (!confirm(`Delete ${targets.length} selected photo${targets.length > 1 ? 's' : ''}? This cannot be undone.`)) return;
+    setBulkDeleting(true);
+    await supabase.storage.from(BUCKET).remove(targets.map((p) => p.file_path));
+    const { error } = await supabase.from('portal_photos').delete().in('id', targets.map((p) => p.id));
+    setBulkDeleting(false);
+    if (error) {
+      toast({ title: 'Delete failed', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: `Deleted ${targets.length} photo${targets.length > 1 ? 's' : ''}` });
+      exitSelecting();
+    }
+    load();
+  };
+
   const property = photos.filter((p) => p.category === 'property');
   const milestone = photos.filter((p) => p.category === 'milestone');
 
@@ -141,17 +182,26 @@ export function PortalPhotosPanel({ portalId, canManage }: Props) {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {list.map((p) => (
             <figure key={p.id} className="group relative">
-              <PhotoThumb path={p.file_path} caption={p.caption} onOpen={setLightbox} />
-              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full bg-background/95 hover:bg-background shadow-md" onClick={() => downloadPhoto(p)} title="Download">
-                  <Download className="h-3.5 w-3.5" />
-                </Button>
-                {canManage && (
-                  <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full bg-background/95 hover:bg-background shadow-md" onClick={() => del(p)} title="Delete">
-                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+              <PhotoThumb
+                path={p.file_path}
+                caption={p.caption}
+                onOpen={setLightbox}
+                selecting={selecting}
+                selected={selected.has(p.id)}
+                onToggle={() => toggleSelect(p.id)}
+              />
+              {!selecting && (
+                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full bg-background/95 hover:bg-background shadow-md" onClick={() => downloadPhoto(p)} title="Download">
+                    <Download className="h-3.5 w-3.5" />
                   </Button>
-                )}
-              </div>
+                  {canManage && (
+                    <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full bg-background/95 hover:bg-background shadow-md" onClick={() => del(p)} title="Delete">
+                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                    </Button>
+                  )}
+                </div>
+              )}
             </figure>
           ))}
         </div>
@@ -190,6 +240,47 @@ export function PortalPhotosPanel({ portalId, canManage }: Props) {
             </span>
             <input ref={inputRef} type="file" multiple accept="image/*" className="hidden" onChange={onUpload} />
           </button>
+        </div>
+      )}
+
+      {canManage && !loading && photos.length > 0 && (
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-border/70 bg-card px-4 py-2.5 shadow-sm">
+          {selecting ? (
+            <>
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium tabular-nums">{selected.size} selected</span>
+                <button
+                  type="button"
+                  onClick={() => setSelected(selected.size === photos.length ? new Set() : new Set(photos.map((p) => p.id)))}
+                  className="text-xs font-medium text-primary hover:underline"
+                >
+                  {selected.size === photos.length ? 'Clear all' : 'Select all'}
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" className="rounded-full" onClick={exitSelecting}>
+                  <X className="h-4 w-4 mr-1" /> Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="rounded-full"
+                  disabled={selected.size === 0 || bulkDeleting}
+                  onClick={deleteSelected}
+                >
+                  {bulkDeleting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Trash2 className="h-4 w-4 mr-1" />}
+                  Delete {selected.size > 0 ? `(${selected.size})` : ''}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <span className="text-xs text-muted-foreground">{photos.length} photo{photos.length !== 1 ? 's' : ''}</span>
+              <Button variant="outline" size="sm" className="rounded-full" onClick={() => setSelecting(true)}>
+                <CheckSquare className="h-4 w-4 mr-1.5" /> Select
+              </Button>
+            </>
+          )}
         </div>
       )}
 
