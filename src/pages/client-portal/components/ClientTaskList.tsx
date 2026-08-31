@@ -22,6 +22,7 @@ interface Task {
   property_id?: string | null;
   completed_at: string | null;
   status?: string | null;
+  is_internal?: boolean;
 }
 
 interface ClientTaskListProps {
@@ -39,13 +40,16 @@ export function ClientTaskList({ clientAccountId, canManage = false, transaction
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ title: '', due_date: '', notes: '' });
+  const [form, setForm] = useState({ title: '', due_date: '', notes: '', is_internal: false });
   const { toast } = useToast();
   const { isPreview } = usePortalPreview();
+  // Internal tasks are blocked for clients by RLS; preview runs on the agent's
+  // session, so filter them out here so the preview stays accurate.
+  const showInternal = canManage && !isPreview;
 
   useEffect(() => {
     fetchTasks();
-  }, [clientAccountId, transactionId, scope]);
+  }, [clientAccountId, transactionId, scope, showInternal]);
 
   const fetchTasks = async () => {
     let q = supabase
@@ -55,6 +59,7 @@ export function ClientTaskList({ clientAccountId, canManage = false, transaction
     if (transactionId) q = q.eq('transaction_id', transactionId);
     if (scope === 'general') q = q.is('property_id', null);
     else if (scope !== 'all') q = q.eq('property_id', scope);
+    if (!showInternal) q = q.eq('is_internal', false);
     const { data, error } = await q.order('due_date', { ascending: true, nullsFirst: false });
 
     if (!error) {
@@ -62,6 +67,19 @@ export function ClientTaskList({ clientAccountId, canManage = false, transaction
     }
     setLoading(false);
   };
+
+  const toggleInternal = async (task: Task) => {
+    if (blockPortalWrite('Changing task visibility')) return;
+    const next = !task.is_internal;
+    const { error } = await supabase.from('client_tasks').update({ is_internal: next }).eq('id', task.id);
+    if (error) {
+      toast({ title: 'Could not change visibility', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, is_internal: next } : t)));
+    toast({ title: next ? 'Marked internal' : 'Now visible to client' });
+  };
+
 
   const toggleTask = async (taskId: string, currentlyCompleted: boolean) => {
     if (blockPortalWrite('Completing tasks')) return;
