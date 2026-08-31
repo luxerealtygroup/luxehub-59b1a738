@@ -64,6 +64,38 @@ export default function AdminClientPortals() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [health, setHealth] = useState<FilterKey>('all');
+  const [resendingId, setResendingId] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  /** Mint a fresh single-use token and email it, straight from the row. */
+  const handleResend = async (row: PortalRow) => {
+    setResendingId(row.id);
+    try {
+      await sendPortalInvite({
+        portalId: row.id,
+        email: row.email,
+        clientName: row.full_name,
+        agentName: row.agentName,
+      });
+      const now = new Date().toISOString();
+      setRows((prev) =>
+        prev.map((r) => (r.id === row.id ? { ...r, invited_at: now, status: 'invited' } : r)),
+      );
+      toast({
+        title: 'Invitation sent',
+        description: `${row.email} will receive a single-use link, valid for 7 days.`,
+      });
+    } catch (err) {
+      toast({
+        title: 'Send failed',
+        description: err instanceof Error ? err.message : 'Could not send the invitation.',
+        variant: 'destructive',
+      });
+    } finally {
+      setResendingId(null);
+    }
+  };
+
 
   useEffect(() => {
     const load = async () => {
