@@ -2397,6 +2397,61 @@ export type Database = {
         }
         Relationships: []
       }
+      portal_condition_notes: {
+        Row: {
+          body: string
+          condition_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_internal: boolean
+          portal_id: string
+          updated_at: string
+        }
+        Insert: {
+          body?: string
+          condition_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_internal?: boolean
+          portal_id: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          condition_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_internal?: boolean
+          portal_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_condition_notes_condition_id_fkey"
+            columns: ["condition_id"]
+            isOneToOne: true
+            referencedRelation: "portal_transaction_conditions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_condition_notes_portal_id_fkey"
+            columns: ["portal_id"]
+            isOneToOne: false
+            referencedRelation: "client_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_condition_notes_portal_id_fkey"
+            columns: ["portal_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sides"
+            referencedColumns: ["portal_id"]
+          },
+        ]
+      }
       portal_documents: {
         Row: {
           created_at: string
@@ -2759,6 +2814,76 @@ export type Database = {
           },
         ]
       }
+      portal_transaction_conditions: {
+        Row: {
+          condition_type: string
+          created_at: string
+          created_by: string | null
+          custom_label: string | null
+          display_order: number
+          due_date: string | null
+          id: string
+          portal_id: string
+          resolved_date: string | null
+          responsible_party: string
+          status: string
+          transaction_id: string
+          updated_at: string
+        }
+        Insert: {
+          condition_type?: string
+          created_at?: string
+          created_by?: string | null
+          custom_label?: string | null
+          display_order?: number
+          due_date?: string | null
+          id?: string
+          portal_id: string
+          resolved_date?: string | null
+          responsible_party?: string
+          status?: string
+          transaction_id: string
+          updated_at?: string
+        }
+        Update: {
+          condition_type?: string
+          created_at?: string
+          created_by?: string | null
+          custom_label?: string | null
+          display_order?: number
+          due_date?: string | null
+          id?: string
+          portal_id?: string
+          resolved_date?: string | null
+          responsible_party?: string
+          status?: string
+          transaction_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_transaction_conditions_portal_id_fkey"
+            columns: ["portal_id"]
+            isOneToOne: false
+            referencedRelation: "client_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_transaction_conditions_portal_id_fkey"
+            columns: ["portal_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sides"
+            referencedColumns: ["portal_id"]
+          },
+          {
+            foreignKeyName: "portal_transaction_conditions_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "portal_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       portal_transactions: {
         Row: {
           closing_date: string | null
@@ -2766,6 +2891,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           deal_id: string | null
+          deposit_due_date: string | null
           firm_date: string | null
           fub_deal_id: number | null
           id: string
@@ -2774,6 +2900,7 @@ export type Database = {
           portal_id: string
           price: number | null
           property_id: string | null
+          requisition_date: string | null
           side: string
           status: string
           updated_at: string
@@ -2784,6 +2911,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           deal_id?: string | null
+          deposit_due_date?: string | null
           firm_date?: string | null
           fub_deal_id?: number | null
           id?: string
@@ -2792,6 +2920,7 @@ export type Database = {
           portal_id: string
           price?: number | null
           property_id?: string | null
+          requisition_date?: string | null
           side: string
           status?: string
           updated_at?: string
@@ -2802,6 +2931,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           deal_id?: string | null
+          deposit_due_date?: string | null
           firm_date?: string | null
           fub_deal_id?: number | null
           id?: string
@@ -2810,6 +2940,7 @@ export type Database = {
           portal_id?: string
           price?: number | null
           property_id?: string | null
+          requisition_date?: string | null
           side?: string
           status?: string
           updated_at?: string
