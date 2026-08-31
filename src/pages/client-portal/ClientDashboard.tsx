@@ -62,7 +62,16 @@ interface Transaction {
   drive_folder_id?: string | null;
 }
 
-const ClientDashboard = () => {
+interface ClientDashboardProps {
+  /**
+   * When set, renders this portal's data instead of the signed-in client's.
+   * Used by the read-only "Preview as client" mode (access is checked by the
+   * preview wrapper; every write path is blocked by PortalPreviewProvider).
+   */
+  previewPortalId?: string;
+}
+
+const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
   const [documents, setDocuments] = useState<ClientDocument[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [clientAccount, setClientAccount] = useState<ClientAccount | null>(null);
@@ -71,24 +80,29 @@ const ClientDashboard = () => {
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const isPreview = !!previewPortalId;
 
   useEffect(() => {
     const checkAuthAndFetchData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
-        navigate('/client-portal/login');
+        navigate(isPreview ? '/login' : '/client-portal/login');
         return;
       }
 
-      // Check if user is a client
-      const { data: account, error: accountError } = await supabase
-        .from('client_accounts')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      // Preview mode loads the target portal; normal mode loads the signed-in client's.
+      const accountQuery = supabase.from('client_accounts').select('*');
+      const { data: account, error: accountError } = await (previewPortalId
+        ? accountQuery.eq('id', previewPortalId)
+        : accountQuery.eq('user_id', user.id)
+      ).maybeSingle();
 
       if (accountError || !account) {
+        if (isPreview) {
+          setLoading(false);
+          return;
+        }
         await supabase.auth.signOut();
         navigate('/client-portal/login');
         return;
