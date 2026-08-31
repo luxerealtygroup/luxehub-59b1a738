@@ -2461,6 +2461,67 @@ export type Database = {
           },
         ]
       }
+      portal_fub_deals: {
+        Row: {
+          created_at: string
+          deal_name: string | null
+          dismissed_stage: string | null
+          fub_deal_id: number
+          id: string
+          last_seen_stage: string | null
+          linked_property_id: string | null
+          pipeline_name: string | null
+          portal_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          deal_name?: string | null
+          dismissed_stage?: string | null
+          fub_deal_id: number
+          id?: string
+          last_seen_stage?: string | null
+          linked_property_id?: string | null
+          pipeline_name?: string | null
+          portal_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          deal_name?: string | null
+          dismissed_stage?: string | null
+          fub_deal_id?: number
+          id?: string
+          last_seen_stage?: string | null
+          linked_property_id?: string | null
+          pipeline_name?: string | null
+          portal_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_fub_deals_linked_property_id_fkey"
+            columns: ["linked_property_id"]
+            isOneToOne: false
+            referencedRelation: "portal_properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_fub_deals_portal_id_fkey"
+            columns: ["portal_id"]
+            isOneToOne: false
+            referencedRelation: "client_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_fub_deals_portal_id_fkey"
+            columns: ["portal_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sides"
+            referencedColumns: ["portal_id"]
+          },
+        ]
+      }
       portal_messages: {
         Row: {
           created_at: string
