@@ -1,0 +1,167 @@
+{
+  "version": 1,
+  "sdk_version": "0.28.0",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://sxpfxmlxegpmfamlmjyg.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "luxehub",
+      "version": "1.0.0",
+      "title": "LUXEhub"
+    },
+    "tools": [
+      {
+        "name": "get_my_pipeline",
+        "title": "Get my pipeline",
+        "description": "List the signed-in agent's pipeline clients, with stage, deal category, projected sale amount and projected GCI.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50,
+              "description": "Maximum number of pipeline clients to return."
+            },
+            "status": {
+              "type": "string",
+              "description": "Optional status filter, e.g. 'active'."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_my_deals",
+        "title": "Get my deals",
+        "description": "List the signed-in agent's deals, optionally filtered by stage, including deal value, commission rate and expected close date.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "stage": {
+              "type": "string",
+              "description": "Optional deal stage filter, e.g. 'lead', 'contacted', 'showing'. Omit for all stages."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50,
+              "description": "Maximum number of deals to return."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_my_weekly_411",
+        "title": "Get my weekly 4-1-1",
+        "description": "Return the signed-in agent's recent weekly 4-1-1 accountability entries: goals vs actuals, activity counts and weekly priorities.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "weeks": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 26,
+              "default": 4,
+              "description": "How many recent weeks to return."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "add_pipeline_client",
+        "title": "Add pipeline client",
+        "description": "Add a new client to the signed-in agent's LUXEhub pipeline.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "client_name": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Full name of the client."
+            },
+            "client_type": {
+              "type": "string",
+              "description": "Buyer, Seller, Tenant, etc."
+            },
+            "deal_category": {
+              "type": "string",
+              "description": "Deal category, e.g. Sale or Lease."
+            },
+            "property_address": {
+              "type": "string"
+            },
+            "email": {
+              "type": "string",
+              "format": "email"
+            },
+            "phone": {
+              "type": "string"
+            },
+            "source": {
+              "type": "string",
+              "description": "Source of business."
+            },
+            "projected_sale_amount": {
+              "type": "number",
+              "minimum": 0
+            },
+            "projected_gci": {
+              "type": "number",
+              "minimum": 0
+            },
+            "expected_pending_date": {
+              "type": "string",
+              "description": "ISO date (YYYY-MM-DD)."
+            },
+            "notes": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "client_name"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
