@@ -142,11 +142,16 @@ const Commissions = () => {
   const refreshFUBDeals = () => loadAllFUBDeals();
 
   // Helper to classify FUB stage names
-  const classifyStage = (status: string): 'closed' | 'pending' | 'conditional' | 'other' => {
+  const classifyStage = (status: string): 'closed' | 'pending' | 'conditional' | 'active' | 'other' => {
     const s = status.toLowerCase();
     if (s.includes('closed') || s.includes('won') || s.includes('sold')) return 'closed';
     if (s.includes('pending') || s.includes('under contract')) return 'pending';
     if (s.includes('offer') || s.includes('conditional')) return 'conditional';
+    if (
+      s.includes('active') || s.includes('listed') || s.includes('live') ||
+      s.includes('on market') || s.includes('coming soon') || s.includes('pre-market') ||
+      s.includes('pre-mls')
+    ) return 'active';
     return 'other';
   };
 
@@ -174,10 +179,11 @@ const Commissions = () => {
     .reduce((sum, deal) => sum + deal.grossCommission, 0);
 
   // Group deals by status for the transactions table
-  const groupedDeals: Record<'closed' | 'pending' | 'conditional' | 'other', FUBDealDisplay[]> = {
+  const groupedDeals: Record<'closed' | 'pending' | 'conditional' | 'active' | 'other', FUBDealDisplay[]> = {
     closed: [],
     pending: [],
     conditional: [],
+    active: [],
     other: [],
   };
   for (const d of fubDealsDisplay) {
@@ -185,7 +191,7 @@ const Commissions = () => {
   }
 
   const groupMeta: Array<{
-    key: 'closed' | 'pending' | 'conditional' | 'other';
+    key: 'closed' | 'pending' | 'conditional' | 'active' | 'other';
     label: string;
     rowClass: string;
     badgeClass: string;
@@ -193,6 +199,7 @@ const Commissions = () => {
     { key: 'closed',      label: 'Closed',      rowClass: 'bg-green-500/5',  badgeClass: 'border-green-500/30 text-green-400' },
     { key: 'pending',     label: 'Pending',     rowClass: 'bg-amber-500/5',  badgeClass: 'border-amber-500/30 text-amber-400' },
     { key: 'conditional', label: 'Conditional', rowClass: 'bg-orange-500/5', badgeClass: 'border-orange-500/30 text-orange-400' },
+    { key: 'active',      label: 'Active Listings', rowClass: 'bg-blue-500/5', badgeClass: 'border-blue-500/30 text-blue-400' },
     { key: 'other',       label: 'Other',       rowClass: 'bg-muted/30',     badgeClass: 'border-muted-foreground/30 text-muted-foreground' },
   ];
 
