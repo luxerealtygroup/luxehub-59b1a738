@@ -305,12 +305,32 @@ export function FUBTimeline({
                               {stageNotes.map((n) => (
                                 <div
                                   key={n.id}
-                                  className="rounded-lg border border-border/60 bg-muted/40 px-3 py-2 text-sm"
+                                  className={`rounded-lg border px-3 py-2 text-sm ${
+                                    n.is_internal
+                                      ? 'border-dashed border-amber-500/50 bg-muted/60'
+                                      : 'border-border/60 bg-muted/40'
+                                  }`}
                                 >
-                                  <p className="whitespace-pre-wrap">{n.note}</p>
-                                  <p className="text-[10px] text-muted-foreground mt-1">
-                                    {format(new Date(n.created_at), 'MMM d, yyyy · h:mm a')}
-                                  </p>
+                                  <p className={`whitespace-pre-wrap ${n.is_internal ? 'text-muted-foreground' : ''}`}>{n.note}</p>
+                                  <div className="mt-1 flex items-center gap-2 flex-wrap">
+                                    <p className="text-[10px] text-muted-foreground">
+                                      {format(new Date(n.created_at), 'MMM d, yyyy · h:mm a')}
+                                    </p>
+                                    {n.is_internal && (
+                                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 text-amber-700 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                                        <Lock className="h-3 w-3" /> Internal
+                                      </span>
+                                    )}
+                                    {canAddNotesHere && (
+                                      <button
+                                        type="button"
+                                        onClick={() => toggleNoteInternal(n)}
+                                        className="text-[10px] underline text-muted-foreground hover:text-foreground"
+                                      >
+                                        {n.is_internal ? 'Make visible to client' : 'Mark internal'}
+                                      </button>
+                                    )}
+                                  </div>
                                 </div>
                               ))}
                             </div>
@@ -326,23 +346,42 @@ export function FUBTimeline({
                                 rows={2}
                                 className="text-sm rounded-lg"
                               />
-                              <Button
-                                size="sm"
-                                onClick={() => addNote(entry.stage)}
-                                disabled={
-                                  savingStage === entry.stage ||
-                                  !(draft[entry.stage] || '').trim()
-                                }
-                              >
-                                {savingStage === entry.stage ? (
-                                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                ) : (
-                                  <Plus className="h-3 w-3 mr-1" />
-                                )}
-                                Add note
-                              </Button>
+                              <div className="flex items-center justify-between gap-3 flex-wrap">
+                                <div className="flex items-center gap-2">
+                                  <Switch
+                                    id={`note-internal-${entry.stage}`}
+                                    checked={isDraftInternal(entry.stage)}
+                                    onCheckedChange={(v) =>
+                                      setDraftInternal({ ...draftInternal, [entry.stage]: v })
+                                    }
+                                  />
+                                  <Label
+                                    htmlFor={`note-internal-${entry.stage}`}
+                                    className="text-xs cursor-pointer flex items-center gap-1"
+                                  >
+                                    <Lock className="h-3 w-3" />
+                                    {isDraftInternal(entry.stage) ? 'Internal (agent-only)' : 'Visible to client'}
+                                  </Label>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  onClick={() => addNote(entry.stage)}
+                                  disabled={
+                                    savingStage === entry.stage ||
+                                    !(draft[entry.stage] || '').trim()
+                                  }
+                                >
+                                  {savingStage === entry.stage ? (
+                                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                  ) : (
+                                    <Plus className="h-3 w-3 mr-1" />
+                                  )}
+                                  Add note
+                                </Button>
+                              </div>
                             </div>
                           )}
+
                         </div>
                       </li>
                     );
