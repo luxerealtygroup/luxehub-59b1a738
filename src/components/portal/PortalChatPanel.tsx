@@ -202,6 +202,10 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
   };
 
   const bubbleClass = (m: PortalMessage) => {
+    // Internal rows are never sent to clients by RLS; in the agent view they
+    // are styled distinctly so it is obvious what the client cannot see.
+    if (m.is_internal)
+      return 'bg-muted/60 text-foreground border border-dashed border-muted-foreground/40 shadow-sm';
     if (isMine(m)) return 'bg-primary text-primary-foreground shadow-sm';
     if (m.sender_type === 'ops')
       return 'bg-amber-500/10 text-foreground border border-amber-500/30 shadow-sm';
