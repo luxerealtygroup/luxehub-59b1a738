@@ -31,6 +31,10 @@ import { PortalPropertiesManager } from '@/components/portal/PortalPropertiesMan
 import { PropertySwitcher } from '@/components/portal/PropertySwitcher';
 import { usePortalProperties, derivePortalSideLabel } from '@/hooks/usePortalProperties';
 import { PortalScope } from '@/lib/portalScope';
+import { FubDealPicker } from '@/components/portal/FubDealPicker';
+import { PortalDealSuggestions } from '@/components/portal/PortalDealSuggestions';
+import { usePortalDealSuggestions } from '@/hooks/usePortalDealSuggestions';
+import { followUpBossApi } from '@/lib/api/followUpBoss';
 import { Badge } from '@/components/ui/badge';
 
 
@@ -83,7 +87,42 @@ export function AgentPortalDialog({
   const [agents, setAgents] = useState<{ id: string; full_name: string | null }[]>([]);
   const [assignedAgentId, setAssignedAgentId] = useState<string>('');
   const [scope, setScope] = useState<PortalScope>('all');
-  const { properties, transactions: portalTransactions } = usePortalProperties(account?.id ?? null);
+  const { properties, transactions: portalTransactions, reload: reloadProperties } =
+    usePortalProperties(account?.id ?? null);
+  const [propertiesKey, setPropertiesKey] = useState(0);
+  const linkedPersonId = form.fub_person_id ? Number(form.fub_person_id) : null;
+  const [linkedPerson, setLinkedPerson] = useState<{ id: number; name: string; email?: string; phone?: string } | null>(null);
+  const { suggestions, linkedDealIds, dismiss, recheck } = usePortalDealSuggestions(
+    account?.id ?? null,
+    account?.fub_person_id ?? null,
+  );
+
+  // Show the agent who is actually linked — name, email and phone — so a wrong
+  // match is obvious before anything is built on top of it.
+  useEffect(() => {
+    if (!open || !linkedPersonId) {
+      setLinkedPerson(null);
+      return;
+    }
+    let cancelled = false;
+    followUpBossApi.getPerson(linkedPersonId).then((res: any) => {
+      const p = res?.data?.person ?? res?.data;
+      if (cancelled || !p?.id) return;
+      setLinkedPerson({
+        id: p.id,
+        name: p.name || `${p.firstName ?? ''} ${p.lastName ?? ''}`.trim(),
+        email: p.emails?.[0]?.value,
+        phone: p.phones?.[0]?.value,
+      });
+    }).catch(() => setLinkedPerson(null));
+    return () => { cancelled = true; };
+  }, [open, linkedPersonId]);
+
+  const afterPropertySaved = () => {
+    setPropertiesKey((k) => k + 1);
+    reloadProperties();
+    recheck();
+  };
 
   const lookupKey = useMemo(
     () => (form.email || clientEmail || '').trim().toLowerCase(),
@@ -278,6 +317,16 @@ export function AgentPortalDialog({
           )}
         </DialogHeader>
 
+        {account && (
+          <PortalDealSuggestions
+            portalId={account.id}
+            clientName={form.full_name}
+            suggestions={suggestions}
+            onDismiss={dismiss}
+            onSaved={afterPropertySaved}
+          />
+        )}
+
         {loading ? (
           <div className="flex items-center gap-2 text-muted-foreground py-8">
             <Loader2 className="h-4 w-4 animate-spin" /> Loading portal…
@@ -346,8 +395,19 @@ export function AgentPortalDialog({
                         email: form.email || c.email || '',
                       })
                     }
-                    onClear={() => setForm({ ...form, fub_person_id: '' })}
+                    onClear={() => {
+                      setForm({ ...form, fub_person_id: '' });
+                      setLinkedPerson(null);
+                    }}
                   />
+                  {linkedPersonId && (
+                    <p className="text-xs text-muted-foreground">
+                      {linkedPerson
+                        ? `${linkedPerson.name}${linkedPerson.email ? ` • ${linkedPerson.email}` : ''}${linkedPerson.phone ? ` • ${linkedPerson.phone}` : ''}`
+                        : 'Loading contact details from Follow Up Boss…'}
+                      {' '}(FUB #{linkedPersonId}) — confirm this is the right person, then Save.
+                    </p>
+                  )}
                 </div>
                 {isAdmin && (
                   <div className="space-y-1">
@@ -393,8 +453,25 @@ export function AgentPortalDialog({
               </div>
             </TabsContent>
 
-            <TabsContent value="properties" className="pt-4">
-              {account && <PortalPropertiesManager portalId={account.id} />}
+            <TabsContent value="properties" className="pt-4 space-y-6">
+              {account && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold">From Follow Up Boss</h4>
+                  <FubDealPicker
+                    portalId={account.id}
+                    fubPersonId={account.fub_person_id}
+                    linkedDealIds={linkedDealIds}
+                    onSaved={afterPropertySaved}
+                  />
+                </div>
+              )}
+              {account && <PortalPropertiesManager key={propertiesKey} portalId={account.id} />}
+              {account && properties.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  No properties yet — this portal is in <strong>Home search</strong> mode. Documents, messages, tasks and
+                  the timeline all work portal-wide until a property is added.
+                </p>
+              )}
             </TabsContent>
 
             <TabsContent value="timeline" className="pt-4">
