@@ -143,9 +143,8 @@ export function FUBTimeline({
     return () => {
       cancelled = true;
     };
-  }, [fubPersonId, clientAccountId, fubDealId, transactionId, scope]);
+  }, [fubPersonId, clientAccountId, fubDealId, transactionId, scope, showInternal]);
 
-  const { isPreview } = usePortalPreview();
   const canAddNotesHere = canAddNotes && !isPreview;
 
   const currentStageName = stages[stages.length - 1]?.stage ?? null;
@@ -157,6 +156,23 @@ export function FUBTimeline({
     }
     return map;
   }, [notes]);
+
+  const isDraftInternal = (stage: string) => draftInternal[stage] ?? true;
+
+  const toggleNoteInternal = async (note: TimelineNote) => {
+    if (blockPortalWrite('Changing note visibility')) return;
+    const next = !note.is_internal;
+    const { error } = await supabase
+      .from('portal_timeline_notes')
+      .update({ is_internal: next })
+      .eq('id', note.id);
+    if (error) {
+      toast({ title: 'Could not change visibility', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setNotes((prev) => prev.map((n) => (n.id === note.id ? { ...n, is_internal: next } : n)));
+    toast({ title: next ? 'Marked internal' : 'Now visible to client' });
+  };
 
   const addNote = async (stage: string) => {
     if (blockPortalWrite('Adding timeline notes')) return;
@@ -177,6 +193,7 @@ export function FUBTimeline({
         note: text,
         transaction_id: transactionId,
         property_id: scopePropertyId(scope),
+        is_internal: isDraftInternal(stage),
       })
       .select()
       .single();
@@ -187,7 +204,9 @@ export function FUBTimeline({
     }
     setNotes([data as TimelineNote, ...notes]);
     setDraft({ ...draft, [stage]: '' });
+    setDraftInternal({ ...draftInternal, [stage]: true });
   };
+
 
   return (
     <Card className="luxe-card">
