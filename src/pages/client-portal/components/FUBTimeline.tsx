@@ -84,12 +84,20 @@ export function FUBTimeline({
   scope = 'all',
 }: FUBTimelineProps) {
   const { toast } = useToast();
+  const { isPreview } = usePortalPreview();
   const [stages, setStages] = useState<StageEntry[]>([]);
   const [notes, setNotes] = useState<TimelineNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<Record<string, string>>({});
+  // Stage notes read as agent notes, so they default to internal (agent-only).
+  const [draftInternal, setDraftInternal] = useState<Record<string, boolean>>({});
   const [savingStage, setSavingStage] = useState<string | null>(null);
+  // Internal notes are blocked for clients by RLS; the preview runs on the
+  // agent's session, so filter them out to keep the preview accurate.
+  const showInternal = canAddNotes && !isPreview;
+
+
 
   useEffect(() => {
     let cancelled = false;
