@@ -24,6 +24,7 @@ import { Link } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { sendPortalInvite } from '@/lib/inviteLinks';
 import { PortalSuggestionScanner } from '@/components/portal/PortalSuggestionScanner';
+import { daysUntil, isSettled } from '@/lib/portalConditions';
 
 
 type PortalRow = {
