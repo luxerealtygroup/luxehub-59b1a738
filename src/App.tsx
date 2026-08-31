@@ -49,6 +49,7 @@ import AccountSettings from "./pages/AccountSettings";
 import ClientLogin from "./pages/client-portal/ClientLogin";
 import ClientSignup from "./pages/client-portal/ClientSignup";
 import ClientDashboard from "./pages/client-portal/ClientDashboard";
+import ClientPortalPreview from "./pages/client-portal/ClientPortalPreview";
 import Unsubscribe from "./pages/Unsubscribe";
 import GoogleDriveCallback from "./pages/GoogleDriveCallback";
 import Nominate from "./pages/Nominate";
@@ -111,6 +112,11 @@ const App = () => (
             
             {/* Client Portal Routes */}
             <Route path="/client-portal" element={<ClientDashboard />} />
+            <Route path="/client-portal/preview/:portalId" element={
+              <ProtectedRoute>
+                <ClientPortalPreview />
+              </ProtectedRoute>
+            } />
             <Route path="/client-portal/login" element={<ClientLogin />} />
             <Route path="/client-portal/signup" element={<ClientSignup />} />
             <Route path="/dashboard" element={
