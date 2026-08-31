@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { blockPortalWrite, usePortalPreview } from '@/hooks/usePortalPreview';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -55,7 +56,9 @@ function PhotoThumb({ path, caption, onOpen, selecting, selected, onToggle }: { 
   );
 }
 
-export function PortalPhotosPanel({ portalId, canManage }: Props) {
+export function PortalPhotosPanel({ portalId, canManage: canManageProp }: Props) {
+  const { isPreview } = usePortalPreview();
+  const canManage = canManageProp && !isPreview;
   const { toast } = useToast();
   const [photos, setPhotos] = useState<PortalPhoto[]>([]);
   const [loading, setLoading] = useState(true);

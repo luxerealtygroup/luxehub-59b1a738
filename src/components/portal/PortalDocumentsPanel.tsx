@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { blockPortalWrite, usePortalPreview } from '@/hooks/usePortalPreview';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -41,7 +42,9 @@ function fmtSize(bytes: number | null) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function PortalDocumentsPanel({ portalId, canManage }: Props) {
+export function PortalDocumentsPanel({ portalId, canManage: canManageProp }: Props) {
+  const { isPreview } = usePortalPreview();
+  const canManage = canManageProp && !isPreview;
   const { toast } = useToast();
   const [docs, setDocs] = useState<PortalDocument[]>([]);
   const [loading, setLoading] = useState(true);
