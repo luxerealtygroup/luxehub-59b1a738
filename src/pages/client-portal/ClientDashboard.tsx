@@ -142,7 +142,7 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
       }
 
       // Fetch data in parallel
-      const [docsResult, transactionsResult, pipelineResult] = await Promise.all([
+      const [docsResult, transactionsResult, pipelineResult, portalDocsResult] = await Promise.all([
         docsQuery,
         supabase
           .from('client_transactions')
@@ -153,6 +153,11 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
           .from('pipeline_clients')
           .select('id, client_type, property_address, property_interest, expected_pending_date, projected_sale_amount, status, created_at')
           .eq('email', account.email.toLowerCase()),
+        supabase
+          .from('portal_documents')
+          .select('id', { count: 'exact', head: true })
+          .eq('portal_id', account.id)
+          .eq('is_internal', false),
       ]);
 
       if (docsResult.error) {
@@ -160,6 +165,9 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
       } else {
         setDocuments(docsResult.data || []);
       }
+
+      setPortalDocCount(portalDocsResult.count ?? 0);
+
 
       if (transactionsResult.error) {
         console.error('Error fetching transactions:', transactionsResult.error);
