@@ -178,13 +178,6 @@ export function AgentPortalDialog({
   };
 
 
-  const buildInviteLink = (saved: ClientAccountRow) => {
-    const params = new URLSearchParams();
-    if (saved.email) params.set('email', saved.email);
-    if (saved.fub_person_id) params.set('fub_id', String(saved.fub_person_id));
-    if (user?.id) params.set('invited_by', user.id);
-    return `${window.location.origin}/client-portal/signup?${params.toString()}`;
-  };
 
   const handleCopyLink = async () => {
     const saved = account ?? (await saveAccount());
