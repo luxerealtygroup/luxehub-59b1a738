@@ -6,6 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Download, Eye, FileText, File, Image as ImageIcon, Loader2, Trash2, Upload, X } from 'lucide-react';
 import { format } from 'date-fns';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PortalScope, matchesScope, scopePropertyId } from '@/lib/portalScope';
+import { PortalProperty, propertyLabel } from '@/hooks/usePortalProperties';
 
 interface PortalDocument {
   id: string;
@@ -13,12 +16,17 @@ interface PortalDocument {
   file_path: string;
   file_type: string | null;
   file_size: number | null;
+  property_id: string | null;
   created_at: string;
 }
 
 interface Props {
   portalId: string;
   canManage: boolean;
+  /** Property scope: 'all', 'general' (portal-wide only) or a property id. */
+  scope?: PortalScope;
+  /** Properties on this portal, so an uploader can pick where a file belongs. */
+  properties?: PortalProperty[];
 }
 
 const BUCKET = 'portal-documents';
@@ -42,7 +50,7 @@ function fmtSize(bytes: number | null) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function PortalDocumentsPanel({ portalId, canManage: canManageProp }: Props) {
+export function PortalDocumentsPanel({ portalId, canManage: canManageProp, scope = 'all', properties = [] }: Props) {
   const { isPreview } = usePortalPreview();
   const canManage = canManageProp && !isPreview;
   const { toast } = useToast();
@@ -51,6 +59,9 @@ export function PortalDocumentsPanel({ portalId, canManage: canManageProp }: Pro
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<{ url: string; type: string; name: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Where new uploads land: defaults to the property currently being viewed.
+  const [uploadTarget, setUploadTarget] = useState<string>(scopePropertyId(scope) ?? 'general');
+  useEffect(() => { setUploadTarget(scopePropertyId(scope) ?? 'general'); }, [scope]);
 
   const load = async () => {
     setLoading(true);
@@ -87,6 +98,7 @@ export function PortalDocumentsPanel({ portalId, canManage: canManageProp }: Pro
         file_type: file.type || null,
         file_size: file.size,
         uploaded_by: user?.id,
+        property_id: uploadTarget === 'general' ? null : uploadTarget,
       }).select('id').single();
       if (error) toast({ title: 'Record failed', description: error.message, variant: 'destructive' });
 
@@ -135,8 +147,24 @@ export function PortalDocumentsPanel({ portalId, canManage: canManageProp }: Pro
     load();
   };
 
+  const visibleDocs = docs.filter((d) => matchesScope(d.property_id, scope));
+
   return (
     <div className="space-y-4">
+      {canManage && properties.length > 0 && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground whitespace-nowrap">Upload to</span>
+          <Select value={uploadTarget} onValueChange={setUploadTarget}>
+            <SelectTrigger className="h-9 max-w-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="general">General (whole portal)</SelectItem>
+              {properties.map((p) => (
+                <SelectItem key={p.id} value={p.id}>{propertyLabel(p)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       {canManage && (
         <button
           type="button"
@@ -160,7 +188,7 @@ export function PortalDocumentsPanel({ portalId, canManage: canManageProp }: Pro
         <div className="grid gap-2">
           {[1,2,3].map(i => <div key={i} className="h-16 rounded-xl bg-muted/60 animate-pulse" />)}
         </div>
-      ) : docs.length === 0 ? (
+      ) : visibleDocs.length === 0 ? (
         <div className="luxe-card p-12 flex flex-col items-center justify-center text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/20 mb-4">
             <FileText className="h-6 w-6" />
@@ -174,7 +202,7 @@ export function PortalDocumentsPanel({ portalId, canManage: canManageProp }: Pro
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
-          {docs.map((d) => {
+          {visibleDocs.map((d) => {
             const { icon, tone } = iconFor(d.file_type, d.file_name);
             return (
               <div
