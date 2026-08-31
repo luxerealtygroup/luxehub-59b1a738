@@ -563,7 +563,7 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
             </div>
           </main>
         </div>
-        <SupportChatWidget userType="client" />
+        {!isPreview && <SupportChatWidget userType="client" />}
       </div>
     </SidebarProvider>
   );
