@@ -336,6 +336,22 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
     );
   }
 
+  // A portal with no properties yet is a first-class "home search" state, not an error.
+  const homeSearch = activeProperties.length === 0 && portalTransactions.length === 0 && !activeTransaction;
+  const homeSearchCard = (
+    <Card className="border-dashed">
+      <CardContent className="flex flex-col items-center justify-center py-14 text-center">
+        <Home className="h-14 w-14 text-primary/60 mb-4" />
+        <h3 className="text-lg font-medium mb-2">Home search in progress</h3>
+        <p className="text-muted-foreground max-w-md">
+          You don't have a property on the go yet. Your agent will add one here the moment you're
+          writing an offer or listing — in the meantime your documents, messages and to-dos all live
+          in this portal.
+        </p>
+      </CardContent>
+    </Card>
+  );
+
   const renderContent = () => {
     switch (activeTab) {
       case 'overview':
@@ -346,15 +362,7 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
                 {activeTransaction ? (
                   <PropertyDetails transaction={activeTransaction} />
                 ) : (
-                  <Card className="border-dashed">
-                    <CardContent className="flex flex-col items-center justify-center py-16">
-                      <Home className="h-16 w-16 text-muted-foreground/50 mb-4" />
-                      <h3 className="text-lg font-medium mb-2">Property details coming soon</h3>
-                      <p className="text-muted-foreground text-center max-w-md">
-                        Your agent will add property details here as your transaction progresses.
-                      </p>
-                    </CardContent>
-                  </Card>
+                  homeSearchCard
                 )}
                 <div className="space-y-6">
                   <FUBTimeline
@@ -386,15 +394,7 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
                 </div>
               </div>
             ) : (
-              <Card className="border-dashed">
-                <CardContent className="flex flex-col items-center justify-center py-16">
-                  <Home className="h-16 w-16 text-muted-foreground/50 mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No Active Transactions</h3>
-                  <p className="text-muted-foreground text-center max-w-md">
-                    Your agent will add your transaction details here once you're under contract.
-                  </p>
-                </CardContent>
-              </Card>
+              homeSearchCard
             )}
 
             {watchedProperties.length > 0 && (
@@ -420,7 +420,7 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
             <div className="grid gap-5 md:grid-cols-3">
               {[
                 { label: 'Documents', value: String(documents.length), icon: <FileText className="h-5 w-5" />, gradient: 'from-primary/10', accent: 'text-primary' },
-                { label: 'Properties', value: String(properties.length || transactions.length), icon: <Home className="h-5 w-5" />, gradient: 'from-emerald-500/10', accent: 'text-emerald-600' },
+                { label: 'Properties', value: homeSearch ? 'Searching' : String(properties.length || transactions.length), icon: <Home className="h-5 w-5" />, gradient: 'from-emerald-500/10', accent: 'text-emerald-600' },
                 { label: 'Closing Date', value: activeTransaction?.closing_date ? format(new Date(activeTransaction.closing_date), 'MMM d') : 'TBD', icon: <Calendar className="h-5 w-5" />, gradient: 'from-primary/10', accent: 'text-primary' },
               ].map((s) => (
                 <div key={s.label} className="luxe-card p-6 relative overflow-hidden">

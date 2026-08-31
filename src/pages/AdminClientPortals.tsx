@@ -23,6 +23,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { Link } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { sendPortalInvite } from '@/lib/inviteLinks';
+import { PortalSuggestionScanner } from '@/components/portal/PortalSuggestionScanner';
 
 
 type PortalRow = {
@@ -308,6 +309,23 @@ export default function AdminClientPortals() {
         })}
       </div>
 
+      {/* On-demand FUB stage check for linked portals — agent-confirmed, never automatic. */}
+      {!loading && (
+        <div className="space-y-2">
+          {rows
+            .filter((r) => r.fub_person_id)
+            .slice(0, 12)
+            .map((r) => (
+              <PortalSuggestionScanner
+                key={r.id}
+                portalId={r.id}
+                clientName={r.full_name}
+                fubPersonId={r.fub_person_id}
+              />
+            ))}
+        </div>
+      )}
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
           <CardTitle className="text-base">All Portals ({filtered.length})</CardTitle>
@@ -359,11 +377,15 @@ export default function AdminClientPortals() {
                           <Badge variant="outline" className="text-xs">
                             {transactionLabel(r.transactionSides, r.client_type)}
                           </Badge>
-                          {r.propertyCount > 1 && (
+                          {r.propertyCount === 0 ? (
+                            <Badge variant="secondary" className="text-[10px] font-normal">
+                              Home search
+                            </Badge>
+                          ) : r.propertyCount > 1 ? (
                             <span className="text-[11px] text-muted-foreground">
                               {r.propertyCount} properties
                             </span>
-                          )}
+                          ) : null}
                         </div>
                       </TableCell>
                       <TableCell>
