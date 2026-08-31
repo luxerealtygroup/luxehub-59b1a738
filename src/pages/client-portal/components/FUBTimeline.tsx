@@ -4,9 +4,12 @@ import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { blockPortalWrite, usePortalPreview } from '@/hooks/usePortalPreview';
-import { Calendar, Check, Loader2, Plus, Circle } from 'lucide-react';
+import { Calendar, Check, Loader2, Lock, Plus, Circle } from 'lucide-react';
+
 import { format } from 'date-fns';
 
 import { PortalScope, scopePropertyId } from '@/lib/portalScope';
