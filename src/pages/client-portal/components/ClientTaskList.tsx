@@ -4,12 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { blockPortalWrite, usePortalPreview } from '@/hooks/usePortalPreview';
-import { CheckSquare, Clock, AlertCircle, Plus, Loader2, Check } from 'lucide-react';
+import { CheckSquare, Clock, AlertCircle, Plus, Loader2, Check, Lock, EyeOff } from 'lucide-react';
 import { format, isPast, isToday } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+
 import { PortalScope, scopePropertyId } from '@/lib/portalScope';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 
