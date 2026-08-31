@@ -47,10 +47,12 @@ type PortalRow = {
 type FilterKey =
   | 'all'
   | 'not_invited'
+  | 'awaiting_signup'
   | 'missing_slack'
   | 'missing_docs'
   | 'missing_fub'
   | 'unread';
+
 
 export default function AdminClientPortals() {
   const { isAdmin } = useUserRole();
