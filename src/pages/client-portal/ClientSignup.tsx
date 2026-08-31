@@ -49,7 +49,13 @@ const ClientSignup = () => {
       // Only set user_id + full_name here — the pending portal row already
       // has fub_person_id, invited_by, client_type, etc. from when the agent
       // created it, and overwriting them with null would lose that data.
-      const linkPayload: Record<string, unknown> = {
+      const linkPayload: {
+        user_id: string;
+        email: string;
+        full_name: string;
+        fub_person_id?: number;
+        invited_by?: string;
+      } = {
         user_id: authData.user.id,
         email: email.toLowerCase(),
         full_name: fullName,
