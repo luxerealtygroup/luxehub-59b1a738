@@ -49,8 +49,13 @@ export function PortalPreviewProvider({
   clientName: string | null;
   children: ReactNode;
 }) {
-  useEffect(() => {
+  // Arm during render (before any child renders or fires effects) and disarm on
+  // unmount, so no child can ever run a write while the preview is on screen.
+  useState(() => {
     readOnlyDepth += 1;
+    return null;
+  });
+  useEffect(() => {
     return () => {
       readOnlyDepth = Math.max(0, readOnlyDepth - 1);
     };
