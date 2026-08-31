@@ -23,7 +23,9 @@ interface TimelineNote {
   note: string;
   created_at: string;
   user_id: string;
+  is_internal?: boolean;
 }
+
 
 interface FUBTimelineProps {
   fubPersonId: number | null | undefined;
