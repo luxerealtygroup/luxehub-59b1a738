@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { blockPortalWrite, usePortalPreview } from '@/hooks/usePortalPreview';
-import { MessageCircle, Send, Headset, User, Briefcase } from 'lucide-react';
+import { MessageCircle, Send, Headset, User, Briefcase, Lock, Eye, EyeOff, Hash } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
 
 type SenderType = 'client' | 'agent' | 'ops';
@@ -20,6 +20,9 @@ interface PortalMessage {
   sender_name: string | null;
   message_body: string;
   created_at: string;
+  is_internal?: boolean;
+  source_slack_channel_id?: string | null;
+  source_slack_ts?: string | null;
 }
 
 interface PortalChatPanelProps {
@@ -49,16 +52,22 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
       ? sendAsAgentIdProp ??
         (viewCtx?.isViewingAsAgent && viewCtx.viewingAgentId ? viewCtx.viewingAgentId : null)
       : null;
+  // Internal markers and the unpublish action are agent-side only, and are
+  // hidden in preview-as-client so the preview matches what the client sees.
+  const showAgentControls = viewerRole === 'agent' && !isPreview;
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       setLoading(true);
-      const { data, error } = await supabase
+      let query = supabase
         .from('portal_messages')
         .select('*')
-        .eq('portal_id', portalId)
-        .order('created_at', { ascending: true });
+        .eq('portal_id', portalId);
+      // RLS already hides internal rows from clients. Preview-as-client runs on
+      // the agent's session, so filter explicitly to keep the preview honest.
+      if (isPreview || viewerRole === 'client') query = query.eq('is_internal', false);
+      const { data, error } = await query.order('created_at', { ascending: true });
       if (!cancelled) {
         if (error) console.error(error);
         setMessages((data as PortalMessage[]) || []);
@@ -89,6 +98,8 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
         (payload) => {
           setMessages((prev) => {
             const next = payload.new as PortalMessage;
+            // Never surface an internal row in a client-facing view.
+            if ((isPreview || viewerRole === 'client') && next.is_internal) return prev;
             if (prev.some((m) => m.id === next.id)) return prev;
             return [...prev, next];
           });
@@ -105,7 +116,7 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
       cancelled = true;
       if (channel) supabase.removeChannel(channel);
     };
-  }, [portalId, viewerRole]);
+  }, [portalId, viewerRole, isPreview]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -147,6 +158,36 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
     setSending(false);
   };
 
+  /**
+   * Flip a message between internal (agent-only) and client-visible. This is
+   * the "unpublish" action for anything pushed in from Slack. RLS blocks the
+   * client from reading internal rows, so this is a real visibility change.
+   */
+  const setVisibility = async (m: PortalMessage, nextInternal: boolean) => {
+    if (blockPortalWrite('Changing message visibility')) return;
+    const { error } = await supabase
+      .from('portal_messages')
+      .update({ is_internal: nextInternal })
+      .eq('id', m.id);
+    if (error) {
+      toast({
+        title: 'Could not update visibility',
+        description: error.message,
+        variant: 'destructive',
+      });
+      return;
+    }
+    setMessages((prev) =>
+      prev.map((x) => (x.id === m.id ? { ...x, is_internal: nextInternal } : x)),
+    );
+    toast({
+      title: nextInternal ? 'Hidden from client' : 'Now visible to client',
+      description: nextInternal
+        ? 'This message is internal and no longer shown in the client portal.'
+        : 'The client can now see this message.',
+    });
+  };
+
   const formatTime = (iso: string) => {
     const d = new Date(iso);
     if (isToday(d)) return format(d, 'h:mm a');
@@ -169,6 +210,10 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
   };
 
   const bubbleClass = (m: PortalMessage) => {
+    // Internal rows are never sent to clients by RLS; in the agent view they
+    // are styled distinctly so it is obvious what the client cannot see.
+    if (m.is_internal)
+      return 'bg-muted/60 text-foreground border border-dashed border-muted-foreground/40 shadow-sm';
     if (isMine(m)) return 'bg-primary text-primary-foreground shadow-sm';
     if (m.sender_type === 'ops')
       return 'bg-amber-500/10 text-foreground border border-amber-500/30 shadow-sm';
@@ -237,6 +282,20 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
                           {h.label}
                         </span>
                       )}
+                      {showAgentControls && (m.is_internal || m.source_slack_ts) && (
+                        <div className="flex flex-wrap items-center gap-1.5 mb-1 ml-1">
+                          {m.is_internal && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                              <Lock className="h-2.5 w-2.5" /> Internal — hidden from client
+                            </span>
+                          )}
+                          {m.source_slack_ts && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                              <Hash className="h-2.5 w-2.5" /> From Slack
+                            </span>
+                          )}
+                        </div>
+                      )}
                       <div
                         className={`rounded-2xl px-4 py-2.5 ${bubbleClass(m)} ${
                           mine ? 'rounded-br-md' : 'rounded-bl-md'
@@ -246,13 +305,30 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
                           {m.message_body}
                         </p>
                       </div>
-                      <p
-                        className={`text-[10px] mt-1 tabular-nums ${
-                          mine ? 'text-muted-foreground mr-1' : 'text-muted-foreground ml-1'
-                        }`}
+                      <div
+                        className={`flex items-center gap-2 mt-1 ${mine ? 'mr-1' : 'ml-1'}`}
                       >
-                        {formatTime(m.created_at)}
-                      </p>
+                        <p className="text-[10px] tabular-nums text-muted-foreground">
+                          {formatTime(m.created_at)}
+                        </p>
+                        {showAgentControls && (
+                          <button
+                            type="button"
+                            onClick={() => setVisibility(m, !m.is_internal)}
+                            className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                          >
+                            {m.is_internal ? (
+                              <>
+                                <Eye className="h-2.5 w-2.5" /> Make visible to client
+                              </>
+                            ) : (
+                              <>
+                                <EyeOff className="h-2.5 w-2.5" /> Unpublish
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );

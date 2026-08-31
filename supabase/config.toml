@@ -49,8 +49,7 @@ verify_jwt = false
 verify_jwt = false
 
 
-[functions.slack-portal-webhook]
-verify_jwt = false
+
 
 [functions.support-chat]
 verify_jwt = true
@@ -68,4 +67,7 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.mcp]
+verify_jwt = false
+
+[functions.slack-interactivity]
 verify_jwt = false

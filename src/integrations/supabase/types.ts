@@ -2587,32 +2587,47 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          is_internal: boolean
           message_body: string
           portal_id: string
+          property_id: string | null
+          published_by: string | null
           sender_name: string | null
           sender_type: Database["public"]["Enums"]["portal_message_sender"]
           sender_user_id: string | null
           slack_ts: string | null
+          source_slack_channel_id: string | null
+          source_slack_ts: string | null
         }
         Insert: {
           created_at?: string
           id?: string
+          is_internal?: boolean
           message_body: string
           portal_id: string
+          property_id?: string | null
+          published_by?: string | null
           sender_name?: string | null
           sender_type: Database["public"]["Enums"]["portal_message_sender"]
           sender_user_id?: string | null
           slack_ts?: string | null
+          source_slack_channel_id?: string | null
+          source_slack_ts?: string | null
         }
         Update: {
           created_at?: string
           id?: string
+          is_internal?: boolean
           message_body?: string
           portal_id?: string
+          property_id?: string | null
+          published_by?: string | null
           sender_name?: string | null
           sender_type?: Database["public"]["Enums"]["portal_message_sender"]
           sender_user_id?: string | null
           slack_ts?: string | null
+          source_slack_channel_id?: string | null
+          source_slack_ts?: string | null
         }
         Relationships: [
           {
@@ -2628,6 +2643,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "portal_sides"
             referencedColumns: ["portal_id"]
+          },
+          {
+            foreignKeyName: "portal_messages_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "portal_properties"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -2754,6 +2776,9 @@ export type Database = {
           is_internal: boolean
           note: string
           property_id: string | null
+          published_by: string | null
+          source_slack_channel_id: string | null
+          source_slack_ts: string | null
           stage: string
           transaction_id: string | null
           updated_at: string
@@ -2766,6 +2791,9 @@ export type Database = {
           is_internal?: boolean
           note: string
           property_id?: string | null
+          published_by?: string | null
+          source_slack_channel_id?: string | null
+          source_slack_ts?: string | null
           stage: string
           transaction_id?: string | null
           updated_at?: string
@@ -2778,6 +2806,9 @@ export type Database = {
           is_internal?: boolean
           note?: string
           property_id?: string | null
+          published_by?: string | null
+          source_slack_channel_id?: string | null
+          source_slack_ts?: string | null
           stage?: string
           transaction_id?: string | null
           updated_at?: string
