@@ -27,6 +27,11 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { useOrgTier } from '@/hooks/useOrgTier';
 import { Link } from 'react-router-dom';
 import { createPortalInvite, sendPortalInvite } from '@/lib/inviteLinks';
+import { PortalPropertiesManager } from '@/components/portal/PortalPropertiesManager';
+import { PropertySwitcher } from '@/components/portal/PropertySwitcher';
+import { usePortalProperties, derivePortalSideLabel } from '@/hooks/usePortalProperties';
+import { PortalScope } from '@/lib/portalScope';
+import { Badge } from '@/components/ui/badge';
 
 
 interface AgentPortalDialogProps {
@@ -77,6 +82,8 @@ export function AgentPortalDialog({
   const [copied, setCopied] = useState(false);
   const [agents, setAgents] = useState<{ id: string; full_name: string | null }[]>([]);
   const [assignedAgentId, setAssignedAgentId] = useState<string>('');
+  const [scope, setScope] = useState<PortalScope>('all');
+  const { properties, transactions: portalTransactions } = usePortalProperties(account?.id ?? null);
 
   const lookupKey = useMemo(
     () => (form.email || clientEmail || '').trim().toLowerCase(),
@@ -250,6 +257,16 @@ export function AgentPortalDialog({
             Invite this client to their portal, add stage notes, and manage tasks.
           </DialogDescription>
           {account && (
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <Badge variant="outline" className="text-xs">
+                {derivePortalSideLabel(portalTransactions, form.client_type)}
+              </Badge>
+              {properties.length > 0 && (
+                <PropertySwitcher properties={properties} value={scope} onChange={setScope} />
+              )}
+            </div>
+          )}
+          {account && (
             <div className="pt-1">
               <Button asChild size="sm" variant="outline" className="gap-2">
                 <Link to={`/client-portal/preview/${account.id}`}>
@@ -267,8 +284,11 @@ export function AgentPortalDialog({
           </div>
         ) : (
           <Tabs defaultValue={initialTab ?? (account ? 'timeline' : 'setup')} className="w-full">
-            <TabsList className="grid w-full grid-cols-6">
+            <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="setup">Setup</TabsTrigger>
+              <TabsTrigger value="properties" disabled={!account}>
+                Properties
+              </TabsTrigger>
               <TabsTrigger value="timeline" disabled={!account}>
                 Timeline
               </TabsTrigger>
@@ -373,6 +393,10 @@ export function AgentPortalDialog({
               </div>
             </TabsContent>
 
+            <TabsContent value="properties" className="pt-4">
+              {account && <PortalPropertiesManager portalId={account.id} />}
+            </TabsContent>
+
             <TabsContent value="timeline" className="pt-4">
               {account && (
                 <FUBTimeline
@@ -384,15 +408,19 @@ export function AgentPortalDialog({
             </TabsContent>
 
             <TabsContent value="tasks" className="pt-4">
-              {account && <ClientTaskList clientAccountId={account.id} canManage />}
+              {account && <ClientTaskList clientAccountId={account.id} canManage scope={scope} />}
             </TabsContent>
 
             <TabsContent value="documents" className="pt-4">
-              {account && <PortalDocumentsPanel portalId={account.id} canManage={isAdmin} />}
+              {account && (
+                <PortalDocumentsPanel portalId={account.id} canManage={isAdmin} scope={scope} properties={properties} />
+              )}
             </TabsContent>
 
             <TabsContent value="photos" className="pt-4">
-              {account && <PortalPhotosPanel portalId={account.id} canManage={isAdmin} />}
+              {account && (
+                <PortalPhotosPanel portalId={account.id} canManage={isAdmin} scope={scope} properties={properties} />
+              )}
             </TabsContent>
 
             <TabsContent value="messages" className="pt-4">
