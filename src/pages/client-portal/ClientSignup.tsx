@@ -45,22 +45,34 @@ const ClientSignup = () => {
         throw new Error('An account with this email already exists. Please sign in instead.');
       }
 
-      // Link (or create) the client account record for this signup
+      // Link (or create) the client account record for this signup.
+      // Only set user_id + full_name here — the pending portal row already
+      // has fub_person_id, invited_by, client_type, etc. from when the agent
+      // created it, and overwriting them with null would lose that data.
+      const linkPayload: {
+        user_id: string;
+        email: string;
+        full_name: string;
+        fub_person_id?: number;
+        invited_by?: string;
+      } = {
+        user_id: authData.user.id,
+        email: email.toLowerCase(),
+        full_name: fullName,
+      };
+      // Only include fub_person_id / invited_by when they came from the
+      // invite URL, so we don't null-out values the agent already set.
+      const fubId = searchParams.get('fub_id');
+      const invitedBy = searchParams.get('invited_by');
+      if (fubId) linkPayload.fub_person_id = parseInt(fubId);
+      if (invitedBy) linkPayload.invited_by = invitedBy;
+
       const { error: clientError } = await supabase
         .from('client_accounts')
-        .upsert(
-          {
-            user_id: authData.user.id,
-            email: email.toLowerCase(),
-            full_name: fullName,
-            fub_person_id: searchParams.get('fub_id') ? parseInt(searchParams.get('fub_id')!) : null,
-            invited_by: searchParams.get('invited_by') || null,
-          },
-          { onConflict: 'email' },
-        );
+        .upsert(linkPayload, { onConflict: 'email' });
 
       if (clientError) {
-        console.error('Error creating client account:', clientError);
+        console.error('Error linking client account:', clientError);
       }
 
 
