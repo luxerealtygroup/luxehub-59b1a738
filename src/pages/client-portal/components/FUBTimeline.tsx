@@ -117,7 +117,9 @@ export function FUBTimeline({
           q = transactionId ? q.eq('transaction_id', transactionId) : q.is('transaction_id', null);
           if (scope === 'general') q = q.is('property_id', null);
           else if (scope !== 'all') q = q.eq('property_id', scope);
+          if (!showInternal) q = q.eq('is_internal', false);
           return q.order('created_at', { ascending: false });
+
         })(),
       ]);
 
