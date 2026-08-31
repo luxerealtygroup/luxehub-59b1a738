@@ -409,6 +409,22 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
               homeSearchCard
             )}
 
+            {/* Conditions + key dates, per portal transaction, scoped to the selected property. */}
+            {portalTransactions
+              .filter((t) =>
+                scope === 'all' ? true : scope === 'general' ? !t.property_id : t.property_id === scope,
+              )
+              .map((t) => {
+                const prop = properties.find((p) => p.id === t.property_id);
+                return (
+                  <ConditionsTimeline
+                    key={t.id}
+                    transaction={t}
+                    title={prop ? propertyLabel(prop) : undefined}
+                  />
+                );
+              })}
+
             {watchedProperties.length > 0 && (
               <div className="luxe-card p-6">
                 <p className="eyebrow">Saved / watching</p>
