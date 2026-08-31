@@ -555,6 +555,7 @@ export type Database = {
           description: string | null
           due_date: string | null
           id: string
+          is_internal: boolean
           notes: string | null
           property_id: string | null
           status: string
@@ -570,6 +571,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          is_internal?: boolean
           notes?: string | null
           property_id?: string | null
           status?: string
@@ -585,6 +587,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          is_internal?: boolean
           notes?: string | null
           property_id?: string | null
           status?: string
@@ -2405,6 +2408,7 @@ export type Database = {
           fub_push_error: string | null
           fub_pushed_at: string | null
           id: string
+          is_internal: boolean
           portal_id: string
           property_id: string | null
           uploaded_by: string | null
@@ -2419,6 +2423,7 @@ export type Database = {
           fub_push_error?: string | null
           fub_pushed_at?: string | null
           id?: string
+          is_internal?: boolean
           portal_id: string
           property_id?: string | null
           uploaded_by?: string | null
@@ -2433,6 +2438,7 @@ export type Database = {
           fub_push_error?: string | null
           fub_pushed_at?: string | null
           id?: string
+          is_internal?: boolean
           portal_id?: string
           property_id?: string | null
           uploaded_by?: string | null
@@ -2690,6 +2696,7 @@ export type Database = {
           client_account_id: string
           created_at: string
           id: string
+          is_internal: boolean
           note: string
           property_id: string | null
           stage: string
@@ -2701,6 +2708,7 @@ export type Database = {
           client_account_id: string
           created_at?: string
           id?: string
+          is_internal?: boolean
           note: string
           property_id?: string | null
           stage: string
@@ -2712,6 +2720,7 @@ export type Database = {
           client_account_id?: string
           created_at?: string
           id?: string
+          is_internal?: boolean
           note?: string
           property_id?: string | null
           stage?: string
