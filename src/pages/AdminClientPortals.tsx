@@ -45,6 +45,7 @@ type PortalRow = {
   lastMessageAt: string | null;
   lastMessageFromClient: boolean;
   transactionSides: Set<'buyer' | 'seller'>;
+  propertyCount: number;
   healthScore: number;
 };
 
@@ -109,7 +110,7 @@ export default function AdminClientPortals() {
       const inviterIds = Array.from(new Set(list.map((r) => r.invited_by).filter(Boolean))) as string[];
       const portalIds = list.map((r) => r.id);
 
-      const [profilesRes, docsRes, msgsRes, txRes] = await Promise.all([
+      const [profilesRes, docsRes, msgsRes, txRes, propsRes] = await Promise.all([
         inviterIds.length
           ? supabase.from('profiles').select('id,full_name').in('id', inviterIds)
           : Promise.resolve({ data: [] as any[] }),
@@ -125,9 +126,12 @@ export default function AdminClientPortals() {
           : Promise.resolve({ data: [] as any[] }),
         portalIds.length
           ? supabase
-              .from('client_transactions')
-              .select('client_account_id,transaction_type')
-              .in('client_account_id', portalIds)
+              .from('portal_transactions')
+              .select('portal_id,side')
+              .in('portal_id', portalIds)
+          : Promise.resolve({ data: [] as any[] }),
+        portalIds.length
+          ? supabase.from('portal_properties').select('portal_id').in('portal_id', portalIds)
           : Promise.resolve({ data: [] as any[] }),
       ]);
 
@@ -146,12 +150,17 @@ export default function AdminClientPortals() {
         }
       });
 
+      // Sides are derived from the portal's transactions: Buyer, Seller, or both.
       const txSides = new Map<string, Set<'buyer' | 'seller'>>();
       (txRes.data ?? []).forEach((t: any) => {
-        const set = txSides.get(t.client_account_id) ?? new Set();
-        if (t.transaction_type === 'buyer' || t.transaction_type === 'seller') set.add(t.transaction_type);
-        txSides.set(t.client_account_id, set);
+        const set = txSides.get(t.portal_id) ?? new Set<'buyer' | 'seller'>();
+        if (t.side === 'buy') set.add('buyer');
+        if (t.side === 'sell') set.add('seller');
+        txSides.set(t.portal_id, set);
       });
+
+      const propCount = new Map<string, number>();
+      (propsRes.data ?? []).forEach((p: any) => propCount.set(p.portal_id, (propCount.get(p.portal_id) ?? 0) + 1));
 
       const enriched: PortalRow[] = list.map((r) => {
         // Claimed = a real client signed up on it. Otherwise it's either
@@ -181,6 +190,7 @@ export default function AdminClientPortals() {
           lastMessageAt: lastAt,
           lastMessageFromClient: clientLast,
           transactionSides: txSides.get(r.id) ?? new Set(),
+          propertyCount: propCount.get(r.id) ?? 0,
           healthScore: score,
         };
       });
@@ -240,7 +250,7 @@ export default function AdminClientPortals() {
   };
 
   const transactionLabel = (sides: Set<'buyer' | 'seller'>, fallback: string | null) => {
-    if (sides.has('buyer') && sides.has('seller')) return 'Both';
+    if (sides.has('buyer') && sides.has('seller')) return 'Buyer + Seller';
     if (sides.has('buyer')) return 'Buyer';
     if (sides.has('seller')) return 'Seller';
     if (fallback) return fallback.charAt(0).toUpperCase() + fallback.slice(1);
@@ -345,9 +355,16 @@ export default function AdminClientPortals() {
                       </TableCell>
                       <TableCell className="text-muted-foreground">{r.agentName}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="text-xs">
-                          {transactionLabel(r.transactionSides, r.client_type)}
-                        </Badge>
+                        <div className="flex flex-col items-start gap-1">
+                          <Badge variant="outline" className="text-xs">
+                            {transactionLabel(r.transactionSides, r.client_type)}
+                          </Badge>
+                          {r.propertyCount > 1 && (
+                            <span className="text-[11px] text-muted-foreground">
+                              {r.propertyCount} properties
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col items-start gap-1">

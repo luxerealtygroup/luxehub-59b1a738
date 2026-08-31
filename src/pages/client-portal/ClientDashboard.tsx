@@ -20,6 +20,9 @@ import { SupportChatWidget } from '@/components/support/SupportChatWidget';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ShoppingCart as ShoppingCartIcon, Tag as TagIcon } from 'lucide-react';
 import { ClientNotificationsBell } from './components/ClientNotificationsBell';
+import { usePortalProperties, propertyLabel, derivePortalSideLabel } from '@/hooks/usePortalProperties';
+import { PropertySwitcher } from '@/components/portal/PropertySwitcher';
+import { PortalScope } from '@/lib/portalScope';
 
 interface ClientDocument {
   id: string;
@@ -78,9 +81,18 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
+  const [scope, setScope] = useState<PortalScope>('all');
   const navigate = useNavigate();
   const { toast } = useToast();
   const isPreview = !!previewPortalId;
+  const [portalId, setPortalId] = useState<string | null>(previewPortalId ?? null);
+  const {
+    properties,
+    activeProperties,
+    watchedProperties,
+    transactions: portalTransactions,
+    transactionsByProperty,
+  } = usePortalProperties(portalId);
 
   useEffect(() => {
     const checkAuthAndFetchData = async () => {
@@ -109,6 +121,7 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
       }
 
       setClientAccount(account);
+      setPortalId(account.id);
 
       // Build document query - filter by fub_person_id if available, or client_name
       let docsQuery = supabase
@@ -348,10 +361,12 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
                     clientAccountId={clientAccount.id}
                     fubDealId={selectedTransaction?.fub_deal_id ?? null}
                     transactionId={selectedTransaction?.id ?? null}
+                    scope={scope}
                   />
                   <ClientTaskList
                     clientAccountId={clientAccount.id}
                     transactionId={selectedTransaction?.id ?? null}
+                    scope={scope}
                   />
                 </div>
               </div>
@@ -364,6 +379,7 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
                     <ClientTaskList
                       clientAccountId={clientAccount.id}
                       transactionId={selectedTransaction?.id ?? null}
+                      scope={scope}
                     />
                   )}
                 </div>
@@ -380,11 +396,30 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
               </Card>
             )}
 
+            {watchedProperties.length > 0 && (
+              <div className="luxe-card p-6">
+                <p className="eyebrow">Saved / watching</p>
+                <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {watchedProperties.map((p) => (
+                    <li key={p.id} className="flex items-center gap-3 rounded-xl border border-border/60 bg-background/60 p-3">
+                      {p.cover_photo_url && (
+                        <img src={p.cover_photo_url} alt="" className="h-10 w-14 rounded-lg object-cover" />
+                      )}
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{propertyLabel(p)}</p>
+                        {p.mls_number && <p className="text-xs text-muted-foreground">MLS {p.mls_number}</p>}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {/* Quick Stats */}
             <div className="grid gap-5 md:grid-cols-3">
               {[
                 { label: 'Documents', value: String(documents.length), icon: <FileText className="h-5 w-5" />, gradient: 'from-primary/10', accent: 'text-primary' },
-                { label: 'Transactions', value: String(transactions.length), icon: <Home className="h-5 w-5" />, gradient: 'from-emerald-500/10', accent: 'text-emerald-600' },
+                { label: 'Properties', value: String(properties.length || transactions.length), icon: <Home className="h-5 w-5" />, gradient: 'from-emerald-500/10', accent: 'text-emerald-600' },
                 { label: 'Closing Date', value: activeTransaction?.closing_date ? format(new Date(activeTransaction.closing_date), 'MMM d') : 'TBD', icon: <Calendar className="h-5 w-5" />, gradient: 'from-primary/10', accent: 'text-primary' },
               ].map((s) => (
                 <div key={s.label} className="luxe-card p-6 relative overflow-hidden">
@@ -445,17 +480,18 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
           <ClientTaskList
             clientAccountId={clientAccount.id}
             transactionId={selectedTransaction?.id ?? null}
+            scope={scope}
           />
         );
 
       case 'documents':
         return clientAccount ? (
-          <PortalDocumentsPanel portalId={clientAccount.id} canManage={false} />
+          <PortalDocumentsPanel portalId={clientAccount.id} canManage={false} scope={scope} />
         ) : null;
 
       case 'photos':
         return clientAccount ? (
-          <PortalPhotosPanel portalId={clientAccount.id} canManage={false} />
+          <PortalPhotosPanel portalId={clientAccount.id} canManage={false} scope={scope} />
         ) : null;
 
       case 'messages':
@@ -523,7 +559,13 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
                   </h1>
                 </div>
               </div>
-              {transactions.length > 1 && activeTab !== 'messages' && (
+              {properties.length > 0 && activeTab !== 'messages' ? (
+                <div className="ml-auto flex items-center gap-2 min-w-0">
+                  <span className="eyebrow hidden md:inline">Property</span>
+                  <PropertySwitcher properties={properties} value={scope} onChange={setScope} />
+                  <ClientNotificationsBell onOpenTab={(tab) => setActiveTab(tab)} />
+                </div>
+              ) : transactions.length > 1 && activeTab !== 'messages' ? (
                 <div className="ml-auto flex items-center gap-2 min-w-0">
                   <span className="eyebrow hidden md:inline">Transaction</span>
                   <Select
@@ -546,8 +588,7 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
                   </Select>
                   <ClientNotificationsBell onOpenTab={(tab) => setActiveTab(tab)} />
                 </div>
-              )}
-              {!(transactions.length > 1 && activeTab !== 'messages') && (
+              ) : (
                 <div className="ml-auto">
                   <ClientNotificationsBell onOpenTab={(tab) => setActiveTab(tab)} />
                 </div>

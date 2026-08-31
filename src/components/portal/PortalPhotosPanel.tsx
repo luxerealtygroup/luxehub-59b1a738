@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { PortalScope, matchesScope, scopePropertyId } from '@/lib/portalScope';
+import { PortalProperty, propertyLabel } from '@/hooks/usePortalProperties';
 import { Check, CheckSquare, Download, ImageIcon, Loader2, Trash2, Upload, Home, Trophy, X } from 'lucide-react';
 
 type Category = 'property' | 'milestone';
@@ -15,12 +17,17 @@ interface PortalPhoto {
   file_path: string;
   caption: string | null;
   category: Category;
+  property_id: string | null;
   created_at: string;
 }
 
 interface Props {
   portalId: string;
   canManage: boolean;
+  /** Property scope: 'all', 'general' (portal-wide only) or a property id. */
+  scope?: PortalScope;
+  /** Properties on this portal, so an uploader can pick where photos belong. */
+  properties?: PortalProperty[];
 }
 
 const BUCKET = 'portal-photos';
@@ -56,7 +63,7 @@ function PhotoThumb({ path, caption, onOpen, selecting, selected, onToggle }: { 
   );
 }
 
-export function PortalPhotosPanel({ portalId, canManage: canManageProp }: Props) {
+export function PortalPhotosPanel({ portalId, canManage: canManageProp, scope = 'all', properties = [] }: Props) {
   const { isPreview } = usePortalPreview();
   const canManage = canManageProp && !isPreview;
   const { toast } = useToast();
@@ -71,6 +78,8 @@ export function PortalPhotosPanel({ portalId, canManage: canManageProp }: Props)
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [uploadTarget, setUploadTarget] = useState<string>(scopePropertyId(scope) ?? 'general');
+  useEffect(() => { setUploadTarget(scopePropertyId(scope) ?? 'general'); }, [scope]);
 
   const load = async () => {
     setLoading(true);
@@ -110,6 +119,7 @@ export function PortalPhotosPanel({ portalId, canManage: canManageProp }: Props)
           caption: cap,
           category,
           uploaded_by: user?.id,
+          property_id: uploadTarget === 'general' ? null : uploadTarget,
         });
         if (error) {
           failed++;
@@ -174,7 +184,7 @@ export function PortalPhotosPanel({ portalId, canManage: canManageProp }: Props)
 
   const deleteSelected = async () => {
     if (blockPortalWrite('Deleting photos')) return;
-    const targets = photos.filter((p) => selected.has(p.id));
+    const targets = scoped.filter((p) => selected.has(p.id));
     if (!targets.length) return;
     if (!confirm(`Delete ${targets.length} selected photo${targets.length > 1 ? 's' : ''}? This cannot be undone.`)) return;
     setBulkDeleting(true);
@@ -190,8 +200,9 @@ export function PortalPhotosPanel({ portalId, canManage: canManageProp }: Props)
     load();
   };
 
-  const property = photos.filter((p) => p.category === 'property');
-  const milestone = photos.filter((p) => p.category === 'milestone');
+  const scoped = photos.filter((p) => matchesScope(p.property_id, scope));
+  const property = scoped.filter((p) => p.category === 'property');
+  const milestone = scoped.filter((p) => p.category === 'milestone');
 
   const Section = ({ title, icon, list }: { title: string; icon: React.ReactNode; list: PortalPhoto[] }) => (
     <section className="space-y-4">
@@ -275,7 +286,21 @@ export function PortalPhotosPanel({ portalId, canManage: canManageProp }: Props)
         </div>
       )}
 
-      {canManage && !loading && photos.length > 0 && (
+      {canManage && properties.length > 0 && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground whitespace-nowrap">Upload to</span>
+          <Select value={uploadTarget} onValueChange={setUploadTarget}>
+            <SelectTrigger className="h-9 max-w-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="general">General (whole portal)</SelectItem>
+              {properties.map((p) => (
+                <SelectItem key={p.id} value={p.id}>{propertyLabel(p)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+      {canManage && !loading && scoped.length > 0 && (
         <div className="flex items-center justify-between gap-3 rounded-2xl border border-border/70 bg-card px-4 py-2.5 shadow-sm">
           {selecting ? (
             <>
@@ -283,10 +308,10 @@ export function PortalPhotosPanel({ portalId, canManage: canManageProp }: Props)
                 <span className="text-sm font-medium tabular-nums">{selected.size} selected</span>
                 <button
                   type="button"
-                  onClick={() => setSelected(selected.size === photos.length ? new Set() : new Set(photos.map((p) => p.id)))}
+                  onClick={() => setSelected(selected.size === scoped.length ? new Set() : new Set(scoped.map((p) => p.id)))}
                   className="text-xs font-medium text-primary hover:underline"
                 >
-                  {selected.size === photos.length ? 'Clear all' : 'Select all'}
+                  {selected.size === scoped.length ? 'Clear all' : 'Select all'}
                 </button>
               </div>
               <div className="flex items-center gap-2">
@@ -307,7 +332,7 @@ export function PortalPhotosPanel({ portalId, canManage: canManageProp }: Props)
             </>
           ) : (
             <>
-              <span className="text-xs text-muted-foreground">{photos.length} photo{photos.length !== 1 ? 's' : ''}</span>
+              <span className="text-xs text-muted-foreground">{scoped.length} photo{scoped.length !== 1 ? 's' : ''}</span>
               <Button variant="outline" size="sm" className="rounded-full" onClick={() => setSelecting(true)}>
                 <CheckSquare className="h-4 w-4 mr-1.5" /> Select
               </Button>
@@ -320,7 +345,7 @@ export function PortalPhotosPanel({ portalId, canManage: canManageProp }: Props)
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {[1,2,3,4].map(i => <div key={i} className="aspect-[4/3] rounded-xl bg-muted animate-pulse" />)}
         </div>
-      ) : photos.length === 0 ? (
+      ) : scoped.length === 0 ? (
         <div className="luxe-card p-12 flex flex-col items-center justify-center text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/20 mb-4">
             <ImageIcon className="h-6 w-6" />

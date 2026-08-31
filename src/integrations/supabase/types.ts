@@ -537,6 +537,13 @@ export type Database = {
             referencedRelation: "client_accounts"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "client_messages_client_account_id_fkey"
+            columns: ["client_account_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sides"
+            referencedColumns: ["portal_id"]
+          },
         ]
       }
       client_tasks: {
@@ -549,6 +556,7 @@ export type Database = {
           due_date: string | null
           id: string
           notes: string | null
+          property_id: string | null
           status: string
           title: string
           transaction_id: string | null
@@ -563,6 +571,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           notes?: string | null
+          property_id?: string | null
           status?: string
           title: string
           transaction_id?: string | null
@@ -577,6 +586,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           notes?: string | null
+          property_id?: string | null
           status?: string
           title?: string
           transaction_id?: string | null
@@ -588,6 +598,20 @@ export type Database = {
             columns: ["client_account_id"]
             isOneToOne: false
             referencedRelation: "client_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_tasks_client_account_id_fkey"
+            columns: ["client_account_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sides"
+            referencedColumns: ["portal_id"]
+          },
+          {
+            foreignKeyName: "client_tasks_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "portal_properties"
             referencedColumns: ["id"]
           },
           {
@@ -676,6 +700,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "client_accounts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_transactions_client_account_id_fkey"
+            columns: ["client_account_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sides"
+            referencedColumns: ["portal_id"]
           },
           {
             foreignKeyName: "client_transactions_deal_id_fkey"
@@ -1972,6 +2003,13 @@ export type Database = {
             referencedRelation: "client_accounts"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "notifications_portal_id_fkey"
+            columns: ["portal_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sides"
+            referencedColumns: ["portal_id"]
+          },
         ]
       }
       open_house_attendees: {
@@ -2368,6 +2406,7 @@ export type Database = {
           fub_pushed_at: string | null
           id: string
           portal_id: string
+          property_id: string | null
           uploaded_by: string | null
         }
         Insert: {
@@ -2381,6 +2420,7 @@ export type Database = {
           fub_pushed_at?: string | null
           id?: string
           portal_id: string
+          property_id?: string | null
           uploaded_by?: string | null
         }
         Update: {
@@ -2394,6 +2434,7 @@ export type Database = {
           fub_pushed_at?: string | null
           id?: string
           portal_id?: string
+          property_id?: string | null
           uploaded_by?: string | null
         }
         Relationships: [
@@ -2402,6 +2443,20 @@ export type Database = {
             columns: ["portal_id"]
             isOneToOne: false
             referencedRelation: "client_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_documents_portal_id_fkey"
+            columns: ["portal_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sides"
+            referencedColumns: ["portal_id"]
+          },
+          {
+            foreignKeyName: "portal_documents_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "portal_properties"
             referencedColumns: ["id"]
           },
         ]
@@ -2445,6 +2500,13 @@ export type Database = {
             referencedRelation: "client_accounts"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "portal_messages_portal_id_fkey"
+            columns: ["portal_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sides"
+            referencedColumns: ["portal_id"]
+          },
         ]
       }
       portal_photos: {
@@ -2455,6 +2517,7 @@ export type Database = {
           file_path: string
           id: string
           portal_id: string
+          property_id: string | null
           uploaded_by: string | null
         }
         Insert: {
@@ -2464,6 +2527,7 @@ export type Database = {
           file_path: string
           id?: string
           portal_id: string
+          property_id?: string | null
           uploaded_by?: string | null
         }
         Update: {
@@ -2473,6 +2537,7 @@ export type Database = {
           file_path?: string
           id?: string
           portal_id?: string
+          property_id?: string | null
           uploaded_by?: string | null
         }
         Relationships: [
@@ -2483,6 +2548,80 @@ export type Database = {
             referencedRelation: "client_accounts"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "portal_photos_portal_id_fkey"
+            columns: ["portal_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sides"
+            referencedColumns: ["portal_id"]
+          },
+          {
+            foreignKeyName: "portal_photos_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "portal_properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      portal_properties: {
+        Row: {
+          address: string | null
+          cover_photo_url: string | null
+          created_at: string
+          created_by: string | null
+          display_order: number
+          id: string
+          mls_number: string | null
+          notes: string | null
+          portal_id: string
+          property_type: string | null
+          role: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          cover_photo_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          display_order?: number
+          id?: string
+          mls_number?: string | null
+          notes?: string | null
+          portal_id: string
+          property_type?: string | null
+          role?: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          cover_photo_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          display_order?: number
+          id?: string
+          mls_number?: string | null
+          notes?: string | null
+          portal_id?: string
+          property_type?: string | null
+          role?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_properties_portal_id_fkey"
+            columns: ["portal_id"]
+            isOneToOne: false
+            referencedRelation: "client_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_properties_portal_id_fkey"
+            columns: ["portal_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sides"
+            referencedColumns: ["portal_id"]
+          },
         ]
       }
       portal_timeline_notes: {
@@ -2491,6 +2630,7 @@ export type Database = {
           created_at: string
           id: string
           note: string
+          property_id: string | null
           stage: string
           transaction_id: string | null
           updated_at: string
@@ -2501,6 +2641,7 @@ export type Database = {
           created_at?: string
           id?: string
           note: string
+          property_id?: string | null
           stage: string
           transaction_id?: string | null
           updated_at?: string
@@ -2511,6 +2652,7 @@ export type Database = {
           created_at?: string
           id?: string
           note?: string
+          property_id?: string | null
           stage?: string
           transaction_id?: string | null
           updated_at?: string
@@ -2525,10 +2667,103 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "portal_timeline_notes_client_account_id_fkey"
+            columns: ["client_account_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sides"
+            referencedColumns: ["portal_id"]
+          },
+          {
+            foreignKeyName: "portal_timeline_notes_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "portal_properties"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "portal_timeline_notes_transaction_id_fkey"
             columns: ["transaction_id"]
             isOneToOne: false
             referencedRelation: "client_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      portal_transactions: {
+        Row: {
+          closing_date: string | null
+          conditions_date: string | null
+          created_at: string
+          created_by: string | null
+          deal_id: string | null
+          firm_date: string | null
+          fub_deal_id: number | null
+          id: string
+          notes: string | null
+          offer_date: string | null
+          portal_id: string
+          price: number | null
+          property_id: string | null
+          side: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          closing_date?: string | null
+          conditions_date?: string | null
+          created_at?: string
+          created_by?: string | null
+          deal_id?: string | null
+          firm_date?: string | null
+          fub_deal_id?: number | null
+          id?: string
+          notes?: string | null
+          offer_date?: string | null
+          portal_id: string
+          price?: number | null
+          property_id?: string | null
+          side: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          closing_date?: string | null
+          conditions_date?: string | null
+          created_at?: string
+          created_by?: string | null
+          deal_id?: string | null
+          firm_date?: string | null
+          fub_deal_id?: number | null
+          id?: string
+          notes?: string | null
+          offer_date?: string | null
+          portal_id?: string
+          price?: number | null
+          property_id?: string | null
+          side?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_transactions_portal_id_fkey"
+            columns: ["portal_id"]
+            isOneToOne: false
+            referencedRelation: "client_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_transactions_portal_id_fkey"
+            columns: ["portal_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sides"
+            referencedColumns: ["portal_id"]
+          },
+          {
+            foreignKeyName: "portal_transactions_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "portal_properties"
             referencedColumns: ["id"]
           },
         ]
@@ -3369,7 +3604,14 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      portal_sides: {
+        Row: {
+          has_buy: boolean | null
+          has_sell: boolean | null
+          portal_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       check_table_grants: {

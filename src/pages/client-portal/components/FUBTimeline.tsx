@@ -9,6 +9,8 @@ import { blockPortalWrite, usePortalPreview } from '@/hooks/usePortalPreview';
 import { Calendar, Check, Loader2, Plus, Circle } from 'lucide-react';
 import { format } from 'date-fns';
 
+import { PortalScope, scopePropertyId } from '@/lib/portalScope';
+
 interface StageEntry {
   stage: string;
   reachedAt: string | null;
@@ -31,6 +33,8 @@ interface FUBTimelineProps {
   fubDealId?: number | null;
   /** Scope timeline notes to a specific transaction. */
   transactionId?: string | null;
+  /** Property scope: 'all', 'general' (portal-wide only) or a property id. */
+  scope?: PortalScope;
 }
 
 // Canonical ordered stage buckets. FUB stage names are matched case-insensitively
@@ -75,6 +79,7 @@ export function FUBTimeline({
   canAddNotes = false,
   fubDealId = null,
   transactionId = null,
+  scope = 'all',
 }: FUBTimelineProps) {
   const { toast } = useToast();
   const [stages, setStages] = useState<StageEntry[]>([]);
@@ -94,19 +99,16 @@ export function FUBTimeline({
         fubPersonId
           ? followUpBossApi.getPersonDeals(fubPersonId)
           : Promise.resolve({ success: true, data: { deals: [] } } as any),
-        (transactionId
-          ? supabase
-              .from('portal_timeline_notes')
-              .select('*')
-              .eq('client_account_id', clientAccountId)
-              .eq('transaction_id', transactionId)
-              .order('created_at', { ascending: false })
-          : supabase
-              .from('portal_timeline_notes')
-              .select('*')
-              .eq('client_account_id', clientAccountId)
-              .is('transaction_id', null)
-              .order('created_at', { ascending: false })),
+        (() => {
+          let q = supabase
+            .from('portal_timeline_notes')
+            .select('*')
+            .eq('client_account_id', clientAccountId);
+          q = transactionId ? q.eq('transaction_id', transactionId) : q.is('transaction_id', null);
+          if (scope === 'general') q = q.is('property_id', null);
+          else if (scope !== 'all') q = q.eq('property_id', scope);
+          return q.order('created_at', { ascending: false });
+        })(),
       ]);
 
       if (cancelled) return;
@@ -129,7 +131,7 @@ export function FUBTimeline({
     return () => {
       cancelled = true;
     };
-  }, [fubPersonId, clientAccountId, fubDealId, transactionId]);
+  }, [fubPersonId, clientAccountId, fubDealId, transactionId, scope]);
 
   const { isPreview } = usePortalPreview();
   const canAddNotesHere = canAddNotes && !isPreview;
@@ -162,6 +164,7 @@ export function FUBTimeline({
         stage,
         note: text,
         transaction_id: transactionId,
+        property_id: scopePropertyId(scope),
       })
       .select()
       .single();
