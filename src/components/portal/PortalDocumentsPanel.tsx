@@ -243,22 +243,33 @@ export function PortalDocumentsPanel({ portalId, canManage: canManageProp, scope
             return (
               <div
                 key={d.id}
-                className="group flex items-center gap-3 rounded-2xl border border-border/70 bg-card p-4 shadow-sm hover:shadow-luxe-hover hover:border-primary/30 hover:-translate-y-0.5 transition-all"
+                className={`group flex items-center gap-3 rounded-2xl border p-4 shadow-sm hover:shadow-luxe-hover hover:-translate-y-0.5 transition-all ${
+                  d.is_internal
+                    ? 'border-dashed border-amber-500/50 bg-muted/50'
+                    : 'border-border/70 bg-card hover:border-primary/30'
+                }`}
               >
-                <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ring-1 ${tone}`}>
+                <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ring-1 ${tone} ${d.is_internal ? 'opacity-60' : ''}`}>
                   {icon}
                 </div>
                 <div className="min-w-0 flex-1">
                   <button
                     onClick={() => openPreview(d)}
-                    className="text-sm font-medium text-foreground text-left truncate hover:text-primary transition-colors block w-full"
+                    className={`text-sm font-medium text-left truncate hover:text-primary transition-colors block w-full ${d.is_internal ? 'text-muted-foreground' : 'text-foreground'}`}
                     title={d.file_name}
                   >
                     {d.file_name}
                   </button>
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    {format(new Date(d.created_at), 'MMM d, yyyy')}
-                    {d.file_size ? ` · ${fmtSize(d.file_size)}` : ''}
+                  <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
+                    <span>
+                      {format(new Date(d.created_at), 'MMM d, yyyy')}
+                      {d.file_size ? ` · ${fmtSize(d.file_size)}` : ''}
+                    </span>
+                    {d.is_internal && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 text-amber-700 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                        <Lock className="h-3 w-3" /> Internal
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-0.5 shrink-0 opacity-70 group-hover:opacity-100 transition-opacity">
@@ -269,12 +280,24 @@ export function PortalDocumentsPanel({ portalId, canManage: canManageProp, scope
                     <Download className="h-4 w-4" />
                   </Button>
                   {canManage && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-9 w-9 rounded-full hover:bg-amber-500/10"
+                      onClick={() => toggleInternal(d)}
+                      title={d.is_internal ? 'Make visible to client' : 'Mark internal (agent-only)'}
+                    >
+                      {d.is_internal ? <EyeOff className="h-4 w-4 text-amber-600" /> : <Lock className="h-4 w-4" />}
+                    </Button>
+                  )}
+                  {canManage && (
                     <Button size="icon" variant="ghost" className="h-9 w-9 rounded-full hover:bg-destructive/10" onClick={() => del(d)} title="Delete">
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   )}
                 </div>
               </div>
+
             );
           })}
         </div>
