@@ -45,20 +45,24 @@ const ClientSignup = () => {
         throw new Error('An account with this email already exists. Please sign in instead.');
       }
 
-      // Create client account record
+      // Link (or create) the client account record for this signup
       const { error: clientError } = await supabase
         .from('client_accounts')
-        .insert({
-          user_id: authData.user.id,
-          email: email.toLowerCase(),
-          full_name: fullName,
-          fub_person_id: searchParams.get('fub_id') ? parseInt(searchParams.get('fub_id')!) : null,
-          invited_by: searchParams.get('invited_by') || null
-        });
+        .upsert(
+          {
+            user_id: authData.user.id,
+            email: email.toLowerCase(),
+            full_name: fullName,
+            fub_person_id: searchParams.get('fub_id') ? parseInt(searchParams.get('fub_id')!) : null,
+            invited_by: searchParams.get('invited_by') || null,
+          },
+          { onConflict: 'email' },
+        );
 
       if (clientError) {
         console.error('Error creating client account:', clientError);
       }
+
 
       toast({
         title: "Check your email",
