@@ -133,15 +133,14 @@ export function AgentPortalDialog({
         saved = data as ClientAccountRow;
       }
     } else {
-      // For a brand-new invitee we don't yet have an auth.users row, so the
-      // account is upserted after they accept the magic link. We store a
-      // provisional row keyed to the inviting agent so notes/tasks can attach
-      // right away; user_id gets patched by handle_new_user when they sign up.
+      // Brand-new invitee: no auth.users row yet, so the portal is created
+      // pending (user_id NULL) and gets linked when the client signs up.
       const { data, error } = await supabase
         .from('client_accounts')
-        .insert({ ...payload, user_id: user.id })
+        .insert({ ...payload, user_id: null })
         .select()
         .single();
+
       if (error) {
         toast({ title: 'Save failed', description: error.message, variant: 'destructive' });
       } else {
