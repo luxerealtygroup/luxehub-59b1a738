@@ -72,6 +72,8 @@ export function AgentPortalDialog({
   const [saving, setSaving] = useState(false);
   const [sendingInvite, setSendingInvite] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [agents, setAgents] = useState<{ id: string; full_name: string | null }[]>([]);
+  const [assignedAgentId, setAssignedAgentId] = useState<string>('');
 
   const lookupKey = useMemo(
     () => (form.email || clientEmail || '').trim().toLowerCase(),
@@ -87,6 +89,7 @@ export function AgentPortalDialog({
       else if (fubPersonId) query = query.eq('fub_person_id', fubPersonId);
       const { data } = await query.maybeSingle();
       setAccount((data as ClientAccountRow) ?? null);
+      setAssignedAgentId((data as ClientAccountRow)?.invited_by || user?.id || '');
       if (data) {
         setForm((f) => ({
           ...f,
@@ -101,7 +104,19 @@ export function AgentPortalDialog({
       setLoading(false);
     };
     run();
-  }, [open, lookupKey, fubPersonId]);
+  }, [open, lookupKey, fubPersonId, user?.id]);
+
+  // Admins can reassign a portal to another agent.
+  useEffect(() => {
+    if (!open || !isAdmin) return;
+    supabase.rpc('get_team_agents').then(({ data }) => {
+      setAgents(
+        ((data as any[]) ?? [])
+          .map((a) => ({ id: a.id as string, full_name: (a.full_name as string) ?? a.email }))
+          .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '')),
+      );
+    });
+  }, [open, isAdmin]);
 
   const saveAccount = async (): Promise<ClientAccountRow | null> => {
     if (!user) return null;
@@ -117,7 +132,9 @@ export function AgentPortalDialog({
       fub_person_id: form.fub_person_id ? Number(form.fub_person_id) : null,
       drive_folder_id: form.drive_folder_id.trim() || null,
       slack_channel_id: form.slack_channel_id.trim() || null,
-      invited_by: user.id,
+      // Never silently steal ownership: keep the existing agent unless an admin
+      // explicitly reassigns the portal.
+      invited_by: assignedAgentId || account?.invited_by || user.id,
     };
     let saved: ClientAccountRow | null = null;
     if (account) {
@@ -293,6 +310,22 @@ export function AgentPortalDialog({
                     onClear={() => setForm({ ...form, fub_person_id: '' })}
                   />
                 </div>
+                {isAdmin && (
+                  <div className="space-y-1">
+                    <Label>Assigned agent</Label>
+                    <Select value={assignedAgentId} onValueChange={setAssignedAgentId}>
+                      <SelectTrigger><SelectValue placeholder="Select agent" /></SelectTrigger>
+                      <SelectContent>
+                        {agents.map((a) => (
+                          <SelectItem key={a.id} value={a.id}>{a.full_name || 'Unnamed'}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Controls who owns this portal and receives client messages.
+                    </p>
+                  </div>
+                )}
                 <div className="space-y-1">
                   {canAccessCRMConnections && (
                     <>
