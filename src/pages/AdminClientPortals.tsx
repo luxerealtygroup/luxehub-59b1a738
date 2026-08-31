@@ -314,12 +314,37 @@ export default function AdminClientPortals() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {r.status === 'active' ? (
-                          <Badge className="bg-green-500/15 text-green-500 border-green-500/30">Active</Badge>
-                        ) : (
-                          <Badge className="bg-amber-500/15 text-amber-500 border-amber-500/30">Invited</Badge>
-                        )}
+                        <div className="flex flex-col items-start gap-1">
+                          {r.status === 'active' ? (
+                            <Badge className="bg-green-500/15 text-green-500 border-green-500/30">Active</Badge>
+                          ) : r.status === 'invited' ? (
+                            <Badge className="bg-amber-500/15 text-amber-500 border-amber-500/30">
+                              Invited {r.invited_at ? format(new Date(r.invited_at), 'MMM d') : ''}
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-destructive/15 text-destructive border-destructive/30">
+                              Never invited
+                            </Badge>
+                          )}
+                          {r.status !== 'active' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-1 text-xs text-muted-foreground hover:text-primary"
+                              disabled={resendingId === r.id}
+                              onClick={() => handleResend(r)}
+                            >
+                              {resendingId === r.id ? (
+                                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                              ) : (
+                                <Send className="mr-1 h-3 w-3" />
+                              )}
+                              {r.status === 'invited' ? 'Resend invite' : 'Send invite'}
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
+
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <span className={`inline-block h-2.5 w-2.5 rounded-full ${h.dot}`} />
