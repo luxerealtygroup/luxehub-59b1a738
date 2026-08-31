@@ -63,6 +63,9 @@ export function PortalPhotosPanel({ portalId, canManage }: Props) {
   const [category, setCategory] = useState<Category>('property');
   const [caption, setCaption] = useState('');
   const [lightbox, setLightbox] = useState<string | null>(null);
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const load = async () => {
@@ -122,6 +125,36 @@ export function PortalPhotosPanel({ portalId, canManage }: Props) {
     await supabase.storage.from(BUCKET).remove([p.file_path]);
     const { error } = await supabase.from('portal_photos').delete().eq('id', p.id);
     if (error) toast({ title: 'Delete failed', description: error.message, variant: 'destructive' });
+    load();
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const exitSelecting = () => {
+    setSelecting(false);
+    setSelected(new Set());
+  };
+
+  const deleteSelected = async () => {
+    const targets = photos.filter((p) => selected.has(p.id));
+    if (!targets.length) return;
+    if (!confirm(`Delete ${targets.length} selected photo${targets.length > 1 ? 's' : ''}? This cannot be undone.`)) return;
+    setBulkDeleting(true);
+    await supabase.storage.from(BUCKET).remove(targets.map((p) => p.file_path));
+    const { error } = await supabase.from('portal_photos').delete().in('id', targets.map((p) => p.id));
+    setBulkDeleting(false);
+    if (error) {
+      toast({ title: 'Delete failed', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: `Deleted ${targets.length} photo${targets.length > 1 ? 's' : ''}` });
+      exitSelecting();
+    }
     load();
   };
 
