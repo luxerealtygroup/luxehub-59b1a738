@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { FileText, Download, FolderOpen, Home, Calendar, CheckSquare, MessageCircle, ShoppingCart, Tag, ImageIcon } from 'lucide-react';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 import { TransactionTimeline } from './components/TransactionTimeline';
 import { ClientTaskList } from './components/ClientTaskList';
 import { PortalChatPanel } from '@/components/portal/PortalChatPanel';
