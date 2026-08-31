@@ -17,6 +17,7 @@ import {
   Settings,
   Eye,
   Send,
+  AlertTriangle,
 } from 'lucide-react';
 import { AgentPortalDialog } from '@/components/AgentPortalDialog';
 import { useUserRole } from '@/hooks/useUserRole';
