@@ -16,6 +16,7 @@ import {
   usePortalProperties,
 } from '@/hooks/usePortalProperties';
 import { blockPortalWrite } from '@/hooks/usePortalPreview';
+import { PortalConditionsEditor } from '@/components/portal/PortalConditionsEditor';
 
 interface Props {
   portalId: string;
@@ -240,8 +241,10 @@ export function PortalPropertiesManager({ portalId }: Props) {
                     </div>
                     {([
                       ['offer_date', 'Offer'],
+                      ['deposit_due_date', 'Deposit due'],
                       ['conditions_date', 'Conditions'],
                       ['firm_date', 'Firm'],
+                      ['requisition_date', 'Requisition'],
                       ['closing_date', 'Closing'],
                     ] as const).map(([field, label]) => (
                       <div key={field} className="space-y-1">
@@ -254,6 +257,9 @@ export function PortalPropertiesManager({ portalId }: Props) {
                         />
                       </div>
                     ))}
+                    <div className="sm:col-span-4">
+                      <PortalConditionsEditor portalId={portalId} transactionId={t.id} />
+                    </div>
                     <div className="sm:col-span-4 flex justify-end">
                       <Button size="sm" variant="ghost" className="gap-2" onClick={() => removeTransaction(t.id)}>
                         <Trash2 className="h-3.5 w-3.5 text-destructive" /> Remove transaction

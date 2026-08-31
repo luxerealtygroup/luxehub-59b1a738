@@ -10,6 +10,7 @@ import { FileText, Download, FolderOpen, Home, Calendar, CheckSquare, MessageCir
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { TransactionTimeline } from './components/TransactionTimeline';
+import { ConditionsTimeline } from './components/ConditionsTimeline';
 import { ClientTaskList } from './components/ClientTaskList';
 import { PortalChatPanel } from '@/components/portal/PortalChatPanel';
 import { PropertyDetails } from './components/PropertyDetails';
@@ -408,6 +409,22 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
             ) : (
               homeSearchCard
             )}
+
+            {/* Conditions + key dates, per portal transaction, scoped to the selected property. */}
+            {portalTransactions
+              .filter((t) =>
+                scope === 'all' ? true : scope === 'general' ? !t.property_id : t.property_id === scope,
+              )
+              .map((t) => {
+                const prop = properties.find((p) => p.id === t.property_id);
+                return (
+                  <ConditionsTimeline
+                    key={t.id}
+                    transaction={t}
+                    title={prop ? propertyLabel(prop) : undefined}
+                  />
+                );
+              })}
 
             {watchedProperties.length > 0 && (
               <div className="luxe-card p-6">

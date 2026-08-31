@@ -17,6 +17,7 @@ import {
   Settings,
   Eye,
   Send,
+  AlertTriangle,
 } from 'lucide-react';
 import { AgentPortalDialog } from '@/components/AgentPortalDialog';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -24,6 +25,7 @@ import { Link } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { sendPortalInvite } from '@/lib/inviteLinks';
 import { PortalSuggestionScanner } from '@/components/portal/PortalSuggestionScanner';
+import { daysUntil, isSettled } from '@/lib/portalConditions';
 
 
 type PortalRow = {
@@ -48,6 +50,10 @@ type PortalRow = {
   transactionSides: Set<'buyer' | 'seller'>;
   propertyCount: number;
   healthScore: number;
+  /** Outstanding conditions whose due date has already passed. */
+  overdueConditions: number;
+  /** Outstanding conditions due within the next 3 days. */
+  dueSoonConditions: number;
 };
 
 type FilterKey =
@@ -57,7 +63,8 @@ type FilterKey =
   | 'missing_slack'
   | 'missing_docs'
   | 'missing_fub'
-  | 'unread';
+  | 'unread'
+  | 'conditions_risk';
 
 
 export default function AdminClientPortals() {
@@ -111,7 +118,7 @@ export default function AdminClientPortals() {
       const inviterIds = Array.from(new Set(list.map((r) => r.invited_by).filter(Boolean))) as string[];
       const portalIds = list.map((r) => r.id);
 
-      const [profilesRes, docsRes, msgsRes, txRes, propsRes] = await Promise.all([
+      const [profilesRes, docsRes, msgsRes, txRes, propsRes, condRes] = await Promise.all([
         inviterIds.length
           ? supabase.from('profiles').select('id,full_name').in('id', inviterIds)
           : Promise.resolve({ data: [] as any[] }),
@@ -133,6 +140,12 @@ export default function AdminClientPortals() {
           : Promise.resolve({ data: [] as any[] }),
         portalIds.length
           ? supabase.from('portal_properties').select('portal_id').in('portal_id', portalIds)
+          : Promise.resolve({ data: [] as any[] }),
+        portalIds.length
+          ? supabase
+              .from('portal_transaction_conditions')
+              .select('portal_id,due_date,status')
+              .in('portal_id', portalIds)
           : Promise.resolve({ data: [] as any[] }),
       ]);
 
@@ -162,6 +175,16 @@ export default function AdminClientPortals() {
 
       const propCount = new Map<string, number>();
       (propsRes.data ?? []).forEach((p: any) => propCount.set(p.portal_id, (propCount.get(p.portal_id) ?? 0) + 1));
+
+      // Condition warnings are for the agent only — the client is never notified.
+      const overdueCond = new Map<string, number>();
+      const soonCond = new Map<string, number>();
+      (condRes.data ?? []).forEach((c: any) => {
+        const n = daysUntil(c.due_date);
+        if (isSettled(c.status) || c.status === 'not_met' || n === null) return;
+        if (n < 0) overdueCond.set(c.portal_id, (overdueCond.get(c.portal_id) ?? 0) + 1);
+        else if (n <= 3) soonCond.set(c.portal_id, (soonCond.get(c.portal_id) ?? 0) + 1);
+      });
 
       const enriched: PortalRow[] = list.map((r) => {
         // Claimed = a real client signed up on it. Otherwise it's either
@@ -193,6 +216,8 @@ export default function AdminClientPortals() {
           transactionSides: txSides.get(r.id) ?? new Set(),
           propertyCount: propCount.get(r.id) ?? 0,
           healthScore: score,
+          overdueConditions: overdueCond.get(r.id) ?? 0,
+          dueSoonConditions: soonCond.get(r.id) ?? 0,
         };
       });
 
@@ -216,6 +241,7 @@ export default function AdminClientPortals() {
       if (health === 'missing_docs' && r.docCount > 0) return false;
       if (health === 'missing_fub' && r.fub_person_id) return false;
       if (health === 'unread' && !(r.lastMessageAt && r.lastMessageFromClient)) return false;
+      if (health === 'conditions_risk' && !(r.overdueConditions || r.dueSoonConditions)) return false;
       return true;
     });
   }, [rows, search, health]);
@@ -230,6 +256,7 @@ export default function AdminClientPortals() {
       missing_docs: rows.filter((r) => r.docCount === 0).length,
       missing_fub: rows.filter((r) => !r.fub_person_id).length,
       unread: rows.filter((r) => r.lastMessageAt && r.lastMessageFromClient).length,
+      conditions_risk: rows.filter((r) => r.overdueConditions || r.dueSoonConditions).length,
     };
   }, [rows]);
 
@@ -242,6 +269,7 @@ export default function AdminClientPortals() {
     { key: 'missing_docs', label: 'No Documents', count: stats.missing_docs },
     { key: 'missing_fub', label: 'No FUB Linked', count: stats.missing_fub },
     { key: 'unread', label: 'Unread Messages', count: stats.unread },
+    { key: 'conditions_risk', label: 'Conditions Due', count: stats.conditions_risk },
   ];
 
   const healthMeta = (score: number) => {
@@ -370,6 +398,21 @@ export default function AdminClientPortals() {
                       <TableCell>
                         <div className="font-medium">{r.full_name || '—'}</div>
                         <div className="text-xs text-muted-foreground">{r.email}</div>
+                        {(r.overdueConditions > 0 || r.dueSoonConditions > 0) && (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {r.overdueConditions > 0 && (
+                              <Badge className="bg-destructive text-destructive-foreground border-destructive text-[10px] gap-1">
+                                <AlertTriangle className="h-3 w-3" />
+                                {r.overdueConditions} condition{r.overdueConditions > 1 ? 's' : ''} overdue
+                              </Badge>
+                            )}
+                            {r.dueSoonConditions > 0 && (
+                              <Badge className="bg-amber-500/15 text-amber-600 border-amber-500/30 text-[10px]">
+                                {r.dueSoonConditions} due in 3 days
+                              </Badge>
+                            )}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell className="text-muted-foreground">{r.agentName}</TableCell>
                       <TableCell>
