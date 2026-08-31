@@ -77,6 +77,10 @@ interface ClientDashboardProps {
 
 const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
   const [documents, setDocuments] = useState<ClientDocument[]>([]);
+  // Count of the documents the Documents tab actually shows (portal_documents,
+  // client-visible only) so the Overview stat can't disagree with the tab.
+  const [portalDocCount, setPortalDocCount] = useState(0);
+
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [clientAccount, setClientAccount] = useState<ClientAccount | null>(null);
   const [loading, setLoading] = useState(true);
@@ -138,7 +142,7 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
       }
 
       // Fetch data in parallel
-      const [docsResult, transactionsResult, pipelineResult] = await Promise.all([
+      const [docsResult, transactionsResult, pipelineResult, portalDocsResult] = await Promise.all([
         docsQuery,
         supabase
           .from('client_transactions')
@@ -149,6 +153,11 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
           .from('pipeline_clients')
           .select('id, client_type, property_address, property_interest, expected_pending_date, projected_sale_amount, status, created_at')
           .eq('email', account.email.toLowerCase()),
+        supabase
+          .from('portal_documents')
+          .select('id', { count: 'exact', head: true })
+          .eq('portal_id', account.id)
+          .eq('is_internal', false),
       ]);
 
       if (docsResult.error) {
@@ -156,6 +165,9 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
       } else {
         setDocuments(docsResult.data || []);
       }
+
+      setPortalDocCount(portalDocsResult.count ?? 0);
+
 
       if (transactionsResult.error) {
         console.error('Error fetching transactions:', transactionsResult.error);
@@ -419,7 +431,7 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
             {/* Quick Stats */}
             <div className="grid gap-5 md:grid-cols-3">
               {[
-                { label: 'Documents', value: String(documents.length), icon: <FileText className="h-5 w-5" />, gradient: 'from-primary/10', accent: 'text-primary' },
+                { label: 'Documents', value: String(portalDocCount), icon: <FileText className="h-5 w-5" />, gradient: 'from-primary/10', accent: 'text-primary' },
                 { label: 'Properties', value: homeSearch ? 'Searching' : String(properties.length || transactions.length), icon: <Home className="h-5 w-5" />, gradient: 'from-emerald-500/10', accent: 'text-emerald-600' },
                 { label: 'Closing Date', value: activeTransaction?.closing_date ? format(new Date(activeTransaction.closing_date), 'MMM d') : 'TBD', icon: <Calendar className="h-5 w-5" />, gradient: 'from-primary/10', accent: 'text-primary' },
               ].map((s) => (

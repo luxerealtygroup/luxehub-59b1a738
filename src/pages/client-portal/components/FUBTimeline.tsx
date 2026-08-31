@@ -4,9 +4,12 @@ import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { blockPortalWrite, usePortalPreview } from '@/hooks/usePortalPreview';
-import { Calendar, Check, Loader2, Plus, Circle } from 'lucide-react';
+import { Calendar, Check, Loader2, Lock, Plus, Circle } from 'lucide-react';
+
 import { format } from 'date-fns';
 
 import { PortalScope, scopePropertyId } from '@/lib/portalScope';
@@ -23,7 +26,9 @@ interface TimelineNote {
   note: string;
   created_at: string;
   user_id: string;
+  is_internal?: boolean;
 }
+
 
 interface FUBTimelineProps {
   fubPersonId: number | null | undefined;
@@ -82,12 +87,20 @@ export function FUBTimeline({
   scope = 'all',
 }: FUBTimelineProps) {
   const { toast } = useToast();
+  const { isPreview } = usePortalPreview();
   const [stages, setStages] = useState<StageEntry[]>([]);
   const [notes, setNotes] = useState<TimelineNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<Record<string, string>>({});
+  // Stage notes read as agent notes, so they default to internal (agent-only).
+  const [draftInternal, setDraftInternal] = useState<Record<string, boolean>>({});
   const [savingStage, setSavingStage] = useState<string | null>(null);
+  // Internal notes are blocked for clients by RLS; the preview runs on the
+  // agent's session, so filter them out to keep the preview accurate.
+  const showInternal = canAddNotes && !isPreview;
+
+
 
   useEffect(() => {
     let cancelled = false;
@@ -107,7 +120,9 @@ export function FUBTimeline({
           q = transactionId ? q.eq('transaction_id', transactionId) : q.is('transaction_id', null);
           if (scope === 'general') q = q.is('property_id', null);
           else if (scope !== 'all') q = q.eq('property_id', scope);
+          if (!showInternal) q = q.eq('is_internal', false);
           return q.order('created_at', { ascending: false });
+
         })(),
       ]);
 
@@ -131,9 +146,8 @@ export function FUBTimeline({
     return () => {
       cancelled = true;
     };
-  }, [fubPersonId, clientAccountId, fubDealId, transactionId, scope]);
+  }, [fubPersonId, clientAccountId, fubDealId, transactionId, scope, showInternal]);
 
-  const { isPreview } = usePortalPreview();
   const canAddNotesHere = canAddNotes && !isPreview;
 
   const currentStageName = stages[stages.length - 1]?.stage ?? null;
@@ -145,6 +159,23 @@ export function FUBTimeline({
     }
     return map;
   }, [notes]);
+
+  const isDraftInternal = (stage: string) => draftInternal[stage] ?? true;
+
+  const toggleNoteInternal = async (note: TimelineNote) => {
+    if (blockPortalWrite('Changing note visibility')) return;
+    const next = !note.is_internal;
+    const { error } = await supabase
+      .from('portal_timeline_notes')
+      .update({ is_internal: next })
+      .eq('id', note.id);
+    if (error) {
+      toast({ title: 'Could not change visibility', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setNotes((prev) => prev.map((n) => (n.id === note.id ? { ...n, is_internal: next } : n)));
+    toast({ title: next ? 'Marked internal' : 'Now visible to client' });
+  };
 
   const addNote = async (stage: string) => {
     if (blockPortalWrite('Adding timeline notes')) return;
@@ -165,6 +196,7 @@ export function FUBTimeline({
         note: text,
         transaction_id: transactionId,
         property_id: scopePropertyId(scope),
+        is_internal: isDraftInternal(stage),
       })
       .select()
       .single();
@@ -175,7 +207,9 @@ export function FUBTimeline({
     }
     setNotes([data as TimelineNote, ...notes]);
     setDraft({ ...draft, [stage]: '' });
+    setDraftInternal({ ...draftInternal, [stage]: true });
   };
+
 
   return (
     <Card className="luxe-card">
@@ -274,12 +308,32 @@ export function FUBTimeline({
                               {stageNotes.map((n) => (
                                 <div
                                   key={n.id}
-                                  className="rounded-lg border border-border/60 bg-muted/40 px-3 py-2 text-sm"
+                                  className={`rounded-lg border px-3 py-2 text-sm ${
+                                    n.is_internal
+                                      ? 'border-dashed border-amber-500/50 bg-muted/60'
+                                      : 'border-border/60 bg-muted/40'
+                                  }`}
                                 >
-                                  <p className="whitespace-pre-wrap">{n.note}</p>
-                                  <p className="text-[10px] text-muted-foreground mt-1">
-                                    {format(new Date(n.created_at), 'MMM d, yyyy · h:mm a')}
-                                  </p>
+                                  <p className={`whitespace-pre-wrap ${n.is_internal ? 'text-muted-foreground' : ''}`}>{n.note}</p>
+                                  <div className="mt-1 flex items-center gap-2 flex-wrap">
+                                    <p className="text-[10px] text-muted-foreground">
+                                      {format(new Date(n.created_at), 'MMM d, yyyy · h:mm a')}
+                                    </p>
+                                    {n.is_internal && (
+                                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 text-amber-700 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                                        <Lock className="h-3 w-3" /> Internal
+                                      </span>
+                                    )}
+                                    {canAddNotesHere && (
+                                      <button
+                                        type="button"
+                                        onClick={() => toggleNoteInternal(n)}
+                                        className="text-[10px] underline text-muted-foreground hover:text-foreground"
+                                      >
+                                        {n.is_internal ? 'Make visible to client' : 'Mark internal'}
+                                      </button>
+                                    )}
+                                  </div>
                                 </div>
                               ))}
                             </div>
@@ -295,23 +349,42 @@ export function FUBTimeline({
                                 rows={2}
                                 className="text-sm rounded-lg"
                               />
-                              <Button
-                                size="sm"
-                                onClick={() => addNote(entry.stage)}
-                                disabled={
-                                  savingStage === entry.stage ||
-                                  !(draft[entry.stage] || '').trim()
-                                }
-                              >
-                                {savingStage === entry.stage ? (
-                                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                ) : (
-                                  <Plus className="h-3 w-3 mr-1" />
-                                )}
-                                Add note
-                              </Button>
+                              <div className="flex items-center justify-between gap-3 flex-wrap">
+                                <div className="flex items-center gap-2">
+                                  <Switch
+                                    id={`note-internal-${entry.stage}`}
+                                    checked={isDraftInternal(entry.stage)}
+                                    onCheckedChange={(v) =>
+                                      setDraftInternal({ ...draftInternal, [entry.stage]: v })
+                                    }
+                                  />
+                                  <Label
+                                    htmlFor={`note-internal-${entry.stage}`}
+                                    className="text-xs cursor-pointer flex items-center gap-1"
+                                  >
+                                    <Lock className="h-3 w-3" />
+                                    {isDraftInternal(entry.stage) ? 'Internal (agent-only)' : 'Visible to client'}
+                                  </Label>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  onClick={() => addNote(entry.stage)}
+                                  disabled={
+                                    savingStage === entry.stage ||
+                                    !(draft[entry.stage] || '').trim()
+                                  }
+                                >
+                                  {savingStage === entry.stage ? (
+                                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                  ) : (
+                                    <Plus className="h-3 w-3 mr-1" />
+                                  )}
+                                  Add note
+                                </Button>
+                              </div>
                             </div>
                           )}
+
                         </div>
                       </li>
                     );

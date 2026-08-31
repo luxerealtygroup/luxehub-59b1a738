@@ -3,8 +3,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { blockPortalWrite, usePortalPreview } from '@/hooks/usePortalPreview';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Download, Eye, FileText, File, Image as ImageIcon, Loader2, Trash2, Upload, X } from 'lucide-react';
+import { Download, Eye, EyeOff, FileText, File, Image as ImageIcon, Loader2, Lock, Trash2, Upload, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PortalScope, matchesScope, scopePropertyId } from '@/lib/portalScope';
@@ -17,8 +19,10 @@ interface PortalDocument {
   file_type: string | null;
   file_size: number | null;
   property_id: string | null;
+  is_internal: boolean;
   created_at: string;
 }
+
 
 interface Props {
   portalId: string;
@@ -61,7 +65,12 @@ export function PortalDocumentsPanel({ portalId, canManage: canManageProp, scope
   const inputRef = useRef<HTMLInputElement>(null);
   // Where new uploads land: defaults to the property currently being viewed.
   const [uploadTarget, setUploadTarget] = useState<string>(scopePropertyId(scope) ?? 'general');
+  const [uploadInternal, setUploadInternal] = useState(false);
   useEffect(() => { setUploadTarget(scopePropertyId(scope) ?? 'general'); }, [scope]);
+  // Internal (agent-only) rows are blocked by RLS for real clients; preview mode
+  // runs on the agent's session, so filter them out here to stay accurate.
+  const showInternal = canManageProp && !isPreview;
+
 
   const load = async () => {
     setLoading(true);
@@ -99,6 +108,8 @@ export function PortalDocumentsPanel({ portalId, canManage: canManageProp, scope
         file_size: file.size,
         uploaded_by: user?.id,
         property_id: uploadTarget === 'general' ? null : uploadTarget,
+        is_internal: uploadInternal,
+
       }).select('id').single();
       if (error) toast({ title: 'Record failed', description: error.message, variant: 'destructive' });
 
@@ -147,24 +158,49 @@ export function PortalDocumentsPanel({ portalId, canManage: canManageProp, scope
     load();
   };
 
-  const visibleDocs = docs.filter((d) => matchesScope(d.property_id, scope));
+  const toggleInternal = async (d: PortalDocument) => {
+    if (blockPortalWrite('Changing document visibility')) return;
+    const next = !d.is_internal;
+    const { error } = await supabase.from('portal_documents').update({ is_internal: next }).eq('id', d.id);
+    if (error) {
+      toast({ title: 'Could not change visibility', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setDocs((prev) => prev.map((x) => (x.id === d.id ? { ...x, is_internal: next } : x)));
+    toast({ title: next ? 'Marked internal' : 'Now visible to client' });
+  };
+
+  const visibleDocs = docs.filter(
+    (d) => matchesScope(d.property_id, scope) && (showInternal || !d.is_internal),
+  );
 
   return (
     <div className="space-y-4">
-      {canManage && properties.length > 0 && (
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground whitespace-nowrap">Upload to</span>
-          <Select value={uploadTarget} onValueChange={setUploadTarget}>
-            <SelectTrigger className="h-9 max-w-xs"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="general">General (whole portal)</SelectItem>
-              {properties.map((p) => (
-                <SelectItem key={p.id} value={p.id}>{propertyLabel(p)}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      {canManage && (
+        <div className="flex flex-wrap items-center gap-3">
+          {properties.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">Upload to</span>
+              <Select value={uploadTarget} onValueChange={setUploadTarget}>
+                <SelectTrigger className="h-9 max-w-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="general">General (whole portal)</SelectItem>
+                  {properties.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{propertyLabel(p)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          <div className="flex items-center gap-2 rounded-full border border-border/70 px-3 py-1.5">
+            <Switch id="doc-internal" checked={uploadInternal} onCheckedChange={setUploadInternal} />
+            <Label htmlFor="doc-internal" className="text-xs cursor-pointer flex items-center gap-1">
+              <Lock className="h-3 w-3" /> Internal (agent-only)
+            </Label>
+          </div>
         </div>
       )}
+
       {canManage && (
         <button
           type="button"
@@ -207,22 +243,33 @@ export function PortalDocumentsPanel({ portalId, canManage: canManageProp, scope
             return (
               <div
                 key={d.id}
-                className="group flex items-center gap-3 rounded-2xl border border-border/70 bg-card p-4 shadow-sm hover:shadow-luxe-hover hover:border-primary/30 hover:-translate-y-0.5 transition-all"
+                className={`group flex items-center gap-3 rounded-2xl border p-4 shadow-sm hover:shadow-luxe-hover hover:-translate-y-0.5 transition-all ${
+                  d.is_internal
+                    ? 'border-dashed border-amber-500/50 bg-muted/50'
+                    : 'border-border/70 bg-card hover:border-primary/30'
+                }`}
               >
-                <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ring-1 ${tone}`}>
+                <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ring-1 ${tone} ${d.is_internal ? 'opacity-60' : ''}`}>
                   {icon}
                 </div>
                 <div className="min-w-0 flex-1">
                   <button
                     onClick={() => openPreview(d)}
-                    className="text-sm font-medium text-foreground text-left truncate hover:text-primary transition-colors block w-full"
+                    className={`text-sm font-medium text-left truncate hover:text-primary transition-colors block w-full ${d.is_internal ? 'text-muted-foreground' : 'text-foreground'}`}
                     title={d.file_name}
                   >
                     {d.file_name}
                   </button>
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    {format(new Date(d.created_at), 'MMM d, yyyy')}
-                    {d.file_size ? ` · ${fmtSize(d.file_size)}` : ''}
+                  <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
+                    <span>
+                      {format(new Date(d.created_at), 'MMM d, yyyy')}
+                      {d.file_size ? ` · ${fmtSize(d.file_size)}` : ''}
+                    </span>
+                    {d.is_internal && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 text-amber-700 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                        <Lock className="h-3 w-3" /> Internal
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-0.5 shrink-0 opacity-70 group-hover:opacity-100 transition-opacity">
@@ -233,12 +280,24 @@ export function PortalDocumentsPanel({ portalId, canManage: canManageProp, scope
                     <Download className="h-4 w-4" />
                   </Button>
                   {canManage && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-9 w-9 rounded-full hover:bg-amber-500/10"
+                      onClick={() => toggleInternal(d)}
+                      title={d.is_internal ? 'Make visible to client' : 'Mark internal (agent-only)'}
+                    >
+                      {d.is_internal ? <EyeOff className="h-4 w-4 text-amber-600" /> : <Lock className="h-4 w-4" />}
+                    </Button>
+                  )}
+                  {canManage && (
                     <Button size="icon" variant="ghost" className="h-9 w-9 rounded-full hover:bg-destructive/10" onClick={() => del(d)} title="Delete">
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   )}
                 </div>
               </div>
+
             );
           })}
         </div>
