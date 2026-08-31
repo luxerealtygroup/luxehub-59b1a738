@@ -139,6 +139,12 @@ export default function AdminClientPortals() {
         portalIds.length
           ? supabase.from('portal_properties').select('portal_id').in('portal_id', portalIds)
           : Promise.resolve({ data: [] as any[] }),
+        portalIds.length
+          ? supabase
+              .from('portal_transaction_conditions')
+              .select('portal_id,due_date,status')
+              .in('portal_id', portalIds)
+          : Promise.resolve({ data: [] as any[] }),
       ]);
 
       const profileMap = new Map<string, string>();
