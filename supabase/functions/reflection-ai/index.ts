@@ -16,6 +16,12 @@ serve(async (req) => {
   try {
     const { userId } = await req.json();
     if (!userId) throw new Error("userId required");
+    // Non-admin staff may only run this for themselves.
+    if (guard.caller.kind === 'staff' && !guard.caller.isAdmin && guard.caller.userId !== userId) {
+      return new Response(JSON.stringify({ error: "FORBIDDEN_OTHER_USER" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
