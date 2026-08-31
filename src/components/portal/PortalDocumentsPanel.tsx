@@ -158,24 +158,49 @@ export function PortalDocumentsPanel({ portalId, canManage: canManageProp, scope
     load();
   };
 
-  const visibleDocs = docs.filter((d) => matchesScope(d.property_id, scope));
+  const toggleInternal = async (d: PortalDocument) => {
+    if (blockPortalWrite('Changing document visibility')) return;
+    const next = !d.is_internal;
+    const { error } = await supabase.from('portal_documents').update({ is_internal: next }).eq('id', d.id);
+    if (error) {
+      toast({ title: 'Could not change visibility', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setDocs((prev) => prev.map((x) => (x.id === d.id ? { ...x, is_internal: next } : x)));
+    toast({ title: next ? 'Marked internal' : 'Now visible to client' });
+  };
+
+  const visibleDocs = docs.filter(
+    (d) => matchesScope(d.property_id, scope) && (showInternal || !d.is_internal),
+  );
 
   return (
     <div className="space-y-4">
-      {canManage && properties.length > 0 && (
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground whitespace-nowrap">Upload to</span>
-          <Select value={uploadTarget} onValueChange={setUploadTarget}>
-            <SelectTrigger className="h-9 max-w-xs"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="general">General (whole portal)</SelectItem>
-              {properties.map((p) => (
-                <SelectItem key={p.id} value={p.id}>{propertyLabel(p)}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      {canManage && (
+        <div className="flex flex-wrap items-center gap-3">
+          {properties.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">Upload to</span>
+              <Select value={uploadTarget} onValueChange={setUploadTarget}>
+                <SelectTrigger className="h-9 max-w-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="general">General (whole portal)</SelectItem>
+                  {properties.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{propertyLabel(p)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          <div className="flex items-center gap-2 rounded-full border border-border/70 px-3 py-1.5">
+            <Switch id="doc-internal" checked={uploadInternal} onCheckedChange={setUploadInternal} />
+            <Label htmlFor="doc-internal" className="text-xs cursor-pointer flex items-center gap-1">
+              <Lock className="h-3 w-3" /> Internal (agent-only)
+            </Label>
+          </div>
         </div>
       )}
+
       {canManage && (
         <button
           type="button"
