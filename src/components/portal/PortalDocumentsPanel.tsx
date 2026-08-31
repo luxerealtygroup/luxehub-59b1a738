@@ -108,6 +108,8 @@ export function PortalDocumentsPanel({ portalId, canManage: canManageProp, scope
         file_size: file.size,
         uploaded_by: user?.id,
         property_id: uploadTarget === 'general' ? null : uploadTarget,
+        is_internal: uploadInternal,
+
       }).select('id').single();
       if (error) toast({ title: 'Record failed', description: error.message, variant: 'destructive' });
 
