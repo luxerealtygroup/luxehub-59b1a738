@@ -1,7 +1,7 @@
 project_id = "sxpfxmlxegpmfamlmjyg"
 
 [functions.create-demo-account]
-verify_jwt = false
+verify_jwt = true
 
 [functions.follow-up-boss]
 verify_jwt = true
@@ -10,22 +10,22 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.google-calendar]
-verify_jwt = false
+verify_jwt = true
 
 [functions.asana-create-task]
-verify_jwt = false
+verify_jwt = true
 
 [functions.cma-analyze]
 verify_jwt = false
 
 [functions.reflection-ai]
-verify_jwt = false
+verify_jwt = true
 
 [functions.business-planning-ai]
-verify_jwt = false
+verify_jwt = true
 
 [functions.coach-me]
-verify_jwt = false
+verify_jwt = true
 
 [functions.sync-claude-profiles]
 verify_jwt = false
@@ -61,7 +61,7 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.create-checkout]
-verify_jwt = false
+verify_jwt = true
 
 [functions.db-health-check]
 verify_jwt = true
@@ -71,3 +71,18 @@ verify_jwt = false
 
 [functions.slack-interactivity]
 verify_jwt = false
+
+[functions.fub-create-contact]
+verify_jwt = true
+
+[functions.fub-post-note]
+verify_jwt = true
+
+[functions.fub-search-contacts]
+verify_jwt = true
+
+[functions.slack-list-channels]
+verify_jwt = true
+
+[functions.cma-scrape-link]
+verify_jwt = true

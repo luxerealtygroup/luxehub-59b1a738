@@ -1,6 +1,7 @@
 import { type StripeEnv, createStripeClient } from "../_shared/stripe.ts";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { z } from "npm:zod@3.23.8";
+import { requireStaff } from '../_shared/auth.ts';
 
 const BodySchema = z.object({
   priceIds: z.array(z.string().min(1)).min(1).max(10),
@@ -112,6 +113,9 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+
+  const guard = await requireStaff(req, { cors: corsHeaders });
+  if (!guard.ok) return guard.response;
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
       status: 405,
