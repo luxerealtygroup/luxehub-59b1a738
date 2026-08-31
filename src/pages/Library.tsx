@@ -896,7 +896,7 @@ const Library = () => {
                       </div>
                     )}
                     {clientFilterQuery.length >= 2 && clientFilterResults.length === 0 && !clientFilterSearching && (
-                      <p className="text-sm text-muted-foreground text-center py-2">No clients found</p>
+                      <p className="text-sm text-muted-foreground text-center py-2">No matching contact in Follow Up Boss</p>
                     )}
                   </div>
                 )}

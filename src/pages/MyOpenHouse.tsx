@@ -896,7 +896,7 @@ function AddAttendeeDialog({
               )}
               {dropdownOpen && results.length === 0 && !searching && query.trim().length >= 2 && hasSearched && (
                 <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md p-4 text-center">
-                  <p className="text-sm font-medium">No matching contact found</p>
+                  <p className="text-sm font-medium">No matching contact in Follow Up Boss</p>
                   <p className="text-xs text-muted-foreground mt-1">
                     Please add or update the contact in Follow Up Boss, then return here to select them.
                   </p>
