@@ -87,29 +87,23 @@ async function resolveCaller(req: Request): Promise<Caller | null> {
     };
   }
 
-  // A portal client (every signup gets a profiles row, so client_accounts is
-  // checked BEFORE the profiles fallback). Strict allowlist, own FUB person only.
+  // Every signup gets a profiles row, so an explicit portal link (client_accounts
+  // .user_id) is checked BEFORE the profiles fallback for team membership.
   const email = (user.email ?? '').toLowerCase();
+  const toPersonIds = (rows: { fub_person_id: number | string | null }[]) =>
+    rows
+      .map((a) => Number(a.fub_person_id))
+      .filter((n) => Number.isFinite(n) && n > 0);
+
   const { data: byUser } = await supabase
     .from('client_accounts')
     .select('fub_person_id')
     .eq('user_id', user.id);
-  let accounts = byUser ?? [];
-  if (accounts.length === 0 && email) {
-    const { data: byEmail } = await supabase
-      .from('client_accounts')
-      .select('fub_person_id')
-      .ilike('email', email);
-    accounts = byEmail ?? [];
-  }
-  if (accounts.length > 0) {
-    const personIds = accounts
-      .map((a: { fub_person_id: number | string | null }) => Number(a.fub_person_id))
-      .filter((n) => Number.isFinite(n) && n > 0);
-    return { kind: 'client', userId: user.id, isAdmin: false, canWrite: false, personIds };
+  if ((byUser ?? []).length > 0) {
+    return { kind: 'client', userId: user.id, isAdmin: false, canWrite: false, personIds: toPersonIds(byUser!) };
   }
 
-  // Fall back to a profiles row (team member without an explicit role row).
+  // Team member without an explicit role row.
   const { data: profile } = await supabase
     .from('profiles')
     .select('id')
@@ -119,7 +113,20 @@ async function resolveCaller(req: Request): Promise<Caller | null> {
     return { kind: 'staff', userId: user.id, isAdmin: false, canWrite: true };
   }
 
+  // Unclaimed portal invite matched by email.
+  if (email) {
+    const { data: byEmail } = await supabase
+      .from('client_accounts')
+      .select('fub_person_id')
+      .ilike('email', email);
+    if ((byEmail ?? []).length > 0) {
+      return { kind: 'client', userId: user.id, isAdmin: false, canWrite: false, personIds: toPersonIds(byEmail!) };
+    }
+  }
+
+  // Unknown identity: treat as a client with no scope (everything 403s).
   return { kind: 'client', userId: user.id, isAdmin: false, canWrite: false, personIds: [] };
+
 
 }
 
