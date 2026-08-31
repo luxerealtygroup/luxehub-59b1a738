@@ -29,11 +29,14 @@ type PortalRow = {
   fub_person_id: number | null;
   slack_channel_id: string | null;
   drive_folder_id: string | null;
-  user_id: string;
+  user_id: string | null;
   invited_by: string | null;
+  invited_at: string | null;
+  claimed_at: string | null;
   created_at: string;
   agentName: string;
-  status: 'active' | 'invited';
+  status: 'active' | 'invited' | 'not_invited';
+
   docCount: number;
   lastMessageAt: string | null;
   lastMessageFromClient: boolean;
