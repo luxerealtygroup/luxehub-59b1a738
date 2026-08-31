@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
+import { blockPortalWrite, usePortalPreview } from '@/hooks/usePortalPreview';
 import { CheckSquare, Clock, AlertCircle, Plus, Loader2, Check } from 'lucide-react';
 import { format, isPast, isToday } from 'date-fns';
 import { Button } from '@/components/ui/button';
@@ -56,6 +57,7 @@ export function ClientTaskList({ clientAccountId, canManage = false, transaction
   };
 
   const toggleTask = async (taskId: string, currentlyCompleted: boolean) => {
+    if (blockPortalWrite('Completing tasks')) return;
     const nowIso = new Date().toISOString();
     const { error } = await supabase
       .from('client_tasks')
@@ -89,6 +91,7 @@ export function ClientTaskList({ clientAccountId, canManage = false, transaction
   };
 
   const createTask = async () => {
+    if (blockPortalWrite('Creating tasks')) return;
     if (!form.title.trim()) return;
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();

@@ -141,6 +141,7 @@ export function FUBTimeline({
   }, [notes]);
 
   const addNote = async (stage: string) => {
+    if (blockPortalWrite('Adding timeline notes')) return;
     const text = (draft[stage] || '').trim();
     if (!text) return;
     setSavingStage(stage);

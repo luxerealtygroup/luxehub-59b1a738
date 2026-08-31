@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
+import { blockPortalWrite, usePortalPreview } from '@/hooks/usePortalPreview';
 import { MessageCircle, Send, Headset, User, Briefcase } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
 
@@ -115,6 +116,7 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
     e.preventDefault();
     const body = text.trim();
     if (!body || sending) return;
+    if (blockPortalWrite('Sending messages')) return;
     setSending(true);
     const { data, error } = await supabase.functions.invoke('portal-send-message', {
       body: {
