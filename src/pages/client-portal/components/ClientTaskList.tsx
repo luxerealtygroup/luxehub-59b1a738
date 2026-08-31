@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { PortalScope, scopePropertyId } from '@/lib/portalScope';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 
 interface Task {
@@ -18,6 +19,7 @@ interface Task {
   description?: string | null;
   notes?: string | null;
   due_date: string | null;
+  property_id?: string | null;
   completed_at: string | null;
   status?: string | null;
 }
@@ -28,9 +30,11 @@ interface ClientTaskListProps {
   canManage?: boolean;
   /** When provided, only tasks for this transaction are shown, and new tasks attach to it. */
   transactionId?: string | null;
+  /** Property scope: 'all', 'general' (portal-wide only) or a property id. */
+  scope?: PortalScope;
 }
 
-export function ClientTaskList({ clientAccountId, canManage = false, transactionId = null }: ClientTaskListProps) {
+export function ClientTaskList({ clientAccountId, canManage = false, transactionId = null, scope = 'all' }: ClientTaskListProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -41,7 +45,7 @@ export function ClientTaskList({ clientAccountId, canManage = false, transaction
 
   useEffect(() => {
     fetchTasks();
-  }, [clientAccountId, transactionId]);
+  }, [clientAccountId, transactionId, scope]);
 
   const fetchTasks = async () => {
     let q = supabase
@@ -49,6 +53,8 @@ export function ClientTaskList({ clientAccountId, canManage = false, transaction
       .select('*')
       .eq('client_account_id', clientAccountId);
     if (transactionId) q = q.eq('transaction_id', transactionId);
+    if (scope === 'general') q = q.is('property_id', null);
+    else if (scope !== 'all') q = q.eq('property_id', scope);
     const { data, error } = await q.order('due_date', { ascending: true, nullsFirst: false });
 
     if (!error) {
@@ -108,6 +114,7 @@ export function ClientTaskList({ clientAccountId, canManage = false, transaction
         status: 'pending',
         assigned_by: user.id,
         transaction_id: transactionId,
+        property_id: scopePropertyId(scope),
       })
       .select()
       .single();
