@@ -150,6 +150,36 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
     setSending(false);
   };
 
+  /**
+   * Flip a message between internal (agent-only) and client-visible. This is
+   * the "unpublish" action for anything pushed in from Slack. RLS blocks the
+   * client from reading internal rows, so this is a real visibility change.
+   */
+  const setVisibility = async (m: PortalMessage, nextInternal: boolean) => {
+    if (blockPortalWrite('Changing message visibility')) return;
+    const { error } = await supabase
+      .from('portal_messages')
+      .update({ is_internal: nextInternal })
+      .eq('id', m.id);
+    if (error) {
+      toast({
+        title: 'Could not update visibility',
+        description: error.message,
+        variant: 'destructive',
+      });
+      return;
+    }
+    setMessages((prev) =>
+      prev.map((x) => (x.id === m.id ? { ...x, is_internal: nextInternal } : x)),
+    );
+    toast({
+      title: nextInternal ? 'Hidden from client' : 'Now visible to client',
+      description: nextInternal
+        ? 'This message is internal and no longer shown in the client portal.'
+        : 'The client can now see this message.',
+    });
+  };
+
   const formatTime = (iso: string) => {
     const d = new Date(iso);
     if (isToday(d)) return format(d, 'h:mm a');
