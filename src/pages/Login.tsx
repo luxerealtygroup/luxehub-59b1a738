@@ -21,6 +21,11 @@ const Login = () => {
   const { signIn } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+
+  // Same-origin relative path to return to after sign-in (used by the OAuth consent flow).
+  const rawNext = searchParams.get('next');
+  const nextPath = rawNext && rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,6 +40,12 @@ const Login = () => {
           description: error.message,
           variant: "destructive"
         });
+        setLoading(false);
+        return;
+      }
+
+      if (nextPath) {
+        navigate(nextPath);
         setLoading(false);
         return;
       }
