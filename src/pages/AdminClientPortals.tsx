@@ -174,7 +174,9 @@ export default function AdminClientPortals() {
   const stats = useMemo(() => {
     return {
       all: rows.length,
-      not_invited: rows.filter((r) => r.status === 'invited').length,
+      not_invited: rows.filter((r) => r.status === 'not_invited').length,
+      awaiting_signup: rows.filter((r) => r.status === 'invited').length,
+
       missing_slack: rows.filter((r) => !r.slack_channel_id).length,
       missing_docs: rows.filter((r) => r.docCount === 0).length,
       missing_fub: rows.filter((r) => !r.fub_person_id).length,
