@@ -210,10 +210,7 @@ const Login = () => {
             </p>
           ) : (
             <p className="mt-4 text-center text-sm text-muted-foreground">
-              Don't have an account?{' '}
-              <Link to="/client-portal/signup" className="text-primary hover:underline">
-                Sign up
-              </Link>
+              Client portals are set up by your agent — contact them if you need access.
             </p>
           )}
         </CardContent>
