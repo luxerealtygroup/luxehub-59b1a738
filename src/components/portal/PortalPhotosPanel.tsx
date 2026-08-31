@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Download, ImageIcon, Loader2, Trash2, Upload, Home, Trophy } from 'lucide-react';
+import { Check, CheckSquare, Download, ImageIcon, Loader2, Trash2, Upload, Home, Trophy, X } from 'lucide-react';
 
 type Category = 'property' | 'milestone';
 
@@ -24,7 +24,7 @@ interface Props {
 
 const BUCKET = 'portal-photos';
 
-function PhotoThumb({ path, caption, onOpen }: { path: string; caption?: string | null; onOpen: (url: string) => void }) {
+function PhotoThumb({ path, caption, onOpen, selecting, selected, onToggle }: { path: string; caption?: string | null; onOpen: (url: string) => void; selecting?: boolean; selected?: boolean; onToggle?: () => void }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     let mounted = true;
@@ -35,12 +35,20 @@ function PhotoThumb({ path, caption, onOpen }: { path: string; caption?: string 
   }, [path]);
   if (!url) return <div className="aspect-[4/3] rounded-xl bg-muted animate-pulse" />;
   return (
-    <button onClick={() => onOpen(url)} className="aspect-[4/3] overflow-hidden rounded-xl bg-muted group relative shadow-sm hover:shadow-luxe-hover transition-all">
-      <img src={url} alt={caption ?? ''} className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-500" />
+    <button
+      onClick={() => (selecting ? onToggle?.() : onOpen(url))}
+      className={`aspect-[4/3] overflow-hidden rounded-xl bg-muted group relative shadow-sm hover:shadow-luxe-hover transition-all ${selected ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''}`}
+    >
+      <img src={url} alt={caption ?? ''} className={`w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-500 ${selected ? 'opacity-70' : ''}`} />
       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
       {caption && (
         <div className="absolute inset-x-0 bottom-0 p-3 text-left translate-y-2 group-hover:translate-y-0 opacity-0 group-hover:opacity-100 transition-all duration-300">
           <p className="text-white text-xs font-medium drop-shadow-md line-clamp-2">{caption}</p>
+        </div>
+      )}
+      {selecting && (
+        <div className={`absolute top-2 left-2 flex h-6 w-6 items-center justify-center rounded-full border-2 shadow-md transition-colors ${selected ? 'bg-primary border-primary text-primary-foreground' : 'bg-background/90 border-border'}`}>
+          {selected && <Check className="h-3.5 w-3.5" />}
         </div>
       )}
     </button>
