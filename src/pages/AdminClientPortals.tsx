@@ -116,7 +116,15 @@ export default function AdminClientPortals() {
       });
 
       const enriched: PortalRow[] = list.map((r) => {
-        const status: 'active' | 'invited' = r.user_id === r.invited_by ? 'invited' : 'active';
+        // Claimed = a real client signed up on it. Otherwise it's either
+        // awaiting signup (invited) or nobody was ever asked (not_invited).
+        const claimed = Boolean(r.user_id) || Boolean(r.claimed_at);
+        const status: PortalRow['status'] = claimed
+          ? 'active'
+          : r.invited_at
+            ? 'invited'
+            : 'not_invited';
+
         const dCount = docCount.get(r.id) ?? 0;
         const lastAt = lastMsg.get(r.id) ?? null;
         const clientLast = lastFromClient.get(r.id) ?? false;
