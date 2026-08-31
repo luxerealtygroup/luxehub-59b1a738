@@ -15,9 +15,11 @@ import {
   Loader2,
   Plus,
   Settings,
+  Eye,
 } from 'lucide-react';
 import { AgentPortalDialog } from '@/components/AgentPortalDialog';
 import { useUserRole } from '@/hooks/useUserRole';
+import { Link } from 'react-router-dom';
 
 type PortalRow = {
   id: string;
@@ -349,6 +351,13 @@ export default function AdminClientPortals() {
                         )}
                       </TableCell>
                       <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                        <Button asChild size="sm" variant="ghost" className="gap-2" title="Preview as client (read-only)">
+                          <Link to={`/client-portal/preview/${r.id}`}>
+                            <Eye className="h-4 w-4" />
+                            Preview
+                          </Link>
+                        </Button>
                         <AgentPortalDialog
                           clientName={r.full_name || undefined}
                           clientEmail={r.email}
@@ -361,6 +370,7 @@ export default function AdminClientPortals() {
                             </Button>
                           }
                         />
+                        </div>
                       </TableCell>
                       </TableRow>
                     );

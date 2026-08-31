@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Check, Copy, LayoutDashboard, Loader2, Mail } from 'lucide-react';
+import { Check, Copy, Eye, LayoutDashboard, Loader2, Mail } from 'lucide-react';
 import { FUBTimeline } from '@/pages/client-portal/components/FUBTimeline';
 import { ClientTaskList } from '@/pages/client-portal/components/ClientTaskList';
 import { FUBContactTypeahead } from '@/components/FUBContactTypeahead';
@@ -25,6 +25,7 @@ import { PortalPhotosPanel } from '@/components/portal/PortalPhotosPanel';
 import { PortalChatPanel } from '@/components/portal/PortalChatPanel';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useOrgTier } from '@/hooks/useOrgTier';
+import { Link } from 'react-router-dom';
 
 interface AgentPortalDialogProps {
   clientName?: string;
@@ -240,6 +241,16 @@ export function AgentPortalDialog({
           <DialogDescription>
             Invite this client to their portal, add stage notes, and manage tasks.
           </DialogDescription>
+          {account && (
+            <div className="pt-1">
+              <Button asChild size="sm" variant="outline" className="gap-2">
+                <Link to={`/client-portal/preview/${account.id}`}>
+                  <Eye className="h-4 w-4" />
+                  Preview as client (read-only)
+                </Link>
+              </Button>
+            </div>
+          )}
         </DialogHeader>
 
         {loading ? (

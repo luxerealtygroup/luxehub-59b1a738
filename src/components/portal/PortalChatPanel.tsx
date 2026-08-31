@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
+import { blockPortalWrite, usePortalPreview } from '@/hooks/usePortalPreview';
 import { MessageCircle, Send, Headset, User, Briefcase } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
 
@@ -42,6 +43,7 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const viewCtx = useContext(ViewAsAgentContext);
+  const { isPreview } = usePortalPreview();
   const sendAsAgentId =
     viewerRole === 'agent'
       ? sendAsAgentIdProp ??
@@ -115,6 +117,7 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
     e.preventDefault();
     const body = text.trim();
     if (!body || sending) return;
+    if (blockPortalWrite('Sending messages')) return;
     setSending(true);
     const { data, error } = await supabase.functions.invoke('portal-send-message', {
       body: {
@@ -258,6 +261,11 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
           </ScrollArea>
         )}
 
+        {isPreview ? (
+          <div className="p-3 sm:p-4 border-t border-border/60 bg-muted/30 text-center text-xs text-muted-foreground">
+            Read-only preview — messaging is disabled.
+          </div>
+        ) : (
         <form onSubmit={send} className="p-3 sm:p-4 border-t border-border/60 bg-background flex gap-2">
           <Input
             placeholder={viewerRole === 'client' ? 'Type a message…' : 'Reply to client…'}
@@ -275,6 +283,7 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
             <Send className="h-4 w-4" />
           </Button>
         </form>
+        )}
       </CardContent>
     </Card>
   );

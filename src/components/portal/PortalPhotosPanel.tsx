@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { blockPortalWrite, usePortalPreview } from '@/hooks/usePortalPreview';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -55,7 +56,9 @@ function PhotoThumb({ path, caption, onOpen, selecting, selected, onToggle }: { 
   );
 }
 
-export function PortalPhotosPanel({ portalId, canManage }: Props) {
+export function PortalPhotosPanel({ portalId, canManage: canManageProp }: Props) {
+  const { isPreview } = usePortalPreview();
+  const canManage = canManageProp && !isPreview;
   const { toast } = useToast();
   const [photos, setPhotos] = useState<PortalPhoto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,6 +87,7 @@ export function PortalPhotosPanel({ portalId, canManage }: Props) {
   useEffect(() => { load(); }, [portalId]);
 
   const onUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (blockPortalWrite('Uploading photos')) return;
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
     setUploading(true);
@@ -147,6 +151,7 @@ export function PortalPhotosPanel({ portalId, canManage }: Props) {
   };
 
   const del = async (p: PortalPhoto) => {
+    if (blockPortalWrite('Deleting photos')) return;
     if (!confirm('Delete this photo?')) return;
     await supabase.storage.from(BUCKET).remove([p.file_path]);
     const { error } = await supabase.from('portal_photos').delete().eq('id', p.id);
@@ -168,6 +173,7 @@ export function PortalPhotosPanel({ portalId, canManage }: Props) {
   };
 
   const deleteSelected = async () => {
+    if (blockPortalWrite('Deleting photos')) return;
     const targets = photos.filter((p) => selected.has(p.id));
     if (!targets.length) return;
     if (!confirm(`Delete ${targets.length} selected photo${targets.length > 1 ? 's' : ''}? This cannot be undone.`)) return;

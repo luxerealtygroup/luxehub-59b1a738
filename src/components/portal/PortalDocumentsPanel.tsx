@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { blockPortalWrite, usePortalPreview } from '@/hooks/usePortalPreview';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -41,7 +42,9 @@ function fmtSize(bytes: number | null) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function PortalDocumentsPanel({ portalId, canManage }: Props) {
+export function PortalDocumentsPanel({ portalId, canManage: canManageProp }: Props) {
+  const { isPreview } = usePortalPreview();
+  const canManage = canManageProp && !isPreview;
   const { toast } = useToast();
   const [docs, setDocs] = useState<PortalDocument[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,6 +67,7 @@ export function PortalDocumentsPanel({ portalId, canManage }: Props) {
   useEffect(() => { load(); }, [portalId]);
 
   const onUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (blockPortalWrite('Uploading documents')) return;
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
     setUploading(true);
@@ -123,6 +127,7 @@ export function PortalDocumentsPanel({ portalId, canManage }: Props) {
   };
 
   const del = async (d: PortalDocument) => {
+    if (blockPortalWrite('Deleting documents')) return;
     if (!confirm(`Delete "${d.file_name}"?`)) return;
     await supabase.storage.from(BUCKET).remove([d.file_path]);
     const { error } = await supabase.from('portal_documents').delete().eq('id', d.id);
