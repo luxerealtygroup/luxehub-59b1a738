@@ -27,6 +27,8 @@ export interface PortalTransaction {
   offer_date: string | null;
   conditions_date: string | null;
   firm_date: string | null;
+  deposit_due_date: string | null;
+  requisition_date: string | null;
   closing_date: string | null;
   fub_deal_id: number | null;
   deal_id: string | null;
