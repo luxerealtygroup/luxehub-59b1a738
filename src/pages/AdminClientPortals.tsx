@@ -240,6 +240,7 @@ export default function AdminClientPortals() {
       if (health === 'missing_docs' && r.docCount > 0) return false;
       if (health === 'missing_fub' && r.fub_person_id) return false;
       if (health === 'unread' && !(r.lastMessageAt && r.lastMessageFromClient)) return false;
+      if (health === 'conditions_risk' && !(r.overdueConditions || r.dueSoonConditions)) return false;
       return true;
     });
   }, [rows, search, health]);
