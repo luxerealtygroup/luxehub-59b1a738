@@ -16,6 +16,8 @@ import { ManualProductionEntry, ManualProductionData } from '@/components/Manual
 import GoogleCalendarWidget from '@/components/GoogleCalendarWidget';
 import FUBSmartLists from '@/components/FUBSmartLists';
 import ClosingsCalendar from '@/components/admin/ClosingsCalendar';
+import { ActiveListingsCard } from '@/components/ActiveListingsCard';
+
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -502,7 +504,11 @@ const Dashboard = () => {
         </CardContent>
       </Card>
 
+      {/* Active Listings — address list, agent-scoped */}
+      {hasEffectiveFUB && <ActiveListingsCard />}
+
       {/* My 2026 Closings Calendar — agent-scoped */}
+
       {hasEffectiveFUB && calendarFubUserId != null && (
         <ClosingsCalendar
           year={2026}
