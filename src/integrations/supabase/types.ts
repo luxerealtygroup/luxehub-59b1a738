@@ -403,7 +403,7 @@ export type Database = {
           phone: string | null
           slack_channel_id: string | null
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           client_type?: string | null
@@ -417,7 +417,7 @@ export type Database = {
           phone?: string | null
           slack_channel_id?: string | null
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           client_type?: string | null
@@ -431,7 +431,7 @@ export type Database = {
           phone?: string | null
           slack_channel_id?: string | null
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }
