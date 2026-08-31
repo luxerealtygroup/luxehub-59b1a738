@@ -10,6 +10,7 @@ import { getRoleBasedRedirect } from '@/lib/utils/roleRedirect';
 import { cn } from '@/lib/utils';
 import { User, Building2 } from 'lucide-react';
 import luxeLogo from '@/assets/luxe-logo.png.asset.json';
+import { tenant } from '@/config/tenant';
 
 type LoginMode = 'realtor' | 'client';
 
@@ -107,7 +108,7 @@ const Login = () => {
           <div className="mx-auto mb-4">
             <img
               src={luxeLogo.url}
-              alt="LUXE Realty Group"
+              alt={tenant.brokerageName}
               className="mx-auto h-auto max-h-32 w-auto object-contain"
             />
           </div>

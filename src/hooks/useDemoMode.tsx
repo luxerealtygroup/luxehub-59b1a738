@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react';
+import { tenant } from '@/config/tenant';
 
-const STORAGE_KEY = 'luxehub_demo_mode';
+const STORAGE_KEY = `${tenant.storagePrefix}_demo_mode`;
 
 interface DemoModeContextValue {
   demoMode: boolean;

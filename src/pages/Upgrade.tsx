@@ -7,6 +7,7 @@ import { useStripeCheckout } from "@/hooks/useStripeCheckout";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrgTier } from "@/hooks/useOrgTier";
 import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
+import { tenant } from '@/config/tenant';
 
 type PurchasableTier = "pro" | "pro_plus" | "team";
 
@@ -106,7 +107,7 @@ export default function Upgrade() {
         </Link>
 
         <div className="text-center space-y-2">
-          <h1 className="font-display text-3xl">Upgrade LUXEhub</h1>
+          <h1 className="font-display text-3xl">Upgrade {tenant.appName}</h1>
           <p className="text-muted-foreground">Choose the plan that fits your business.</p>
         </div>
 
@@ -148,7 +149,7 @@ export default function Upgrade() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-5 w-5 text-gold" />
-                  <CardTitle className="font-display text-xl">LUXEhub Pro</CardTitle>
+                  <CardTitle className="font-display text-xl">{tenant.appName} Pro</CardTitle>
                 </div>
                 {tier === "pro" && <Badge>Current</Badge>}
               </div>
@@ -179,7 +180,7 @@ export default function Upgrade() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Zap className="h-5 w-5 text-gold" />
-                  <CardTitle className="font-display text-xl">LUXEhub Pro+</CardTitle>
+                  <CardTitle className="font-display text-xl">{tenant.appName} Pro+</CardTitle>
                 </div>
                 {tier === "pro_plus" && <Badge>Current</Badge>}
               </div>
@@ -206,7 +207,7 @@ export default function Upgrade() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Building2 className="h-5 w-5 text-gold" />
-                  <CardTitle className="font-display text-xl">LUXEhub Team</CardTitle>
+                  <CardTitle className="font-display text-xl">{tenant.appName} Team</CardTitle>
                 </div>
                 {tier === "team" && <Badge>Current</Badge>}
               </div>

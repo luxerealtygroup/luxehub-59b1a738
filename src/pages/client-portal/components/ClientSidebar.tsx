@@ -23,6 +23,7 @@ import {
   SidebarFooter,
   useSidebar,
 } from '@/components/ui/sidebar';
+import { tenant } from '@/config/tenant';
 
 interface ClientSidebarProps {
   activeTab: string;
@@ -60,7 +61,7 @@ export function ClientSidebar({
         <div className={`flex ${collapsed ? 'justify-center' : 'flex-col items-center'} gap-2`}>
           <img
             src={luxeLogo.url}
-            alt="LUXE Realty Group"
+            alt={tenant.brokerageName}
             className={`${collapsed ? 'h-8' : 'h-16'} w-auto object-contain invert brightness-0 [filter:invert(1)]`}
           />
           {!collapsed && (

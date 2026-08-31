@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Headset, User, Sparkles, ShieldCheck, Send, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { tenant } from '@/config/tenant';
 
 type TicketStatus = 'ai_active' | 'escalated' | 'in_progress' | 'resolved' | 'closed';
 
@@ -408,7 +409,7 @@ function MessageRow({ m }: { m: Message }) {
     },
     admin: {
       icon: <ShieldCheck className="h-3 w-3" />,
-      label: 'LUXE Support',
+      label: `${tenant.shortName} Support`,
       cls: 'bg-primary/10 border border-primary/30',
     },
   }[m.sender_type];

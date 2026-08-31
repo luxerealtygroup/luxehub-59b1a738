@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, CheckCircle2 } from 'lucide-react';
 import { getRoleBasedRedirect } from '@/lib/utils/roleRedirect';
+import { tenant } from '@/config/tenant';
 
 const AuthConfirm = () => {
   const navigate = useNavigate();
@@ -21,7 +22,7 @@ const AuthConfirm = () => {
         if (session) {
           setStatus('success');
           toast({
-            title: "Your email has been confirmed. Welcome to LuxeHub.",
+            title: `Your email has been confirmed. Welcome to ${tenant.appName}.`,
           });
           const redirect = await getRoleBasedRedirect(session.user.id);
           setTimeout(() => navigate(redirect, { replace: true }), 1500);
@@ -31,7 +32,7 @@ const AuthConfirm = () => {
             if (event === 'SIGNED_IN' && session) {
               setStatus('success');
               toast({
-                title: "Your email has been confirmed. Welcome to LuxeHub.",
+                title: `Your email has been confirmed. Welcome to ${tenant.appName}.`,
               });
               const redirect = await getRoleBasedRedirect(session.user.id);
               setTimeout(() => navigate(redirect, { replace: true }), 1500);
@@ -77,7 +78,7 @@ const AuthConfirm = () => {
         {status === 'success' && (
           <>
             <CheckCircle2 className="h-10 w-10 text-green-500 mx-auto" />
-            <p className="text-foreground font-display text-xl">Your email has been confirmed. Welcome to LuxeHub.</p>
+            <p className="text-foreground font-display text-xl">Your email has been confirmed. Welcome to {tenant.appName}.</p>
           </>
         )}
         {status === 'error' && (

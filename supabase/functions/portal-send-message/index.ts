@@ -76,6 +76,9 @@ Deno.serve(async (req) => {
     // Post to Slack first (so we can capture ts). If it fails, still save.
     let slackTs: string | null = null;
     const slackToken = Deno.env.get('SLACK_BOT_TOKEN');
+    if (!slackToken && portal.slack_channel_id) {
+      console.warn('SLACK_BOT_TOKEN is not configured; portal message not mirrored to Slack.');
+    }
     if (slackToken && portal.slack_channel_id) {
       try {
         const emoji = senderType === 'client' ? '💬' : '🧑‍💼';
@@ -90,7 +93,20 @@ Deno.serve(async (req) => {
         });
         const data = await resp.json();
         if (data?.ok) slackTs = data.ts as string;
-        else console.error('Slack post failed:', data);
+        else {
+          // Visible failure: most often the linked channel is from a different
+          // Slack workspace than this instance's bot token, or the bot is not
+          // in the channel. The message is still saved to the portal.
+          console.error(
+            'Slack post failed for channel', portal.slack_channel_id,
+            '-', data?.error,
+            data?.error === 'channel_not_found'
+              ? '(channel does not exist in this instance\'s Slack workspace — re-link it)'
+              : data?.error === 'not_in_channel'
+                ? '(invite the bot to the channel)'
+                : '',
+          );
+        }
       } catch (e) {
         console.error('Slack post error:', e);
       }

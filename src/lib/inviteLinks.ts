@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { tenant } from '@/config/tenant';
 
 /**
  * Canonical, client-facing base URL.
@@ -6,15 +7,13 @@ import { supabase } from '@/integrations/supabase/client';
  * Any link that can end up in a client's inbox MUST be built from this, never
  * from window.location.origin — an agent working inside the Lovable preview or
  * on localhost would otherwise mail an unreachable link to a real client.
+ *
+ * Configured per instance via VITE_TENANT_APP_URL.
  */
-export const CANONICAL_APP_URL = 'https://luxerealtyhub.com';
+export const CANONICAL_APP_URL = tenant.canonicalAppUrl;
 
 /** Hosts where window.location.origin is safe to reuse (real published app). */
-const PRODUCTION_HOSTS = new Set([
-  'luxerealtyhub.com',
-  'www.luxerealtyhub.com',
-  'luxehub.lovable.app',
-]);
+const PRODUCTION_HOSTS = new Set(tenant.productionHosts);
 
 /**
  * Base URL for links we hand to clients. On a production host we mirror the

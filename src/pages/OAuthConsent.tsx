@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { tenant } from '@/config/tenant';
 
 type OAuthNamespace = {
   getAuthorizationDetails: (id: string) => Promise<{ data: any; error: { message: string } | null }>;
@@ -82,7 +83,7 @@ export default function OAuthConsent() {
             {error
               ? error
               : details
-                ? `${clientName} is requesting access to LUXEhub as you. It will only see the data your account can see.`
+                ? `${clientName} is requesting access to ${tenant.appName} as you. It will only see the data your account can see.`
                 : "Checking this authorization request…"}
           </CardDescription>
         </CardHeader>

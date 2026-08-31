@@ -3,6 +3,7 @@ import {
   Body, Button, Container, Head, Heading, Html, Preview, Section, Text,
 } from 'npm:@react-email/components@0.0.22'
 import type { TemplateEntry } from './registry.ts'
+import { tenant } from '../tenant.ts'
 
 interface Props {
   userName?: string
@@ -28,7 +29,7 @@ const Email = ({
     <Preview>New escalated support ticket from {userName}</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Heading style={h1}>LUXEhub Support</Heading>
+        <Heading style={h1}>{tenant.appName} Support</Heading>
         <Text style={tag}>Ticket Escalated to Human</Text>
 
         <Text style={text}>
@@ -78,7 +79,7 @@ const Email = ({
 export const template = {
   component: Email,
   subject: (data: Props) =>
-    `[LUXEhub Support] Escalated ticket — ${data.userName || data.userEmail}`,
+    `[${tenant.appName} Support] Escalated ticket — ${data.userName || data.userEmail}`,
   displayName: 'Support Ticket Escalated',
   previewData: {
     userName: 'Hana Realtor',
@@ -87,9 +88,9 @@ export const template = {
     subject: 'Cannot import FUB contact',
     summary: 'Agent is searching for a contact by email but FUB returns no results. Verified API key is set. Likely a scope or account mismatch.',
     reason: 'AI could not resolve the FUB API error automatically.',
-    ticketUrl: 'https://luxehub.lovable.app/dashboard/admin/tickets',
+    ticketUrl: `${tenant.appUrl}/dashboard/admin/tickets`,
   },
-  to: 'info@luxerealtygroup.ca',
+  to: tenant.supportEmail,
 } satisfies TemplateEntry
 
 const main = { backgroundColor: '#ffffff', fontFamily: 'Helvetica, Arial, sans-serif' }

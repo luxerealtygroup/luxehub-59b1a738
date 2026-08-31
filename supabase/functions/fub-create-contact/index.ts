@@ -1,11 +1,10 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { requireStaff } from '../_shared/auth.ts';
 
-const FUB_API_KEY = Deno.env.get('FUB_API_KEY') || Deno.env.get('FOLLOW_UP_BOSS_API_KEY') || '';
+import { fubAuthHeader } from '../_shared/fub.ts';
 
-function authHeader() {
-  return 'Basic ' + btoa(`${FUB_API_KEY}:`);
-}
+// One instance, one CRM: fubAuthHeader() throws if FUB_API_KEY is missing.
+const authHeader = fubAuthHeader;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });

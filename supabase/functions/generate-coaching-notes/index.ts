@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
     const q = quarterOf(week_of);
 
     const [profileRes, thisWeekGoalsRes, previousWeekGoalsRes, annualGoalsRes, pipelineClientsRes, gapRes] = await Promise.all([
-      supabase.from("profiles").select("id, full_name, coaching_history_seed, signature_emoji, fub_user_id, fub_account").eq("id", agent_id).maybeSingle(),
+      supabase.from("profiles").select("id, full_name, coaching_history_seed, signature_emoji, fub_user_id").eq("id", agent_id).maybeSingle(),
       supabase.from("agent_goals").select("*").eq("user_id", agent_id).eq("start_date", week_of),
       supabase.from("agent_goals").select("*").eq("user_id", agent_id).eq("start_date", previousWeek),
       supabase.from("agent_goals").select("*").eq("user_id", agent_id).in("period", ["annual", "quarterly", "q1", "q2", "q3", "q4", "yearly"]),
@@ -99,8 +99,7 @@ Deno.serve(async (req) => {
         const { data: dupes } = await supabase
           .from("profiles")
           .select("id, full_name")
-          .eq("fub_user_id", profile.fub_user_id)
-          .eq("fub_account", profile.fub_account ?? "primary");
+          .eq("fub_user_id", profile.fub_user_id);
         if ((dupes ?? []).length > 1) {
           sharedMapping = true;
           fubFetchError = `Follow Up Boss user id ${profile.fub_user_id} is mapped to more than one profile (${(dupes ?? []).map((d: any) => d.full_name).join(", ")}). Deal data was excluded to avoid attributing another agent's deals.`;

@@ -1,5 +1,6 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors'
 import { requireStaff } from '../_shared/auth.ts';
+import { getSlackToken, getWorkspace, SlackConfigError } from '../_shared/slack.ts';
 
 interface SlackChannel {
   id: string
@@ -14,11 +15,19 @@ Deno.serve(async (req) => {
   const guard = await requireStaff(req, { cors: corsHeaders });
   if (!guard.ok) return guard.response;
 
-  const token = Deno.env.get('SLACK_BOT_TOKEN')
-  if (!token) {
+  // Fail loudly and visibly when this instance has no Slack wiring, or when the
+  // token belongs to a workspace Slack won't accept.
+  let token: string
+  let workspace: { teamId: string; teamName: string }
+  try {
+    token = getSlackToken()
+    workspace = await getWorkspace()
+  } catch (e) {
+    const message = e instanceof SlackConfigError ? e.message : (e as Error).message
+    console.error('slack-list-channels config error:', message)
     return new Response(
-      JSON.stringify({ error: 'SLACK_BOT_TOKEN is not configured' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      JSON.stringify({ error: message, code: 'slack_not_configured' }),
+      { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   }
 
@@ -77,7 +86,7 @@ Deno.serve(async (req) => {
     }
 
     result.channels.sort((a, b) => a.name.localeCompare(b.name))
-    return new Response(JSON.stringify({ channels: result.channels }), {
+    return new Response(JSON.stringify({ channels: result.channels, workspace }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (e) {

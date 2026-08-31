@@ -9,6 +9,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area, Cell, ReferenceLine,
 } from 'recharts';
+import { tenant } from '@/config/tenant';
 
 interface Comp {
   address: string;
@@ -608,9 +609,9 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
         {/* Footer */}
         <div className="text-center border-t border-border pt-6 pb-4">
           <p className="text-xs text-muted-foreground">
-            Prepared by {agentName || 'your agent'}, Salesperson · Luxe Realty Group, Brokered by eXp Realty, Brokerage
+            Prepared by {agentName || 'your agent'}, Salesperson · {tenant.brokerageName}, {tenant.brokerageDisclosure}
           </p>
-          <p className="text-[10px] text-muted-foreground/70 mt-1">luxerealtygroup.ca</p>
+          <p className="text-[10px] text-muted-foreground/70 mt-1">{tenant.websiteDomain}</p>
           <p className="text-[10px] text-muted-foreground/60 mt-1">
             {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
           </p>

@@ -6,8 +6,10 @@
 // select. Every inbound request must carry a valid Slack signature.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { tenant } from '../_shared/tenant.ts';
+import { SLACK_API, getSlackToken, assertChannelInWorkspace, SlackConfigError } from '../_shared/slack.ts';
 
-const SLACK_API = 'https://slack.com/api';
+
 const SHORTCUT_CALLBACK_ID = 'push_to_portal';
 const VIEW_CALLBACK_ID = 'push_to_portal_submit';
 
@@ -62,11 +64,9 @@ async function verifySlackSignature(req: Request, rawBody: string): Promise<stri
 // Slack helpers
 // ---------------------------------------------------------------------------
 
-function botToken(): string {
-  const t = Deno.env.get('SLACK_BOT_TOKEN');
-  if (!t) throw new Error('SLACK_BOT_TOKEN is not configured');
-  return t;
-}
+// Token + workspace resolution lives in _shared/slack.ts so no code here
+// assumes a particular Slack workspace.
+const botToken = getSlackToken;
 
 async function slackGet(method: string, params: Record<string, string>) {
   const qs = new URLSearchParams(params).toString();
@@ -197,7 +197,7 @@ async function portalForChannel(channelId: string) {
 }
 
 /**
- * Map the acting Slack user to a LUXEhub team member. Publishing is refused
+ * Map the acting Slack user to a team member. Publishing is refused
  * unless this resolves — it gives us a real audit identity and keeps anyone
  * who is not on the team from pushing content to a client.
  */
@@ -213,11 +213,11 @@ async function resolveTeamMember(slackUserId: string) {
     .ilike('email', email)
     .maybeSingle();
   if (!profile) {
-    return { error: `No LUXEhub account matches your Slack email (${email}). Publishing is restricted to team members.` };
+    return { error: `No ${tenant.appName} account matches your Slack email (${email}). Publishing is restricted to team members.` };
   }
   const { data: isTeam } = await db.rpc('is_team_member', { _user_id: profile.id });
   if (!isTeam) {
-    return { error: 'Your LUXEhub account is not a team member, so it cannot publish to a client portal.' };
+    return { error: `Your ${tenant.appName} account is not a team member, so it cannot publish to a client portal.` };
   }
   return { profile, email };
 }
@@ -398,12 +398,23 @@ async function handleShortcut(payload: any) {
   const slackUserId = payload.user?.id as string;
   const ts = payload.message_ts as string;
 
+  // Fail visibly if this instance's token can't actually reach the channel —
+  // most often a channel linked from a different Slack workspace.
+  const channelCheck = await assertChannelInWorkspace(channelId);
+  if (!channelCheck.ok) {
+    console.error('slack-interactivity channel check failed:', channelCheck.error);
+    try {
+      await ephemeral(channelId, slackUserId, `:warning: ${channelCheck.error}`);
+    } catch (_) { /* ephemeral itself needs the token; nothing more we can do */ }
+    return new Response('', { status: 200 });
+  }
+
   const portal = await portalForChannel(channelId);
   if (!portal) {
     await ephemeral(
       channelId,
       slackUserId,
-      ':no_entry: This channel is not linked to a client portal, so there is nothing to publish to. Link it in LUXEhub under Client Portals → Manage → Setup, then try again.',
+      `:no_entry: This channel is not linked to a client portal, so there is nothing to publish to. Link it in ${tenant.appName} under Client Portals → Manage → Setup, then try again.`,
     );
     return;
   }

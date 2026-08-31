@@ -1,6 +1,7 @@
 import { ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { tenant } from '@/config/tenant';
 
 const Privacy = () => {
   return (
@@ -25,7 +26,7 @@ const Privacy = () => {
           <section className="space-y-4">
             <h2 className="text-2xl font-semibold">1. Information We Collect</h2>
             <p>
-              LUXEhub collects information you provide directly to us, including your name, email address, 
+              {tenant.appName} collects information you provide directly to us, including your name, email address, 
               and any other information you choose to provide when using our services.
             </p>
             <p>

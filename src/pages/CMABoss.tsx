@@ -16,6 +16,7 @@ import CMAPerformanceDashboard from '@/components/cma/CMAPerformanceDashboard';
 import { CMAStatusBadge } from '@/components/cma/CMALifecycleStatus';
 import { useCmaMonthlyUsage } from '@/hooks/useCmaMonthlyUsage';
 import { Link } from 'react-router-dom';
+import { tenant } from '@/config/tenant';
 
 interface CMAReport {
   id: string;
@@ -64,7 +65,7 @@ const CMABoss = () => {
       if (error || !r) throw error || new Error('Report not found');
 
       // Agent name
-      let agentName = 'Luxe Realty Group';
+      let agentName = tenant.brokerageName;
       if (r.user_id) {
         const { data: prof } = await supabase
           .from('profiles')
