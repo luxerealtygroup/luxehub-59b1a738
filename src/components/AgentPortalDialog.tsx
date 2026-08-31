@@ -89,6 +89,7 @@ export function AgentPortalDialog({
       else if (fubPersonId) query = query.eq('fub_person_id', fubPersonId);
       const { data } = await query.maybeSingle();
       setAccount((data as ClientAccountRow) ?? null);
+      setAssignedAgentId((data as ClientAccountRow)?.invited_by || user?.id || '');
       if (data) {
         setForm((f) => ({
           ...f,
