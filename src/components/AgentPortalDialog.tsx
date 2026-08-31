@@ -132,7 +132,9 @@ export function AgentPortalDialog({
       fub_person_id: form.fub_person_id ? Number(form.fub_person_id) : null,
       drive_folder_id: form.drive_folder_id.trim() || null,
       slack_channel_id: form.slack_channel_id.trim() || null,
-      invited_by: user.id,
+      // Never silently steal ownership: keep the existing agent unless an admin
+      // explicitly reassigns the portal.
+      invited_by: assignedAgentId || account?.invited_by || user.id,
     };
     let saved: ClientAccountRow | null = null;
     if (account) {
