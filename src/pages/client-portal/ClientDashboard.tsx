@@ -431,7 +431,7 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
             {/* Quick Stats */}
             <div className="grid gap-5 md:grid-cols-3">
               {[
-                { label: 'Documents', value: String(documents.length), icon: <FileText className="h-5 w-5" />, gradient: 'from-primary/10', accent: 'text-primary' },
+                { label: 'Documents', value: String(portalDocCount), icon: <FileText className="h-5 w-5" />, gradient: 'from-primary/10', accent: 'text-primary' },
                 { label: 'Properties', value: homeSearch ? 'Searching' : String(properties.length || transactions.length), icon: <Home className="h-5 w-5" />, gradient: 'from-emerald-500/10', accent: 'text-emerald-600' },
                 { label: 'Closing Date', value: activeTransaction?.closing_date ? format(new Date(activeTransaction.closing_date), 'MMM d') : 'TBD', icon: <Calendar className="h-5 w-5" />, gradient: 'from-primary/10', accent: 'text-primary' },
               ].map((s) => (
