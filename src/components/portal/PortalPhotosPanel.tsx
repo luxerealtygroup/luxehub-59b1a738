@@ -243,6 +243,47 @@ export function PortalPhotosPanel({ portalId, canManage }: Props) {
         </div>
       )}
 
+      {canManage && !loading && photos.length > 0 && (
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-border/70 bg-card px-4 py-2.5 shadow-sm">
+          {selecting ? (
+            <>
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium tabular-nums">{selected.size} selected</span>
+                <button
+                  type="button"
+                  onClick={() => setSelected(selected.size === photos.length ? new Set() : new Set(photos.map((p) => p.id)))}
+                  className="text-xs font-medium text-primary hover:underline"
+                >
+                  {selected.size === photos.length ? 'Clear all' : 'Select all'}
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" className="rounded-full" onClick={exitSelecting}>
+                  <X className="h-4 w-4 mr-1" /> Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="rounded-full"
+                  disabled={selected.size === 0 || bulkDeleting}
+                  onClick={deleteSelected}
+                >
+                  {bulkDeleting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Trash2 className="h-4 w-4 mr-1" />}
+                  Delete {selected.size > 0 ? `(${selected.size})` : ''}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <span className="text-xs text-muted-foreground">{photos.length} photo{photos.length !== 1 ? 's' : ''}</span>
+              <Button variant="outline" size="sm" className="rounded-full" onClick={() => setSelecting(true)}>
+                <CheckSquare className="h-4 w-4 mr-1.5" /> Select
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+
       {loading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {[1,2,3,4].map(i => <div key={i} className="aspect-[4/3] rounded-xl bg-muted animate-pulse" />)}
