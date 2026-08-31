@@ -219,7 +219,14 @@ export function ClientTaskList({ clientAccountId, canManage = false, transaction
                     <Label htmlFor="task-notes">Notes (optional)</Label>
                     <Textarea id="task-notes" rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
                   </div>
+                  <div className="flex items-center justify-between rounded-lg border border-border/70 px-3 py-2">
+                    <Label htmlFor="task-internal" className="text-sm cursor-pointer flex items-center gap-1.5">
+                      <Lock className="h-3.5 w-3.5" /> Internal (agent-only)
+                    </Label>
+                    <Switch id="task-internal" checked={form.is_internal} onCheckedChange={(v) => setForm({ ...form, is_internal: v })} />
+                  </div>
                 </div>
+
                 <DialogFooter>
                   <Button onClick={createTask} disabled={saving || !form.title.trim()}>
                     {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
