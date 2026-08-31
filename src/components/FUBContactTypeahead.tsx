@@ -40,13 +40,21 @@ export function FUBContactTypeahead({ selectedContact, onSelect, onClear }: FUBC
         setResults(response.data.people);
         setShowDropdown(true);
         setHasSearched(true);
+      } else {
+        // Failed search: show nothing rather than stale/unfiltered contacts.
+        setResults([]);
+        setShowDropdown(false);
+        setHasSearched(false);
       }
     } catch {
-      // silent
+      setResults([]);
+      setShowDropdown(false);
+      setHasSearched(false);
     } finally {
       setLoading(false);
     }
   }, []);
+
 
   const handleInputChange = (value: string) => {
     setQuery(value);
@@ -148,12 +156,13 @@ export function FUBContactTypeahead({ selectedContact, onSelect, onClear }: FUBC
 
       {showDropdown && results.length === 0 && !loading && query.length >= 2 && hasSearched && (
         <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-md p-4 text-center">
-          <p className="text-sm font-medium text-foreground">No matching contact found</p>
+          <p className="text-sm font-medium text-foreground">No matching contact in Follow Up Boss</p>
           <p className="text-xs text-muted-foreground mt-1">
             Please add or update the contact in Follow Up Boss, then return here to select them.
           </p>
         </div>
       )}
+
     </div>
   );
 }

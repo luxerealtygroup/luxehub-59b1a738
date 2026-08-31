@@ -101,21 +101,88 @@ serve(async (req) => {
 
     switch (action) {
       case 'search_people': {
-        const searchParams = new URLSearchParams();
+        // FUB /v1/people filters are SINGULAR: ?email= / ?phone= / ?name=.
+        // The plural forms (`emails`, `phones`) are silently ignored by FUB and
+        // the endpoint then returns the ENTIRE contact list, which used to make
+        // an email lookup look like "every contact in the database".
         const rawQuery = typeof params?.query === 'string' ? params.query.trim() : '';
-        if (rawQuery) {
-          if (rawQuery.includes('@')) {
-            searchParams.append('emails', rawQuery);
-          } else if (/^[\d\s()+\-.]+$/.test(rawQuery) && rawQuery.replace(/\D/g, '').length >= 4) {
-            searchParams.append('phones', rawQuery.replace(/\D/g, ''));
-          } else {
-            searchParams.append('name', rawQuery);
-          }
+        if (!rawQuery) {
+          // Never fall through to an unfiltered list dump.
+          return new Response(
+            JSON.stringify({ success: true, data: { people: [], _metadata: { collection: 'people', total: 0 } } }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+          );
         }
-        if (params?.limit) searchParams.append('limit', params.limit.toString());
-        endpoint = `/people?${searchParams.toString()}`;
-        break;
+
+        const digits = rawQuery.replace(/\D/g, '');
+        const isEmail = rawQuery.includes('@');
+        const isPhone = !isEmail && /^[\d\s()+\-.]+$/.test(rawQuery) && digits.length >= 7;
+
+        const searchParams = new URLSearchParams();
+        if (isEmail) searchParams.append('email', rawQuery);
+        else if (isPhone) searchParams.append('phone', digits);
+        else searchParams.append('name', rawQuery);
+        const limit = Math.min(Number(params?.limit) || 20, 50);
+        searchParams.append('limit', limit.toString());
+
+        const url = `${FUB_BASE_URL}/people?${searchParams.toString()}`;
+        console.log('Calling FUB endpoint:', url);
+        const r = await fubFetch(url, {
+          method: 'GET',
+          headers: {
+            'Authorization': authHeader,
+            'Content-Type': 'application/json',
+            'X-System': 'Lovable Real Estate Hub',
+            'X-System-Key': 'lovable-hub',
+          },
+        });
+        const j = await r.json();
+        if (!r.ok) {
+          console.error('FUB API error (search_people):', r.status, j);
+          return new Response(
+            JSON.stringify({ success: false, error: j?.message || `API error: ${r.status}` }),
+            { status: r.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+          );
+        }
+
+        let people = Array.isArray(j?.people) ? j.people : [];
+        const reportedTotal = Number(j?._metadata?.total ?? people.length);
+
+        // Defensive guard: if FUB ever ignores a filter again, verify the rows
+        // actually match instead of handing the agent the whole database.
+        const needle = rawQuery.toLowerCase();
+        const matches = (p: Record<string, unknown>) => {
+          if (isEmail) {
+            return (p.emails as { value?: string }[] | undefined)?.some(
+              (e) => (e?.value ?? '').toLowerCase() === needle,
+            ) ?? false;
+          }
+          if (isPhone) {
+            return (p.phones as { value?: string; normalized?: string }[] | undefined)?.some(
+              (ph) => ((ph?.normalized ?? ph?.value ?? '') as string).replace(/\D/g, '').endsWith(digits),
+            ) ?? false;
+          }
+          const name = String(p.name ?? `${p.firstName ?? ''} ${p.lastName ?? ''}`).toLowerCase();
+          return name.includes(needle);
+        };
+        const filtered = people.filter(matches);
+        if (filtered.length !== people.length) {
+          console.warn(
+            `search_people: FUB returned ${people.length} rows (total=${reportedTotal}) for "${rawQuery}"; ` +
+            `${filtered.length} actually match — filter appears to have been ignored.`,
+          );
+        }
+        people = filtered;
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            data: { people, _metadata: { collection: 'people', total: people.length } },
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
       }
+
 
       case 'get_person':
         endpoint = `/people/${params.id}`;

@@ -234,9 +234,12 @@ const Library = () => {
       const response = await followUpBossApi.searchPeople(query);
       if (response.success && response.data?.people) {
         setFubSearchResults(response.data.people.slice(0, 10));
+      } else {
+        setFubSearchResults([]);
       }
     } catch (error) {
       console.error('FUB search error:', error);
+      setFubSearchResults([]);
     } finally {
       setFubSearching(false);
     }
@@ -254,13 +257,17 @@ const Library = () => {
       const response = await followUpBossApi.searchPeople(query);
       if (response.success && response.data?.people) {
         setClientFilterResults(response.data.people.slice(0, 10));
+      } else {
+        setClientFilterResults([]);
       }
     } catch (error) {
       console.error('Client filter search error:', error);
+      setClientFilterResults([]);
     } finally {
       setClientFilterSearching(false);
     }
   }, []);
+
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -889,7 +896,7 @@ const Library = () => {
                       </div>
                     )}
                     {clientFilterQuery.length >= 2 && clientFilterResults.length === 0 && !clientFilterSearching && (
-                      <p className="text-sm text-muted-foreground text-center py-2">No clients found</p>
+                      <p className="text-sm text-muted-foreground text-center py-2">No matching contact in Follow Up Boss</p>
                     )}
                   </div>
                 )}
