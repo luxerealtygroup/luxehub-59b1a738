@@ -402,6 +402,7 @@ export function AgentPortalDialog({
                 <FUBTimeline
                   clientAccountId={account.id}
                   fubPersonId={account.fub_person_id}
+                  scope={scope}
                   canAddNotes
                 />
               )}
