@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Building2 } from 'lucide-react';
+import { claimPendingInvite } from '@/lib/inviteLinks';
 
 const ClientLogin = () => {
   const [email, setEmail] = useState('');
@@ -30,6 +31,10 @@ const ClientLogin = () => {
       return;
     }
 
+    // If they arrived from an invitation link (e.g. had to confirm their email
+    // first), claim the portal now that they're authenticated.
+    await claimPendingInvite();
+
     // Check if user is a client
     const { data: clientAccount } = await supabase
       .from('client_accounts')
@@ -51,6 +56,7 @@ const ClientLogin = () => {
     navigate('/client-portal');
     setLoading(false);
   };
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">

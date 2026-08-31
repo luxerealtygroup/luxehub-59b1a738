@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { UserPlus, Copy, Check, Mail, Loader2 } from 'lucide-react';
+import { createPortalInvite, sendPortalInvite } from '@/lib/inviteLinks';
 
 interface ClientInviteDialogProps {
   clientName?: string;
@@ -26,37 +27,63 @@ export function ClientInviteDialog({ clientName, clientEmail, fubPersonId }: Cli
   const [email, setEmail] = useState(clientEmail || '');
   const [copied, setCopied] = useState(false);
   const [sending, setSending] = useState(false);
+  const [inviteLink, setInviteLink] = useState('');
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const generateInviteLink = () => {
-    const baseUrl = window.location.origin;
-    const params = new URLSearchParams();
-    
-    if (email) params.set('email', email);
-    if (fubPersonId) params.set('fub_id', fubPersonId.toString());
-    if (user?.id) params.set('invited_by', user.id);
-    
-    return `${baseUrl}/client-portal/signup?${params.toString()}`;
+  /**
+   * Invites are always tied to a portal row, so the token has something to
+   * unlock. Reuse the pending portal for this email if one exists.
+   */
+  const ensurePortal = async (): Promise<string> => {
+    const normalized = email.trim().toLowerCase();
+    const { data: existing } = await supabase
+      .from('client_accounts')
+      .select('id')
+      .eq('email', normalized)
+      .maybeSingle();
+    if (existing?.id) return existing.id;
+
+    const { data, error } = await supabase
+      .from('client_accounts')
+      .insert({
+        email: normalized,
+        full_name: clientName || null,
+        fub_person_id: fubPersonId ?? null,
+        invited_by: user?.id ?? null,
+        user_id: null,
+      })
+      .select('id')
+      .single();
+    if (error) throw new Error(error.message);
+    return data.id as string;
   };
 
-  const inviteLink = generateInviteLink();
-
   const handleCopyLink = async () => {
+    if (!email) {
+      toast({ title: 'Add an email', description: 'Enter the client email first.', variant: 'destructive' });
+      return;
+    }
+    setSending(true);
     try {
-      await navigator.clipboard.writeText(inviteLink);
+      const portalId = await ensurePortal();
+      const invite = await createPortalInvite(portalId);
+      setInviteLink(invite.url);
+      await navigator.clipboard.writeText(invite.url);
       setCopied(true);
       toast({
-        title: "Link copied!",
-        description: "Share this link with your client to invite them to the portal.",
+        title: 'Link copied!',
+        description: 'Single-use invitation link, valid for 7 days.',
       });
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
       toast({
-        title: "Copy failed",
-        description: "Please copy the link manually.",
-        variant: "destructive"
+        title: 'Could not create link',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
       });
+    } finally {
+      setSending(false);
     }
   };
 
@@ -67,20 +94,15 @@ export function ClientInviteDialog({ clientName, clientEmail, fubPersonId }: Cli
     }
     setSending(true);
     try {
-      const { error } = await supabase.functions.invoke('send-transactional-email', {
-        body: {
-          templateName: 'client-portal-invite',
-          recipientEmail: email,
-          idempotencyKey: `portal-invite-${email}-${Date.now()}`,
-          templateData: {
-            clientName: clientName || '',
-            agentName: user?.email?.split('@')[0] || 'Your agent',
-            inviteUrl: inviteLink,
-          },
-        },
+      const portalId = await ensurePortal();
+      const invite = await sendPortalInvite({
+        portalId,
+        email: email.trim().toLowerCase(),
+        clientName,
+        agentName: user?.email?.split('@')[0] || 'Your agent',
       });
-      if (error) throw error;
-      toast({ title: 'Invitation sent', description: `Emailed the portal link to ${email}.` });
+      setInviteLink(invite.url);
+      toast({ title: 'Invitation sent', description: `Emailed a single-use portal link to ${email}.` });
       setOpen(false);
     } catch (err) {
       toast({
@@ -92,6 +114,7 @@ export function ClientInviteDialog({ clientName, clientEmail, fubPersonId }: Cli
       setSending(false);
     }
   };
+
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -126,12 +149,14 @@ export function ClientInviteDialog({ clientName, clientEmail, fubPersonId }: Cli
               <Input
                 readOnly
                 value={inviteLink}
+                placeholder="Click copy to generate a single-use link"
                 className="text-xs"
               />
               <Button
                 type="button"
                 variant="outline"
                 size="icon"
+                disabled={sending}
                 onClick={handleCopyLink}
               >
                 {copied ? (
@@ -144,8 +169,9 @@ export function ClientInviteDialog({ clientName, clientEmail, fubPersonId }: Cli
           </div>
 
           <p className="text-sm text-muted-foreground">
-            Share this link with your client. They'll be able to create an account and view documents you've uploaded for them.
+            Each invitation link is single-use and expires in 7 days. Only the person who opens it can claim the portal.
           </p>
+
 
           <Button
             type="button"

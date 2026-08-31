@@ -26,6 +26,8 @@ import { PortalChatPanel } from '@/components/portal/PortalChatPanel';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useOrgTier } from '@/hooks/useOrgTier';
 import { Link } from 'react-router-dom';
+import { createPortalInvite, sendPortalInvite } from '@/lib/inviteLinks';
+
 
 interface AgentPortalDialogProps {
   clientName?: string;
@@ -178,25 +180,29 @@ export function AgentPortalDialog({
   };
 
 
-  const buildInviteLink = (saved: ClientAccountRow) => {
-    const params = new URLSearchParams();
-    if (saved.email) params.set('email', saved.email);
-    if (saved.fub_person_id) params.set('fub_id', String(saved.fub_person_id));
-    if (user?.id) params.set('invited_by', user.id);
-    return `${window.location.origin}/client-portal/signup?${params.toString()}`;
-  };
 
   const handleCopyLink = async () => {
     const saved = account ?? (await saveAccount());
     if (!saved) return;
-    const link = buildInviteLink(saved);
+    setSendingInvite(true);
     try {
-      await navigator.clipboard.writeText(link);
+      // Copying a link issues a real single-use token, same as emailing it.
+      const invite = await createPortalInvite(saved.id);
+      await navigator.clipboard.writeText(invite.url);
       setCopied(true);
-      toast({ title: 'Invite link copied', description: 'Share it with your client to activate their portal.' });
+      toast({
+        title: 'Invite link copied',
+        description: 'Single-use link, valid for 7 days.',
+      });
       setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast({ title: 'Copy failed', description: link, variant: 'destructive' });
+    } catch (err) {
+      toast({
+        title: 'Could not create invite link',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSendingInvite(false);
     }
   };
 
@@ -204,26 +210,28 @@ export function AgentPortalDialog({
     const saved = account ?? (await saveAccount());
     if (!saved) return;
     setSendingInvite(true);
-    const inviteUrl = buildInviteLink(saved);
-    const { error } = await supabase.functions.invoke('send-transactional-email', {
-      body: {
-        templateName: 'client-portal-invite',
-        recipientEmail: saved.email,
-        idempotencyKey: `portal-invite-${saved.id}-${Date.now()}`,
-        templateData: {
-          clientName: saved.full_name || '',
-          agentName: user?.email?.split('@')[0] || 'Your agent',
-          inviteUrl,
-        },
-      },
-    });
-    setSendingInvite(false);
-    if (error) {
-      toast({ title: 'Send failed', description: error.message, variant: 'destructive' });
-      return;
+    try {
+      await sendPortalInvite({
+        portalId: saved.id,
+        email: saved.email,
+        clientName: saved.full_name,
+        agentName: user?.email?.split('@')[0] || 'Your agent',
+      });
+      toast({
+        title: 'Invitation sent',
+        description: `${saved.email} will receive a single-use portal link, valid for 7 days.`,
+      });
+    } catch (err) {
+      toast({
+        title: 'Send failed',
+        description: err instanceof Error ? err.message : 'Could not send the invitation.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSendingInvite(false);
     }
-    toast({ title: 'Invitation sent', description: `${saved.email} will receive their portal signup email.` });
   };
+
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

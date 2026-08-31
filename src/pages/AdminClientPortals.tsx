@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -16,10 +16,14 @@ import {
   Plus,
   Settings,
   Eye,
+  Send,
 } from 'lucide-react';
 import { AgentPortalDialog } from '@/components/AgentPortalDialog';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Link } from 'react-router-dom';
+import { useToast } from '@/hooks/use-toast';
+import { sendPortalInvite } from '@/lib/inviteLinks';
+
 
 type PortalRow = {
   id: string;
@@ -29,11 +33,14 @@ type PortalRow = {
   fub_person_id: number | null;
   slack_channel_id: string | null;
   drive_folder_id: string | null;
-  user_id: string;
+  user_id: string | null;
   invited_by: string | null;
+  invited_at: string | null;
+  claimed_at: string | null;
   created_at: string;
   agentName: string;
-  status: 'active' | 'invited';
+  status: 'active' | 'invited' | 'not_invited';
+
   docCount: number;
   lastMessageAt: string | null;
   lastMessageFromClient: boolean;
@@ -44,10 +51,12 @@ type PortalRow = {
 type FilterKey =
   | 'all'
   | 'not_invited'
+  | 'awaiting_signup'
   | 'missing_slack'
   | 'missing_docs'
   | 'missing_fub'
   | 'unread';
+
 
 export default function AdminClientPortals() {
   const { isAdmin } = useUserRole();
@@ -55,13 +64,45 @@ export default function AdminClientPortals() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [health, setHealth] = useState<FilterKey>('all');
+  const [resendingId, setResendingId] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  /** Mint a fresh single-use token and email it, straight from the row. */
+  const handleResend = async (row: PortalRow) => {
+    setResendingId(row.id);
+    try {
+      await sendPortalInvite({
+        portalId: row.id,
+        email: row.email,
+        clientName: row.full_name,
+        agentName: row.agentName,
+      });
+      const now = new Date().toISOString();
+      setRows((prev) =>
+        prev.map((r) => (r.id === row.id ? { ...r, invited_at: now, status: 'invited' } : r)),
+      );
+      toast({
+        title: 'Invitation sent',
+        description: `${row.email} will receive a single-use link, valid for 7 days.`,
+      });
+    } catch (err) {
+      toast({
+        title: 'Send failed',
+        description: err instanceof Error ? err.message : 'Could not send the invitation.',
+        variant: 'destructive',
+      });
+    } finally {
+      setResendingId(null);
+    }
+  };
+
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       const { data: accounts } = await supabase
         .from('client_accounts')
-        .select('id,email,full_name,client_type,fub_person_id,slack_channel_id,drive_folder_id,user_id,invited_by,created_at')
+        .select('id,email,full_name,client_type,fub_person_id,slack_channel_id,drive_folder_id,user_id,invited_by,invited_at,claimed_at,created_at')
         .order('created_at', { ascending: false });
 
       const list = (accounts ?? []) as PortalRow[];
@@ -113,7 +154,15 @@ export default function AdminClientPortals() {
       });
 
       const enriched: PortalRow[] = list.map((r) => {
-        const status: 'active' | 'invited' = r.user_id === r.invited_by ? 'invited' : 'active';
+        // Claimed = a real client signed up on it. Otherwise it's either
+        // awaiting signup (invited) or nobody was ever asked (not_invited).
+        const claimed = Boolean(r.user_id) || Boolean(r.claimed_at);
+        const status: PortalRow['status'] = claimed
+          ? 'active'
+          : r.invited_at
+            ? 'invited'
+            : 'not_invited';
+
         const dCount = docCount.get(r.id) ?? 0;
         const lastAt = lastMsg.get(r.id) ?? null;
         const clientLast = lastFromClient.get(r.id) ?? false;
@@ -149,7 +198,9 @@ export default function AdminClientPortals() {
         const hay = `${r.full_name ?? ''} ${r.email} ${r.agentName}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
-      if (health === 'not_invited' && r.status !== 'invited') return false;
+      if (health === 'not_invited' && r.status !== 'not_invited') return false;
+      if (health === 'awaiting_signup' && r.status !== 'invited') return false;
+
       if (health === 'missing_slack' && r.slack_channel_id) return false;
       if (health === 'missing_docs' && r.docCount > 0) return false;
       if (health === 'missing_fub' && r.fub_person_id) return false;
@@ -161,7 +212,9 @@ export default function AdminClientPortals() {
   const stats = useMemo(() => {
     return {
       all: rows.length,
-      not_invited: rows.filter((r) => r.status === 'invited').length,
+      not_invited: rows.filter((r) => r.status === 'not_invited').length,
+      awaiting_signup: rows.filter((r) => r.status === 'invited').length,
+
       missing_slack: rows.filter((r) => !r.slack_channel_id).length,
       missing_docs: rows.filter((r) => r.docCount === 0).length,
       missing_fub: rows.filter((r) => !r.fub_person_id).length,
@@ -171,7 +224,9 @@ export default function AdminClientPortals() {
 
   const filterChips: { key: FilterKey; label: string; count: number }[] = [
     { key: 'all', label: 'All', count: stats.all },
-    { key: 'not_invited', label: 'Not Invited', count: stats.not_invited },
+    { key: 'not_invited', label: 'Never Invited', count: stats.not_invited },
+    { key: 'awaiting_signup', label: 'Awaiting Signup', count: stats.awaiting_signup },
+
     { key: 'missing_slack', label: 'No Slack Channel', count: stats.missing_slack },
     { key: 'missing_docs', label: 'No Documents', count: stats.missing_docs },
     { key: 'missing_fub', label: 'No FUB Linked', count: stats.missing_fub },
@@ -295,12 +350,37 @@ export default function AdminClientPortals() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {r.status === 'active' ? (
-                          <Badge className="bg-green-500/15 text-green-500 border-green-500/30">Active</Badge>
-                        ) : (
-                          <Badge className="bg-amber-500/15 text-amber-500 border-amber-500/30">Invited</Badge>
-                        )}
+                        <div className="flex flex-col items-start gap-1">
+                          {r.status === 'active' ? (
+                            <Badge className="bg-green-500/15 text-green-500 border-green-500/30">Active</Badge>
+                          ) : r.status === 'invited' ? (
+                            <Badge className="bg-amber-500/15 text-amber-500 border-amber-500/30">
+                              Invited {r.invited_at ? format(new Date(r.invited_at), 'MMM d') : ''}
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-destructive/15 text-destructive border-destructive/30">
+                              Never invited
+                            </Badge>
+                          )}
+                          {r.status !== 'active' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-1 text-xs text-muted-foreground hover:text-primary"
+                              disabled={resendingId === r.id}
+                              onClick={() => handleResend(r)}
+                            >
+                              {resendingId === r.id ? (
+                                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                              ) : (
+                                <Send className="mr-1 h-3 w-3" />
+                              )}
+                              {r.status === 'invited' ? 'Resend invite' : 'Send invite'}
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
+
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <span className={`inline-block h-2.5 w-2.5 rounded-full ${h.dot}`} />
