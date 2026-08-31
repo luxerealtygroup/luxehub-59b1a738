@@ -64,7 +64,7 @@ export default function AdminClientPortals() {
       setLoading(true);
       const { data: accounts } = await supabase
         .from('client_accounts')
-        .select('id,email,full_name,client_type,fub_person_id,slack_channel_id,drive_folder_id,user_id,invited_by,created_at')
+        .select('id,email,full_name,client_type,fub_person_id,slack_channel_id,drive_folder_id,user_id,invited_by,invited_at,claimed_at,created_at')
         .order('created_at', { ascending: false });
 
       const list = (accounts ?? []) as PortalRow[];
