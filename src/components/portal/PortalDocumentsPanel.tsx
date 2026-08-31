@@ -3,8 +3,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { blockPortalWrite, usePortalPreview } from '@/hooks/usePortalPreview';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Download, Eye, FileText, File, Image as ImageIcon, Loader2, Trash2, Upload, X } from 'lucide-react';
+import { Download, Eye, EyeOff, FileText, File, Image as ImageIcon, Loader2, Lock, Trash2, Upload, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PortalScope, matchesScope, scopePropertyId } from '@/lib/portalScope';
@@ -17,8 +19,10 @@ interface PortalDocument {
   file_type: string | null;
   file_size: number | null;
   property_id: string | null;
+  is_internal: boolean;
   created_at: string;
 }
+
 
 interface Props {
   portalId: string;
