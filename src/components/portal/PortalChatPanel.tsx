@@ -274,6 +274,20 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
                           {h.label}
                         </span>
                       )}
+                      {showAgentControls && (m.is_internal || m.source_slack_ts) && (
+                        <div className="flex flex-wrap items-center gap-1.5 mb-1 ml-1">
+                          {m.is_internal && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                              <Lock className="h-2.5 w-2.5" /> Internal — hidden from client
+                            </span>
+                          )}
+                          {m.source_slack_ts && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                              <Hash className="h-2.5 w-2.5" /> From Slack
+                            </span>
+                          )}
+                        </div>
+                      )}
                       <div
                         className={`rounded-2xl px-4 py-2.5 ${bubbleClass(m)} ${
                           mine ? 'rounded-br-md' : 'rounded-bl-md'
@@ -283,13 +297,30 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
                           {m.message_body}
                         </p>
                       </div>
-                      <p
-                        className={`text-[10px] mt-1 tabular-nums ${
-                          mine ? 'text-muted-foreground mr-1' : 'text-muted-foreground ml-1'
-                        }`}
+                      <div
+                        className={`flex items-center gap-2 mt-1 ${mine ? 'mr-1' : 'ml-1'}`}
                       >
-                        {formatTime(m.created_at)}
-                      </p>
+                        <p className="text-[10px] tabular-nums text-muted-foreground">
+                          {formatTime(m.created_at)}
+                        </p>
+                        {showAgentControls && (
+                          <button
+                            type="button"
+                            onClick={() => setVisibility(m, !m.is_internal)}
+                            className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                          >
+                            {m.is_internal ? (
+                              <>
+                                <Eye className="h-2.5 w-2.5" /> Make visible to client
+                              </>
+                            ) : (
+                              <>
+                                <EyeOff className="h-2.5 w-2.5" /> Unpublish
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
