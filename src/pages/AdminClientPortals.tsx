@@ -160,7 +160,9 @@ export default function AdminClientPortals() {
         const hay = `${r.full_name ?? ''} ${r.email} ${r.agentName}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
-      if (health === 'not_invited' && r.status !== 'invited') return false;
+      if (health === 'not_invited' && r.status !== 'not_invited') return false;
+      if (health === 'awaiting_signup' && r.status !== 'invited') return false;
+
       if (health === 'missing_slack' && r.slack_channel_id) return false;
       if (health === 'missing_docs' && r.docCount > 0) return false;
       if (health === 'missing_fub' && r.fub_person_id) return false;
