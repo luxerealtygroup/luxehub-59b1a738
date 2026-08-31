@@ -397,6 +397,21 @@ export default function AdminClientPortals() {
                       <TableCell>
                         <div className="font-medium">{r.full_name || '—'}</div>
                         <div className="text-xs text-muted-foreground">{r.email}</div>
+                        {(r.overdueConditions > 0 || r.dueSoonConditions > 0) && (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {r.overdueConditions > 0 && (
+                              <Badge className="bg-destructive text-destructive-foreground border-destructive text-[10px] gap-1">
+                                <AlertTriangle className="h-3 w-3" />
+                                {r.overdueConditions} condition{r.overdueConditions > 1 ? 's' : ''} overdue
+                              </Badge>
+                            )}
+                            {r.dueSoonConditions > 0 && (
+                              <Badge className="bg-amber-500/15 text-amber-600 border-amber-500/30 text-[10px]">
+                                {r.dueSoonConditions} due in 3 days
+                              </Badge>
+                            )}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell className="text-muted-foreground">{r.agentName}</TableCell>
                       <TableCell>
