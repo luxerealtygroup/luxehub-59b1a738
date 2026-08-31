@@ -114,7 +114,7 @@ export function SlackChannelPicker({ value, onChange }: Props) {
               <div className="px-3 py-4 text-sm">
                 <p className="text-destructive font-medium">Unable to load Slack channels</p>
                 <p className="text-muted-foreground text-xs mt-1">{error}</p>
-                <Button size="sm" variant="ghost" className="mt-2 h-7 px-2 text-xs" onClick={loadChannels}>
+                <Button size="sm" variant="ghost" className="mt-2 h-7 px-2 text-xs" onClick={() => loadChannels()}>
                   Retry
                 </Button>
               </div>
