@@ -52,16 +52,22 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
       ? sendAsAgentIdProp ??
         (viewCtx?.isViewingAsAgent && viewCtx.viewingAgentId ? viewCtx.viewingAgentId : null)
       : null;
+  // Internal markers and the unpublish action are agent-side only, and are
+  // hidden in preview-as-client so the preview matches what the client sees.
+  const showAgentControls = viewerRole === 'agent' && !isPreview;
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       setLoading(true);
-      const { data, error } = await supabase
+      let query = supabase
         .from('portal_messages')
         .select('*')
-        .eq('portal_id', portalId)
-        .order('created_at', { ascending: true });
+        .eq('portal_id', portalId);
+      // RLS already hides internal rows from clients. Preview-as-client runs on
+      // the agent's session, so filter explicitly to keep the preview honest.
+      if (isPreview || viewerRole === 'client') query = query.eq('is_internal', false);
+      const { data, error } = await query.order('created_at', { ascending: true });
       if (!cancelled) {
         if (error) console.error(error);
         setMessages((data as PortalMessage[]) || []);
