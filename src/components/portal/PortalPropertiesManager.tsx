@@ -257,6 +257,9 @@ export function PortalPropertiesManager({ portalId }: Props) {
                         />
                       </div>
                     ))}
+                    <div className="sm:col-span-4">
+                      <PortalConditionsEditor portalId={portalId} transactionId={t.id} />
+                    </div>
                     <div className="sm:col-span-4 flex justify-end">
                       <Button size="sm" variant="ghost" className="gap-2" onClick={() => removeTransaction(t.id)}>
                         <Trash2 className="h-3.5 w-3.5 text-destructive" /> Remove transaction
