@@ -182,17 +182,26 @@ export function PortalPhotosPanel({ portalId, canManage }: Props) {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {list.map((p) => (
             <figure key={p.id} className="group relative">
-              <PhotoThumb path={p.file_path} caption={p.caption} onOpen={setLightbox} />
-              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full bg-background/95 hover:bg-background shadow-md" onClick={() => downloadPhoto(p)} title="Download">
-                  <Download className="h-3.5 w-3.5" />
-                </Button>
-                {canManage && (
-                  <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full bg-background/95 hover:bg-background shadow-md" onClick={() => del(p)} title="Delete">
-                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+              <PhotoThumb
+                path={p.file_path}
+                caption={p.caption}
+                onOpen={setLightbox}
+                selecting={selecting}
+                selected={selected.has(p.id)}
+                onToggle={() => toggleSelect(p.id)}
+              />
+              {!selecting && (
+                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full bg-background/95 hover:bg-background shadow-md" onClick={() => downloadPhoto(p)} title="Download">
+                    <Download className="h-3.5 w-3.5" />
                   </Button>
-                )}
-              </div>
+                  {canManage && (
+                    <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full bg-background/95 hover:bg-background shadow-md" onClick={() => del(p)} title="Delete">
+                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                    </Button>
+                  )}
+                </div>
+              )}
             </figure>
           ))}
         </div>
