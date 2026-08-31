@@ -392,6 +392,7 @@ export type Database = {
       }
       client_accounts: {
         Row: {
+          claimed_at: string | null
           client_type: string | null
           created_at: string
           drive_folder_id: string | null
@@ -399,6 +400,10 @@ export type Database = {
           fub_person_id: number | null
           full_name: string | null
           id: string
+          invite_expires_at: string | null
+          invite_token: string | null
+          invite_used_at: string | null
+          invited_at: string | null
           invited_by: string | null
           phone: string | null
           slack_channel_id: string | null
@@ -406,6 +411,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          claimed_at?: string | null
           client_type?: string | null
           created_at?: string
           drive_folder_id?: string | null
@@ -413,6 +419,10 @@ export type Database = {
           fub_person_id?: number | null
           full_name?: string | null
           id?: string
+          invite_expires_at?: string | null
+          invite_token?: string | null
+          invite_used_at?: string | null
+          invited_at?: string | null
           invited_by?: string | null
           phone?: string | null
           slack_channel_id?: string | null
@@ -420,6 +430,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          claimed_at?: string | null
           client_type?: string | null
           created_at?: string
           drive_folder_id?: string | null
@@ -427,6 +438,10 @@ export type Database = {
           fub_person_id?: number | null
           full_name?: string | null
           id?: string
+          invite_expires_at?: string | null
+          invite_token?: string | null
+          invite_used_at?: string | null
+          invited_at?: string | null
           invited_by?: string | null
           phone?: string | null
           slack_channel_id?: string | null
@@ -3369,6 +3384,17 @@ export type Database = {
           table_name: string
         }[]
       }
+      claim_portal_invite: {
+        Args: { _full_name?: string; _token: string }
+        Returns: string
+      }
+      create_portal_invite: {
+        Args: { _portal_id: string }
+        Returns: {
+          expires_at: string
+          token: string
+        }[]
+      }
       current_user_org_id: { Args: never; Returns: string }
       delete_email: {
         Args: { message_id: number; queue_name: string }
@@ -3432,6 +3458,15 @@ export type Database = {
           message: Json
           msg_id: number
           read_ct: number
+        }[]
+      }
+      validate_portal_invite: {
+        Args: { _token: string }
+        Returns: {
+          email: string
+          full_name: string
+          portal_id: string
+          status: string
         }[]
       }
     }
