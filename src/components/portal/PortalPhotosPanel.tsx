@@ -87,6 +87,7 @@ export function PortalPhotosPanel({ portalId, canManage: canManageProp }: Props)
   useEffect(() => { load(); }, [portalId]);
 
   const onUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (blockPortalWrite('Uploading photos')) return;
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
     setUploading(true);
@@ -150,6 +151,7 @@ export function PortalPhotosPanel({ portalId, canManage: canManageProp }: Props)
   };
 
   const del = async (p: PortalPhoto) => {
+    if (blockPortalWrite('Deleting photos')) return;
     if (!confirm('Delete this photo?')) return;
     await supabase.storage.from(BUCKET).remove([p.file_path]);
     const { error } = await supabase.from('portal_photos').delete().eq('id', p.id);
@@ -171,6 +173,7 @@ export function PortalPhotosPanel({ portalId, canManage: canManageProp }: Props)
   };
 
   const deleteSelected = async () => {
+    if (blockPortalWrite('Deleting photos')) return;
     const targets = photos.filter((p) => selected.has(p.id));
     if (!targets.length) return;
     if (!confirm(`Delete ${targets.length} selected photo${targets.length > 1 ? 's' : ''}? This cannot be undone.`)) return;
