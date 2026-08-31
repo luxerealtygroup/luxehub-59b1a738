@@ -310,6 +310,22 @@ export function AgentPortalDialog({
                     onClear={() => setForm({ ...form, fub_person_id: '' })}
                   />
                 </div>
+                {isAdmin && (
+                  <div className="space-y-1">
+                    <Label>Assigned agent</Label>
+                    <Select value={assignedAgentId} onValueChange={setAssignedAgentId}>
+                      <SelectTrigger><SelectValue placeholder="Select agent" /></SelectTrigger>
+                      <SelectContent>
+                        {agents.map((a) => (
+                          <SelectItem key={a.id} value={a.id}>{a.full_name || 'Unnamed'}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Controls who owns this portal and receives client messages.
+                    </p>
+                  </div>
+                )}
                 <div className="space-y-1">
                   {canAccessCRMConnections && (
                     <>
