@@ -149,12 +149,14 @@ export function ClientInviteDialog({ clientName, clientEmail, fubPersonId }: Cli
               <Input
                 readOnly
                 value={inviteLink}
+                placeholder="Click copy to generate a single-use link"
                 className="text-xs"
               />
               <Button
                 type="button"
                 variant="outline"
                 size="icon"
+                disabled={sending}
                 onClick={handleCopyLink}
               >
                 {copied ? (
@@ -167,8 +169,9 @@ export function ClientInviteDialog({ clientName, clientEmail, fubPersonId }: Cli
           </div>
 
           <p className="text-sm text-muted-foreground">
-            Share this link with your client. They'll be able to create an account and view documents you've uploaded for them.
+            Each invitation link is single-use and expires in 7 days. Only the person who opens it can claim the portal.
           </p>
+
 
           <Button
             type="button"
