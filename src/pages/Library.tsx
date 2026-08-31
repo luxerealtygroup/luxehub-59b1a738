@@ -234,9 +234,12 @@ const Library = () => {
       const response = await followUpBossApi.searchPeople(query);
       if (response.success && response.data?.people) {
         setFubSearchResults(response.data.people.slice(0, 10));
+      } else {
+        setFubSearchResults([]);
       }
     } catch (error) {
       console.error('FUB search error:', error);
+      setFubSearchResults([]);
     } finally {
       setFubSearching(false);
     }
@@ -254,13 +257,17 @@ const Library = () => {
       const response = await followUpBossApi.searchPeople(query);
       if (response.success && response.data?.people) {
         setClientFilterResults(response.data.people.slice(0, 10));
+      } else {
+        setClientFilterResults([]);
       }
     } catch (error) {
       console.error('Client filter search error:', error);
+      setClientFilterResults([]);
     } finally {
       setClientFilterSearching(false);
     }
   }, []);
+
 
   useEffect(() => {
     const timer = setTimeout(() => {

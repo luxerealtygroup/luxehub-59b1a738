@@ -72,6 +72,7 @@ export const FUBClientSearch = ({ onSelectClient, trigger }: FUBClientSearchProp
     setOpen(false);
     setQuery('');
     setResults([]);
+    setHasSearched(false);
   };
 
   const handleOpenChange = (newOpen: boolean) => {
@@ -79,8 +80,10 @@ export const FUBClientSearch = ({ onSelectClient, trigger }: FUBClientSearchProp
     if (!newOpen) {
       setQuery('');
       setResults([]);
+      setHasSearched(false);
     }
   };
+
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange} modal={true}>
@@ -158,9 +161,12 @@ export const FUBClientSearch = ({ onSelectClient, trigger }: FUBClientSearchProp
 
             {results.length === 0 && !loading && (
               <p className="text-center text-muted-foreground py-8 text-sm">
-                Search for clients in Follow Up Boss
+                {hasSearched
+                  ? 'No matching contact in Follow Up Boss'
+                  : 'Search for clients in Follow Up Boss'}
               </p>
             )}
+
           </div>
         </DialogContent>
       </DialogPortal>
