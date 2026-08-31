@@ -77,6 +77,10 @@ interface ClientDashboardProps {
 
 const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
   const [documents, setDocuments] = useState<ClientDocument[]>([]);
+  // Count of the documents the Documents tab actually shows (portal_documents,
+  // client-visible only) so the Overview stat can't disagree with the tab.
+  const [portalDocCount, setPortalDocCount] = useState(0);
+
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [clientAccount, setClientAccount] = useState<ClientAccount | null>(null);
   const [loading, setLoading] = useState(true);
