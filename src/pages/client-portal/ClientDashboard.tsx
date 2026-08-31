@@ -203,9 +203,14 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
     };
 
     checkAuthAndFetchData();
-  }, [navigate, toast]);
+  }, [navigate, toast, previewPortalId, isPreview]);
 
   const handleSignOut = async () => {
+    // In preview mode never touch the admin/agent's own session.
+    if (isPreview) {
+      navigate('/dashboard/admin/client-portals');
+      return;
+    }
     await supabase.auth.signOut();
     navigate('/client-portal/login');
   };
