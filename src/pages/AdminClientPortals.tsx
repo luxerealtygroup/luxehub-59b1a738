@@ -48,6 +48,10 @@ type PortalRow = {
   transactionSides: Set<'buyer' | 'seller'>;
   propertyCount: number;
   healthScore: number;
+  /** Outstanding conditions whose due date has already passed. */
+  overdueConditions: number;
+  /** Outstanding conditions due within the next 3 days. */
+  dueSoonConditions: number;
 };
 
 type FilterKey =
