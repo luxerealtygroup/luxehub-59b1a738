@@ -268,6 +268,7 @@ export default function AdminClientPortals() {
     { key: 'missing_docs', label: 'No Documents', count: stats.missing_docs },
     { key: 'missing_fub', label: 'No FUB Linked', count: stats.missing_fub },
     { key: 'unread', label: 'Unread Messages', count: stats.unread },
+    { key: 'conditions_risk', label: 'Conditions Due', count: stats.conditions_risk },
   ];
 
   const healthMeta = (score: number) => {
