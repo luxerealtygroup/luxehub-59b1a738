@@ -37,6 +37,7 @@ export function ClientTaskList({ clientAccountId, canManage = false, transaction
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ title: '', due_date: '', notes: '' });
   const { toast } = useToast();
+  const { isPreview } = usePortalPreview();
 
   useEffect(() => {
     fetchTasks();
@@ -167,7 +168,7 @@ export function ClientTaskList({ clientAccountId, canManage = false, transaction
           {pendingTasks.length > 0 && (
             <span className="chip-gold">{pendingTasks.length} pending</span>
           )}
-          {canManage && (
+          {canManage && !isPreview && (
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
                 <Button size="sm" variant="outline" className="ml-1 gap-1 rounded-full">
@@ -233,6 +234,7 @@ export function ClientTaskList({ clientAccountId, canManage = false, transaction
                     >
                       <Checkbox
                         checked={false}
+                        disabled={isPreview}
                         onCheckedChange={() => toggleTask(task.id, false)}
                         className="mt-1 h-5 w-5 rounded-md border-2 border-muted-foreground/40 data-[state=checked]:border-primary data-[state=checked]:bg-primary transition-all"
                       />
@@ -283,6 +285,7 @@ export function ClientTaskList({ clientAccountId, canManage = false, transaction
                   >
                     <Checkbox
                       checked={true}
+                      disabled={isPreview}
                       onCheckedChange={() => toggleTask(task.id, true)}
                       className="mt-1 h-5 w-5 rounded-md border-2 border-emerald-500 bg-emerald-500 data-[state=checked]:bg-emerald-500"
                     />

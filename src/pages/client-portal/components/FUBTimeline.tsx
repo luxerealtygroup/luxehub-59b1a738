@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { blockPortalWrite, usePortalPreview } from '@/hooks/usePortalPreview';
 import { Calendar, Check, Loader2, Plus, Circle } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -129,6 +130,9 @@ export function FUBTimeline({
       cancelled = true;
     };
   }, [fubPersonId, clientAccountId, fubDealId, transactionId]);
+
+  const { isPreview } = usePortalPreview();
+  const canAddNotesHere = canAddNotes && !isPreview;
 
   const currentStageName = stages[stages.length - 1]?.stage ?? null;
 
@@ -277,7 +281,7 @@ export function FUBTimeline({
                               ))}
                             </div>
                           )}
-                          {canAddNotes && (
+                          {canAddNotesHere && (
                             <div className="mt-3 space-y-2">
                               <Textarea
                                 placeholder={`Add a note for "${entry.stage}"…`}
