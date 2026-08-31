@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { blockPortalWrite, usePortalPreview } from '@/hooks/usePortalPreview';
-import { MessageCircle, Send, Headset, User, Briefcase } from 'lucide-react';
+import { MessageCircle, Send, Headset, User, Briefcase, Lock, Eye, EyeOff, Hash } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
 
 type SenderType = 'client' | 'agent' | 'ops';
@@ -20,6 +20,9 @@ interface PortalMessage {
   sender_name: string | null;
   message_body: string;
   created_at: string;
+  is_internal?: boolean;
+  source_slack_channel_id?: string | null;
+  source_slack_ts?: string | null;
 }
 
 interface PortalChatPanelProps {
