@@ -545,7 +545,12 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
         
         <div className="flex-1 flex flex-col surface-canvas">
           {/* Header */}
-          <header className="border-b border-border/60 bg-background/70 backdrop-blur-xl sticky top-0 z-10">
+          <header className={cn(
+            "border-b border-border/60 bg-background/70 backdrop-blur-xl sticky z-10",
+            // In preview-as-client mode the read-only banner (40px) is sticky at
+            // the top, so this header must stick below it instead of under it.
+            previewPortalId ? "top-10" : "top-0"
+          )}>
             <div className="px-4 sm:px-8 py-5 flex items-center gap-4">
               <SidebarTrigger className="md:hidden" />
               <div className="flex items-center gap-3 min-w-0">
