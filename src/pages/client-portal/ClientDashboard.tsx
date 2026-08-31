@@ -10,6 +10,7 @@ import { FileText, Download, FolderOpen, Home, Calendar, CheckSquare, MessageCir
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { TransactionTimeline } from './components/TransactionTimeline';
+import { ConditionsTimeline } from './components/ConditionsTimeline';
 import { ClientTaskList } from './components/ClientTaskList';
 import { PortalChatPanel } from '@/components/portal/PortalChatPanel';
 import { PropertyDetails } from './components/PropertyDetails';
