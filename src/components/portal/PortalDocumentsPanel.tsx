@@ -65,7 +65,12 @@ export function PortalDocumentsPanel({ portalId, canManage: canManageProp, scope
   const inputRef = useRef<HTMLInputElement>(null);
   // Where new uploads land: defaults to the property currently being viewed.
   const [uploadTarget, setUploadTarget] = useState<string>(scopePropertyId(scope) ?? 'general');
+  const [uploadInternal, setUploadInternal] = useState(false);
   useEffect(() => { setUploadTarget(scopePropertyId(scope) ?? 'general'); }, [scope]);
+  // Internal (agent-only) rows are blocked by RLS for real clients; preview mode
+  // runs on the agent's session, so filter them out here to stay accurate.
+  const showInternal = canManageProp && !isPreview;
+
 
   const load = async () => {
     setLoading(true);
