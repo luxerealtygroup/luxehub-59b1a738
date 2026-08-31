@@ -255,6 +255,7 @@ export default function AdminClientPortals() {
       missing_docs: rows.filter((r) => r.docCount === 0).length,
       missing_fub: rows.filter((r) => !r.fub_person_id).length,
       unread: rows.filter((r) => r.lastMessageAt && r.lastMessageFromClient).length,
+      conditions_risk: rows.filter((r) => r.overdueConditions || r.dueSoonConditions).length,
     };
   }, [rows]);
 
