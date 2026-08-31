@@ -66,3 +66,6 @@ verify_jwt = false
 
 [functions.db-health-check]
 verify_jwt = true
+
+[functions.mcp]
+verify_jwt = false
