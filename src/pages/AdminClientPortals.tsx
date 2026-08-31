@@ -174,6 +174,16 @@ export default function AdminClientPortals() {
       const propCount = new Map<string, number>();
       (propsRes.data ?? []).forEach((p: any) => propCount.set(p.portal_id, (propCount.get(p.portal_id) ?? 0) + 1));
 
+      // Condition warnings are for the agent only — the client is never notified.
+      const overdueCond = new Map<string, number>();
+      const soonCond = new Map<string, number>();
+      (condRes.data ?? []).forEach((c: any) => {
+        const n = daysUntil(c.due_date);
+        if (isSettled(c.status) || c.status === 'not_met' || n === null) return;
+        if (n < 0) overdueCond.set(c.portal_id, (overdueCond.get(c.portal_id) ?? 0) + 1);
+        else if (n <= 3) soonCond.set(c.portal_id, (soonCond.get(c.portal_id) ?? 0) + 1);
+      });
+
       const enriched: PortalRow[] = list.map((r) => {
         // Claimed = a real client signed up on it. Otherwise it's either
         // awaiting signup (invited) or nobody was ever asked (not_invited).
