@@ -149,13 +149,26 @@ export function stripSlackArtifacts(input: string, userNames: Map<string, string
   // Code fences / inline code markers.
   t = t.replace(/```/g, '').replace(/`/g, '');
 
+  // Slack bold / italic / strike markers -> plain prose.
+  t = t.replace(/(^|[\s(])\*(\S[^*\n]*?)\*(?=[\s.,!?)]|$)/g, '$1$2');
+  t = t.replace(/(^|[\s(])_(\S[^_\n]*?)_(?=[\s.,!?)]|$)/g, '$1$2');
+  t = t.replace(/(^|[\s(])~(\S[^~\n]*?)~(?=[\s.,!?)]|$)/g, '$1$2');
+  // Slack blockquote markers.
+  t = t.replace(/^&gt;\s?/gm, '').replace(/^>\s?/gm, '');
+
   // HTML entities Slack escapes.
   t = t.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
 
-  // Tidy whitespace.
+  // Tidy whitespace: collapse runs left behind by removed tokens.
   t = t
     .split('\n')
-    .map((line) => line.replace(/[ \t]+$/, ''))
+    .map((line) =>
+      line
+        .replace(/[ \t]{2,}/g, ' ')
+        .replace(/\s+([.,!?;:])/g, '$1')
+        .replace(/[ \t]+$/, '')
+        .replace(/^[ \t]+/, ''),
+    )
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
