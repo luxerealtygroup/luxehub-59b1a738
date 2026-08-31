@@ -189,14 +189,25 @@ export function AgentPortalDialog({
   const handleCopyLink = async () => {
     const saved = account ?? (await saveAccount());
     if (!saved) return;
-    const link = buildInviteLink(saved);
+    setSendingInvite(true);
     try {
-      await navigator.clipboard.writeText(link);
+      // Copying a link issues a real single-use token, same as emailing it.
+      const invite = await createPortalInvite(saved.id);
+      await navigator.clipboard.writeText(invite.url);
       setCopied(true);
-      toast({ title: 'Invite link copied', description: 'Share it with your client to activate their portal.' });
+      toast({
+        title: 'Invite link copied',
+        description: 'Single-use link, valid for 7 days.',
+      });
       setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast({ title: 'Copy failed', description: link, variant: 'destructive' });
+    } catch (err) {
+      toast({
+        title: 'Could not create invite link',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSendingInvite(false);
     }
   };
 
@@ -204,26 +215,28 @@ export function AgentPortalDialog({
     const saved = account ?? (await saveAccount());
     if (!saved) return;
     setSendingInvite(true);
-    const inviteUrl = buildInviteLink(saved);
-    const { error } = await supabase.functions.invoke('send-transactional-email', {
-      body: {
-        templateName: 'client-portal-invite',
-        recipientEmail: saved.email,
-        idempotencyKey: `portal-invite-${saved.id}-${Date.now()}`,
-        templateData: {
-          clientName: saved.full_name || '',
-          agentName: user?.email?.split('@')[0] || 'Your agent',
-          inviteUrl,
-        },
-      },
-    });
-    setSendingInvite(false);
-    if (error) {
-      toast({ title: 'Send failed', description: error.message, variant: 'destructive' });
-      return;
+    try {
+      await sendPortalInvite({
+        portalId: saved.id,
+        email: saved.email,
+        clientName: saved.full_name,
+        agentName: user?.email?.split('@')[0] || 'Your agent',
+      });
+      toast({
+        title: 'Invitation sent',
+        description: `${saved.email} will receive a single-use portal link, valid for 7 days.`,
+      });
+    } catch (err) {
+      toast({
+        title: 'Send failed',
+        description: err instanceof Error ? err.message : 'Could not send the invitation.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSendingInvite(false);
     }
-    toast({ title: 'Invitation sent', description: `${saved.email} will receive their portal signup email.` });
   };
+
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
