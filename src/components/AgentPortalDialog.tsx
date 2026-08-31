@@ -148,9 +148,17 @@ export function AgentPortalDialog({
       }
     }
     setSaving(false);
-    if (saved) setAccount(saved);
+    if (saved) {
+      setAccount(saved);
+      setForm((f) => ({ ...f, slack_channel_id: saved!.slack_channel_id || '' }));
+      toast({
+        title: 'Portal saved',
+        description: saved.slack_channel_id ? 'Slack channel linked.' : 'Changes saved.',
+      });
+    }
     return saved;
   };
+
 
   const buildInviteLink = (saved: ClientAccountRow) => {
     const params = new URLSearchParams();
