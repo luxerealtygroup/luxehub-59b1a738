@@ -116,7 +116,7 @@ export default function AdminClientPortals() {
       const inviterIds = Array.from(new Set(list.map((r) => r.invited_by).filter(Boolean))) as string[];
       const portalIds = list.map((r) => r.id);
 
-      const [profilesRes, docsRes, msgsRes, txRes, propsRes] = await Promise.all([
+      const [profilesRes, docsRes, msgsRes, txRes, propsRes, condRes] = await Promise.all([
         inviterIds.length
           ? supabase.from('profiles').select('id,full_name').in('id', inviterIds)
           : Promise.resolve({ data: [] as any[] }),
