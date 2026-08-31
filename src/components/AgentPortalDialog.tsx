@@ -26,6 +26,8 @@ import { PortalChatPanel } from '@/components/portal/PortalChatPanel';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useOrgTier } from '@/hooks/useOrgTier';
 import { Link } from 'react-router-dom';
+import { createPortalInvite, sendPortalInvite } from '@/lib/inviteLinks';
+
 
 interface AgentPortalDialogProps {
   clientName?: string;
