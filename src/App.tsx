@@ -10,6 +10,7 @@ import RoleGuard from "@/components/RoleGuard";
 import { TierGuard } from "@/components/TierGuard";
 import DashboardLayout from "@/components/DashboardLayout";
 import Login from "./pages/Login";
+import OAuthConsent from "./pages/OAuthConsent";
 import Signup from "./pages/Signup";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
