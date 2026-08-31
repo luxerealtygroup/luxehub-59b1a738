@@ -10,10 +10,6 @@ const FUB_API_KEY_PRIMARY = Deno.env.get('FOLLOW_UP_BOSS_API_KEY');
 const FUB_API_KEY_SECONDARY = Deno.env.get('FOLLOW_UP_BOSS_API_KEY_2');
 const FUB_BASE_URL = 'https://api.followupboss.com/v1';
 
-async function resolveApiKey(req: Request): Promise<string | null> {
-  return await _resolveApiKey(req);
-}
-
 // Retry transient network failures (connection reset, timeouts) against FUB.
 async function fubFetch(url: string, init: RequestInit, attempts = 4): Promise<Response> {
   let lastErr: unknown;
@@ -34,29 +30,120 @@ async function fubFetch(url: string, init: RequestInit, attempts = 4): Promise<R
   throw lastErr;
 }
 
-async function _resolveApiKey(req: Request): Promise<string | null> {
-  try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) return FUB_API_KEY_PRIMARY ?? null;
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user } } = await supabase.auth.getUser(token);
-    if (!user) return FUB_API_KEY_PRIMARY ?? null;
+const STAFF_ROLES = new Set(['owner', 'admin', 'agent', 'planning_access']);
+const WRITE_ACTIONS = new Set(['create_person', 'update_person', 'create_note', 'add_tag', 'create_event']);
+const CLIENT_ALLOWED_ACTIONS = new Set(['get_person_deals']);
 
-    // If caller is an admin/owner viewing as another agent, resolve that agent's fub_account
-    let targetUserId = user.id;
-    const viewAsUserId = req.headers.get('x-view-as-user-id');
-    if (viewAsUserId && viewAsUserId !== user.id) {
-      const { data: roles } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id);
-      const isAdmin = (roles || []).some((r: { role: string }) => r.role === 'admin' || r.role === 'owner');
-      if (isAdmin) targetUserId = viewAsUserId;
+type Caller =
+  | { kind: 'service'; userId: null; isAdmin: true; canWrite: true }
+  | { kind: 'staff'; userId: string; isAdmin: boolean; canWrite: boolean }
+  | { kind: 'client'; userId: string; isAdmin: false; canWrite: false; personIds: number[] };
+
+function json(bodyObj: unknown, status = 200) {
+  return new Response(JSON.stringify(bodyObj), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+const admin = () =>
+  createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+  );
+
+/** Resolve and verify the caller. Returns null when authentication fails. */
+async function resolveCaller(req: Request): Promise<Caller | null> {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) return null;
+  const token = authHeader.slice(7).trim();
+  if (!token) return null;
+
+  // Internal server-to-server calls (other edge functions) use the service role key.
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+  if (serviceKey && token === serviceKey) {
+    return { kind: 'service', userId: null, isAdmin: true, canWrite: true };
+  }
+
+  const supabase = admin();
+  const { data: userData, error } = await supabase.auth.getUser(token);
+  const user = userData?.user;
+  if (error || !user) return null;
+
+  const { data: roleRows } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', user.id);
+  const roles = (roleRows ?? []).map((r: { role: string }) => r.role);
+  const isAdmin = roles.includes('admin') || roles.includes('owner');
+  const isStaffRole = roles.some((r) => STAFF_ROLES.has(r));
+
+  if (isStaffRole) {
+    return {
+      kind: 'staff',
+      userId: user.id,
+      isAdmin,
+      canWrite: isAdmin || roles.includes('agent'),
+    };
+  }
+
+  // Every signup gets a profiles row, so an explicit portal link (client_accounts
+  // .user_id) is checked BEFORE the profiles fallback for team membership.
+  const email = (user.email ?? '').toLowerCase();
+  const toPersonIds = (rows: { fub_person_id: number | string | null }[]) =>
+    rows
+      .map((a) => Number(a.fub_person_id))
+      .filter((n) => Number.isFinite(n) && n > 0);
+
+  const { data: byUser } = await supabase
+    .from('client_accounts')
+    .select('fub_person_id')
+    .eq('user_id', user.id);
+  if ((byUser ?? []).length > 0) {
+    return { kind: 'client', userId: user.id, isAdmin: false, canWrite: false, personIds: toPersonIds(byUser!) };
+  }
+
+  // Team member without an explicit role row.
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('id', user.id)
+    .maybeSingle();
+  if (profile) {
+    return { kind: 'staff', userId: user.id, isAdmin: false, canWrite: true };
+  }
+
+  // Unclaimed portal invite matched by email.
+  if (email) {
+    const { data: byEmail } = await supabase
+      .from('client_accounts')
+      .select('fub_person_id')
+      .ilike('email', email);
+    if ((byEmail ?? []).length > 0) {
+      return { kind: 'client', userId: user.id, isAdmin: false, canWrite: false, personIds: toPersonIds(byEmail!) };
     }
+  }
+
+  // Unknown identity: treat as a client with no scope (everything 403s).
+  return { kind: 'client', userId: user.id, isAdmin: false, canWrite: false, personIds: [] };
+
+
+}
+
+/** Which FUB API key to use, honoring admin-only "view as" impersonation. */
+async function resolveApiKey(req: Request, caller: Caller): Promise<string | null> {
+  try {
+    if (caller.kind === 'client') return FUB_API_KEY_PRIMARY ?? null;
+    const supabase = admin();
+
+    let targetUserId = caller.userId;
+    const viewAsUserId = req.headers.get('x-view-as-user-id');
+    if (viewAsUserId && viewAsUserId !== caller.userId) {
+      // Admin-only: verified against user_roles, never trusted from the header.
+      if (caller.isAdmin) targetUserId = viewAsUserId;
+      else console.warn('x-view-as-user-id ignored for non-admin caller', caller.userId);
+    }
+    if (!targetUserId) return FUB_API_KEY_PRIMARY ?? null;
 
     const { data: profile } = await supabase
       .from('profiles')
@@ -64,10 +151,8 @@ async function _resolveApiKey(req: Request): Promise<string | null> {
       .eq('id', targetUserId)
       .maybeSingle();
     if (profile?.fub_account === 'secondary' && FUB_API_KEY_SECONDARY) {
-      console.log('Resolved FUB account: secondary');
       return FUB_API_KEY_SECONDARY;
     }
-    console.log('Resolved FUB account: primary');
     return FUB_API_KEY_PRIMARY ?? null;
   } catch (e) {
     console.error('resolveApiKey error', e);
@@ -81,19 +166,39 @@ serve(async (req) => {
   }
 
   try {
-    const apiKey = await resolveApiKey(req);
-    if (!apiKey) {
-      console.error('FOLLOW_UP_BOSS_API_KEY not configured');
-      return new Response(
-        JSON.stringify({ success: false, error: 'Follow Up Boss API key not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    const caller = await resolveCaller(req);
+    if (!caller) {
+      return json({ success: false, error: 'Unauthorized' }, 401);
     }
 
     const { action, params } = await req.json();
-    console.log('FUB Action:', action, 'Params:', params);
+    console.log('FUB Action:', action, 'caller:', caller.kind);
+
+    // ---- Authorization ----
+    if (WRITE_ACTIONS.has(action) && !(caller.kind === 'service' || caller.canWrite)) {
+      return json({ success: false, error: 'Forbidden' }, 403);
+    }
+
+    if (caller.kind === 'client') {
+      if (!CLIENT_ALLOWED_ACTIONS.has(action)) {
+        console.warn('Client attempted disallowed FUB action:', action, caller.userId);
+        return json({ success: false, error: 'Forbidden' }, 403);
+      }
+      const requested = Number(params?.personId);
+      if (!Number.isFinite(requested) || !caller.personIds.includes(requested)) {
+        console.warn('Client attempted mismatched personId:', params?.personId, caller.userId);
+        return json({ success: false, error: 'Forbidden' }, 403);
+      }
+    }
+
+    const apiKey = await resolveApiKey(req, caller);
+    if (!apiKey) {
+      console.error('FOLLOW_UP_BOSS_API_KEY not configured');
+      return json({ success: false, error: 'Follow Up Boss API key not configured' }, 500);
+    }
 
     const authHeader = 'Basic ' + btoa(apiKey + ':');
+
 
     let endpoint = '';
     let method = 'GET';
