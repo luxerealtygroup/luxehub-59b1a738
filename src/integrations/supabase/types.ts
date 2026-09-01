@@ -4850,6 +4850,7 @@ export type Database = {
         }
         Returns: number
       }
+      org_has_integration: { Args: { _key: string }; Returns: boolean }
       owns_portal: {
         Args: { _portal_id: string; _user_id: string }
         Returns: boolean
