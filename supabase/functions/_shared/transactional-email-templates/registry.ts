@@ -6,6 +6,7 @@ import { template as portalNewDocuments } from './portal-new-documents.tsx'
 import { template as portalNewPhotos } from './portal-new-photos.tsx'
 import { template as portalNewTask } from './portal-new-task.tsx'
 import { template as portalNewMessage } from './portal-new-message.tsx'
+import { template as onboardingRequest } from './onboarding-request.tsx'
 
 export interface TemplateEntry {
   component: ComponentType<any>
@@ -23,4 +24,5 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'portal-new-photos': portalNewPhotos,
   'portal-new-task': portalNewTask,
   'portal-new-message': portalNewMessage,
+  'onboarding-request': onboardingRequest,
 }

@@ -86,3 +86,6 @@ verify_jwt = true
 
 [functions.cma-scrape-link]
 verify_jwt = true
+
+[functions.submit-onboarding-request]
+verify_jwt = false
