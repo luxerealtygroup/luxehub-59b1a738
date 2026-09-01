@@ -430,7 +430,7 @@ const AdminDashboard = () => {
         // Fetch all profiles with fub_user_id to include agents without deals
         const { data: allProfiles } = await supabase
           .from('profiles')
-          .select('id, full_name, fub_user_id')
+          .select('id, full_name, fub_user_id, avatar_url')
           .not('fub_user_id', 'is', null);
         
         // Add any agents from profiles that aren't in the deal data (excluding admin-only users)
@@ -448,12 +448,25 @@ const AdminDashboard = () => {
             });
           }
         });
+
+        // Uploaded headshots win over the FUB avatar.
+        await Promise.all(
+          (allProfiles || [])
+            .filter((p) => p.fub_user_id && p.avatar_url && agentMap.has(p.fub_user_id))
+            .map(async (p) => {
+              const src = await resolveAvatarUrl(p.avatar_url);
+              if (!src) return;
+              const entry = agentMap.get(p.fub_user_id!);
+              if (entry) agentMap.set(p.fub_user_id!, { ...entry, picture: src });
+            }),
+        );
         
         const sortedAgents = Array.from(agentMap.values())
           .filter(agent => !ADMIN_ONLY_FUB_IDS.includes(agent.id)) // Exclude admin-only users
           .filter(agent => agent.name && agent.name !== 'Unknown Agent') // Exclude unknown agents
           .sort((a, b) => (b.totalGci + b.pendingGci + b.conditionalGci) - (a.totalGci + a.pendingGci + a.conditionalGci));
         setFubAgents(sortedAgents);
+
 
         // Build monthly revenue data from FUB deals
         const revenueByMonth = new Map<string, { earned: number; pending: number }>();
