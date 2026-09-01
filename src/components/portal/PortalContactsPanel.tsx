@@ -21,6 +21,7 @@ export interface PortalContact {
   website: string | null;
   notes: string | null;
   is_internal: boolean;
+  show_on_dashboard: boolean;
   created_by: string | null;
 }
 
@@ -50,6 +51,7 @@ const emptyForm = {
   website: '',
   notes: '',
   is_internal: false,
+  show_on_dashboard: false,
 };
 
 export function PortalContactsPanel({ portalId, viewerRole }: Props) {
