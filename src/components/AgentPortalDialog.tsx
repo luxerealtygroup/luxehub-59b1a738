@@ -21,6 +21,7 @@ import { ClientTaskList } from '@/pages/client-portal/components/ClientTaskList'
 import { FUBContactTypeahead } from '@/components/FUBContactTypeahead';
 import { SlackChannelPicker } from '@/components/SlackChannelPicker';
 import { PortalDocumentsPanel } from '@/components/portal/PortalDocumentsPanel';
+import { PortalContactsPanel } from '@/components/portal/PortalContactsPanel';
 import { PortalPhotosPanel } from '@/components/portal/PortalPhotosPanel';
 import { PortalChatPanel } from '@/components/portal/PortalChatPanel';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -333,7 +334,7 @@ export function AgentPortalDialog({
           </div>
         ) : (
           <Tabs defaultValue={initialTab ?? (account ? 'timeline' : 'setup')} className="w-full">
-            <TabsList className="grid w-full grid-cols-7">
+            <TabsList className="grid w-full grid-cols-8">
               <TabsTrigger value="setup">Setup</TabsTrigger>
               <TabsTrigger value="properties" disabled={!account}>
                 Properties
@@ -349,6 +350,9 @@ export function AgentPortalDialog({
               </TabsTrigger>
               <TabsTrigger value="photos" disabled={!account}>
                 Photos
+              </TabsTrigger>
+              <TabsTrigger value="contacts" disabled={!account}>
+                Contacts
               </TabsTrigger>
               <TabsTrigger value="messages" disabled={!account}>
                 Messages
@@ -489,10 +493,37 @@ export function AgentPortalDialog({
               {account && <ClientTaskList clientAccountId={account.id} canManage scope={scope} />}
             </TabsContent>
 
-            <TabsContent value="documents" className="pt-4">
+            <TabsContent value="documents" className="pt-4 space-y-8">
               {account && (
-                <PortalDocumentsPanel portalId={account.id} canManage={isAdmin} scope={scope} properties={properties} />
+                <>
+                  <div>
+                    <p className="eyebrow mb-3">Transaction documents</p>
+                    <PortalDocumentsPanel
+                      portalId={account.id}
+                      canManage={isAdmin}
+                      scope={scope}
+                      properties={properties}
+                      source="transaction"
+                    />
+                  </div>
+                  <div>
+                    <p className="eyebrow mb-3">Client's own library</p>
+                    <PortalDocumentsPanel
+                      portalId={account.id}
+                      canManage={isAdmin}
+                      allowInternal={false}
+                      scope={scope}
+                      properties={properties}
+                      source="library"
+                      emptyHint="Your client hasn't uploaded any manuals or personal documents yet."
+                    />
+                  </div>
+                </>
               )}
+            </TabsContent>
+
+            <TabsContent value="contacts" className="pt-4">
+              {account && <PortalContactsPanel portalId={account.id} viewerRole="agent" />}
             </TabsContent>
 
             <TabsContent value="photos" className="pt-4">

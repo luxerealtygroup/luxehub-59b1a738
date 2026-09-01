@@ -33,6 +33,15 @@ interface Props {
   scope?: PortalScope;
   /** Properties on this portal, so an uploader can pick where a file belongs. */
   properties?: PortalProperty[];
+  /**
+   * Which shelf this panel shows. 'transaction' = paperwork the agent manages,
+   * 'library' = the client's own manuals / warranties / receipts.
+   */
+  source?: 'transaction' | 'library';
+  /** Show the agent-only visibility switch (never for the client library). */
+  allowInternal?: boolean;
+  /** Copy shown when the shelf is empty. */
+  emptyHint?: string;
 }
 
 const BUCKET = 'portal-documents';
@@ -56,7 +65,16 @@ function fmtSize(bytes: number | null) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function PortalDocumentsPanel({ portalId, canManage: canManageProp, scope = 'all', properties = [] }: Props) {
+export function PortalDocumentsPanel({
+  portalId,
+  canManage: canManageProp,
+  scope = 'all',
+  properties = [],
+  source = 'transaction',
+  allowInternal,
+  emptyHint,
+}: Props) {
+  const internalAllowed = allowInternal ?? source === 'transaction';
   const { isPreview } = usePortalPreview();
   const canManage = canManageProp && !isPreview;
   const { toast } = useToast();
@@ -74,7 +92,7 @@ export function PortalDocumentsPanel({ portalId, canManage: canManageProp, scope
   useEffect(() => { setUploadTarget(scopePropertyId(scope) ?? 'general'); }, [scope]);
   // Internal (agent-only) rows are blocked by RLS for real clients; preview mode
   // runs on the agent's session, so filter them out here to stay accurate.
-  const showInternal = canManageProp && !isPreview;
+  const showInternal = canManageProp && !isPreview && internalAllowed;
 
 
   const load = async () => {
@@ -83,13 +101,14 @@ export function PortalDocumentsPanel({ portalId, canManage: canManageProp, scope
       .from('portal_documents')
       .select('*')
       .eq('portal_id', portalId)
+      .eq('source', source)
       .order('created_at', { ascending: false });
     if (error) toast({ title: 'Failed to load documents', description: error.message, variant: 'destructive' });
     setDocs((data as PortalDocument[]) || []);
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [portalId]);
+  useEffect(() => { load(); }, [portalId, source]);
 
   const onUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (blockPortalWrite('Uploading documents')) return;
@@ -113,14 +132,15 @@ export function PortalDocumentsPanel({ portalId, canManage: canManageProp, scope
         file_size: file.size,
         uploaded_by: user?.id,
         property_id: uploadTarget === 'general' ? null : uploadTarget,
-        is_internal: uploadInternal,
+        is_internal: internalAllowed ? uploadInternal : false,
+        source,
 
       }).select('id').single();
       if (error) toast({ title: 'Record failed', description: error.message, variant: 'destructive' });
 
       // Fire-and-forget copy into Follow Up Boss. Never blocks or fails the upload;
       // skips silently server-side when the portal has no FUB contact linked.
-      if (inserted?.id) {
+      if (inserted?.id && source === 'transaction') {
         void supabase.functions
           .invoke('fub-push-attachment', { body: { document_id: inserted.id } })
           .catch(() => {});
@@ -209,7 +229,7 @@ export function PortalDocumentsPanel({ portalId, canManage: canManageProp, scope
               </Select>
             </div>
           )}
-          <div className="flex items-center gap-2 rounded-full border border-border/70 px-3 py-1.5">
+          <div className={internalAllowed ? "flex items-center gap-2 rounded-full border border-border/70 px-3 py-1.5" : "hidden"}>
             <Switch id="doc-internal" checked={uploadInternal} onCheckedChange={setUploadInternal} />
             <Label htmlFor="doc-internal" className="text-xs cursor-pointer flex items-center gap-1">
               <Lock className="h-3 w-3" /> Internal (agent-only)
@@ -250,7 +270,7 @@ export function PortalDocumentsPanel({ portalId, canManage: canManageProp, scope
             No documents yet
           </h3>
           <p className="text-sm text-muted-foreground max-w-sm">
-            {canManage ? 'Upload the first file above to share it with your client.' : 'Your agent will add your documents here soon.'}
+            {emptyHint ?? (canManage ? 'Upload the first file above to share it with your client.' : 'Your agent will add your documents here soon.')}
           </p>
         </div>
       ) : (

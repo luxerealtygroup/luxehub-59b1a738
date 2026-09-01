@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
-import { FileText, Download, FolderOpen, Home, Calendar, CheckSquare, MessageCircle, ShoppingCart, Tag, ImageIcon } from 'lucide-react';
+import { FileText, Download, FolderOpen, Home, Calendar, CheckSquare, MessageCircle, ShoppingCart, Tag, ImageIcon, Upload, Users, FolderHeart } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { TransactionTimeline } from './components/TransactionTimeline';
@@ -22,7 +22,10 @@ import { SupportChatWidget } from '@/components/support/SupportChatWidget';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ShoppingCart as ShoppingCartIcon, Tag as TagIcon } from 'lucide-react';
 import { ClientNotificationsBell } from './components/ClientNotificationsBell';
-import { usePortalProperties, propertyLabel, derivePortalSideLabel } from '@/hooks/usePortalProperties';
+import { usePortalProperties, propertyLabel, derivePortalSideLabel, ROLE_LABEL } from '@/hooks/usePortalProperties';
+import { RealtorCard } from './components/RealtorCard';
+import { KeyDatesCard } from './components/KeyDatesCard';
+import { PortalContactsPanel } from '@/components/portal/PortalContactsPanel';
 import { PropertySwitcher } from '@/components/portal/PropertySwitcher';
 import { PortalScope } from '@/lib/portalScope';
 
@@ -365,11 +368,118 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
     </Card>
   );
 
+  const sideLabel = derivePortalSideLabel(portalTransactions);
+
+  const clientHeader = (
+    <div className="luxe-card p-6">
+      <p className="eyebrow">Client dashboard</p>
+      <h2 className="mt-2 font-display text-2xl sm:text-3xl font-semibold tracking-tight">
+        {clientAccount?.full_name || 'Welcome'}
+      </h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        {sideLabel !== '—' ? `${sideLabel} · ` : ''}
+        {clientAccount?.email}
+      </p>
+    </div>
+  );
+
+  const propertiesCard = (
+    <div className="luxe-card p-6">
+      <p className="eyebrow">Properties</p>
+      {activeProperties.length === 0 ? (
+        <p className="mt-4 text-sm text-muted-foreground">
+          {activeTransaction?.property_address || 'No property on the go yet — your search is underway.'}
+        </p>
+      ) : (
+        <ul className="mt-4 space-y-2">
+          {activeProperties.map((p) => {
+            const tx = portalTransactions.filter((t) => t.property_id === p.id);
+            return (
+              <li
+                key={p.id}
+                className="flex items-center gap-3 rounded-xl border border-border/60 bg-background/60 p-3"
+              >
+                {p.cover_photo_url ? (
+                  <img
+                    src={p.cover_photo_url}
+                    alt=""
+                    className="h-10 w-14 rounded-lg object-cover"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <div className="flex h-10 w-14 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Home className="h-4 w-4" />
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{propertyLabel(p)}</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {ROLE_LABEL[p.role]}
+                    {tx[0]?.status ? ` · ${tx[0].status}` : ''}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+
+  const shortcuts = (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <button
+        type="button"
+        onClick={() => setActiveTab('library')}
+        className="luxe-card flex items-center gap-4 p-5 text-left transition-all hover:-translate-y-0.5 hover:shadow-luxe-hover"
+      >
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
+          <Upload className="h-5 w-5" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-medium">Upload manuals &amp; documents</p>
+          <p className="text-xs text-muted-foreground">Your own library — warranties, manuals, receipts</p>
+        </div>
+      </button>
+      <button
+        type="button"
+        onClick={() => setActiveTab('contacts')}
+        className="luxe-card flex items-center gap-4 p-5 text-left transition-all hover:-translate-y-0.5 hover:shadow-luxe-hover"
+      >
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
+          <Users className="h-5 w-5" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-medium">Important contacts</p>
+          <p className="text-xs text-muted-foreground">Lawyer, lender, inspector and trades</p>
+        </div>
+      </button>
+    </div>
+  );
+
   const renderContent = () => {
     switch (activeTab) {
       case 'overview':
         return (
           <div className="space-y-6">
+            {clientHeader}
+
+            <div className="grid gap-6 lg:grid-cols-3">
+              {propertiesCard}
+              {clientAccount && (
+                <RealtorCard portalId={clientAccount.id} onMessage={() => setActiveTab('messages')} />
+              )}
+              <KeyDatesCard
+                transactions={portalTransactions}
+                properties={properties}
+                fallbackClosing={activeTransaction?.closing_date ?? null}
+              />
+            </div>
+
+            {shortcuts}
+
             {clientAccount?.fub_person_id ? (
               <div className="grid gap-6 lg:grid-cols-2">
                 {activeTransaction ? (
@@ -433,7 +543,14 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
                   {watchedProperties.map((p) => (
                     <li key={p.id} className="flex items-center gap-3 rounded-xl border border-border/60 bg-background/60 p-3">
                       {p.cover_photo_url && (
-                        <img src={p.cover_photo_url} alt="" className="h-10 w-14 rounded-lg object-cover" />
+                        <img
+                    src={p.cover_photo_url}
+                    alt=""
+                    className="h-10 w-14 rounded-lg object-cover"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
                       )}
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium">{propertyLabel(p)}</p>
@@ -516,7 +633,31 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
 
       case 'documents':
         return clientAccount ? (
-          <PortalDocumentsPanel portalId={clientAccount.id} canManage={false} scope={scope} />
+          <PortalDocumentsPanel
+            portalId={clientAccount.id}
+            canManage={false}
+            scope={scope}
+            source="transaction"
+            emptyHint="Your agent will add your transaction paperwork here."
+          />
+        ) : null;
+
+      case 'library':
+        return clientAccount ? (
+          <PortalDocumentsPanel
+            portalId={clientAccount.id}
+            canManage
+            allowInternal={false}
+            scope={scope}
+            source="library"
+            properties={properties}
+            emptyHint="Upload your property manuals, warranties, receipts and anything else you want kept safe."
+          />
+        ) : null;
+
+      case 'contacts':
+        return clientAccount ? (
+          <PortalContactsPanel portalId={clientAccount.id} viewerRole="client" />
         ) : null;
 
       case 'photos':
@@ -540,7 +681,9 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
       case 'purchase': return 'Your Purchase';
       case 'sale': return 'Your Sale';
       case 'tasks': return 'Tasks';
-      case 'documents': return 'Documents';
+      case 'documents': return 'Transaction Documents';
+      case 'library': return 'My Documents';
+      case 'contacts': return 'Important Contacts';
       case 'photos': return 'Photos';
       case 'messages': return 'Messages';
       default: return 'Dashboard';
@@ -554,6 +697,8 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
       case 'sale': return <Tag className="h-5 w-5" />;
       case 'tasks': return <CheckSquare className="h-5 w-5" />;
       case 'documents': return <FileText className="h-5 w-5" />;
+      case 'library': return <FolderHeart className="h-5 w-5" />;
+      case 'contacts': return <Users className="h-5 w-5" />;
       case 'photos': return <ImageIcon className="h-5 w-5" />;
       case 'messages': return <MessageCircle className="h-5 w-5" />;
       default: return <Home className="h-5 w-5" />;
