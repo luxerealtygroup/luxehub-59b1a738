@@ -129,7 +129,7 @@ export function PortalContactsPanel({ portalId, viewerRole }: Props) {
       website: form.website.trim().slice(0, 300) || null,
       notes: form.notes.trim().slice(0, 1000) || null,
       is_internal: isAgent ? form.is_internal : false,
-      show_on_dashboard: form.show_on_dashboard,
+      show_on_dashboard: form.is_internal ? false : form.show_on_dashboard,
     };
 
     const { error } = editing
@@ -235,11 +235,18 @@ export function PortalContactsPanel({ portalId, viewerRole }: Props) {
                   </a>
                 )}
                 {c.notes && <p className="text-xs text-muted-foreground pt-1">{c.notes}</p>}
-                {c.is_internal && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
-                    <Lock className="h-3 w-3" /> Internal
-                  </span>
-                )}
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {c.show_on_dashboard && !c.is_internal && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                      On dashboard
+                    </span>
+                  )}
+                  {c.is_internal && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                      <Lock className="h-3 w-3" /> Internal
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           ))}
