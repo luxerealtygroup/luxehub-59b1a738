@@ -21,6 +21,7 @@ export interface PortalContact {
   website: string | null;
   notes: string | null;
   is_internal: boolean;
+  show_on_dashboard: boolean;
   created_by: string | null;
 }
 
@@ -50,6 +51,7 @@ const emptyForm = {
   website: '',
   notes: '',
   is_internal: false,
+  show_on_dashboard: false,
 };
 
 export function PortalContactsPanel({ portalId, viewerRole }: Props) {
@@ -106,6 +108,7 @@ export function PortalContactsPanel({ portalId, viewerRole }: Props) {
       website: c.website ?? '',
       notes: c.notes ?? '',
       is_internal: c.is_internal,
+      show_on_dashboard: c.show_on_dashboard ?? false,
     });
     setOpen(true);
   };
@@ -126,6 +129,7 @@ export function PortalContactsPanel({ portalId, viewerRole }: Props) {
       website: form.website.trim().slice(0, 300) || null,
       notes: form.notes.trim().slice(0, 1000) || null,
       is_internal: isAgent ? form.is_internal : false,
+      show_on_dashboard: form.is_internal ? false : form.show_on_dashboard,
     };
 
     const { error } = editing
@@ -231,11 +235,18 @@ export function PortalContactsPanel({ portalId, viewerRole }: Props) {
                   </a>
                 )}
                 {c.notes && <p className="text-xs text-muted-foreground pt-1">{c.notes}</p>}
-                {c.is_internal && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
-                    <Lock className="h-3 w-3" /> Internal
-                  </span>
-                )}
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {c.show_on_dashboard && !c.is_internal && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                      On dashboard
+                    </span>
+                  )}
+                  {c.is_internal && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                      <Lock className="h-3 w-3" /> Internal
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           ))}
@@ -290,14 +301,32 @@ export function PortalContactsPanel({ portalId, viewerRole }: Props) {
               <Label htmlFor="pc-notes">Notes</Label>
               <Textarea id="pc-notes" rows={3} value={form.notes} maxLength={1000} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
             </div>
-            {isAgent && (
-              <div className="flex items-center gap-2 rounded-full border border-border/70 px-3 py-1.5 w-fit">
-                <Switch id="pc-internal" checked={form.is_internal} onCheckedChange={(v) => setForm({ ...form, is_internal: v })} />
-                <Label htmlFor="pc-internal" className="text-xs cursor-pointer flex items-center gap-1">
-                  <Lock className="h-3 w-3" /> Internal (agent-only)
-                </Label>
-              </div>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {!form.is_internal && (
+                <div className="flex items-center gap-2 rounded-full border border-border/70 px-3 py-1.5 w-fit">
+                  <Switch
+                    id="pc-dashboard"
+                    checked={form.show_on_dashboard}
+                    onCheckedChange={(v) => setForm({ ...form, show_on_dashboard: v })}
+                  />
+                  <Label htmlFor="pc-dashboard" className="text-xs cursor-pointer">
+                    Show on dashboard
+                  </Label>
+                </div>
+              )}
+              {isAgent && (
+                <div className="flex items-center gap-2 rounded-full border border-border/70 px-3 py-1.5 w-fit">
+                  <Switch
+                    id="pc-internal"
+                    checked={form.is_internal}
+                    onCheckedChange={(v) => setForm({ ...form, is_internal: v, show_on_dashboard: v ? false : form.show_on_dashboard })}
+                  />
+                  <Label htmlFor="pc-internal" className="text-xs cursor-pointer flex items-center gap-1">
+                    <Lock className="h-3 w-3" /> Internal (agent-only)
+                  </Label>
+                </div>
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>

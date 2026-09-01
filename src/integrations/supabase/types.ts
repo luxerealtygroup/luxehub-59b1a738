@@ -2562,6 +2562,7 @@ export type Database = {
           portal_id: string
           property_id: string | null
           role: string | null
+          show_on_dashboard: boolean
           updated_at: string
           website: string | null
         }
@@ -2578,6 +2579,7 @@ export type Database = {
           portal_id: string
           property_id?: string | null
           role?: string | null
+          show_on_dashboard?: boolean
           updated_at?: string
           website?: string | null
         }
@@ -2594,6 +2596,7 @@ export type Database = {
           portal_id?: string
           property_id?: string | null
           role?: string | null
+          show_on_dashboard?: boolean
           updated_at?: string
           website?: string | null
         }

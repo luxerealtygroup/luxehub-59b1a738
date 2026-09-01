@@ -24,7 +24,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ShoppingCart as ShoppingCartIcon, Tag as TagIcon } from 'lucide-react';
 import { ClientNotificationsBell } from './components/ClientNotificationsBell';
 import { usePortalProperties, propertyLabel, derivePortalSideLabel, ROLE_LABEL } from '@/hooks/usePortalProperties';
-import { RealtorCard } from './components/RealtorCard';
+import { ImportantContactsCard } from './components/ImportantContactsCard';
 import { KeyDatesCard } from './components/KeyDatesCard';
 import { PortalContactsPanel } from '@/components/portal/PortalContactsPanel';
 import { PropertySwitcher } from '@/components/portal/PropertySwitcher';
@@ -497,7 +497,11 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
             fallbackClosing={null}
           />
           {clientAccount && (
-            <RealtorCard portalId={clientAccount.id} onMessage={() => setActiveTab('messages')} />
+            <ImportantContactsCard
+              portalId={clientAccount.id}
+              onMessage={() => setActiveTab('messages')}
+              onViewAll={() => setActiveTab('contacts')}
+            />
           )}
           <div className="luxe-card p-6">
             <p className="eyebrow">This property</p>
@@ -548,7 +552,11 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
             <div className="grid gap-6 lg:grid-cols-3">
               {propertiesCard}
               {clientAccount && (
-                <RealtorCard portalId={clientAccount.id} onMessage={() => setActiveTab('messages')} />
+                <ImportantContactsCard
+                  portalId={clientAccount.id}
+                  onMessage={() => setActiveTab('messages')}
+                  onViewAll={() => setActiveTab('contacts')}
+                />
               )}
               <KeyDatesCard
                 portalId={clientAccount?.id}
