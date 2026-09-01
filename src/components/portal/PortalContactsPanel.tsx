@@ -8,6 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { resolveAvatarUrl } from '@/lib/avatar';
 import { Globe, Lock, Mail, Pencil, Phone, Plus, Trash2, Users } from 'lucide-react';
 
 export interface PortalContact {
@@ -54,10 +56,19 @@ const emptyForm = {
   show_on_dashboard: false,
 };
 
+interface Realtor {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  avatar_url: string | null;
+}
+
 export function PortalContactsPanel({ portalId, viewerRole }: Props) {
   const { isPreview } = usePortalPreview();
   const { toast } = useToast();
   const [contacts, setContacts] = useState<PortalContact[]>([]);
+  const [realtor, setRealtor] = useState<Realtor | null>(null);
+  const [realtorPhoto, setRealtorPhoto] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -69,16 +80,20 @@ export function PortalContactsPanel({ portalId, viewerRole }: Props) {
 
   const load = async () => {
     setLoading(true);
-    const [{ data }, { data: auth }] = await Promise.all([
+    const [{ data }, { data: auth }, { data: r }] = await Promise.all([
       supabase
         .from('portal_contacts')
         .select('*')
         .eq('portal_id', portalId)
         .order('created_at', { ascending: true }),
       supabase.auth.getUser(),
+      supabase.rpc('get_portal_realtor', { _portal_id: portalId }),
     ]);
     setUserId(auth.user?.id ?? null);
     setContacts(((data as PortalContact[]) ?? []).filter((c) => (isAgent ? true : !c.is_internal)));
+    const found = ((r as Realtor[]) ?? [])[0] ?? null;
+    setRealtor(found);
+    setRealtorPhoto(found?.avatar_url ? await resolveAvatarUrl(found.avatar_url) : null);
     setLoading(false);
   };
 
@@ -88,6 +103,7 @@ export function PortalContactsPanel({ portalId, viewerRole }: Props) {
   }, [portalId]);
 
   const canEdit = (c: PortalContact) => !isPreview && (isAgent || c.created_by === userId);
+
 
   const openNew = () => {
     if (blockPortalWrite('Adding contacts')) return;
@@ -164,18 +180,45 @@ export function PortalContactsPanel({ portalId, viewerRole }: Props) {
             ? 'Lawyers, lenders, inspectors and trades attached to this portal.'
             : 'Everyone involved in your move — your lawyer, lender, inspector and trades.'}
         </p>
-        {!isPreview && (
+        {isPreview ? (
+          <span className="text-xs text-muted-foreground whitespace-nowrap">
+            Preview mode — exit preview to add contacts
+          </span>
+        ) : (
           <Button size="sm" onClick={openNew} className="rounded-full">
             <Plus className="mr-1.5 h-4 w-4" /> Add contact
           </Button>
         )}
       </div>
 
+      {!loading && realtor && (
+        <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">Your realtor</p>
+          <div className="mt-3 flex items-center gap-3">
+            <Avatar className="h-12 w-12">
+              {realtorPhoto && <AvatarImage src={realtorPhoto} alt={realtor.full_name ?? 'Realtor'} />}
+              <AvatarFallback>
+                {(realtor.full_name || 'R').split(' ').map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0">
+              <p className="font-medium truncate">{realtor.full_name || 'Your realtor'}</p>
+              {realtor.email && (
+                <a href={`mailto:${realtor.email}`} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary">
+                  <Mail className="h-3.5 w-3.5" /> <span className="truncate">{realtor.email}</span>
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div className="grid gap-3 sm:grid-cols-2">
           {[1, 2].map((i) => <div key={i} className="h-24 rounded-2xl bg-muted/60 animate-pulse" />)}
         </div>
       ) : contacts.length === 0 ? (
+
         <div className="luxe-card p-12 flex flex-col items-center justify-center text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/20 mb-4">
             <Users className="h-6 w-6" />
