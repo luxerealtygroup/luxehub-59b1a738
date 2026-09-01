@@ -463,9 +463,80 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
   const scopedProperty =
     scope !== 'all' && scope !== 'general' ? properties.find((p) => p.id === scope) : undefined;
 
+  // When a property is selected in the switcher, the Overview becomes that
+  // property's page: its hero (rendered above the content), its transaction
+  // details and key dates, plus shortcuts into that property's documents and
+  // photos. The shared `scope` state means those tabs open already filtered.
+  const propertyOverview = scopedProperty && (() => {
+    const txs = transactionsByProperty.get(scopedProperty.id) ?? [];
+    const tx = txs.find((t) => t.status !== 'closed') ?? txs[0] ?? null;
+    return (
+      <div className="space-y-6">
+        <div className="luxe-card p-6">
+          <p className="eyebrow">{ROLE_LABEL[scopedProperty.role]}</p>
+          <h2 className="mt-2 font-display text-2xl sm:text-3xl font-semibold tracking-tight">
+            {propertyLabel(scopedProperty)}
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {[
+              scopedProperty.mls_number ? `MLS ${scopedProperty.mls_number}` : null,
+              scopedProperty.property_type,
+              tx?.status ? `Status: ${tx.status}` : null,
+            ].filter(Boolean).join(' · ') || 'Your agent is keeping this page up to date.'}
+          </p>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-3">
+          <KeyDatesCard
+            transactions={txs}
+            properties={[scopedProperty]}
+            fallbackClosing={null}
+          />
+          {clientAccount && (
+            <RealtorCard portalId={clientAccount.id} onMessage={() => setActiveTab('messages')} />
+          )}
+          <div className="luxe-card p-6">
+            <p className="eyebrow">This property</p>
+            <div className="mt-4 space-y-2">
+              <button
+                type="button"
+                onClick={() => setActiveTab('documents')}
+                className="flex w-full items-center gap-3 rounded-xl border border-border/60 bg-background/60 p-3 text-left transition-colors hover:border-primary/40"
+              >
+                <FileText className="h-4 w-4 text-primary shrink-0" />
+                <span className="text-sm font-medium">Transaction documents</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('photos')}
+                className="flex w-full items-center gap-3 rounded-xl border border-border/60 bg-background/60 p-3 text-left transition-colors hover:border-primary/40"
+              >
+                <ImageIcon className="h-4 w-4 text-primary shrink-0" />
+                <span className="text-sm font-medium">Photos</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('library')}
+                className="flex w-full items-center gap-3 rounded-xl border border-border/60 bg-background/60 p-3 text-left transition-colors hover:border-primary/40"
+              >
+                <FolderHeart className="h-4 w-4 text-primary shrink-0" />
+                <span className="text-sm font-medium">My documents for this property</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {txs.map((t) => (
+          <ConditionsTimeline key={t.id} transaction={t} title={propertyLabel(scopedProperty)} />
+        ))}
+      </div>
+    );
+  })();
+
   const renderContent = () => {
     switch (activeTab) {
       case 'overview':
+        if (propertyOverview) return propertyOverview;
         return (
           <div className="space-y-6">
             {clientHeader}
