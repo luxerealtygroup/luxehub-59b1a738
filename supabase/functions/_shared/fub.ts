@@ -1,14 +1,14 @@
 /**
  * Follow Up Boss credentials for THIS instance.
  *
- * Each brokerage runs its own copy of this app against its own CRM, so there is
- * exactly one key: FUB_API_KEY (FOLLOW_UP_BOSS_API_KEY is accepted as a legacy
- * alias for the original instance).
+ * Resolution order: Supabase Vault (set by the owner on /setup), then the
+ * project environment variable (FUB_API_KEY, with FOLLOW_UP_BOSS_API_KEY kept
+ * as a legacy alias). There is no cross-instance fallback: if neither exists
+ * the caller gets a loud error rather than someone else's CRM.
  *
- * There is deliberately no default and no fallback. If the key is absent the
- * caller gets a loud error — silently reaching for "some other key" is exactly
- * how one brokerage would end up reading another brokerage's CRM.
+ * The key value is never logged and never appears in a thrown message.
  */
+import { getInstanceSecret } from './instanceSecrets.ts';
 
 export const FUB_BASE_URL = 'https://api.followupboss.com/v1';
 
@@ -20,29 +20,25 @@ export class FubConfigError extends Error {
 }
 
 /** Returns the configured key, or throws FubConfigError. Never returns a default. */
-export function getFubApiKey(): string {
-  const key =
-    Deno.env.get('FUB_API_KEY')?.trim() ||
-    Deno.env.get('FOLLOW_UP_BOSS_API_KEY')?.trim() ||
-    '';
+export async function getFubApiKey(): Promise<string> {
+  const key = await getInstanceSecret('FUB_API_KEY');
   if (!key) {
     throw new FubConfigError(
-      'FUB_API_KEY is not configured for this instance. Set it in project secrets; ' +
-        'requests are refused rather than falling back to another key.',
+      'Follow Up Boss is not connected for this instance. The owner can add the API key on the Setup page.',
     );
   }
   return key;
 }
 
 /** Basic auth header for the FUB API. Throws if the key is missing. */
-export function fubAuthHeader(): string {
-  return 'Basic ' + btoa(`${getFubApiKey()}:`);
+export async function fubAuthHeader(): Promise<string> {
+  return 'Basic ' + btoa(`${await getFubApiKey()}:`);
 }
 
 /** Standard headers for every FUB request. */
-export function fubHeaders(systemName = 'Real Estate Hub'): Record<string, string> {
+export async function fubHeaders(systemName = 'Real Estate Hub'): Promise<Record<string, string>> {
   return {
-    Authorization: fubAuthHeader(),
+    Authorization: await fubAuthHeader(),
     'Content-Type': 'application/json',
     'X-System': systemName,
     'X-System-Key': 'lovable-hub',
