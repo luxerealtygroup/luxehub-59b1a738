@@ -400,7 +400,14 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
                 className="flex items-center gap-3 rounded-xl border border-border/60 bg-background/60 p-3"
               >
                 {p.cover_photo_url ? (
-                  <img src={p.cover_photo_url} alt="" className="h-10 w-14 rounded-lg object-cover" />
+                  <img
+                    src={p.cover_photo_url}
+                    alt=""
+                    className="h-10 w-14 rounded-lg object-cover"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
                 ) : (
                   <div className="flex h-10 w-14 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <Home className="h-4 w-4" />
@@ -536,7 +543,14 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
                   {watchedProperties.map((p) => (
                     <li key={p.id} className="flex items-center gap-3 rounded-xl border border-border/60 bg-background/60 p-3">
                       {p.cover_photo_url && (
-                        <img src={p.cover_photo_url} alt="" className="h-10 w-14 rounded-lg object-cover" />
+                        <img
+                    src={p.cover_photo_url}
+                    alt=""
+                    className="h-10 w-14 rounded-lg object-cover"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
                       )}
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium">{propertyLabel(p)}</p>
