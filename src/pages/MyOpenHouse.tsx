@@ -1273,7 +1273,7 @@ function ReportSection({ openHouse, attendees }: { openHouse: OpenHouse; attende
     }
   };
 
-  const downloadPdf = () => {
+  const buildPdf = () => {
     try {
       const doc = new jsPDF({ unit: 'pt', format: 'letter' });
       const margin = 40;
