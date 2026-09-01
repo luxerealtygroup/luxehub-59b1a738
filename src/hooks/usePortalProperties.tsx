@@ -11,6 +11,7 @@ export interface PortalProperty {
   mls_number: string | null;
   property_type: string | null;
   cover_photo_url: string | null;
+  cover_photo_path: string | null;
   display_order: number;
   role: PropertyRole;
   notes: string | null;

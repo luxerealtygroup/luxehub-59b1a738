@@ -18,6 +18,7 @@ import { ClientSidebar } from './components/ClientSidebar';
 import { FUBTimeline } from './components/FUBTimeline';
 import { PortalDocumentsPanel } from '@/components/portal/PortalDocumentsPanel';
 import { PortalPhotosPanel } from '@/components/portal/PortalPhotosPanel';
+import { PropertyHero } from './components/PropertyHero';
 import { SupportChatWidget } from '@/components/support/SupportChatWidget';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ShoppingCart as ShoppingCartIcon, Tag as TagIcon } from 'lucide-react';
@@ -459,6 +460,9 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
     </div>
   );
 
+  const scopedProperty =
+    scope !== 'all' && scope !== 'general' ? properties.find((p) => p.id === scope) : undefined;
+
   const renderContent = () => {
     switch (activeTab) {
       case 'overview':
@@ -780,6 +784,11 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
           {/* Main Content */}
           <main className="flex-1 px-4 sm:px-8 py-6 sm:py-10">
             <div className="max-w-6xl mx-auto animate-fade-in">
+              {scopedProperty && (
+                <div className="mb-6">
+                  <PropertyHero property={scopedProperty} />
+                </div>
+              )}
               {renderContent()}
             </div>
           </main>

@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { PortalScope, matchesScope, scopePropertyId } from '@/lib/portalScope';
 import { PortalProperty, propertyLabel } from '@/hooks/usePortalProperties';
-import { Check, CheckSquare, Download, ImageIcon, Loader2, Trash2, Upload, Home, Trophy, X } from 'lucide-react';
+import { Check, CheckSquare, Download, ImageIcon, Loader2, Star, Trash2, Upload, Home, Trophy, X } from 'lucide-react';
 
 type Category = 'property' | 'milestone';
 
@@ -28,6 +28,8 @@ interface Props {
   scope?: PortalScope;
   /** Properties on this portal, so an uploader can pick where photos belong. */
   properties?: PortalProperty[];
+  /** Called after a property's cover photo is changed so the parent can refetch. */
+  onCoverChange?: () => void;
 }
 
 const BUCKET = 'portal-photos';
@@ -63,7 +65,7 @@ function PhotoThumb({ path, caption, onOpen, selecting, selected, onToggle }: { 
   );
 }
 
-export function PortalPhotosPanel({ portalId, canManage: canManageProp, scope = 'all', properties = [] }: Props) {
+export function PortalPhotosPanel({ portalId, canManage: canManageProp, scope = 'all', properties = [], onCoverChange }: Props) {
   const { isPreview } = usePortalPreview();
   const canManage = canManageProp && !isPreview;
   const { toast } = useToast();
@@ -80,6 +82,34 @@ export function PortalPhotosPanel({ portalId, canManage: canManageProp, scope = 
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploadTarget, setUploadTarget] = useState<string>(scopePropertyId(scope) ?? 'general');
   useEffect(() => { setUploadTarget(scopePropertyId(scope) ?? 'general'); }, [scope]);
+
+  // Cover photo per property (file_path in the portal-photos bucket). Seeded from
+  // the properties prop, updated optimistically when an agent picks a new cover.
+  const [coverPaths, setCoverPaths] = useState<Record<string, string | null>>({});
+  const [settingCover, setSettingCover] = useState<string | null>(null);
+  useEffect(() => {
+    setCoverPaths(Object.fromEntries(properties.map((p) => [p.id, p.cover_photo_path ?? null])));
+  }, [properties]);
+
+  const setCover = async (p: PortalPhoto) => {
+    if (blockPortalWrite('Changing the cover photo')) return;
+    if (!p.property_id) return;
+    const isCover = coverPaths[p.property_id] === p.file_path;
+    const next = isCover ? null : p.file_path;
+    setSettingCover(p.id);
+    const { error } = await supabase
+      .from('portal_properties')
+      .update({ cover_photo_path: next, cover_photo_url: null })
+      .eq('id', p.property_id);
+    setSettingCover(null);
+    if (error) {
+      toast({ title: 'Could not update cover photo', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setCoverPaths((prev) => ({ ...prev, [p.property_id!]: next }));
+    toast({ title: isCover ? 'Cover photo removed' : 'Cover photo set' });
+    onCoverChange?.();
+  };
 
   const load = async () => {
     setLoading(true);
@@ -233,8 +263,29 @@ export function PortalPhotosPanel({ portalId, canManage: canManageProp, scope = 
                 selected={selected.has(p.id)}
                 onToggle={() => toggleSelect(p.id)}
               />
+              {p.property_id && coverPaths[p.property_id] === p.file_path && (
+                <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-background/95 px-2 py-0.5 text-[10px] font-medium shadow-md">
+                  <Star className="h-3 w-3 fill-primary text-primary" /> Cover
+                </span>
+              )}
               {!selecting && (
                 <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {canManage && p.property_id && (
+                    <Button
+                      size="icon"
+                      variant="secondary"
+                      className="h-8 w-8 rounded-full bg-background/95 hover:bg-background shadow-md"
+                      onClick={() => setCover(p)}
+                      disabled={settingCover === p.id}
+                      title={coverPaths[p.property_id] === p.file_path ? 'Remove as cover photo' : 'Set as property cover photo'}
+                    >
+                      {settingCover === p.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Star className={`h-3.5 w-3.5 ${coverPaths[p.property_id] === p.file_path ? 'fill-primary text-primary' : ''}`} />
+                      )}
+                    </Button>
+                  )}
                   <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full bg-background/95 hover:bg-background shadow-md" onClick={() => downloadPhoto(p)} title="Download">
                     <Download className="h-3.5 w-3.5" />
                   </Button>
