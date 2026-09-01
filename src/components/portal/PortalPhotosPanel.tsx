@@ -263,8 +263,29 @@ export function PortalPhotosPanel({ portalId, canManage: canManageProp, scope = 
                 selected={selected.has(p.id)}
                 onToggle={() => toggleSelect(p.id)}
               />
+              {p.property_id && coverPaths[p.property_id] === p.file_path && (
+                <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-background/95 px-2 py-0.5 text-[10px] font-medium shadow-md">
+                  <Star className="h-3 w-3 fill-primary text-primary" /> Cover
+                </span>
+              )}
               {!selecting && (
                 <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {canManage && p.property_id && (
+                    <Button
+                      size="icon"
+                      variant="secondary"
+                      className="h-8 w-8 rounded-full bg-background/95 hover:bg-background shadow-md"
+                      onClick={() => setCover(p)}
+                      disabled={settingCover === p.id}
+                      title={coverPaths[p.property_id] === p.file_path ? 'Remove as cover photo' : 'Set as property cover photo'}
+                    >
+                      {settingCover === p.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Star className={`h-3.5 w-3.5 ${coverPaths[p.property_id] === p.file_path ? 'fill-primary text-primary' : ''}`} />
+                      )}
+                    </Button>
+                  )}
                   <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full bg-background/95 hover:bg-background shadow-md" onClick={() => downloadPhoto(p)} title="Download">
                     <Download className="h-3.5 w-3.5" />
                   </Button>
