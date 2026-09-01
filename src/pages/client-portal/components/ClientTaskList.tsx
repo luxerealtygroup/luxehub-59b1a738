@@ -54,6 +54,7 @@ export function ClientTaskList({ clientAccountId, canManage = false, transaction
   }, [clientAccountId, transactionId, scope, showInternal]);
 
   const fetchTasks = async () => {
+    if (!clientAccountId) { setLoading(false); return; }
     let q = supabase
       .from('client_tasks')
       .select('*')
