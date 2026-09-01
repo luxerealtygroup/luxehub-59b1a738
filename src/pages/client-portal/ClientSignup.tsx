@@ -157,30 +157,6 @@ const ClientSignup = () => {
     }
   };
 
-  const Shell = ({
-    icon,
-    title,
-    description,
-    children,
-  }: {
-    icon: React.ReactNode;
-    title: string;
-    description: string;
-    children?: React.ReactNode;
-  }) => (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-md border-border/50 bg-card/50 backdrop-blur">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-            {icon}
-          </div>
-          <CardTitle className="text-3xl font-display text-primary">{title}</CardTitle>
-          <CardDescription className="text-muted-foreground">{description}</CardDescription>
-        </CardHeader>
-        <CardContent>{children}</CardContent>
-      </Card>
-    </div>
-  );
 
   if (inviteStatus === 'checking') {
     return (
