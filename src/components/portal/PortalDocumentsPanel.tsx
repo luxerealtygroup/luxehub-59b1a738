@@ -270,13 +270,35 @@ export function PortalDocumentsPanel({ portalId, canManage: canManageProp, scope
                   {icon}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <button
-                    onClick={() => openPreview(d)}
-                    className={`text-sm font-medium text-left truncate hover:text-primary transition-colors block w-full ${d.is_internal ? 'text-muted-foreground' : 'text-foreground'}`}
-                    title={d.file_name}
-                  >
-                    {d.file_name}
-                  </button>
+                  {editingId === d.id ? (
+                    <div className="flex items-center gap-1">
+                      <Input
+                        autoFocus
+                        value={editingValue}
+                        onChange={(e) => setEditingValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') void saveDisplayName(d);
+                          if (e.key === 'Escape') setEditingId(null);
+                        }}
+                        className="h-8 text-sm"
+                        placeholder="Name the client sees"
+                      />
+                      <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full" onClick={() => void saveDisplayName(d)} title="Save">
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full" onClick={() => setEditingId(null)} title="Cancel">
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => openPreview(d)}
+                      className={`text-sm font-medium text-left truncate hover:text-primary transition-colors block w-full ${d.is_internal ? 'text-muted-foreground' : 'text-foreground'}`}
+                      title={d.display_name || d.file_name}
+                    >
+                      {d.display_name || d.file_name}
+                    </button>
+                  )}
                   <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
                     <span>
                       {format(new Date(d.created_at), 'MMM d, yyyy')}
@@ -296,6 +318,17 @@ export function PortalDocumentsPanel({ portalId, canManage: canManageProp, scope
                   <Button size="icon" variant="ghost" className="h-9 w-9 rounded-full hover:bg-primary/10 hover:text-primary" onClick={() => download(d)} title="Download">
                     <Download className="h-4 w-4" />
                   </Button>
+                  {canManage && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-9 w-9 rounded-full hover:bg-primary/10"
+                      onClick={() => { setEditingId(d.id); setEditingValue(d.display_name || d.file_name); }}
+                      title="Rename (client-facing name)"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  )}
                   {canManage && (
                     <Button
                       size="icon"
