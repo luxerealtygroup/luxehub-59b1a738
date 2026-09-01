@@ -1351,7 +1351,7 @@ function ReportSection({ openHouse, attendees }: { openHouse: OpenHouse; attende
       toast.error('PDF download failed', { description: err?.message });
     }
   };
-
+  const [showSendPortal, setShowSendPortal] = useState(false);
 
   return (
     <Card className="p-5 space-y-4">
@@ -1360,7 +1360,7 @@ function ReportSection({ openHouse, attendees }: { openHouse: OpenHouse; attende
           <h2 className="font-display text-lg font-semibold">Open House Report</h2>
           <p className="text-sm text-muted-foreground">{openHouse.property_address} · {formatDate(openHouse.open_house_date)}</p>
         </div>
-        <div className="flex gap-2 shrink-0">
+        <div className="flex flex-wrap gap-2 shrink-0 justify-end">
           <Button
             variant="outline"
             size="sm"
@@ -1369,11 +1369,24 @@ function ReportSection({ openHouse, attendees }: { openHouse: OpenHouse; attende
           >
             <Mail className="h-4 w-4 mr-1" /> Send to Listing Agent
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowSendPortal(true)}>
+            <Share2 className="h-4 w-4 mr-1" /> Send to Client Portal
+          </Button>
           <Button variant="outline" size="sm" onClick={downloadPdf}>
             <FileDown className="h-4 w-4 mr-1" /> Download PDF
           </Button>
         </div>
       </div>
+
+      {showSendPortal && (
+        <SendToPortalDialog
+          openHouse={openHouse}
+          buildPdf={buildPdf}
+          fileName={pdfFileName()}
+          onClose={() => setShowSendPortal(false)}
+        />
+      )}
+
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
         <ReportField label="Listing agent" value={openHouse.listing_agent_name || '—'} sub={openHouse.listing_agent_email || ''} />
