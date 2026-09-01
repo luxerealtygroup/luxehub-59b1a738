@@ -1,3 +1,4 @@
+import { useFubEnabled } from '@/hooks/useTenant';
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +14,7 @@ interface FUBClientSearchProps {
   trigger?: React.ReactNode;
 }
 
-export const FUBClientSearch = ({ onSelectClient, trigger }: FUBClientSearchProps) => {
+const FUBClientSearchInner = ({ onSelectClient, trigger }: FUBClientSearchProps) => {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -172,4 +173,10 @@ export const FUBClientSearch = ({ onSelectClient, trigger }: FUBClientSearchProp
       </DialogPortal>
     </Dialog>
   );
+};
+
+export const FUBClientSearch = (props: FUBClientSearchProps) => {
+  const fubEnabled = useFubEnabled();
+  if (!fubEnabled) return null;
+  return <FUBClientSearchInner {...props} />;
 };

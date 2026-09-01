@@ -1,3 +1,4 @@
+import { useFubEnabled } from '@/hooks/useTenant';
 import { useEffect, useState } from 'react';
 import { followUpBossApi, FUBNote, FUBCall } from '@/lib/api/followUpBoss';
 import { supabase } from '@/integrations/supabase/client';
@@ -28,7 +29,7 @@ type ActivityItem = {
   direction?: 'incoming' | 'outgoing';
 };
 
-const FUBActivityFeed = ({ limit = 20, showTabs = true, title = 'Recent Activity' }: FUBActivityFeedProps) => {
+const FUBActivityFeedInner = ({ limit = 20, showTabs = true, title = 'Recent Activity' }: FUBActivityFeedProps) => {
   const { user } = useAuth();
   const { effectiveUserId, effectiveFubUserId, isViewingAsAgent } = useViewAsAgent();
   const [filterFubUserId, setFilterFubUserId] = useState<number | null>(null);
@@ -240,6 +241,12 @@ const FUBActivityFeed = ({ limit = 20, showTabs = true, title = 'Recent Activity
       </CardContent>
     </Card>
   );
+};
+
+const FUBActivityFeed = (props: FUBActivityFeedProps) => {
+  const fubEnabled = useFubEnabled();
+  if (!fubEnabled) return null;
+  return <FUBActivityFeedInner {...props} />;
 };
 
 export default FUBActivityFeed;

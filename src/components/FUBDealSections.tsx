@@ -1,3 +1,4 @@
+import { useFubEnabled } from '@/hooks/useTenant';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -127,7 +128,7 @@ const DealTable = ({ deals, emptyMessage }: { deals: FUBDeal[]; emptyMessage: st
   );
 };
 
-export const FUBDealSections = () => {
+const FUBDealSectionsInner = () => {
   const { user } = useAuth();
   const { isAdmin } = useUserRole();
   const { isViewingAsAgent, effectiveFubUserId, agentOptions } = useViewAsAgent();
@@ -292,4 +293,10 @@ export const FUBDealSections = () => {
       </Card>
     </div>
   );
+};
+
+export const FUBDealSections = () => {
+  const fubEnabled = useFubEnabled();
+  if (!fubEnabled) return null;
+  return <FUBDealSectionsInner />;
 };
