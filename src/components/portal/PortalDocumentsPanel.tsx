@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Download, Eye, EyeOff, FileText, File, Image as ImageIcon, Loader2, Lock, Trash2, Upload, X } from 'lucide-react';
+import { Check, Download, Eye, EyeOff, FileText, File, Image as ImageIcon, Loader2, Lock, Pencil, Trash2, Upload, X } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PortalScope, matchesScope, scopePropertyId } from '@/lib/portalScope';
@@ -15,6 +16,7 @@ import { PortalProperty, propertyLabel } from '@/hooks/usePortalProperties';
 interface PortalDocument {
   id: string;
   file_name: string;
+  display_name: string | null;
   file_path: string;
   file_type: string | null;
   file_size: number | null;
