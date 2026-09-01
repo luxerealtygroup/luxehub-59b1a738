@@ -97,7 +97,7 @@ export function ImportantContactsCard({ portalId, onMessage, onViewAll }: Props)
             <div>
               <div className="flex items-center gap-3">
                 <Avatar className="h-11 w-11 ring-1 ring-border/70">
-                  {realtor.avatar_url && <AvatarImage src={realtor.avatar_url} alt={realtor.full_name || 'Realtor'} />}
+                  {realtorPhoto && <AvatarImage src={realtorPhoto} alt={realtor.full_name || 'Realtor'} />}
                   <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">{initials}</AvatarFallback>
                 </Avatar>
                 <div className="min-w-0">
