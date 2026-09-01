@@ -3,6 +3,7 @@ import { SupportChatWidget } from '@/components/support/SupportChatWidget';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { NotificationsBell } from '@/components/NotificationsBell';
+import { SetupBanner } from '@/components/SetupBanner';
 import { ViewAsAgentProvider, useViewAsAgent } from '@/hooks/useViewAsAgent';
 import { DemoModeProvider, useDemoMode } from '@/hooks/useDemoMode';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -116,6 +117,7 @@ const DashboardLayout = () => {
                 <NotificationsBell />
               </div>
             </header>
+            <SetupBanner />
             <ViewAsAgentBanner />
             <div className="flex-1 p-6">
               <Outlet />
