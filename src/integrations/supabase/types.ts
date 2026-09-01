@@ -2015,6 +2015,78 @@ export type Database = {
           },
         ]
       }
+      onboarding_requests: {
+        Row: {
+          admin_notes: string | null
+          business_name: string
+          contact_name: string
+          created_at: string
+          desired_domain: string | null
+          email: string
+          extra_notes: string | null
+          id: string
+          legal_name: string | null
+          logo_path: string | null
+          phone: string | null
+          service_area: string | null
+          slack_admin_email: string | null
+          slack_admin_name: string | null
+          status: string
+          team_size: string | null
+          updated_at: string
+          uses_asana: boolean | null
+          uses_fub: boolean | null
+          uses_stripe: boolean | null
+          website: string | null
+        }
+        Insert: {
+          admin_notes?: string | null
+          business_name: string
+          contact_name: string
+          created_at?: string
+          desired_domain?: string | null
+          email: string
+          extra_notes?: string | null
+          id?: string
+          legal_name?: string | null
+          logo_path?: string | null
+          phone?: string | null
+          service_area?: string | null
+          slack_admin_email?: string | null
+          slack_admin_name?: string | null
+          status?: string
+          team_size?: string | null
+          updated_at?: string
+          uses_asana?: boolean | null
+          uses_fub?: boolean | null
+          uses_stripe?: boolean | null
+          website?: string | null
+        }
+        Update: {
+          admin_notes?: string | null
+          business_name?: string
+          contact_name?: string
+          created_at?: string
+          desired_domain?: string | null
+          email?: string
+          extra_notes?: string | null
+          id?: string
+          legal_name?: string | null
+          logo_path?: string | null
+          phone?: string | null
+          service_area?: string | null
+          slack_admin_email?: string | null
+          slack_admin_name?: string | null
+          status?: string
+          team_size?: string | null
+          updated_at?: string
+          uses_asana?: boolean | null
+          uses_fub?: boolean | null
+          uses_stripe?: boolean | null
+          website?: string | null
+        }
+        Relationships: []
+      }
       open_house_attendees: {
         Row: {
           condition_feedback: string | null
