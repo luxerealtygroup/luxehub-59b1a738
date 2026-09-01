@@ -396,10 +396,12 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
           {activeProperties.map((p) => {
             const tx = portalTransactions.filter((t) => t.property_id === p.id);
             return (
-              <li
-                key={p.id}
-                className="flex items-center gap-3 rounded-xl border border-border/60 bg-background/60 p-3"
-              >
+              <li key={p.id}>
+                <button
+                  type="button"
+                  onClick={() => { setScope(p.id); setActiveTab('overview'); }}
+                  className="flex w-full items-center gap-3 rounded-xl border border-border/60 bg-background/60 p-3 text-left transition-colors hover:border-primary/40"
+                >
                 {p.cover_photo_url ? (
                   <img
                     src={p.cover_photo_url}
