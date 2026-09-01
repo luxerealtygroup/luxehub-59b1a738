@@ -1,3 +1,4 @@
+import { useFubEnabled } from '@/hooks/useTenant';
 import { useEffect, useState } from 'react';
 import { followUpBossApi, FUBSmartList, FUBPerson } from '@/lib/api/followUpBoss';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,7 +14,7 @@ interface FUBSmartListsProps {
   title?: string;
 }
 
-const FUBSmartLists = ({ title = 'Smart Lists' }: FUBSmartListsProps) => {
+const FUBSmartListsInner = ({ title = 'Smart Lists' }: FUBSmartListsProps) => {
   const { user } = useAuth();
   const { isAdmin, isOwner } = useUserRole();
   const [loading, setLoading] = useState(true);
@@ -207,6 +208,12 @@ const FUBSmartLists = ({ title = 'Smart Lists' }: FUBSmartListsProps) => {
       </CardContent>
     </Card>
   );
+};
+
+const FUBSmartLists = (props: FUBSmartListsProps) => {
+  const fubEnabled = useFubEnabled();
+  if (!fubEnabled) return null;
+  return <FUBSmartListsInner {...props} />;
 };
 
 export default FUBSmartLists;

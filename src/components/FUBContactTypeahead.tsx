@@ -1,3 +1,4 @@
+import { useFubEnabled } from '@/hooks/useTenant';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -17,7 +18,7 @@ interface FUBContactTypeaheadProps {
   onClear: () => void;
 }
 
-export function FUBContactTypeahead({ selectedContact, onSelect, onClear }: FUBContactTypeaheadProps) {
+function FUBContactTypeaheadInner({ selectedContact, onSelect, onClear }: FUBContactTypeaheadProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<FUBPerson[]>([]);
   const [loading, setLoading] = useState(false);
@@ -165,4 +166,50 @@ export function FUBContactTypeahead({ selectedContact, onSelect, onClear }: FUBC
 
     </div>
   );
+}
+
+/**
+ * Teams without Follow Up Boss enter the contact by hand instead of searching.
+ */
+function ManualContactEntry({ selectedContact, onSelect, onClear }: FUBContactTypeaheadProps) {
+  const [name, setName] = useState(selectedContact?.name ?? '');
+  const [email, setEmail] = useState(selectedContact?.email ?? '');
+  const [phone, setPhone] = useState(selectedContact?.phone ?? '');
+
+  const commit = (next: { name?: string; email?: string; phone?: string }) => {
+    const merged = { name, email, phone, ...next };
+    if (!merged.name.trim()) {
+      onClear();
+      return;
+    }
+    onSelect({ id: selectedContact?.id ?? 0, ...merged });
+  };
+
+  return (
+    <div className="space-y-2">
+      <Input
+        placeholder="Client name"
+        value={name}
+        onChange={(e) => { setName(e.target.value); commit({ name: e.target.value }); }}
+      />
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Input
+          placeholder="Email (optional)"
+          value={email}
+          onChange={(e) => { setEmail(e.target.value); commit({ email: e.target.value }); }}
+        />
+        <Input
+          placeholder="Phone (optional)"
+          value={phone}
+          onChange={(e) => { setPhone(e.target.value); commit({ phone: e.target.value }); }}
+        />
+      </div>
+    </div>
+  );
+}
+
+export function FUBContactTypeahead(props: FUBContactTypeaheadProps) {
+  const fubEnabled = useFubEnabled();
+  if (!fubEnabled) return <ManualContactEntry {...props} />;
+  return <FUBContactTypeaheadInner {...props} />;
 }

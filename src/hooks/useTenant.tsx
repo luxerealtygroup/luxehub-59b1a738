@@ -32,6 +32,8 @@ export interface TenantBranding {
   /** Square mark for avatars and favicons. */
   markUrl: string | null;
   isDefaultTenant: boolean;
+  /** True when this org has Follow Up Boss connected (or is the original instance). */
+  fubEnabled: boolean;
   isLoading: boolean;
 }
 
@@ -47,6 +49,7 @@ const fallback: TenantBranding = {
   logoUrl: null,
   markUrl: null,
   isDefaultTenant: true,
+  fubEnabled: true,
   isLoading: true,
 };
 
@@ -116,6 +119,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         logoUrl: await signBrandingUrl(row.branding_logo_url),
         markUrl: await signBrandingUrl(row.branding_mark_url),
         isDefaultTenant: Boolean(row.is_original_org),
+        fubEnabled: true, // refined by the integration check below
         isLoading: false,
       };
       if (!cancelled) setValue(resolved);
@@ -163,6 +167,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
             logoUrl: org.logoUrl ?? null,
             markUrl: org.markUrl ?? null,
             isDefaultTenant: false,
+            fubEnabled: false,
             isLoading: false,
           });
           return;
@@ -196,8 +201,32 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     }
   }, [value.primaryColor, value.textColor]);
 
-  const memo = useMemo(() => value, [value]);
+  // Resolve Follow Up Boss availability for the signed-in org. The original
+  // instance keeps working off its environment key; other orgs must have
+  // connected their own key at /dashboard/setup.
+  const [fubEnabled, setFubEnabled] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      if (!user || !value.orgId) return;
+      if (value.isDefaultTenant) {
+        if (!cancelled) setFubEnabled(true);
+        return;
+      }
+      const { data } = await supabase.rpc('org_has_integration', { _key: 'FUB_API_KEY' });
+      if (!cancelled) setFubEnabled(Boolean(data));
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, value.orgId, value.isDefaultTenant]);
+
+  const memo = useMemo(() => ({ ...value, fubEnabled }), [value, fubEnabled]);
   return <TenantContext.Provider value={memo}>{children}</TenantContext.Provider>;
 }
 
 export const useTenant = () => useContext(TenantContext);
+
+/** Convenience: hide Follow Up Boss driven UI for orgs without a connected key. */
+export const useFubEnabled = () => useContext(TenantContext).fubEnabled;
