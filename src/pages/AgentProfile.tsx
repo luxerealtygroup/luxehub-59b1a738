@@ -10,12 +10,13 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { 
   ArrowLeft, Users, DollarSign, Target, TrendingUp, Phone, 
-  Calendar, FileText, Loader2, User 
+  Calendar, FileText, Loader2, User, Camera, Trash2 
 } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, Legend } from 'recharts';
 import { format } from 'date-fns';
 import { formatCurrency, formatNumber } from '@/lib/utils';
-import { resolveAvatarUrl } from '@/lib/avatar';
+import { AVATAR_BUCKET, resolveAvatarUrl } from '@/lib/avatar';
+import { useToast } from '@/hooks/use-toast';
 import { LaunchpadAssignmentCard } from '@/components/launchpad/LaunchpadAssignmentCard';
 
 interface AgentProfileData {
