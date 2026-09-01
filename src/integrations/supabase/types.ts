@@ -1716,6 +1716,30 @@ export type Database = {
           },
         ]
       }
+      instance_integrations: {
+        Row: {
+          key: string
+          last4: string | null
+          updated_at: string
+          updated_by: string | null
+          vault_secret_name: string
+        }
+        Insert: {
+          key: string
+          last4?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          vault_secret_name: string
+        }
+        Update: {
+          key?: string
+          last4?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          vault_secret_name?: string
+        }
+        Relationships: []
+      }
       launchpad_module_progress: {
         Row: {
           completed_at: string | null
@@ -3958,6 +3982,7 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      get_instance_secret: { Args: { _key: string }; Returns: string }
       get_team_agents: {
         Args: never
         Returns: {
@@ -4012,6 +4037,10 @@ export type Database = {
           msg_id: number
           read_ct: number
         }[]
+      }
+      set_instance_secret: {
+        Args: { _actor: string; _key: string; _value: string }
+        Returns: undefined
       }
       validate_portal_invite: {
         Args: { _token: string }
