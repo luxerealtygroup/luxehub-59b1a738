@@ -1,11 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Mail, CheckCircle2 } from 'lucide-react';
+import { Camera, Loader2, Mail, CheckCircle2, Trash2 } from 'lucide-react';
+import { AVATAR_BUCKET, resolveAvatarUrl } from '@/lib/avatar';
 
 const AccountSettings = () => {
   const { user } = useAuth();
@@ -13,6 +15,75 @@ const AccountSettings = () => {
   const [newEmail, setNewEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [avatarSrc, setAvatarSrc] = useState<string | null>(null);
+  const [avatarPath, setAvatarPath] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('avatar_url')
+        .eq('id', user.id)
+        .maybeSingle();
+      const path = data?.avatar_url ?? null;
+      setAvatarPath(path);
+      setAvatarSrc(await resolveAvatarUrl(path));
+    })();
+  }, [user]);
+
+  const handleHeadshot = async (file: File) => {
+    if (!user) return;
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Please choose an image file', variant: 'destructive' });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'Image too large', description: 'Headshots are capped at 5 MB.', variant: 'destructive' });
+      return;
+    }
+    setUploading(true);
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+    const path = `${user.id}/headshot.${ext}`;
+    const { error: uploadError } = await supabase.storage
+      .from(AVATAR_BUCKET)
+      .upload(path, file, { upsert: true, contentType: file.type });
+    if (uploadError) {
+      setUploading(false);
+      toast({ title: 'Upload failed', description: uploadError.message, variant: 'destructive' });
+      return;
+    }
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({ avatar_url: path })
+      .eq('id', user.id);
+    setUploading(false);
+    if (profileError) {
+      toast({ title: 'Could not save headshot', description: profileError.message, variant: 'destructive' });
+      return;
+    }
+    setAvatarPath(path);
+    setAvatarSrc(await resolveAvatarUrl(path));
+    toast({ title: 'Headshot updated', description: 'It now shows on your profile and your clients\' portals.' });
+  };
+
+  const removeHeadshot = async () => {
+    if (!user || !avatarPath) return;
+    setUploading(true);
+    if (!/^https?:\/\//i.test(avatarPath)) {
+      await supabase.storage.from(AVATAR_BUCKET).remove([avatarPath]);
+    }
+    const { error } = await supabase.from('profiles').update({ avatar_url: null }).eq('id', user.id);
+    setUploading(false);
+    if (error) {
+      toast({ title: 'Could not remove headshot', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setAvatarPath(null);
+    setAvatarSrc(null);
+  };
 
   const handleEmailChange = async (e: React.FormEvent) => {
     e.preventDefault();
