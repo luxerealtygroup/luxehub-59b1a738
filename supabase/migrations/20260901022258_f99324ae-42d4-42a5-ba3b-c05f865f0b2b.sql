@@ -1,0 +1,1 @@
+ALTER TABLE public.portal_contacts ADD COLUMN IF NOT EXISTS show_on_dashboard boolean NOT NULL DEFAULT false;
