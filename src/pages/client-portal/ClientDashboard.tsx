@@ -484,7 +484,7 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
             {[
               scopedProperty.mls_number ? `MLS ${scopedProperty.mls_number}` : null,
               scopedProperty.property_type,
-              tx?.status ? `Status: ${tx.status}` : null,
+              tx?.status ? `Status: ${tx.status.replace(/_/g, ' ')}` : null,
             ].filter(Boolean).join(' · ') || 'Your agent is keeping this page up to date.'}
           </p>
         </div>
