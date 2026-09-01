@@ -45,7 +45,6 @@ const Shell = ({
 
 const ClientSignup = () => {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
   const [inviteStatus, setInviteStatus] = useState<InviteStatus>('checking');
@@ -96,8 +95,10 @@ const ClientSignup = () => {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    const password = new FormData(e.currentTarget as HTMLFormElement).get('password');
 
     try {
+      if (typeof password !== 'string') throw new Error('Please enter a password.');
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -112,7 +113,6 @@ const ClientSignup = () => {
       // Supabase returns a user with no identities when the email is taken.
       if (!authData.user || authData.user.identities?.length === 0) {
         setExistingAccount(true);
-        setPassword('');
         toast({
           title: 'You already have an account',
           description: 'Sign in below and we\u2019ll connect you to your portal.',
@@ -144,7 +144,9 @@ const ClientSignup = () => {
   const handleSignInAndClaim = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    const password = new FormData(e.currentTarget as HTMLFormElement).get('password');
     try {
+      if (typeof password !== 'string') throw new Error('Please enter your password.');
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       await claimPortal(fullName);
@@ -223,10 +225,10 @@ const ClientSignup = () => {
           <Input type="email" value={email} disabled className="bg-background/50 opacity-70" />
           <Input
             type="password"
+            name="password"
             placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
             required
+            autoComplete="current-password"
             className="bg-background/50 border-border focus:border-primary"
           />
           <Button type="submit" disabled={loading} className="w-full">
@@ -282,11 +284,11 @@ const ClientSignup = () => {
         <div>
           <Input
             type="password"
+            name="password"
             placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
             required
             minLength={6}
+            autoComplete="new-password"
             className="bg-background/50 border-border focus:border-primary"
           />
         </div>
