@@ -82,14 +82,14 @@ export function ConditionsTimeline({ transaction, title, showKeyDates = true }: 
   const visibleKeyDates = showKeyDates ? keyDates : [];
 
   if (loading) return null;
-  if (conditions.length === 0 && keyDates.length === 0) return null;
+  if (conditions.length === 0 && visibleKeyDates.length === 0) return null;
 
   return (
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
           <CalendarClock className="h-5 w-5 text-primary" />
-          Conditions & Key Dates
+          {showKeyDates ? 'Conditions & Key Dates' : 'Conditions'}
         </CardTitle>
         {title && <p className="text-sm text-muted-foreground">{title}</p>}
       </CardHeader>
@@ -142,11 +142,11 @@ export function ConditionsTimeline({ transaction, title, showKeyDates = true }: 
           </ul>
         )}
 
-        {keyDates.length > 0 && (
+        {visibleKeyDates.length > 0 && (
           <div className="rounded-xl border border-border/60 bg-muted/30 p-4">
             <p className="eyebrow mb-2">Key dates</p>
             <ul className="space-y-1.5">
-              {keyDates.map(([label, date]) => (
+              {visibleKeyDates.map(([label, date]) => (
                 <li key={label} className="flex items-baseline justify-between gap-3 text-sm">
                   <span className="text-muted-foreground">{label}</span>
                   <span className="font-medium">{fmt(date)}</span>
