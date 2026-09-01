@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -10,12 +10,13 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { 
   ArrowLeft, Users, DollarSign, Target, TrendingUp, Phone, 
-  Calendar, FileText, Loader2, User 
+  Calendar, FileText, Loader2, User, Camera, Trash2 
 } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, Legend } from 'recharts';
 import { format } from 'date-fns';
 import { formatCurrency, formatNumber } from '@/lib/utils';
-import { resolveAvatarUrl } from '@/lib/avatar';
+import { AVATAR_BUCKET, resolveAvatarUrl } from '@/lib/avatar';
+import { useToast } from '@/hooks/use-toast';
 import { LaunchpadAssignmentCard } from '@/components/launchpad/LaunchpadAssignmentCard';
 
 interface AgentProfileData {
@@ -100,6 +101,62 @@ const AgentProfile = () => {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [goals, setGoals] = useState<ProductionGoal | null>(null);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const avatarInput = useRef<HTMLInputElement>(null);
+
+  const handleHeadshotUpload = async (file: File) => {
+    if (!agentId) return;
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Please choose an image file', variant: 'destructive' });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'Image too large', description: 'Headshots are capped at 5 MB.', variant: 'destructive' });
+      return;
+    }
+    setUploadingAvatar(true);
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+    const path = `${agentId}/headshot.${ext}`;
+    const { error: uploadError } = await supabase.storage
+      .from(AVATAR_BUCKET)
+      .upload(path, file, { upsert: true, contentType: file.type });
+    if (uploadError) {
+      setUploadingAvatar(false);
+      toast({ title: 'Upload failed', description: uploadError.message, variant: 'destructive' });
+      return;
+    }
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({ avatar_url: path })
+      .eq('id', agentId);
+    setUploadingAvatar(false);
+    if (profileError) {
+      toast({ title: 'Could not save headshot', description: profileError.message, variant: 'destructive' });
+      return;
+    }
+    setAgent((prev) => (prev ? { ...prev, avatar_url: path } : prev));
+    setAvatarSrc(await resolveAvatarUrl(path));
+    toast({ title: 'Headshot updated' });
+  };
+
+  const removeHeadshot = async () => {
+    if (!agentId || !agent?.avatar_url) return;
+    setUploadingAvatar(true);
+    if (!/^https?:\/\//i.test(agent.avatar_url)) {
+      await supabase.storage.from(AVATAR_BUCKET).remove([agent.avatar_url]);
+    }
+    const { error } = await supabase.from('profiles').update({ avatar_url: null }).eq('id', agentId);
+    setUploadingAvatar(false);
+    if (error) {
+      toast({ title: 'Could not remove headshot', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setAgent((prev) => (prev ? { ...prev, avatar_url: null } : prev));
+    setAvatarSrc(null);
+  };
+
+
 
   useEffect(() => {
     if (roleLoading || !isAdmin || !agentId) return;
@@ -253,8 +310,39 @@ const AgentProfile = () => {
         <div>
           <h1 className="text-3xl font-display font-bold text-foreground">{agent.full_name || 'Unknown Agent'}</h1>
           <p className="text-muted-foreground">Agent Profile</p>
+          <div className="flex items-center gap-2 mt-2">
+            <input
+              ref={avatarInput}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleHeadshotUpload(file);
+                e.target.value = '';
+              }}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={uploadingAvatar}
+              onClick={() => avatarInput.current?.click()}
+            >
+              {uploadingAvatar ? (
+                <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> Saving…</>
+              ) : (
+                <><Camera className="mr-2 h-3.5 w-3.5" /> {avatarSrc ? 'Replace headshot' : 'Upload headshot'}</>
+              )}
+            </Button>
+            {avatarSrc && (
+              <Button variant="ghost" size="sm" disabled={uploadingAvatar} onClick={removeHeadshot}>
+                <Trash2 className="mr-2 h-3.5 w-3.5" /> Remove
+              </Button>
+            )}
+          </div>
         </div>
       </div>
+
 
       {agentId ? <LaunchpadAssignmentCard agentId={agentId} /> : null}
 
