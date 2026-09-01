@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Mail, MessageCircle, Phone, Users, Globe } from 'lucide-react';
 import { tenant } from '@/config/tenant';
+import { resolveAvatarUrl } from '@/lib/avatar';
 import type { PortalContact } from '@/components/portal/PortalContactsPanel';
 
 interface Realtor {

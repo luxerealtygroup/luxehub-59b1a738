@@ -132,6 +132,65 @@ const AccountSettings = () => {
       <Card className="border-border/50 max-w-lg">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
+            <Camera className="h-5 w-5 text-gold" />
+            Your Headshot
+          </CardTitle>
+          <CardDescription>
+            Shown on your agent profile and in the "Important contacts" card on your clients' portals.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-4">
+            <Avatar className="h-20 w-20 ring-1 ring-border/70">
+              {avatarSrc && <AvatarImage src={avatarSrc} alt="Your headshot" />}
+              <AvatarFallback className="bg-gold/15 text-gold text-xl font-semibold">
+                {user?.email?.slice(0, 2).toUpperCase() ?? 'ME'}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex flex-col gap-2">
+              <input
+                ref={fileInput}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void handleHeadshot(f);
+                  e.target.value = '';
+                }}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={uploading}
+                onClick={() => fileInput.current?.click()}
+              >
+                {uploading ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading…</>
+                ) : (
+                  <><Camera className="mr-2 h-4 w-4" /> {avatarSrc ? 'Replace photo' : 'Upload photo'}</>
+                )}
+              </Button>
+              {avatarSrc && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={uploading}
+                  className="text-muted-foreground hover:text-destructive"
+                  onClick={() => void removeHeadshot()}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" /> Remove
+                </Button>
+              )}
+              <p className="text-xs text-muted-foreground">JPG or PNG, up to 5 MB.</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-border/50 max-w-lg">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
             <Mail className="h-5 w-5 text-gold" />
             Change Email
           </CardTitle>
