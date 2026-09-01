@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
-import { FileText, Download, FolderOpen, Home, Calendar, CheckSquare, MessageCircle, ShoppingCart, Tag, ImageIcon } from 'lucide-react';
+import { FileText, Download, FolderOpen, Home, Calendar, CheckSquare, MessageCircle, ShoppingCart, Tag, ImageIcon, Upload, Users, FolderHeart } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { TransactionTimeline } from './components/TransactionTimeline';
@@ -22,7 +22,10 @@ import { SupportChatWidget } from '@/components/support/SupportChatWidget';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ShoppingCart as ShoppingCartIcon, Tag as TagIcon } from 'lucide-react';
 import { ClientNotificationsBell } from './components/ClientNotificationsBell';
-import { usePortalProperties, propertyLabel, derivePortalSideLabel } from '@/hooks/usePortalProperties';
+import { usePortalProperties, propertyLabel, derivePortalSideLabel, ROLE_LABEL } from '@/hooks/usePortalProperties';
+import { RealtorCard } from './components/RealtorCard';
+import { KeyDatesCard } from './components/KeyDatesCard';
+import { PortalContactsPanel } from '@/components/portal/PortalContactsPanel';
 import { PropertySwitcher } from '@/components/portal/PropertySwitcher';
 import { PortalScope } from '@/lib/portalScope';
 
@@ -616,7 +619,31 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
 
       case 'documents':
         return clientAccount ? (
-          <PortalDocumentsPanel portalId={clientAccount.id} canManage={false} scope={scope} />
+          <PortalDocumentsPanel
+            portalId={clientAccount.id}
+            canManage={false}
+            scope={scope}
+            source="transaction"
+            emptyHint="Your agent will add your transaction paperwork here."
+          />
+        ) : null;
+
+      case 'library':
+        return clientAccount ? (
+          <PortalDocumentsPanel
+            portalId={clientAccount.id}
+            canManage
+            allowInternal={false}
+            scope={scope}
+            source="library"
+            properties={properties}
+            emptyHint="Upload your property manuals, warranties, receipts and anything else you want kept safe."
+          />
+        ) : null;
+
+      case 'contacts':
+        return clientAccount ? (
+          <PortalContactsPanel portalId={clientAccount.id} viewerRole="client" />
         ) : null;
 
       case 'photos':
@@ -640,7 +667,9 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
       case 'purchase': return 'Your Purchase';
       case 'sale': return 'Your Sale';
       case 'tasks': return 'Tasks';
-      case 'documents': return 'Documents';
+      case 'documents': return 'Transaction Documents';
+      case 'library': return 'My Documents';
+      case 'contacts': return 'Important Contacts';
       case 'photos': return 'Photos';
       case 'messages': return 'Messages';
       default: return 'Dashboard';
@@ -654,6 +683,8 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
       case 'sale': return <Tag className="h-5 w-5" />;
       case 'tasks': return <CheckSquare className="h-5 w-5" />;
       case 'documents': return <FileText className="h-5 w-5" />;
+      case 'library': return <FolderHeart className="h-5 w-5" />;
+      case 'contacts': return <Users className="h-5 w-5" />;
       case 'photos': return <ImageIcon className="h-5 w-5" />;
       case 'messages': return <MessageCircle className="h-5 w-5" />;
       default: return <Home className="h-5 w-5" />;

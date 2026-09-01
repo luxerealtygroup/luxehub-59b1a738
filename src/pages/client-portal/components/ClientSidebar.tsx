@@ -7,6 +7,8 @@ import {
   ShoppingCart,
   Tag,
   ImageIcon,
+  Users,
+  FolderHeart,
 } from 'lucide-react';
 import luxeLogo from '@/assets/luxe-logo.png.asset.json';
 import { Button } from '@/components/ui/button';
@@ -38,7 +40,9 @@ interface ClientSidebarProps {
 const mainMenuItems = [
   { id: 'overview', title: 'Overview', icon: Home },
   { id: 'tasks', title: 'Tasks', icon: CheckSquare },
-  { id: 'documents', title: 'Documents', icon: FileText },
+  { id: 'documents', title: 'Transaction Documents', icon: FileText },
+  { id: 'library', title: 'My Documents', icon: FolderHeart },
+  { id: 'contacts', title: 'Important Contacts', icon: Users },
   { id: 'photos', title: 'Photos', icon: ImageIcon },
   { id: 'messages', title: 'Messages', icon: MessageCircle },
 ];
