@@ -1338,14 +1338,20 @@ function ReportSection({ openHouse, attendees }: { openHouse: OpenHouse; attende
         doc.text('No attendees recorded.', margin, y);
       }
 
-      const safeAddr = openHouse.property_address.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase();
-      doc.save(`open-house-${safeAddr}-${openHouse.open_house_date}.pdf`);
+      return doc;
+    }
+  };
+
+  const downloadPdf = () => {
+    try {
+      buildPdf().save(pdfFileName());
       toast.success('PDF downloaded');
     } catch (err: any) {
       console.error('PDF generation failed', err);
       toast.error('PDF download failed', { description: err?.message });
     }
   };
+
 
   return (
     <Card className="p-5 space-y-4">
