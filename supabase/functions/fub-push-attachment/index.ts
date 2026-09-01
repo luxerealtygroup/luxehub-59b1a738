@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { getInstanceSecret } from '../_shared/instanceSecrets.ts';
 
 const FUB_BASE_URL = 'https://api.followupboss.com/v1';
 const BUCKET = 'portal-documents';
@@ -76,9 +77,9 @@ Deno.serve(async (req) => {
     // No FUB link -> skip silently.
     if (!portal?.fub_person_id) return json({ skipped: 'no_fub_link' });
 
-    const apiKey = Deno.env.get('FUB_API_KEY') || Deno.env.get('FOLLOW_UP_BOSS_API_KEY');
+    const apiKey = await getInstanceSecret('FUB_API_KEY');
     if (!apiKey) {
-      console.warn('fub-push-attachment: FUB_API_KEY not configured');
+      console.warn('fub-push-attachment: Follow Up Boss is not connected for this instance');
       return json({ skipped: 'no_api_key' });
     }
 

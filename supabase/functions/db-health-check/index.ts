@@ -1,6 +1,7 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { tenant } from '../_shared/tenant.ts'
+import { getInstanceSecret } from '../_shared/instanceSecrets.ts'
 
 // Tables that must always be readable/writable by signed-in users.
 const CRITICAL_TABLES = [
@@ -48,8 +49,8 @@ async function findChannelId(token: string, name: string): Promise<string | null
 }
 
 async function postToSlack(text: string) {
-  const token = Deno.env.get('SLACK_BOT_TOKEN')
-  if (!token) return { ok: false, error: 'SLACK_BOT_TOKEN not configured' }
+  const token = await getInstanceSecret('SLACK_BOT_TOKEN')
+  if (!token) return { ok: false, error: 'Slack is not connected for this instance' }
 
   const payload = {
     channel: SLACK_CHANNEL,
