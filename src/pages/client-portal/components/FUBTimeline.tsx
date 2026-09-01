@@ -113,6 +113,7 @@ export function FUBTimeline({
           ? followUpBossApi.getPersonDeals(fubPersonId)
           : Promise.resolve({ success: true, data: { deals: [] } } as any),
         (() => {
+          if (!clientAccountId) return Promise.resolve({ data: [], error: null } as any);
           let q = supabase
             .from('portal_timeline_notes')
             .select('*')
