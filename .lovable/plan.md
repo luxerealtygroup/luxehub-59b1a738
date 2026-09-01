@@ -65,10 +65,10 @@ never be set to an org the actor isn't an admin/owner of.
 - Optional per tenant: a brokerage without FUB simply has no key; FUB features are
   hidden/disabled for that org.
 
-### 4. Per-org branding at runtime
-- Add columns to `organizations`: `app_name, short_name, brokerage_name,
-  brokerage_legal_name, support_email, website_domain` (nullable; original org left NULL
-  to keep falling back to env/LUXE defaults).
+### 4. Per-org branding at runtime + hostname routing
+- Add columns to `organizations`: `slug` (unique, required), `app_name, short_name,
+  brokerage_name, brokerage_legal_name, support_email, website_domain` (nullable;
+  original org left NULL to keep falling back to env/LUXE defaults).
 - New `useTenant()` hook: reads the current user's org row, merges over the env-based
   `tenant` defaults (LUXE), so branding is live per org without a rebuild.
 - Replace brokerage-specific `tenant.*` reads (app name, brokerage name, logo, colour,
@@ -76,20 +76,64 @@ never be set to an org the actor isn't an admin/owner of.
 - Edge functions already have `_shared/tenant.ts`; add an org-aware lookup for the
   caller's org branding in email/Slack functions.
 
-### 5. Provisioning UI — in-app admin action
+**Hostname-based tenant resolution (pre-auth).** Signed-out pages — login, invite
+accept, client portal, `/get-started` — must know the tenant before any JWT exists:
+- Support `<slug>.luxerealtyhub.com` plus an optional custom `website_domain`.
+- New SECURITY DEFINER function `resolve_org_by_host(_host text)` returning only public
+  branding (id, slug, name, logo, colour, app name) — safe for `anon`, no private data.
+- Frontend resolver parses `window.location.hostname`, strips the known apex/preview
+  hosts, calls the function once, caches it in a `TenantProvider` and feeds `useTenant()`.
+  Unknown host or bare apex → original LUXE defaults.
+- Signup/invite flows stamp the resolved org onto the new profile so a user who accepts
+  on a tenant subdomain lands in that tenant.
+- Note: wildcard DNS/TLS for `*.luxerealtyhub.com` must be configured at the domain level
+  for subdomains to serve; the app-side resolution is built regardless.
+
+### 5. Provisioning UI — in-app admin action, with agent seats
 - New admin page `/dashboard/admin/tenants` (and an action on each setup request):
-  create an `organizations` row from a request (name, contact → owner account, logo,
-  colour, optional FUB key field), mark `tier`, and assign the request's contact as the
-  new org's owner (create their auth account / invite them as owner of the new org).
+  create an `organizations` row from a request (name, slug, contact → owner account,
+  logo, colour, optional FUB key field), mark `tier`, and assign the request's contact as
+  the new org's owner (create their auth account / invite them as owner of the new org).
 - "Provision from request" button on `AdminOnboardingRequests` → pre-fills the new-tenant
   form, sets the request to `in_setup` then `live`.
 - FUB key is entered by the brokerage's owner directly (never by us) — they get an owner
   invite and set it in `/setup`, which we extend to write per-org into Vault.
+- **Agent seats.** New `org_invites` table (`org_id, email, role, token, expires_at,
+  used_at, invited_by`) plus an owner-facing page `/dashboard/team` where an org owner
+  invites additional agents into their own org (tenant B is an 8-person team).
+  - Accepting an invite creates the profile with that `org_id` and the invited role in
+    `user_roles`; the org's owner can revoke/resend and deactivate a seat.
+  - Seat count is capped by the org's tier; owners can only invite into their own org
+    (enforced in RLS + a SECURITY DEFINER accept function, never client-trusted).
+  - Each invited agent sees only their own pipeline, goals, 411 and clients within that
+    org; the org owner/admin sees the whole org and nothing outside it.
 
-### 6. Provision the two tenants
+### 6. Safety: backup + single-transaction migration
+- Take a database backup / restore point immediately before the migration runs, and
+  record the restore point name in the migration description.
+- The whole ~50-table change ships as **one migration executed in a single transaction**
+  (schema, backfill, triggers, policy drops/creates) so any failure rolls back cleanly
+  with zero partial state. No multi-step split.
+- Policy changes are drop-then-create within that same transaction; nothing is left
+  policy-less at commit time.
+
+### 7. Post-migration verification — before anything else
+Run and report results before provisioning any real tenant:
+1. Original LUXE org: dashboard, pipeline, transactions/commissions and weekly
+   accountability (411) all still load with the same row counts as pre-migration
+   (counts captured before the migration for comparison).
+2. Pat Ullman's client portal loads, with all 7 documents present on 5 Elm PVE St.,
+   photos and timeline intact.
+3. A second **test** org (throwaway, not a real tenant) with its own test user sees
+   NONE of the LUXE data — every list is empty and direct-ID reads are denied.
+4. Report all three results back before any real tenant is provisioned.
+5. **Do not publish** at any point in this work.
+
+### 8. Provision the two tenants (only after verification passes)
 - Tenant A: **Homes Into Reality** (from the existing request — Gabriele Battista).
-- Tenant B: one more real brokerage — details to be supplied (or submitted via
-  `/get-started`); provisioned the same way once built.
+- Tenant B: 8-person team — details to be supplied (or submitted via `/get-started`);
+  provisioned the same way, with agent-seat invites for the other 7.
+
 
 ## Risks / non-goals
 - Big RLS rewrite touches ~50 tables; done in one migration with backfill so existing
