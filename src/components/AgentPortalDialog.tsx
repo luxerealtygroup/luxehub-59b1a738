@@ -528,7 +528,7 @@ export function AgentPortalDialog({
 
             <TabsContent value="photos" className="pt-4">
               {account && (
-                <PortalPhotosPanel portalId={account.id} canManage={isAdmin} scope={scope} properties={properties} />
+                <PortalPhotosPanel portalId={account.id} canManage={isAdmin} scope={scope} properties={properties} onCoverChange={reloadProperties} />
               )}
             </TabsContent>
 
