@@ -8,6 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { resolveAvatarUrl } from '@/lib/avatar';
 import { Globe, Lock, Mail, Pencil, Phone, Plus, Trash2, Users } from 'lucide-react';
 
 export interface PortalContact {
