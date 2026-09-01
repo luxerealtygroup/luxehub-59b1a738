@@ -54,10 +54,19 @@ const emptyForm = {
   show_on_dashboard: false,
 };
 
+interface Realtor {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  avatar_url: string | null;
+}
+
 export function PortalContactsPanel({ portalId, viewerRole }: Props) {
   const { isPreview } = usePortalPreview();
   const { toast } = useToast();
   const [contacts, setContacts] = useState<PortalContact[]>([]);
+  const [realtor, setRealtor] = useState<Realtor | null>(null);
+  const [realtorPhoto, setRealtorPhoto] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -69,16 +78,20 @@ export function PortalContactsPanel({ portalId, viewerRole }: Props) {
 
   const load = async () => {
     setLoading(true);
-    const [{ data }, { data: auth }] = await Promise.all([
+    const [{ data }, { data: auth }, { data: r }] = await Promise.all([
       supabase
         .from('portal_contacts')
         .select('*')
         .eq('portal_id', portalId)
         .order('created_at', { ascending: true }),
       supabase.auth.getUser(),
+      supabase.rpc('get_portal_realtor', { _portal_id: portalId }),
     ]);
     setUserId(auth.user?.id ?? null);
     setContacts(((data as PortalContact[]) ?? []).filter((c) => (isAgent ? true : !c.is_internal)));
+    const found = ((r as Realtor[]) ?? [])[0] ?? null;
+    setRealtor(found);
+    setRealtorPhoto(found?.avatar_url ? await resolveAvatarUrl(found.avatar_url) : null);
     setLoading(false);
   };
 
@@ -88,6 +101,7 @@ export function PortalContactsPanel({ portalId, viewerRole }: Props) {
   }, [portalId]);
 
   const canEdit = (c: PortalContact) => !isPreview && (isAgent || c.created_by === userId);
+
 
   const openNew = () => {
     if (blockPortalWrite('Adding contacts')) return;
