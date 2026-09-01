@@ -101,6 +101,62 @@ const AgentProfile = () => {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [goals, setGoals] = useState<ProductionGoal | null>(null);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const avatarInput = useRef<HTMLInputElement>(null);
+
+  const handleHeadshotUpload = async (file: File) => {
+    if (!agentId) return;
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Please choose an image file', variant: 'destructive' });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'Image too large', description: 'Headshots are capped at 5 MB.', variant: 'destructive' });
+      return;
+    }
+    setUploadingAvatar(true);
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+    const path = `${agentId}/headshot.${ext}`;
+    const { error: uploadError } = await supabase.storage
+      .from(AVATAR_BUCKET)
+      .upload(path, file, { upsert: true, contentType: file.type });
+    if (uploadError) {
+      setUploadingAvatar(false);
+      toast({ title: 'Upload failed', description: uploadError.message, variant: 'destructive' });
+      return;
+    }
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({ avatar_url: path })
+      .eq('id', agentId);
+    setUploadingAvatar(false);
+    if (profileError) {
+      toast({ title: 'Could not save headshot', description: profileError.message, variant: 'destructive' });
+      return;
+    }
+    setAgent((prev) => (prev ? { ...prev, avatar_url: path } : prev));
+    setAvatarSrc(await resolveAvatarUrl(path));
+    toast({ title: 'Headshot updated' });
+  };
+
+  const removeHeadshot = async () => {
+    if (!agentId || !agent?.avatar_url) return;
+    setUploadingAvatar(true);
+    if (!/^https?:\/\//i.test(agent.avatar_url)) {
+      await supabase.storage.from(AVATAR_BUCKET).remove([agent.avatar_url]);
+    }
+    const { error } = await supabase.from('profiles').update({ avatar_url: null }).eq('id', agentId);
+    setUploadingAvatar(false);
+    if (error) {
+      toast({ title: 'Could not remove headshot', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setAgent((prev) => (prev ? { ...prev, avatar_url: null } : prev));
+    setAvatarSrc(null);
+  };
+
+
 
   useEffect(() => {
     if (roleLoading || !isAdmin || !agentId) return;
