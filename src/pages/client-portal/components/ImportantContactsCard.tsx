@@ -29,6 +29,7 @@ interface Props {
  */
 export function ImportantContactsCard({ portalId, onMessage, onViewAll }: Props) {
   const [realtor, setRealtor] = useState<Realtor | null>(null);
+  const [realtorPhoto, setRealtorPhoto] = useState<string | null>(null);
   const [contacts, setContacts] = useState<PortalContact[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -45,7 +46,12 @@ export function ImportantContactsCard({ portalId, onMessage, onViewAll }: Props)
           .order('created_at', { ascending: true }),
       ]);
       if (cancelled) return;
-      setRealtor(((r as Realtor[]) ?? [])[0] ?? null);
+      const found = ((r as Realtor[]) ?? [])[0] ?? null;
+      setRealtor(found);
+      if (found?.avatar_url) {
+        const src = await resolveAvatarUrl(found.avatar_url);
+        if (!cancelled) setRealtorPhoto(src);
+      }
       // show_on_dashboard is new; tolerate it being absent on stale types.
       const list = ((c as PortalContact[]) ?? []).filter(
         (x) => (x as PortalContact & { show_on_dashboard?: boolean }).show_on_dashboard,
