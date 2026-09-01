@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Mail, MessageCircle, Phone, Users, Globe } from 'lucide-react';
 import { tenant } from '@/config/tenant';
+import { resolveAvatarUrl } from '@/lib/avatar';
 import type { PortalContact } from '@/components/portal/PortalContactsPanel';
 
 interface Realtor {
@@ -28,6 +29,7 @@ interface Props {
  */
 export function ImportantContactsCard({ portalId, onMessage, onViewAll }: Props) {
   const [realtor, setRealtor] = useState<Realtor | null>(null);
+  const [realtorPhoto, setRealtorPhoto] = useState<string | null>(null);
   const [contacts, setContacts] = useState<PortalContact[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -44,7 +46,12 @@ export function ImportantContactsCard({ portalId, onMessage, onViewAll }: Props)
           .order('created_at', { ascending: true }),
       ]);
       if (cancelled) return;
-      setRealtor(((r as Realtor[]) ?? [])[0] ?? null);
+      const found = ((r as Realtor[]) ?? [])[0] ?? null;
+      setRealtor(found);
+      if (found?.avatar_url) {
+        const src = await resolveAvatarUrl(found.avatar_url);
+        if (!cancelled) setRealtorPhoto(src);
+      }
       // show_on_dashboard is new; tolerate it being absent on stale types.
       const list = ((c as PortalContact[]) ?? []).filter(
         (x) => (x as PortalContact & { show_on_dashboard?: boolean }).show_on_dashboard,
@@ -90,7 +97,7 @@ export function ImportantContactsCard({ portalId, onMessage, onViewAll }: Props)
             <div>
               <div className="flex items-center gap-3">
                 <Avatar className="h-11 w-11 ring-1 ring-border/70">
-                  {realtor.avatar_url && <AvatarImage src={realtor.avatar_url} alt={realtor.full_name || 'Realtor'} />}
+                  {realtorPhoto && <AvatarImage src={realtorPhoto} alt={realtor.full_name || 'Realtor'} />}
                   <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">{initials}</AvatarFallback>
                 </Avatar>
                 <div className="min-w-0">
