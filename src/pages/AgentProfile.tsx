@@ -310,8 +310,39 @@ const AgentProfile = () => {
         <div>
           <h1 className="text-3xl font-display font-bold text-foreground">{agent.full_name || 'Unknown Agent'}</h1>
           <p className="text-muted-foreground">Agent Profile</p>
+          <div className="flex items-center gap-2 mt-2">
+            <input
+              ref={avatarInput}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleHeadshotUpload(file);
+                e.target.value = '';
+              }}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={uploadingAvatar}
+              onClick={() => avatarInput.current?.click()}
+            >
+              {uploadingAvatar ? (
+                <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> Saving…</>
+              ) : (
+                <><Camera className="mr-2 h-3.5 w-3.5" /> {avatarSrc ? 'Replace headshot' : 'Upload headshot'}</>
+              )}
+            </Button>
+            {avatarSrc && (
+              <Button variant="ghost" size="sm" disabled={uploadingAvatar} onClick={removeHeadshot}>
+                <Trash2 className="mr-2 h-3.5 w-3.5" /> Remove
+              </Button>
+            )}
+          </div>
         </div>
       </div>
+
 
       {agentId ? <LaunchpadAssignmentCard agentId={agentId} /> : null}
 
