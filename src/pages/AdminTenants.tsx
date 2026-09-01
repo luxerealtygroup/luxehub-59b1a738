@@ -297,18 +297,24 @@ const AdminTenants = () => {
                 onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
               />
               <p className="text-xs text-muted-foreground">
-                Shown at a fixed height so wide lockups keep their proportions.
+                Shown at a fixed height so wide lockups keep their proportions. Low-resolution
+                artwork is never upscaled — it renders at its natural size or smaller.
               </p>
             </div>
             <div className="space-y-2">
-              <Label>Square mark (avatars and favicon)</Label>
+              <Label>Square mark (avatars and favicon) — optional</Label>
               <Input
                 ref={markRef}
                 type="file"
                 accept="image/png,image/svg+xml,image/jpeg"
                 onChange={(e) => setMarkFile(e.target.files?.[0] ?? null)}
               />
+              <p className="text-xs text-muted-foreground">
+                Leave empty when the logo has no clean square crop. Avatars and the favicon then
+                use an initials monogram on the brand colour.
+              </p>
             </div>
+
             <div className="space-y-2">
               <Label>Seats</Label>
               <Input
