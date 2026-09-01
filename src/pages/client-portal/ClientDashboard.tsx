@@ -365,11 +365,111 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
     </Card>
   );
 
+  const sideLabel = derivePortalSideLabel(portalTransactions);
+
+  const clientHeader = (
+    <div className="luxe-card p-6">
+      <p className="eyebrow">Client dashboard</p>
+      <h2 className="mt-2 font-display text-2xl sm:text-3xl font-semibold tracking-tight">
+        {clientAccount?.full_name || 'Welcome'}
+      </h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        {sideLabel !== '—' ? `${sideLabel} · ` : ''}
+        {clientAccount?.email}
+      </p>
+    </div>
+  );
+
+  const propertiesCard = (
+    <div className="luxe-card p-6">
+      <p className="eyebrow">Properties</p>
+      {activeProperties.length === 0 ? (
+        <p className="mt-4 text-sm text-muted-foreground">
+          {activeTransaction?.property_address || 'No property on the go yet — your search is underway.'}
+        </p>
+      ) : (
+        <ul className="mt-4 space-y-2">
+          {activeProperties.map((p) => {
+            const tx = portalTransactions.filter((t) => t.property_id === p.id);
+            return (
+              <li
+                key={p.id}
+                className="flex items-center gap-3 rounded-xl border border-border/60 bg-background/60 p-3"
+              >
+                {p.cover_photo_url ? (
+                  <img src={p.cover_photo_url} alt="" className="h-10 w-14 rounded-lg object-cover" />
+                ) : (
+                  <div className="flex h-10 w-14 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Home className="h-4 w-4" />
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{propertyLabel(p)}</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {ROLE_LABEL[p.role]}
+                    {tx[0]?.status ? ` · ${tx[0].status}` : ''}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+
+  const shortcuts = (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <button
+        type="button"
+        onClick={() => setActiveTab('library')}
+        className="luxe-card flex items-center gap-4 p-5 text-left transition-all hover:-translate-y-0.5 hover:shadow-luxe-hover"
+      >
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
+          <Upload className="h-5 w-5" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-medium">Upload manuals &amp; documents</p>
+          <p className="text-xs text-muted-foreground">Your own library — warranties, manuals, receipts</p>
+        </div>
+      </button>
+      <button
+        type="button"
+        onClick={() => setActiveTab('contacts')}
+        className="luxe-card flex items-center gap-4 p-5 text-left transition-all hover:-translate-y-0.5 hover:shadow-luxe-hover"
+      >
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
+          <Users className="h-5 w-5" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-medium">Important contacts</p>
+          <p className="text-xs text-muted-foreground">Lawyer, lender, inspector and trades</p>
+        </div>
+      </button>
+    </div>
+  );
+
   const renderContent = () => {
     switch (activeTab) {
       case 'overview':
         return (
           <div className="space-y-6">
+            {clientHeader}
+
+            <div className="grid gap-6 lg:grid-cols-3">
+              {propertiesCard}
+              {clientAccount && (
+                <RealtorCard portalId={clientAccount.id} onMessage={() => setActiveTab('messages')} />
+              )}
+              <KeyDatesCard
+                transactions={portalTransactions}
+                properties={properties}
+                fallbackClosing={activeTransaction?.closing_date ?? null}
+              />
+            </div>
+
+            {shortcuts}
+
             {clientAccount?.fub_person_id ? (
               <div className="grid gap-6 lg:grid-cols-2">
                 {activeTransaction ? (
