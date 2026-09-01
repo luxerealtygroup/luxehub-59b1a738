@@ -4781,6 +4781,13 @@ export type Database = {
           token: string
         }[]
       }
+      create_org_owner_invite: {
+        Args: { _email: string; _full_name?: string; _org_id: string }
+        Returns: {
+          expires_at: string
+          token: string
+        }[]
+      }
       create_portal_invite: {
         Args: { _portal_id: string }
         Returns: {
@@ -4832,6 +4839,7 @@ export type Database = {
       is_client: { Args: { _user_id: string }; Returns: boolean }
       is_demo_account: { Args: { _user_id: string }; Returns: boolean }
       is_mentor_of: { Args: { _agent_id: string }; Returns: boolean }
+      is_super_admin: { Args: { _user_id: string }; Returns: boolean }
       is_team_member: { Args: { _user_id: string }; Returns: boolean }
       move_to_dlq: {
         Args: {
@@ -4858,6 +4866,24 @@ export type Database = {
       portal_should_email: {
         Args: { _portal_id: string; _type: string }
         Returns: boolean
+      }
+      provision_organization: {
+        Args: {
+          _app_name?: string
+          _brokerage_name?: string
+          _logo_url?: string
+          _mark_url?: string
+          _name: string
+          _primary_color?: string
+          _seat_limit?: number
+          _short_name?: string
+          _slug: string
+          _support_email?: string
+          _text_color?: string
+          _tier?: string
+          _website_domain?: string
+        }
+        Returns: string
       }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }

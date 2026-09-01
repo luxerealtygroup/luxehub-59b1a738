@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
+import { TenantProvider } from "@/hooks/useTenant";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import RoleGuard from "@/components/RoleGuard";
 import { TierGuard } from "@/components/TierGuard";
@@ -57,6 +58,9 @@ import Upgrade from "./pages/Upgrade";
 import GetStarted from "./pages/GetStarted";
 import AdminOnboardingRequests from "./pages/AdminOnboardingRequests";
 import InstanceSetup from "./pages/InstanceSetup";
+import AdminTenants from "./pages/AdminTenants";
+import TeamSeats from "./pages/TeamSeats";
+import JoinOrg from "./pages/JoinOrg";
 
 const queryClient = new QueryClient();
 
@@ -93,6 +97,7 @@ function OpenHouseNavigationGuard() {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
+      <TenantProvider>
       <TooltipProvider>
         <Toaster />
         <Sonner />
@@ -104,6 +109,7 @@ const App = () => (
             <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
             <Route path="/signup" element={<Navigate to="/get-started" replace />} />
             <Route path="/get-started" element={<GetStarted />} />
+            <Route path="/join" element={<JoinOrg />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/auth/confirm" element={<AuthConfirm />} />
@@ -158,6 +164,8 @@ const App = () => (
               <Route path="admin" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><TierGuard feature="canAccessCompanyDashboard"><AdminReports /></TierGuard></RoleGuard>} />
               <Route path="admin/business-planning" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><TierGuard feature="canAccessCompanyBusinessPlanning" featureName="Company Business Planning" requiredTierLabel="Team"><CompanyBusinessPlanningPage /></TierGuard></RoleGuard>} />
               <Route path="admin/client-portals" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><TierGuard feature="canAccessClientPortals" featureName="Client Portals" requiredTierLabel="Pro+ or Team"><AdminClientPortals /></TierGuard></RoleGuard>} />
+              <Route path="team" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><TeamSeats /></RoleGuard>} />
+              <Route path="admin/tenants" element={<RoleGuard allowedRoles={['owner', 'admin']} blockPlanning={false}><AdminTenants /></RoleGuard>} />
               <Route path="admin/onboarding-requests" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><AdminOnboardingRequests /></RoleGuard>} />
               <Route path="admin/tickets" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><AdminTickets /></RoleGuard>} />
               <Route path="admin/coaching-notes" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><CoachingNotes /></RoleGuard>} />
@@ -167,6 +175,7 @@ const App = () => (
           </Routes>
         </BrowserRouter>
       </TooltipProvider>
+      </TenantProvider>
     </AuthProvider>
   </QueryClientProvider>
 );

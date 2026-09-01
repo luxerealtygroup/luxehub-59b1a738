@@ -92,3 +92,6 @@ verify_jwt = false
 
 [functions.instance-setup]
 verify_jwt = true
+
+[functions.tenant-branding]
+verify_jwt = false
