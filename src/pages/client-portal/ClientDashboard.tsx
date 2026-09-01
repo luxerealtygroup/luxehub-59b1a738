@@ -423,6 +423,7 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
                     {tx[0]?.status ? ` · ${tx[0].status}` : ''}
                   </p>
                 </div>
+                </button>
               </li>
             );
           })}
