@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
   let token: string
   let workspace: { teamId: string; teamName: string }
   try {
-    token = getSlackToken()
+    token = await getSlackToken()
     workspace = await getWorkspace()
   } catch (e) {
     const message = e instanceof SlackConfigError ? e.message : (e as Error).message

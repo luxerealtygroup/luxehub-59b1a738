@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
     const resp = await fetch('https://api.followupboss.com/v1/people', {
       method: 'POST',
       headers: {
-        Authorization: authHeader(),
+        Authorization: await authHeader(),
         'Content-Type': 'application/json',
         Accept: 'application/json',
       },
