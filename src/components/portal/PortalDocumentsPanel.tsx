@@ -142,7 +142,7 @@ export function PortalDocumentsPanel({ portalId, canManage: canManageProp, scope
     if (!url) return;
     const isImg = (d.file_type || '').startsWith('image/');
     const isPdf = d.file_type === 'application/pdf' || d.file_name.toLowerCase().endsWith('.pdf');
-    if (isImg || isPdf) setPreview({ url, type: isImg ? 'image' : 'pdf', name: d.file_name });
+    if (isImg || isPdf) setPreview({ url, type: isImg ? 'image' : 'pdf', name: d.display_name || d.file_name });
     else window.open(url, '_blank');
   };
 
