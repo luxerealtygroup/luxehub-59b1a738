@@ -2548,8 +2548,82 @@ export type Database = {
           },
         ]
       }
+      portal_contacts: {
+        Row: {
+          company: string | null
+          created_at: string
+          created_by: string | null
+          email: string | null
+          id: string
+          is_internal: boolean
+          name: string
+          notes: string | null
+          phone: string | null
+          portal_id: string
+          property_id: string | null
+          role: string | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          company?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          is_internal?: boolean
+          name: string
+          notes?: string | null
+          phone?: string | null
+          portal_id: string
+          property_id?: string | null
+          role?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          company?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          is_internal?: boolean
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          portal_id?: string
+          property_id?: string | null
+          role?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_contacts_portal_id_fkey"
+            columns: ["portal_id"]
+            isOneToOne: false
+            referencedRelation: "client_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_contacts_portal_id_fkey"
+            columns: ["portal_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sides"
+            referencedColumns: ["portal_id"]
+          },
+          {
+            foreignKeyName: "portal_contacts_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "portal_properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       portal_documents: {
         Row: {
+          category: string | null
           created_at: string
           display_name: string | null
           file_name: string
@@ -2563,9 +2637,11 @@ export type Database = {
           is_internal: boolean
           portal_id: string
           property_id: string | null
+          source: string
           uploaded_by: string | null
         }
         Insert: {
+          category?: string | null
           created_at?: string
           display_name?: string | null
           file_name: string
@@ -2579,9 +2655,11 @@ export type Database = {
           is_internal?: boolean
           portal_id: string
           property_id?: string | null
+          source?: string
           uploaded_by?: string | null
         }
         Update: {
+          category?: string | null
           created_at?: string
           display_name?: string | null
           file_name?: string
@@ -2595,6 +2673,7 @@ export type Database = {
           is_internal?: boolean
           portal_id?: string
           property_id?: string | null
+          source?: string
           uploaded_by?: string | null
         }
         Relationships: [
@@ -3983,6 +4062,15 @@ export type Database = {
         Returns: number
       }
       get_instance_secret: { Args: { _key: string }; Returns: string }
+      get_portal_realtor: {
+        Args: { _portal_id: string }
+        Returns: {
+          avatar_url: string
+          email: string
+          full_name: string
+          id: string
+        }[]
+      }
       get_team_agents: {
         Args: never
         Returns: {
