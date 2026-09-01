@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   DoorOpen, Plus, ChevronLeft, Loader2, Pencil, Search, Save, Trash2,
-  CheckCircle2, AlertTriangle, Users, FileDown, Mail, RefreshCcw, Upload, Download, HelpCircle,
+  CheckCircle2, AlertTriangle, Users, FileDown, Mail, RefreshCcw, Upload, Download, HelpCircle, Share2,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
