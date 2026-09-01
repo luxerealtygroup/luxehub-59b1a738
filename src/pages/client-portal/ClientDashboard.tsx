@@ -491,6 +491,7 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
 
         <div className="grid gap-6 lg:grid-cols-3">
           <KeyDatesCard
+            portalId={clientAccount?.id}
             transactions={txs}
             properties={[scopedProperty]}
             fallbackClosing={null}
@@ -550,6 +551,7 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
                 <RealtorCard portalId={clientAccount.id} onMessage={() => setActiveTab('messages')} />
               )}
               <KeyDatesCard
+                portalId={clientAccount?.id}
                 transactions={portalTransactions}
                 properties={properties}
                 fallbackClosing={activeTransaction?.closing_date ?? null}
