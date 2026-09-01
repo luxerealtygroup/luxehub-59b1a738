@@ -531,7 +531,7 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
         </div>
 
         {txs.map((t) => (
-          <ConditionsTimeline key={t.id} transaction={t} title={propertyLabel(scopedProperty)} />
+          <ConditionsTimeline key={t.id} transaction={t} title={propertyLabel(scopedProperty)} showKeyDates={false} />
         ))}
       </div>
     );
@@ -612,6 +612,7 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
                     key={t.id}
                     transaction={t}
                     title={prop ? propertyLabel(prop) : undefined}
+                    showKeyDates={false}
                   />
                 );
               })}
@@ -757,7 +758,7 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
 
   const getPageTitle = () => {
     switch (activeTab) {
-      case 'overview': return 'Overview';
+      case 'overview': return scopedProperty ? propertyLabel(scopedProperty) : 'Overview';
       case 'purchase': return 'Your Purchase';
       case 'sale': return 'Your Sale';
       case 'tasks': return 'Tasks';
@@ -822,7 +823,12 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
               {properties.length > 0 && activeTab !== 'messages' ? (
                 <div className="ml-auto flex items-center gap-2 min-w-0">
                   <span className="eyebrow hidden md:inline">Property</span>
-                  <PropertySwitcher properties={properties} value={scope} onChange={setScope} />
+                  <PropertySwitcher
+                    properties={properties}
+                    value={scope}
+                    onChange={setScope}
+                    onDashboard={() => { setScope('all'); setActiveTab('overview'); }}
+                  />
                   <ClientNotificationsBell onOpenTab={(tab) => setActiveTab(tab)} />
                 </div>
               ) : transactions.length > 1 && activeTab !== 'messages' ? (
