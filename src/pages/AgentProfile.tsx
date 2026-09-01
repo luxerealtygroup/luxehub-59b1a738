@@ -111,8 +111,9 @@ const AgentProfile = () => {
         .select('id, full_name, avatar_url')
         .eq('id', agentId)
         .maybeSingle();
-      
+
       setAgent(profileData);
+      setAvatarSrc(await resolveAvatarUrl(profileData?.avatar_url));
 
       // Fetch pipeline clients
       const { data: pipelineData } = await supabase
