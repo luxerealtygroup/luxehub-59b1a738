@@ -2635,7 +2635,9 @@ export type Database = {
         Row: {
           app_name: string | null
           branding_logo_url: string | null
+          branding_mark_url: string | null
           branding_primary_color: string | null
+          branding_text_color: string | null
           brokerage_legal_name: string | null
           brokerage_name: string | null
           created_at: string
@@ -2655,7 +2657,9 @@ export type Database = {
         Insert: {
           app_name?: string | null
           branding_logo_url?: string | null
+          branding_mark_url?: string | null
           branding_primary_color?: string | null
+          branding_text_color?: string | null
           brokerage_legal_name?: string | null
           brokerage_name?: string | null
           created_at?: string
@@ -2675,7 +2679,9 @@ export type Database = {
         Update: {
           app_name?: string | null
           branding_logo_url?: string | null
+          branding_mark_url?: string | null
           branding_primary_color?: string | null
+          branding_text_color?: string | null
           brokerage_legal_name?: string | null
           brokerage_name?: string | null
           created_at?: string
@@ -4866,7 +4872,9 @@ export type Database = {
         Returns: {
           app_name: string
           branding_logo_url: string
+          branding_mark_url: string
           branding_primary_color: string
+          branding_text_color: string
           brokerage_name: string
           id: string
           name: string
