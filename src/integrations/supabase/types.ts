@@ -2761,6 +2761,83 @@ export type Database = {
           },
         ]
       }
+      portal_key_dates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          custom_label: string | null
+          event_date: string
+          event_time: string | null
+          id: string
+          is_internal: boolean
+          kind: string
+          notes: string | null
+          portal_id: string
+          property_id: string | null
+          transaction_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          custom_label?: string | null
+          event_date: string
+          event_time?: string | null
+          id?: string
+          is_internal?: boolean
+          kind?: string
+          notes?: string | null
+          portal_id: string
+          property_id?: string | null
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          custom_label?: string | null
+          event_date?: string
+          event_time?: string | null
+          id?: string
+          is_internal?: boolean
+          kind?: string
+          notes?: string | null
+          portal_id?: string
+          property_id?: string | null
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_key_dates_portal_id_fkey"
+            columns: ["portal_id"]
+            isOneToOne: false
+            referencedRelation: "client_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_key_dates_portal_id_fkey"
+            columns: ["portal_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sides"
+            referencedColumns: ["portal_id"]
+          },
+          {
+            foreignKeyName: "portal_key_dates_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "portal_properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_key_dates_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "portal_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       portal_messages: {
         Row: {
           created_at: string

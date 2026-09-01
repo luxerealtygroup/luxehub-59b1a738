@@ -17,6 +17,7 @@ import {
 } from '@/hooks/usePortalProperties';
 import { blockPortalWrite } from '@/hooks/usePortalPreview';
 import { PortalConditionsEditor } from '@/components/portal/PortalConditionsEditor';
+import { PortalKeyDatesEditor } from '@/components/portal/PortalKeyDatesEditor';
 
 interface Props {
   portalId: string;
@@ -184,6 +185,8 @@ export function PortalPropertiesManager({ portalId }: Props) {
                 </Button>
               </div>
             </div>
+
+            <PortalKeyDatesEditor portalId={portalId} propertyId={p.id} />
 
             {p.role === 'watching' ? (
               <Badge variant="outline" className="text-xs">Saved / watching — no transaction tracked</Badge>
