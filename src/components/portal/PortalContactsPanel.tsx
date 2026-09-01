@@ -180,18 +180,45 @@ export function PortalContactsPanel({ portalId, viewerRole }: Props) {
             ? 'Lawyers, lenders, inspectors and trades attached to this portal.'
             : 'Everyone involved in your move — your lawyer, lender, inspector and trades.'}
         </p>
-        {!isPreview && (
+        {isPreview ? (
+          <span className="text-xs text-muted-foreground whitespace-nowrap">
+            Preview mode — exit preview to add contacts
+          </span>
+        ) : (
           <Button size="sm" onClick={openNew} className="rounded-full">
             <Plus className="mr-1.5 h-4 w-4" /> Add contact
           </Button>
         )}
       </div>
 
+      {!loading && realtor && (
+        <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">Your realtor</p>
+          <div className="mt-3 flex items-center gap-3">
+            <Avatar className="h-12 w-12">
+              {realtorPhoto && <AvatarImage src={realtorPhoto} alt={realtor.full_name ?? 'Realtor'} />}
+              <AvatarFallback>
+                {(realtor.full_name || 'R').split(' ').map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0">
+              <p className="font-medium truncate">{realtor.full_name || 'Your realtor'}</p>
+              {realtor.email && (
+                <a href={`mailto:${realtor.email}`} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary">
+                  <Mail className="h-3.5 w-3.5" /> <span className="truncate">{realtor.email}</span>
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div className="grid gap-3 sm:grid-cols-2">
           {[1, 2].map((i) => <div key={i} className="h-24 rounded-2xl bg-muted/60 animate-pulse" />)}
         </div>
       ) : contacts.length === 0 ? (
+
         <div className="luxe-card p-12 flex flex-col items-center justify-center text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/20 mb-4">
             <Users className="h-6 w-6" />
