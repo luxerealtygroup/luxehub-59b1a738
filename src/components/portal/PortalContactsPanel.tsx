@@ -108,6 +108,7 @@ export function PortalContactsPanel({ portalId, viewerRole }: Props) {
       website: c.website ?? '',
       notes: c.notes ?? '',
       is_internal: c.is_internal,
+      show_on_dashboard: c.show_on_dashboard ?? false,
     });
     setOpen(true);
   };
@@ -128,6 +129,7 @@ export function PortalContactsPanel({ portalId, viewerRole }: Props) {
       website: form.website.trim().slice(0, 300) || null,
       notes: form.notes.trim().slice(0, 1000) || null,
       is_internal: isAgent ? form.is_internal : false,
+      show_on_dashboard: form.show_on_dashboard,
     };
 
     const { error } = editing
