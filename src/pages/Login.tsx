@@ -99,7 +99,7 @@ const Login = () => {
   const isRealtor = mode === 'realtor';
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4">
       <Card className={cn(
         "w-full max-w-md border bg-card/50 backdrop-blur",
         isRealtor ? "border-gold/20" : "border-border/50"
@@ -204,10 +204,7 @@ const Login = () => {
 
           {isRealtor ? (
             <p className="mt-4 text-center text-sm text-muted-foreground">
-              Don't have an account?{' '}
-              <Link to="/signup" className="text-gold hover:underline">
-                Sign up
-              </Link>
+              Accounts are created by your admin — contact them if you need access.
             </p>
           ) : (
             <p className="mt-4 text-center text-sm text-muted-foreground">
@@ -216,6 +213,12 @@ const Login = () => {
           )}
         </CardContent>
       </Card>
+
+      <p className="mt-6 text-center text-xs text-muted-foreground">
+        <Link to="/get-started" className="hover:text-foreground hover:underline">
+          Not with {tenant.brokerageName}? Set up your own client portal system
+        </Link>
+      </p>
     </div>
   );
 };

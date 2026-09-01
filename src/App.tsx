@@ -11,7 +11,6 @@ import { TierGuard } from "@/components/TierGuard";
 import DashboardLayout from "@/components/DashboardLayout";
 import Login from "./pages/Login";
 import OAuthConsent from "./pages/OAuthConsent";
-import Signup from "./pages/Signup";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import Dashboard from "./pages/Dashboard";
@@ -55,6 +54,8 @@ import GoogleDriveCallback from "./pages/GoogleDriveCallback";
 import Nominate from "./pages/Nominate";
 import Nominations from "./pages/Nominations";
 import Upgrade from "./pages/Upgrade";
+import GetStarted from "./pages/GetStarted";
+import AdminOnboardingRequests from "./pages/AdminOnboardingRequests";
 
 const queryClient = new QueryClient();
 
@@ -100,7 +101,8 @@ const App = () => (
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<Login />} />
             <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
-            <Route path="/signup" element={<Signup />} />
+            <Route path="/signup" element={<Navigate to="/get-started" replace />} />
+            <Route path="/get-started" element={<GetStarted />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/auth/confirm" element={<AuthConfirm />} />
@@ -154,6 +156,7 @@ const App = () => (
               <Route path="admin" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><TierGuard feature="canAccessCompanyDashboard"><AdminReports /></TierGuard></RoleGuard>} />
               <Route path="admin/business-planning" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><TierGuard feature="canAccessCompanyBusinessPlanning" featureName="Company Business Planning" requiredTierLabel="Team"><CompanyBusinessPlanningPage /></TierGuard></RoleGuard>} />
               <Route path="admin/client-portals" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><TierGuard feature="canAccessClientPortals" featureName="Client Portals" requiredTierLabel="Pro+ or Team"><AdminClientPortals /></TierGuard></RoleGuard>} />
+              <Route path="admin/onboarding-requests" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><AdminOnboardingRequests /></RoleGuard>} />
               <Route path="admin/tickets" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><AdminTickets /></RoleGuard>} />
               <Route path="admin/coaching-notes" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><CoachingNotes /></RoleGuard>} />
               <Route path="admin/agent/:agentId" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><AgentProfile /></RoleGuard>} />

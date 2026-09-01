@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.guard_onboarding_request_rate() FROM PUBLIC, anon, authenticated;
