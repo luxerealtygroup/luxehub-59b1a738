@@ -651,27 +651,6 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
               </div>
             )}
 
-            {/* Quick Stats */}
-            <div className="grid gap-5 md:grid-cols-3">
-              {[
-                { label: 'Documents', value: String(portalDocCount), icon: <FileText className="h-5 w-5" />, gradient: 'from-primary/10', accent: 'text-primary' },
-                { label: 'Properties', value: homeSearch ? 'Searching' : String(properties.length || transactions.length), icon: <Home className="h-5 w-5" />, gradient: 'from-emerald-500/10', accent: 'text-emerald-600' },
-                { label: 'Closing Date', value: activeTransaction?.closing_date ? format(new Date(activeTransaction.closing_date), 'MMM d') : 'TBD', icon: <Calendar className="h-5 w-5" />, gradient: 'from-primary/10', accent: 'text-primary' },
-              ].map((s) => (
-                <div key={s.label} className="luxe-card p-6 relative overflow-hidden">
-                  <div className={`absolute inset-0 bg-gradient-to-br ${s.gradient} to-transparent opacity-60 pointer-events-none`} />
-                  <div className="relative flex items-start justify-between">
-                    <div>
-                      <p className="eyebrow">{s.label}</p>
-                      <p className="mt-2 font-display text-3xl font-semibold tracking-tight">{s.value}</p>
-                    </div>
-                    <div className={`flex h-11 w-11 items-center justify-center rounded-xl bg-background/70 border border-border/60 ${s.accent}`}>
-                      {s.icon}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
         );
 
