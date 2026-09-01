@@ -4879,6 +4879,10 @@ export type Database = {
         Args: { _actor: string; _key: string; _value: string }
         Returns: undefined
       }
+      set_my_org_secret: {
+        Args: { _key: string; _value: string }
+        Returns: undefined
+      }
       set_org_secret: {
         Args: { _actor: string; _key: string; _org_id: string; _value: string }
         Returns: undefined
