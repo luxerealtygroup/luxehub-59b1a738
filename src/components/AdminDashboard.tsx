@@ -9,6 +9,7 @@ import { sumWeightedDeals, getDealWeight, formatWeightedDeals, inferDealCategory
 import { classifyStage, isConditionalStage } from '@/hooks/useFubDealMetrics';
 import { DealTypeDropdown } from '@/components/DealTypeDropdown';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { resolveAvatarUrl } from '@/lib/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
