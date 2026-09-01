@@ -35,6 +35,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useTenant } from '@/hooks/useTenant';
 import { useOrgTier } from '@/hooks/useOrgTier';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -142,6 +143,8 @@ export function AppSidebar() {
     canAccessClientPortals,
     canAccessNominations,
   } = useOrgTier();
+  const tenant = useTenant();
+  const isSuperAdmin = (isOwner || isAdmin) && tenant.isDefaultTenant;
   const { state } = useSidebar();
   const navigate = useNavigate();
   const location = useLocation();
