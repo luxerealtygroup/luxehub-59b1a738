@@ -216,7 +216,7 @@ const Login = () => {
 
       <p className="mt-6 text-center text-xs text-muted-foreground">
         <Link to="/get-started" className="hover:text-foreground hover:underline">
-          Not with {tenant.brokerageName}? Set up your own client portal system
+          Not with {tenant.brokerageName}? Set up your own real estate hub
         </Link>
       </p>
     </div>
