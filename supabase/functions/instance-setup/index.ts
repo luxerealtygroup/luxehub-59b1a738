@@ -167,6 +167,11 @@ Deno.serve(async (req) => {
       return json({ integrations: await buildStatus(true) });
     }
 
+    // Cheap variant for the setup banner: no provider round-trips.
+    if (action === 'summary') {
+      return json({ integrations: await buildStatus(false) });
+    }
+
     if (action === 'save') {
       const key = body.key as InstanceSecretKey;
       if (!KEYS.includes(key)) return json({ error: 'Unknown integration' }, 400);
