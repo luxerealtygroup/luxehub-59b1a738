@@ -1446,7 +1446,7 @@ function ReportField({ label, value, sub }: { label: string; value: string; sub?
 // ============================================================================
 
 type PortalOption = { id: string; full_name: string | null; email: string | null };
-type PortalPropertyOption = { id: string; address: string | null; nickname: string | null };
+type PortalPropertyOption = { id: string; address: string | null; mls_number: string | null };
 
 function SendToPortalDialog({
   openHouse, buildPdf, fileName, onClose,
@@ -1485,7 +1485,7 @@ function SendToPortalDialog({
     (async () => {
       const { data } = await supabase
         .from('portal_properties')
-        .select('id, address, nickname')
+        .select('id, address, mls_number')
         .eq('portal_id', portalId);
       const list = (data || []) as PortalPropertyOption[];
       setProperties(list);
@@ -1564,7 +1564,7 @@ function SendToPortalDialog({
                   <SelectContent>
                     <SelectItem value="general">Portal-wide (no property)</SelectItem>
                     {properties.map(p => (
-                      <SelectItem key={p.id} value={p.id}>{p.nickname || p.address || 'Property'}</SelectItem>
+                      <SelectItem key={p.id} value={p.id}>{p.address || p.mls_number || 'Property'}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
