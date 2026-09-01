@@ -56,6 +56,7 @@ import Nominations from "./pages/Nominations";
 import Upgrade from "./pages/Upgrade";
 import GetStarted from "./pages/GetStarted";
 import AdminOnboardingRequests from "./pages/AdminOnboardingRequests";
+import InstanceSetup from "./pages/InstanceSetup";
 
 const queryClient = new QueryClient();
 
@@ -153,6 +154,7 @@ const App = () => (
               <Route path="client-portals" element={<RoleGuard><TierGuard feature="canAccessClientPortals" featureName="Client Portals" requiredTierLabel="Pro+ or Team"><AdminClientPortals /></TierGuard></RoleGuard>} />
               <Route path="nominations" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><TierGuard feature="canAccessNominations" featureName="Nominations" requiredTierLabel="original organization"><Nominations /></TierGuard></RoleGuard>} />
               <Route path="upgrade" element={<Upgrade />} />
+              <Route path="setup" element={<RoleGuard allowedRoles={['owner']} blockPlanning={false}><InstanceSetup /></RoleGuard>} />
               <Route path="admin" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><TierGuard feature="canAccessCompanyDashboard"><AdminReports /></TierGuard></RoleGuard>} />
               <Route path="admin/business-planning" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><TierGuard feature="canAccessCompanyBusinessPlanning" featureName="Company Business Planning" requiredTierLabel="Team"><CompanyBusinessPlanningPage /></TierGuard></RoleGuard>} />
               <Route path="admin/client-portals" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><TierGuard feature="canAccessClientPortals" featureName="Client Portals" requiredTierLabel="Pro+ or Team"><AdminClientPortals /></TierGuard></RoleGuard>} />

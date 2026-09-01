@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { getInstanceSecret } from '../_shared/instanceSecrets.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -75,9 +76,9 @@ Deno.serve(async (req) => {
 
     // Post to Slack first (so we can capture ts). If it fails, still save.
     let slackTs: string | null = null;
-    const slackToken = Deno.env.get('SLACK_BOT_TOKEN');
+    const slackToken = await getInstanceSecret('SLACK_BOT_TOKEN');
     if (!slackToken && portal.slack_channel_id) {
-      console.warn('SLACK_BOT_TOKEN is not configured; portal message not mirrored to Slack.');
+      console.warn('Slack is not connected for this instance; portal message not mirrored to Slack.');
     }
     if (slackToken && portal.slack_channel_id) {
       try {

@@ -181,7 +181,7 @@ serve(async (req) => {
     // One instance, one CRM. Missing key = hard error, never a fallback.
     let authHeader: string;
     try {
-      authHeader = fubAuthHeader();
+      authHeader = await fubAuthHeader();
     } catch (e) {
       if (e instanceof FubConfigError) {
         console.error(e.message);

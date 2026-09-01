@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
 
     const url = `https://api.followupboss.com/v1/people?${params.toString()}`;
     const resp = await fetch(url, {
-      headers: { Authorization: authHeader(), Accept: 'application/json' },
+      headers: { Authorization: await authHeader(), Accept: 'application/json' },
     });
     if (!resp.ok) {
       const text = await resp.text();

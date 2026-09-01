@@ -7,7 +7,7 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { tenant } from '../_shared/tenant.ts';
-import { SLACK_API, getSlackToken, assertChannelInWorkspace, SlackConfigError } from '../_shared/slack.ts';
+import { SLACK_API, getSlackToken, getSlackSigningSecret, assertChannelInWorkspace, SlackConfigError } from '../_shared/slack.ts';
 
 
 const SHORTCUT_CALLBACK_ID = 'push_to_portal';
@@ -28,8 +28,8 @@ const CANONICAL_STAGES = [
 // ---------------------------------------------------------------------------
 
 async function verifySlackSignature(req: Request, rawBody: string): Promise<string | null> {
-  const secret = Deno.env.get('SLACK_SIGNING_SECRET');
-  if (!secret) return 'SLACK_SIGNING_SECRET is not configured';
+  const secret = await getSlackSigningSecret();
+  if (!secret) return 'Slack signing secret is not configured for this instance';
 
   const timestamp = req.headers.get('x-slack-request-timestamp');
   const signature = req.headers.get('x-slack-signature');
@@ -71,7 +71,7 @@ const botToken = getSlackToken;
 async function slackGet(method: string, params: Record<string, string>) {
   const qs = new URLSearchParams(params).toString();
   const res = await fetch(`${SLACK_API}/${method}?${qs}`, {
-    headers: { Authorization: `Bearer ${botToken()}` },
+    headers: { Authorization: `Bearer ${await botToken()}` },
   });
   const data = await res.json().catch(() => ({ ok: false, error: 'non_json_response' }));
   if (!data.ok) console.error(`slack ${method} failed:`, data.error, data.needed ?? '');
@@ -82,7 +82,7 @@ async function slackPost(method: string, payload: Record<string, unknown>) {
   const res = await fetch(`${SLACK_API}/${method}`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${botToken()}`,
+      Authorization: `Bearer ${await botToken()}`,
       'Content-Type': 'application/json; charset=utf-8',
     },
     body: JSON.stringify(payload),
