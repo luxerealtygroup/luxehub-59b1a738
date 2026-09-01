@@ -68,6 +68,9 @@ export function PortalDocumentsPanel({ portalId, canManage: canManageProp, scope
   // Where new uploads land: defaults to the property currently being viewed.
   const [uploadTarget, setUploadTarget] = useState<string>(scopePropertyId(scope) ?? 'general');
   const [uploadInternal, setUploadInternal] = useState(false);
+  // Inline rename of the client-facing display name (the stored file is untouched).
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState('');
   useEffect(() => { setUploadTarget(scopePropertyId(scope) ?? 'general'); }, [scope]);
   // Internal (agent-only) rows are blocked by RLS for real clients; preview mode
   // runs on the agent's session, so filter them out here to stay accurate.
@@ -170,6 +173,18 @@ export function PortalDocumentsPanel({ portalId, canManage: canManageProp, scope
     }
     setDocs((prev) => prev.map((x) => (x.id === d.id ? { ...x, is_internal: next } : x)));
     toast({ title: next ? 'Marked internal' : 'Now visible to client' });
+  };
+
+  const saveDisplayName = async (d: PortalDocument) => {
+    if (blockPortalWrite('Renaming documents')) return;
+    const next = editingValue.trim() || null;
+    const { error } = await supabase.from('portal_documents').update({ display_name: next }).eq('id', d.id);
+    if (error) {
+      toast({ title: 'Could not rename', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setDocs((prev) => prev.map((x) => (x.id === d.id ? { ...x, display_name: next } : x)));
+    setEditingId(null);
   };
 
   const visibleDocs = docs.filter(
