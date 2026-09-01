@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Download, Eye, EyeOff, FileText, File, Image as ImageIcon, Loader2, Lock, Trash2, Upload, X } from 'lucide-react';
+import { Check, Download, Eye, EyeOff, FileText, File, Image as ImageIcon, Loader2, Lock, Pencil, Trash2, Upload, X } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PortalScope, matchesScope, scopePropertyId } from '@/lib/portalScope';
@@ -15,6 +16,7 @@ import { PortalProperty, propertyLabel } from '@/hooks/usePortalProperties';
 interface PortalDocument {
   id: string;
   file_name: string;
+  display_name: string | null;
   file_path: string;
   file_type: string | null;
   file_size: number | null;
@@ -66,6 +68,9 @@ export function PortalDocumentsPanel({ portalId, canManage: canManageProp, scope
   // Where new uploads land: defaults to the property currently being viewed.
   const [uploadTarget, setUploadTarget] = useState<string>(scopePropertyId(scope) ?? 'general');
   const [uploadInternal, setUploadInternal] = useState(false);
+  // Inline rename of the client-facing display name (the stored file is untouched).
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState('');
   useEffect(() => { setUploadTarget(scopePropertyId(scope) ?? 'general'); }, [scope]);
   // Internal (agent-only) rows are blocked by RLS for real clients; preview mode
   // runs on the agent's session, so filter them out here to stay accurate.
@@ -137,7 +142,7 @@ export function PortalDocumentsPanel({ portalId, canManage: canManageProp, scope
     if (!url) return;
     const isImg = (d.file_type || '').startsWith('image/');
     const isPdf = d.file_type === 'application/pdf' || d.file_name.toLowerCase().endsWith('.pdf');
-    if (isImg || isPdf) setPreview({ url, type: isImg ? 'image' : 'pdf', name: d.file_name });
+    if (isImg || isPdf) setPreview({ url, type: isImg ? 'image' : 'pdf', name: d.display_name || d.file_name });
     else window.open(url, '_blank');
   };
 
@@ -168,6 +173,18 @@ export function PortalDocumentsPanel({ portalId, canManage: canManageProp, scope
     }
     setDocs((prev) => prev.map((x) => (x.id === d.id ? { ...x, is_internal: next } : x)));
     toast({ title: next ? 'Marked internal' : 'Now visible to client' });
+  };
+
+  const saveDisplayName = async (d: PortalDocument) => {
+    if (blockPortalWrite('Renaming documents')) return;
+    const next = editingValue.trim() || null;
+    const { error } = await supabase.from('portal_documents').update({ display_name: next }).eq('id', d.id);
+    if (error) {
+      toast({ title: 'Could not rename', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setDocs((prev) => prev.map((x) => (x.id === d.id ? { ...x, display_name: next } : x)));
+    setEditingId(null);
   };
 
   const visibleDocs = docs.filter(
@@ -253,13 +270,35 @@ export function PortalDocumentsPanel({ portalId, canManage: canManageProp, scope
                   {icon}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <button
-                    onClick={() => openPreview(d)}
-                    className={`text-sm font-medium text-left truncate hover:text-primary transition-colors block w-full ${d.is_internal ? 'text-muted-foreground' : 'text-foreground'}`}
-                    title={d.file_name}
-                  >
-                    {d.file_name}
-                  </button>
+                  {editingId === d.id ? (
+                    <div className="flex items-center gap-1">
+                      <Input
+                        autoFocus
+                        value={editingValue}
+                        onChange={(e) => setEditingValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') void saveDisplayName(d);
+                          if (e.key === 'Escape') setEditingId(null);
+                        }}
+                        className="h-8 text-sm"
+                        placeholder="Name the client sees"
+                      />
+                      <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full" onClick={() => void saveDisplayName(d)} title="Save">
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full" onClick={() => setEditingId(null)} title="Cancel">
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => openPreview(d)}
+                      className={`text-sm font-medium text-left truncate hover:text-primary transition-colors block w-full ${d.is_internal ? 'text-muted-foreground' : 'text-foreground'}`}
+                      title={d.display_name || d.file_name}
+                    >
+                      {d.display_name || d.file_name}
+                    </button>
+                  )}
                   <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
                     <span>
                       {format(new Date(d.created_at), 'MMM d, yyyy')}
@@ -279,6 +318,17 @@ export function PortalDocumentsPanel({ portalId, canManage: canManageProp, scope
                   <Button size="icon" variant="ghost" className="h-9 w-9 rounded-full hover:bg-primary/10 hover:text-primary" onClick={() => download(d)} title="Download">
                     <Download className="h-4 w-4" />
                   </Button>
+                  {canManage && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-9 w-9 rounded-full hover:bg-primary/10"
+                      onClick={() => { setEditingId(d.id); setEditingValue(d.display_name || d.file_name); }}
+                      title="Rename (client-facing name)"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  )}
                   {canManage && (
                     <Button
                       size="icon"
