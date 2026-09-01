@@ -51,7 +51,7 @@ const Email = (p: Props) => (
           <Row label="Email" value={val(p.email)} />
           <Row label="Phone" value={val(p.phone)} />
           <Row label="Website" value={val(p.website)} />
-          <Row label="Desired portal domain" value={val(p.desiredDomain)} />
+          <Row label="Domain for their hub" value={val(p.desiredDomain)} />
           <Row label="Team size" value={val(p.teamSize)} />
           <Row label="Area served" value={val(p.serviceArea)} />
           <Row label="Slack admin" value={`${val(p.slackAdminName)} (${val(p.slackAdminEmail)})`} />

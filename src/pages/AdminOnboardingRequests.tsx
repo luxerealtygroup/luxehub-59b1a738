@@ -165,7 +165,7 @@ const AdminOnboardingRequests = () => {
         <div>
           <h1 className="text-2xl font-display text-foreground">Setup Requests</h1>
           <p className="text-sm text-muted-foreground">
-            Agents who asked to run their own client portal system.
+            Agents who asked to run their own real estate hub.
           </p>
         </div>
         <div className="flex items-center gap-2">

@@ -160,7 +160,7 @@ const GetStarted = () => {
             <CheckCircle2 className="mx-auto h-12 w-12 text-gold" />
             <h1 className="text-2xl font-display text-foreground">Thanks — we have your details</h1>
             <p className="text-muted-foreground">
-              We'll email you within one business day to get started.
+              We'll email you within one business day to get your real estate hub set up.
             </p>
             <p className="text-sm text-muted-foreground">
               Questions in the meantime? Email{' '}
@@ -181,11 +181,13 @@ const GetStarted = () => {
         <header className="mb-8 text-center">
           <p className="text-xs uppercase tracking-[0.28em] text-gold">Get started</p>
           <h1 className="mt-3 text-3xl font-display text-foreground sm:text-4xl">
-            Set up your own client portal system
+            Set up your own real estate hub
           </h1>
           <p className="mt-3 text-muted-foreground">
-            Tell us a little about your business and we'll stand up your own copy — your branding,
-            your domain, your clients. Whether you work solo or lead a team.
+            You get your own complete hub — pipeline, dashboard and GCI tracking, coaching tools,
+            CMA reports, transaction management and client portals. Branded as your business, on
+            your own domain, with your own Follow Up Boss and Slack connected. Whether you work
+            solo or lead a team.
           </p>
         </header>
 
@@ -251,8 +253,8 @@ const GetStarted = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="desiredDomain">Domain you'd like your portal on</Label>
-                <Input id="desiredDomain" value={form.desiredDomain} onChange={set('desiredDomain')} placeholder="portal.yourname.ca" maxLength={255} />
+                <Label htmlFor="desiredDomain">Domain you'd like your hub on</Label>
+                <Input id="desiredDomain" value={form.desiredDomain} onChange={set('desiredDomain')} placeholder="hub.yourname.ca" maxLength={255} />
               </div>
 
               <div className="space-y-2">
