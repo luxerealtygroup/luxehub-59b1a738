@@ -15,6 +15,7 @@ import {
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, Legend } from 'recharts';
 import { format } from 'date-fns';
 import { formatCurrency, formatNumber } from '@/lib/utils';
+import { resolveAvatarUrl } from '@/lib/avatar';
 import { LaunchpadAssignmentCard } from '@/components/launchpad/LaunchpadAssignmentCard';
 
 interface AgentProfileData {
@@ -92,6 +93,7 @@ const AgentProfile = () => {
   const { isAdmin, isLoading: roleLoading } = useUserRole();
   
   const [agent, setAgent] = useState<AgentProfileData | null>(null);
+  const [avatarSrc, setAvatarSrc] = useState<string | null>(null);
   const [pipeline, setPipeline] = useState<PipelineClient[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [commissions, setCommissions] = useState<Commission[]>([]);
@@ -243,7 +245,7 @@ const AgentProfile = () => {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <Avatar className="h-16 w-16 border-2 border-gold/30">
-          <AvatarImage src={agent.avatar_url || undefined} alt={agent.full_name || 'Agent'} />
+          <AvatarImage src={avatarSrc || undefined} alt={agent.full_name || 'Agent'} />
           <AvatarFallback className="bg-gold/20 text-gold text-xl font-semibold">
             {agent.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2) || 'AG'}
           </AvatarFallback>
