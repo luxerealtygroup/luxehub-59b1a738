@@ -1273,9 +1273,15 @@ function ReportSection({ openHouse, attendees }: { openHouse: OpenHouse; attende
     }
   };
 
+  const pdfFileName = () => {
+    const safeAddr = openHouse.property_address.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase();
+    return `open-house-${safeAddr}-${openHouse.open_house_date}.pdf`;
+  };
+
   const buildPdf = () => {
-    try {
+    {
       const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+
       const margin = 40;
       let y = margin;
 
