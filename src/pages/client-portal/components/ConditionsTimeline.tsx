@@ -30,6 +30,11 @@ interface Props {
   transaction: TimelineTransaction;
   /** Property address or similar, used as the card subtitle. */
   title?: string;
+  /**
+   * Set false where a KeyDatesCard already lists the same dates (client
+   * dashboard), so dates appear in exactly one place.
+   */
+  showKeyDates?: boolean;
 }
 
 const fmt = (d: string) => format(new Date(`${d}T00:00:00`), 'EEEE MMMM d');
@@ -41,7 +46,7 @@ const fmt = (d: string) => format(new Date(`${d}T00:00:00`), 'EEEE MMMM d');
  * condition, its due date and its status — never the agent's notes, which live
  * in a separate table the client's RLS policy cannot read when internal.
  */
-export function ConditionsTimeline({ transaction, title }: Props) {
+export function ConditionsTimeline({ transaction, title, showKeyDates = true }: Props) {
   const [conditions, setConditions] = useState<PortalCondition[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -74,16 +79,17 @@ export function ConditionsTimeline({ transaction, title }: Props) {
       ['Completion / closing', transaction.closing_date],
     ] as const
   ).filter(([, d]) => !!d) as [string, string][];
+  const visibleKeyDates = showKeyDates ? keyDates : [];
 
   if (loading) return null;
-  if (conditions.length === 0 && keyDates.length === 0) return null;
+  if (conditions.length === 0 && visibleKeyDates.length === 0) return null;
 
   return (
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
           <CalendarClock className="h-5 w-5 text-primary" />
-          Conditions & Key Dates
+          {showKeyDates ? 'Conditions & Key Dates' : 'Conditions'}
         </CardTitle>
         {title && <p className="text-sm text-muted-foreground">{title}</p>}
       </CardHeader>
@@ -136,11 +142,11 @@ export function ConditionsTimeline({ transaction, title }: Props) {
           </ul>
         )}
 
-        {keyDates.length > 0 && (
+        {visibleKeyDates.length > 0 && (
           <div className="rounded-xl border border-border/60 bg-muted/30 p-4">
             <p className="eyebrow mb-2">Key dates</p>
             <ul className="space-y-1.5">
-              {keyDates.map(([label, date]) => (
+              {visibleKeyDates.map(([label, date]) => (
                 <li key={label} className="flex items-baseline justify-between gap-3 text-sm">
                   <span className="text-muted-foreground">{label}</span>
                   <span className="font-medium">{fmt(date)}</span>
