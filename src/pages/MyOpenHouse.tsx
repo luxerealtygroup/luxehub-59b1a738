@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   DoorOpen, Plus, ChevronLeft, Loader2, Pencil, Search, Save, Trash2,
-  CheckCircle2, AlertTriangle, Users, FileDown, Mail, RefreshCcw, Upload, Download, HelpCircle,
+  CheckCircle2, AlertTriangle, Users, FileDown, Mail, RefreshCcw, Upload, Download, HelpCircle, Share2,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -1273,9 +1273,15 @@ function ReportSection({ openHouse, attendees }: { openHouse: OpenHouse; attende
     }
   };
 
-  const downloadPdf = () => {
-    try {
+  const pdfFileName = () => {
+    const safeAddr = openHouse.property_address.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase();
+    return `open-house-${safeAddr}-${openHouse.open_house_date}.pdf`;
+  };
+
+  const buildPdf = () => {
+    {
       const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+
       const margin = 40;
       let y = margin;
 
@@ -1332,14 +1338,20 @@ function ReportSection({ openHouse, attendees }: { openHouse: OpenHouse; attende
         doc.text('No attendees recorded.', margin, y);
       }
 
-      const safeAddr = openHouse.property_address.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase();
-      doc.save(`open-house-${safeAddr}-${openHouse.open_house_date}.pdf`);
+      return doc;
+    }
+  };
+
+  const downloadPdf = () => {
+    try {
+      buildPdf().save(pdfFileName());
       toast.success('PDF downloaded');
     } catch (err: any) {
       console.error('PDF generation failed', err);
       toast.error('PDF download failed', { description: err?.message });
     }
   };
+  const [showSendPortal, setShowSendPortal] = useState(false);
 
   return (
     <Card className="p-5 space-y-4">
@@ -1348,7 +1360,7 @@ function ReportSection({ openHouse, attendees }: { openHouse: OpenHouse; attende
           <h2 className="font-display text-lg font-semibold">Open House Report</h2>
           <p className="text-sm text-muted-foreground">{openHouse.property_address} · {formatDate(openHouse.open_house_date)}</p>
         </div>
-        <div className="flex gap-2 shrink-0">
+        <div className="flex flex-wrap gap-2 shrink-0 justify-end">
           <Button
             variant="outline"
             size="sm"
@@ -1357,11 +1369,24 @@ function ReportSection({ openHouse, attendees }: { openHouse: OpenHouse; attende
           >
             <Mail className="h-4 w-4 mr-1" /> Send to Listing Agent
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowSendPortal(true)}>
+            <Share2 className="h-4 w-4 mr-1" /> Send to Client Portal
+          </Button>
           <Button variant="outline" size="sm" onClick={downloadPdf}>
             <FileDown className="h-4 w-4 mr-1" /> Download PDF
           </Button>
         </div>
       </div>
+
+      {showSendPortal && (
+        <SendToPortalDialog
+          openHouse={openHouse}
+          buildPdf={buildPdf}
+          fileName={pdfFileName()}
+          onClose={() => setShowSendPortal(false)}
+        />
+      )}
+
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
         <ReportField label="Listing agent" value={openHouse.listing_agent_name || '—'} sub={openHouse.listing_agent_email || ''} />
@@ -1415,6 +1440,155 @@ function ReportField({ label, value, sub }: { label: string; value: string; sub?
     </div>
   );
 }
+
+// ============================================================================
+// Send the report into a client portal
+// ============================================================================
+
+type PortalOption = { id: string; full_name: string | null; email: string | null };
+type PortalPropertyOption = { id: string; address: string | null; mls_number: string | null };
+
+function SendToPortalDialog({
+  openHouse, buildPdf, fileName, onClose,
+}: {
+  openHouse: OpenHouse;
+  buildPdf: () => jsPDF;
+  fileName: string;
+  onClose: () => void;
+}) {
+  const [portals, setPortals] = useState<PortalOption[]>([]);
+  const [portalId, setPortalId] = useState<string>('');
+  const [properties, setProperties] = useState<PortalPropertyOption[]>([]);
+  const [propertyId, setPropertyId] = useState<string>('general');
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data, error } = await supabase
+        .from('client_accounts')
+        .select('id, full_name, email')
+        .order('full_name', { ascending: true });
+      if (error) toast.error('Failed to load client portals', { description: error.message });
+      const list = (data || []) as PortalOption[];
+      setPortals(list);
+      const match = openHouse.client_email
+        ? list.find(p => (p.email || '').toLowerCase() === openHouse.client_email!.toLowerCase())
+        : undefined;
+      if (match) setPortalId(match.id);
+      setLoading(false);
+    })();
+  }, [openHouse.client_email]);
+
+  useEffect(() => {
+    if (!portalId) { setProperties([]); setPropertyId('general'); return; }
+    (async () => {
+      const { data } = await supabase
+        .from('portal_properties')
+        .select('id, address, mls_number')
+        .eq('portal_id', portalId);
+      const list = (data || []) as PortalPropertyOption[];
+      setProperties(list);
+      const addr = openHouse.property_address.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const match = list.find(p => (p.address || '').toLowerCase().replace(/[^a-z0-9]/g, '') === addr);
+      setPropertyId(match ? match.id : 'general');
+    })();
+  }, [portalId, openHouse.property_address]);
+
+  const send = async () => {
+    if (!portalId) return;
+    setSending(true);
+    try {
+      const blob = buildPdf().output('blob') as Blob;
+      const path = `${portalId}/${crypto.randomUUID()}_${fileName}`;
+      const up = await supabase.storage
+        .from('portal-documents')
+        .upload(path, blob, { contentType: 'application/pdf' });
+      if (up.error) throw up.error;
+
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase.from('portal_documents').insert({
+        portal_id: portalId,
+        file_name: fileName,
+        display_name: `Open House Feedback — ${formatDate(openHouse.open_house_date)}`,
+        file_path: path,
+        file_type: 'application/pdf',
+        file_size: blob.size,
+        uploaded_by: user?.id,
+        property_id: propertyId === 'general' ? null : propertyId,
+        is_internal: false,
+        source: 'transaction',
+      });
+      if (error) throw error;
+      toast.success('Open house feedback sent to the client portal');
+      onClose();
+    } catch (err: any) {
+      console.error('Send to portal failed', err);
+      toast.error('Could not send to portal', { description: err?.message });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Send feedback to a client portal</DialogTitle>
+        </DialogHeader>
+        {loading ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground py-6">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading portals…
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Client portal</Label>
+              <Select value={portalId} onValueChange={setPortalId}>
+                <SelectTrigger><SelectValue placeholder="Choose a client" /></SelectTrigger>
+                <SelectContent>
+                  {portals.map(p => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.full_name || p.email || 'Unnamed client'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {portalId && (
+              <div className="space-y-1.5">
+                <Label>Attach to property</Label>
+                <Select value={propertyId} onValueChange={setPropertyId}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="general">Portal-wide (no property)</SelectItem>
+                    {properties.map(p => (
+                      <SelectItem key={p.id} value={p.id}>{p.address || p.mls_number || 'Property'}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <p className="text-xs text-muted-foreground">
+              A PDF of this open house report is saved to the client's transaction documents and is
+              visible to them right away.
+            </p>
+          </div>
+        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={sending}>Cancel</Button>
+          <Button onClick={send} disabled={!portalId || sending}>
+            {sending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Share2 className="h-4 w-4 mr-1" />}
+            Send to portal
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ============================================================================
 // Import from FUB dialog
 // ============================================================================
