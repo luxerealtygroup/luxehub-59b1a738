@@ -18,6 +18,7 @@ import { ClientSidebar } from './components/ClientSidebar';
 import { FUBTimeline } from './components/FUBTimeline';
 import { PortalDocumentsPanel } from '@/components/portal/PortalDocumentsPanel';
 import { PortalPhotosPanel } from '@/components/portal/PortalPhotosPanel';
+import { PropertyHero } from './components/PropertyHero';
 import { SupportChatWidget } from '@/components/support/SupportChatWidget';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ShoppingCart as ShoppingCartIcon, Tag as TagIcon } from 'lucide-react';
