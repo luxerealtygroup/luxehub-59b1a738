@@ -10,7 +10,6 @@ import { getRoleBasedRedirect } from '@/lib/utils/roleRedirect';
 import { cn } from '@/lib/utils';
 import { User, Building2 } from 'lucide-react';
 import luxeLogo from '@/assets/luxe-logo.png.asset.json';
-import { tenant } from '@/config/tenant';
 import { useTenant } from '@/hooks/useTenant';
 import { TenantLogo } from '@/components/TenantLogo';
 
