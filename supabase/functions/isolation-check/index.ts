@@ -464,6 +464,32 @@ Deno.serve(async (req) => {
   ];
 
 
+  const pass = leaks.length === 0 && vacuous.length === 0;
+
+  if (alert && !pass) {
+    try {
+      const token = await getInstanceSecret('SLACK_BOT_TOKEN');
+      if (token) {
+        await fetch('https://slack.com/api/chat.postMessage', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json; charset=utf-8',
+          },
+          body: JSON.stringify({
+            channel: Deno.env.get('SLACK_ALERT_CHANNEL') ?? '#general',
+            username: 'Tenant Isolation',
+            icon_emoji: ':rotating_light:',
+            text:
+              ':rotating_light: *TENANT ISOLATION FAILURE* — a cross-tenant leak was detected.\n' +
+              (leaks.length ? `Leaks: ${leaks.join(', ')}\n` : '') +
+              (vacuous.length ? `Vacuous checks: ${vacuous.join(', ')}` : ''),
+          }),
+        });
+      }
+    } catch (_e) { /* never let alerting mask the result */ }
+  }
+
   return json({
     fixture: { id: FIXTURE_USER_ID, email, displayName: 'Kristen Schulz' },
     counts,
