@@ -186,22 +186,6 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     };
   }, [user]);
 
-  // Push brand colours into the design system as CSS variables.
-  useEffect(() => {
-    const root = document.documentElement;
-    const primary = memo.primaryColor ? hexToHsl(memo.primaryColor) : null;
-    const text = memo.textColor ? hexToHsl(memo.textColor) : null;
-    if (primary) root.style.setProperty('--tenant-brand', primary);
-    else root.style.removeProperty('--tenant-brand');
-    if (text) {
-      root.style.setProperty('--tenant-brand-text', text);
-      root.style.setProperty('--tenant-brand-foreground', '0 0% 100%');
-    } else {
-      root.style.removeProperty('--tenant-brand-text');
-      root.style.removeProperty('--tenant-brand-foreground');
-    }
-  }, [memo.primaryColor, memo.textColor]);
-
   // Resolve Follow Up Boss availability for the signed-in org. The original
   // instance keeps working off its environment key; other orgs must have
   // connected their own key at /dashboard/setup.
@@ -247,7 +231,25 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     }
     return { ...value, fubEnabled };
   }, [value, fubEnabled, previewBranding]);
+
+  // Push brand colours into the design system as CSS variables.
+  useEffect(() => {
+    const root = document.documentElement;
+    const primary = memo.primaryColor ? hexToHsl(memo.primaryColor) : null;
+    const text = memo.textColor ? hexToHsl(memo.textColor) : null;
+    if (primary) root.style.setProperty('--tenant-brand', primary);
+    else root.style.removeProperty('--tenant-brand');
+    if (text) {
+      root.style.setProperty('--tenant-brand-text', text);
+      root.style.setProperty('--tenant-brand-foreground', '0 0% 100%');
+    } else {
+      root.style.removeProperty('--tenant-brand-text');
+      root.style.removeProperty('--tenant-brand-foreground');
+    }
+  }, [memo.primaryColor, memo.textColor]);
+
   return <TenantContext.Provider value={memo}>{children}</TenantContext.Provider>;
+
 }
 
 export const useTenant = () => useContext(TenantContext);
