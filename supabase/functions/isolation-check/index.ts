@@ -12,6 +12,7 @@
 // Guarded by the ISOLATION_TEST_TOKEN secret; never returns record contents.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { getInstanceSecret } from '../_shared/instanceSecrets.ts';
 
 const FIXTURE_USER_ID = 'a43390e7-dbaa-48a9-b5cc-aac223cb46d7';
 
@@ -54,7 +55,15 @@ Deno.serve(async (req) => {
 
   const expected = Deno.env.get('ISOLATION_TEST_TOKEN');
   const provided = req.headers.get('x-isolation-token');
-  if (!expected || provided !== expected) return json({ error: 'Forbidden' }, 403);
+  // Two trusted callers: the CI/verification test (shared token) and the
+  // scheduled monitor, which calls with the service-role key from Vault.
+  const bearer = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '');
+  const isServiceRole = !!bearer && bearer === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!isServiceRole && (!expected || provided !== expected)) return json({ error: 'Forbidden' }, 403);
+
+  // ?alert=1 → post a Slack alarm when the run does not pass.
+  const alert = new URL(req.url).searchParams.get('alert') === '1';
+
 
   const url = Deno.env.get('SUPABASE_URL')!;
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -456,6 +465,32 @@ Deno.serve(async (req) => {
   ];
 
 
+  const pass = leaks.length === 0 && vacuous.length === 0;
+
+  if (alert && !pass) {
+    try {
+      const token = await getInstanceSecret('SLACK_BOT_TOKEN');
+      if (token) {
+        await fetch('https://slack.com/api/chat.postMessage', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json; charset=utf-8',
+          },
+          body: JSON.stringify({
+            channel: Deno.env.get('SLACK_ALERT_CHANNEL') ?? '#general',
+            username: 'Tenant Isolation',
+            icon_emoji: ':rotating_light:',
+            text:
+              ':rotating_light: *TENANT ISOLATION FAILURE* — a cross-tenant leak was detected.\n' +
+              (leaks.length ? `Leaks: ${leaks.join(', ')}\n` : '') +
+              (vacuous.length ? `Vacuous checks: ${vacuous.join(', ')}` : ''),
+          }),
+        });
+      }
+    } catch (_e) { /* never let alerting mask the result */ }
+  }
+
   return json({
     fixture: { id: FIXTURE_USER_ID, email, displayName: 'Kristen Schulz' },
     counts,
@@ -470,7 +505,7 @@ Deno.serve(async (req) => {
     denied: errors,
     leaks,
     vacuous,
-    pass: leaks.length === 0 && vacuous.length === 0,
+    pass,
   });
 });
 
