@@ -387,9 +387,49 @@ Deno.serve(async (req) => {
     }
   }
 
+  // ---- Privilege escalation: fixture tries to join the Luxe org itself ----
+  const escalation: Record<string, string> = {};
+  const escalationLeaks: string[] = [];
+  if (luxeOrg) {
+    const { error: updErr } = await asFixture
+      .from('profiles').update({ org_id: luxeOrg }).eq('id', FIXTURE_USER_ID);
+    const { data: afterUpd } = await admin
+      .from('profiles').select('org_id').eq('id', FIXTURE_USER_ID).maybeSingle();
+    const moved = afterUpd?.org_id === luxeOrg;
+    escalation['self_update_org_id'] = moved
+      ? 'ESCALATED'
+      : `denied (${updErr?.message ?? 'no rows changed'})`;
+    if (moved) {
+      escalationLeaks.push('profiles.org_id self-update to Luxe org');
+      // Restore immediately.
+      await admin.from('profiles').update({ org_id: fixtureOrgId }).eq('id', FIXTURE_USER_ID);
+    }
+
+    const intruderId = crypto.randomUUID();
+    const { error: insErr } = await asFixture
+      .from('profiles').insert({ id: intruderId, email: 'escalation-probe@example.com', org_id: luxeOrg });
+    const { data: insRow } = await admin
+      .from('profiles').select('id').eq('id', intruderId).maybeSingle();
+    escalation['insert_profile_with_luxe_org'] = insRow
+      ? 'ESCALATED'
+      : `denied (${insErr?.message ?? 'no row created'})`;
+    if (insRow) {
+      escalationLeaks.push('profiles insert with Luxe org_id');
+      await admin.from('profiles').delete().eq('id', intruderId);
+    }
+
+    // Positive control: the service role CAN do it (proves the probe is real).
+    const ctlId = crypto.randomUUID();
+    const { error: ctlErr } = await admin
+      .from('profiles').insert({ id: ctlId, email: 'escalation-control@example.com', org_id: luxeOrg });
+    escalation['control_service_role_insert'] = ctlErr ? `FAILED (${ctlErr.message})` : 'ok';
+    await admin.from('profiles').delete().eq('id', ctlId);
+  }
+
   await admin.auth.admin.updateUserById(FIXTURE_USER_ID, {
     password: crypto.randomUUID() + crypto.randomUUID(),
   });
+
 
   const leaks = [
     ...Object.entries(counts).filter(([, n]) => n > 0).map(([t]) => t),
