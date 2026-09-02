@@ -15,9 +15,10 @@ interface Props {
   inviteUrl?: string
   /** Human-readable expiry, e.g. "September 16, 2026". */
   expiresOn?: string
-  /** Who is inviting them. */
-  inviterName?: string
-  inviterEmail?: string
+  /** Company that issued the invitation (never an individual's name). */
+  senderOrgName?: string
+  senderEmail?: string
+
 }
 
 const Email = (p: Props) => (
@@ -32,7 +33,7 @@ const Email = (p: Props) => (
         <Text style={text}>Hi {p.ownerName ?? 'there'},</Text>
 
         <Text style={text}>
-          {p.inviterName ?? 'Kristen Ellis'} has set up your own real estate hub for{' '}
+          {p.senderOrgName ?? 'LUXE Realty Group'} has set up your own real estate hub for{' '}
           <strong>{p.teamName ?? 'your business'}</strong>. You are being added as the owner of the
           account, which means you control your team, your settings and your data.
         </Text>
@@ -61,9 +62,10 @@ const Email = (p: Props) => (
         </Text>
 
         <Text style={footer}>
-          Questions? Reply to {p.inviterEmail ?? 'this email'} and {p.inviterName ?? 'Kristen'} will
-          help you get started.
+          Questions? Reply to {p.senderEmail ?? 'this email'} and the{' '}
+          {p.senderOrgName ?? 'LUXE Realty Group'} team will help you get started.
         </Text>
+
       </Container>
     </Body>
   </Html>
@@ -79,8 +81,9 @@ export const template = {
     hubHost: 'homesintoreality.luxerealtyhub.com',
     inviteUrl: 'https://homesintoreality.luxerealtyhub.com/join?token=example',
     expiresOn: 'September 16, 2026',
-    inviterName: 'Kristen Ellis',
-    inviterEmail: 'info@luxerealtygroup.ca',
+    senderOrgName: 'LUXE Realty Group',
+    senderEmail: 'info@luxerealtygroup.ca',
+
   },
 } satisfies TemplateEntry
 
