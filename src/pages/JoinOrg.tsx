@@ -32,11 +32,29 @@ const JoinOrg = () => {
   const [info, setInfo] = useState<InviteInfo | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
+  const [currentEmail, setCurrentEmail] = useState<string | null>(null);
+  const [currentOrgId, setCurrentOrgId] = useState<string | null>(null);
+  const [currentOrgName, setCurrentOrgName] = useState<string | null>(null);
+  const [confirmMove, setConfirmMove] = useState(false);
 
   useEffect(() => {
     const run = async () => {
       const { data: sess } = await supabase.auth.getSession();
-      setSignedIn(Boolean(sess.session));
+      const session = sess.session;
+      setSignedIn(Boolean(session));
+      setCurrentEmail(session?.user.email ?? null);
+
+      if (session) {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('org_id, organizations(name)')
+          .eq('id', session.user.id)
+          .maybeSingle();
+        setCurrentOrgId(prof?.org_id ?? null);
+        setCurrentOrgName(
+          (prof?.organizations as { name: string } | null)?.name ?? null,
+        );
+      }
 
       const { data, error } = await supabase.rpc('validate_org_invite', { _token: token });
       const row = (Array.isArray(data) ? data[0] : data) as InviteInfo | undefined;
@@ -48,8 +66,25 @@ const JoinOrg = () => {
     else void run();
   }, [token]);
 
+  // A signed-in session that already belongs to a DIFFERENT team would be moved
+  // out of that team by accepting. Never let that happen silently.
+  const wouldMoveAccount =
+    signedIn &&
+    Boolean(currentOrgId) &&
+    Boolean(info?.org_id) &&
+    currentOrgId !== info?.org_id;
+
+  const signOutAndRestart = async () => {
+    await supabase.auth.signOut();
+    window.location.href = `/join?token=${encodeURIComponent(token)}`;
+  };
+
   const accept = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (wouldMoveAccount && !confirmMove) {
+      toast.error('Tick the confirmation box first — this moves your account between teams.');
+      return;
+    }
     const fd = new FormData(e.currentTarget);
     const fullName = String(fd.get('fullName') ?? '').trim();
     const password = String(fd.get('password') ?? '');
@@ -85,6 +120,7 @@ const JoinOrg = () => {
       setSubmitting(false);
     }
   };
+
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/30 p-6">
