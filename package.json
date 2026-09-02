@@ -9,7 +9,8 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "verify:isolation": "node scripts/isolation-gate.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.0",
