@@ -15,9 +15,10 @@ interface Props {
   inviteUrl?: string
   /** Human-readable expiry, e.g. "September 16, 2026". */
   expiresOn?: string
-  /** Who is inviting them. */
-  inviterName?: string
-  inviterEmail?: string
+  /** Company that issued the invitation (never an individual's name). */
+  senderOrgName?: string
+  senderEmail?: string
+
 }
 
 const Email = (p: Props) => (
