@@ -59,6 +59,7 @@ import GetStarted from "./pages/GetStarted";
 import AdminOnboardingRequests from "./pages/AdminOnboardingRequests";
 import InstanceSetup from "./pages/InstanceSetup";
 import AdminTenants from "./pages/AdminTenants";
+import AdminTenantPreview from "./pages/AdminTenantPreview";
 import TeamSeats from "./pages/TeamSeats";
 import JoinOrg from "./pages/JoinOrg";
 
@@ -166,6 +167,7 @@ const App = () => (
               <Route path="admin/client-portals" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><TierGuard feature="canAccessClientPortals" featureName="Client Portals" requiredTierLabel="Pro+ or Team"><AdminClientPortals /></TierGuard></RoleGuard>} />
               <Route path="team" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><TeamSeats /></RoleGuard>} />
               <Route path="admin/tenants" element={<RoleGuard allowedRoles={['owner', 'admin']} blockPlanning={false}><AdminTenants /></RoleGuard>} />
+              <Route path="admin/tenants/:orgId/preview" element={<RoleGuard allowedRoles={['owner', 'admin']} blockPlanning={false}><AdminTenantPreview /></RoleGuard>} />
               <Route path="admin/onboarding-requests" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><AdminOnboardingRequests /></RoleGuard>} />
               <Route path="admin/tickets" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><AdminTickets /></RoleGuard>} />
               <Route path="admin/coaching-notes" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><CoachingNotes /></RoleGuard>} />

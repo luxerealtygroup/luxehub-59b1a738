@@ -15,6 +15,7 @@ import { createContext, useContext, useEffect, useMemo, useState, ReactNode } fr
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { tenant as staticTenant } from '@/config/tenant';
+import { useOrgPreviewBranding } from '@/hooks/useOrgPreview';
 
 export interface TenantBranding {
   orgId: string | null;
@@ -185,22 +186,6 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     };
   }, [user]);
 
-  // Push brand colours into the design system as CSS variables.
-  useEffect(() => {
-    const root = document.documentElement;
-    const primary = value.primaryColor ? hexToHsl(value.primaryColor) : null;
-    const text = value.textColor ? hexToHsl(value.textColor) : null;
-    if (primary) root.style.setProperty('--tenant-brand', primary);
-    else root.style.removeProperty('--tenant-brand');
-    if (text) {
-      root.style.setProperty('--tenant-brand-text', text);
-      root.style.setProperty('--tenant-brand-foreground', '0 0% 100%');
-    } else {
-      root.style.removeProperty('--tenant-brand-text');
-      root.style.removeProperty('--tenant-brand-foreground');
-    }
-  }, [value.primaryColor, value.textColor]);
-
   // Resolve Follow Up Boss availability for the signed-in org. The original
   // instance keeps working off its environment key; other orgs must have
   // connected their own key at /dashboard/setup.
@@ -222,8 +207,49 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     };
   }, [user, value.orgId, value.isDefaultTenant]);
 
-  const memo = useMemo(() => ({ ...value, fubEnabled }), [value, fubEnabled]);
+  // While a super-admin previews another team, the whole app renders with that
+  // team's identity. This is display only — data access is unchanged and still
+  // scoped to the signed-in org by RLS.
+  const previewBranding = useOrgPreviewBranding();
+  const memo = useMemo<TenantBranding>(() => {
+    if (previewBranding) {
+      return {
+        orgId: previewBranding.orgId,
+        slug: previewBranding.slug,
+        name: previewBranding.name,
+        appName: previewBranding.appName || previewBranding.name,
+        shortName: previewBranding.shortName || previewBranding.name.split(' ')[0],
+        brokerageName: previewBranding.brokerageName || previewBranding.name,
+        primaryColor: previewBranding.primaryColor,
+        textColor: previewBranding.textColor ?? previewBranding.primaryColor,
+        logoUrl: previewBranding.logoUrl,
+        markUrl: previewBranding.markUrl,
+        isDefaultTenant: false,
+        fubEnabled: previewBranding.fubEnabled,
+        isLoading: false,
+      };
+    }
+    return { ...value, fubEnabled };
+  }, [value, fubEnabled, previewBranding]);
+
+  // Push brand colours into the design system as CSS variables.
+  useEffect(() => {
+    const root = document.documentElement;
+    const primary = memo.primaryColor ? hexToHsl(memo.primaryColor) : null;
+    const text = memo.textColor ? hexToHsl(memo.textColor) : null;
+    if (primary) root.style.setProperty('--tenant-brand', primary);
+    else root.style.removeProperty('--tenant-brand');
+    if (text) {
+      root.style.setProperty('--tenant-brand-text', text);
+      root.style.setProperty('--tenant-brand-foreground', '0 0% 100%');
+    } else {
+      root.style.removeProperty('--tenant-brand-text');
+      root.style.removeProperty('--tenant-brand-foreground');
+    }
+  }, [memo.primaryColor, memo.textColor]);
+
   return <TenantContext.Provider value={memo}>{children}</TenantContext.Provider>;
+
 }
 
 export const useTenant = () => useContext(TenantContext);

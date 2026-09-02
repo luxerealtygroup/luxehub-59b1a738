@@ -95,3 +95,6 @@ verify_jwt = true
 
 [functions.tenant-branding]
 verify_jwt = false
+
+[functions.org-preview]
+verify_jwt = true
