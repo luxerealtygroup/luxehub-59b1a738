@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
-import { getInstanceSecret } from '../_shared/instanceSecrets.ts';
+import { getFubApiKeyForOrg } from '../_shared/fub.ts';
 
 const FUB_BASE_URL = 'https://api.followupboss.com/v1';
 const BUCKET = 'portal-documents';
