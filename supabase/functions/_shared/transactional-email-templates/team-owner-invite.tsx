@@ -62,9 +62,10 @@ const Email = (p: Props) => (
         </Text>
 
         <Text style={footer}>
-          Questions? Reply to {p.inviterEmail ?? 'this email'} and {p.inviterName ?? 'Kristen'} will
-          help you get started.
+          Questions? Reply to {p.senderEmail ?? 'this email'} and the{' '}
+          {p.senderOrgName ?? 'LUXE Realty Group'} team will help you get started.
         </Text>
+
       </Container>
     </Body>
   </Html>
