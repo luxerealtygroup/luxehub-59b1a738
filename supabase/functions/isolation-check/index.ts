@@ -54,7 +54,15 @@ Deno.serve(async (req) => {
 
   const expected = Deno.env.get('ISOLATION_TEST_TOKEN');
   const provided = req.headers.get('x-isolation-token');
-  if (!expected || provided !== expected) return json({ error: 'Forbidden' }, 403);
+  // Two trusted callers: the CI/verification test (shared token) and the
+  // scheduled monitor, which calls with the service-role key from Vault.
+  const bearer = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '');
+  const isServiceRole = !!bearer && bearer === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!isServiceRole && (!expected || provided !== expected)) return json({ error: 'Forbidden' }, 403);
+
+  // ?alert=1 → post a Slack alarm when the run does not pass.
+  const alert = new URL(req.url).searchParams.get('alert') === '1';
+
 
   const url = Deno.env.get('SUPABASE_URL')!;
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
