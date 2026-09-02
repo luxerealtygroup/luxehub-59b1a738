@@ -104,6 +104,19 @@ async function orgVaultKey(orgId: string): Promise<string | null> {
   return value;
 }
 
+/** Key for a specific organization. Falls back to the instance key only for the original org. */
+export async function getFubApiKeyForOrg(orgId: string | null): Promise<string | null> {
+  if (!orgId) return null;
+  const orgKey = await orgVaultKey(orgId);
+  if (orgKey) return orgKey;
+
+  const rows = (await restGet(
+    `organizations?id=eq.${encodeURIComponent(orgId)}&select=is_original_org`,
+  )) as { is_original_org: boolean }[] | null;
+  if (rows?.[0]?.is_original_org) return await getInstanceSecret('FUB_API_KEY');
+  return null;
+}
+
 /**
  * Key for a specific caller. `userId === null` means an internal service-role
  * call, which keeps using the instance key.
@@ -114,6 +127,7 @@ export async function getFubApiKeyForUser(userId: string | null): Promise<string
     if (!key) throw new FubConfigError(NOT_CONNECTED);
     return key;
   }
+
 
   const { orgId, isOriginalOrg } = await getUserOrgContext(userId);
   if (!orgId) throw new FubConfigError(NOT_CONNECTED);
