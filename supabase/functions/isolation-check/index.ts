@@ -196,8 +196,6 @@ Deno.serve(async (req) => {
   }
 
   // ---- Realtime: private topics must be org-scoped ----
-  const { data: fixtureProfile } = await admin
-    .from('profiles').select('org_id').eq('id', FIXTURE_USER_ID).maybeSingle();
 
   async function tryTopicAs(token: string, topic: string): Promise<'joined' | 'blocked'> {
     const rt = createClient(url, anonKey, {
