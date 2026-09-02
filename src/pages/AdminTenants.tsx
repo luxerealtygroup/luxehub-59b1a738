@@ -93,6 +93,18 @@ const AdminTenants = () => {
     void load();
   }, [load]);
 
+  // Preview is a platform-owner capability, enforced server-side by the
+  // org-preview function; this only decides whether to show the button.
+  useEffect(() => {
+    const run = async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user) return;
+      const { data } = await supabase.rpc('is_super_admin', { _user_id: auth.user.id });
+      setIsSuperAdmin(data === true);
+    };
+    void run();
+  }, []);
+
   const upload = async (orgId: string, file: File, kind: 'logo' | 'mark') => {
     const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
     const path = `${orgId}/${kind}.${ext}`;
