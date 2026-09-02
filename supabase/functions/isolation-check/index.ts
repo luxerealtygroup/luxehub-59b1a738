@@ -118,6 +118,100 @@ Deno.serve(async (req) => {
     controls[t] = (ctrl ?? []).length;
   }
 
+  // ---- Storage: portal-documents / portal-photos must be org-scoped ----
+  const storage: Record<string, string> = {};
+  const storageControls: Record<string, string> = {};
+  const storageLeaks: string[] = [];
+
+  const { data: luxePortal } = await admin
+    .from('client_accounts').select('id').eq('org_id', luxeOrg).limit(1).maybeSingle();
+
+  if (luxePortal?.id) {
+    const folder = luxePortal.id as string;
+    for (const bucket of ['portal-documents', 'portal-photos'] as const) {
+      // Probe object written with the service role inside the Luxe portal folder.
+      const probePath = `${folder}/isolation-probe-${crypto.randomUUID()}.txt`;
+      const probe = new Blob(['isolation probe'], { type: 'text/plain' });
+      const { error: seedErr } = await admin.storage.from(bucket).upload(probePath, probe);
+      if (seedErr) {
+        storageControls[`${bucket}:seed`] = `FAILED: ${seedErr.message}`;
+        continue;
+      }
+      storageControls[`${bucket}:seed`] = 'ok';
+
+      // list
+      const { data: listed } = await asFixture.storage.from(bucket).list(folder);
+      const listedCount = (listed ?? []).length;
+      storage[`${bucket}:list`] = String(listedCount);
+      if (listedCount > 0) storageLeaks.push(`${bucket} list`);
+
+      // download
+      const { data: dl, error: dlErr } = await asFixture.storage.from(bucket).download(probePath);
+      storage[`${bucket}:download`] = dlErr ? `denied (${dlErr.message})` : 'DOWNLOADED';
+      if (!dlErr && dl) storageLeaks.push(`${bucket} download`);
+
+      // upload
+      const { error: upErr } = await asFixture.storage
+        .from(bucket)
+        .upload(`${folder}/fixture-intrusion-${crypto.randomUUID()}.txt`, probe);
+      storage[`${bucket}:upload`] = upErr ? `denied (${upErr.message})` : 'UPLOADED';
+      if (!upErr) storageLeaks.push(`${bucket} upload`);
+
+      // delete
+      const { data: del, error: delErr } = await asFixture.storage.from(bucket).remove([probePath]);
+      const deleted = !delErr && (del ?? []).length > 0;
+      storage[`${bucket}:delete`] = deleted ? 'DELETED' : 'denied';
+      if (deleted) storageLeaks.push(`${bucket} delete`);
+
+      // Positive control: the service role can still see and remove the probe,
+      // proving the path existed and the checks above were not vacuous.
+      const { data: ctrlList } = await admin.storage.from(bucket).list(folder, {
+        search: probePath.split('/')[1],
+      });
+      storageControls[`${bucket}:visible_to_service_role`] = String((ctrlList ?? []).length);
+      await admin.storage.from(bucket).remove([probePath]);
+    }
+  }
+
+  // ---- Realtime: private topics must be org-scoped ----
+  const { data: fixtureProfile } = await admin
+    .from('profiles').select('org_id').eq('id', FIXTURE_USER_ID).maybeSingle();
+
+  async function tryTopic(topic: string): Promise<'joined' | 'blocked'> {
+    const rt = createClient(url, anonKey, {
+      auth: { persistSession: false },
+      global: { headers: { Authorization: `Bearer ${session!.session!.access_token}` } },
+    });
+    await rt.realtime.setAuth(session!.session!.access_token);
+    const ch = rt.channel(topic, { config: { private: true } });
+    const result = await new Promise<'joined' | 'blocked'>((resolve) => {
+      const timer = setTimeout(() => resolve('blocked'), 8000);
+      ch.subscribe((status: string) => {
+        if (status === 'SUBSCRIBED') { clearTimeout(timer); resolve('joined'); }
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          clearTimeout(timer); resolve('blocked');
+        }
+      });
+    });
+    await rt.removeChannel(ch);
+    return result;
+  }
+
+  const realtime: Record<string, string> = {};
+  const realtimeLeaks: string[] = [];
+  if (luxePortal?.id) {
+    realtime['foreign_portal_topic'] = await tryTopic(`portal-messages-${luxePortal.id}-agent`);
+    if (realtime['foreign_portal_topic'] === 'joined') realtimeLeaks.push('realtime foreign portal topic');
+  }
+  realtime['foreign_org_topic'] = await tryTopic(`org-${luxeOrg}-updates`);
+  if (realtime['foreign_org_topic'] === 'joined') realtimeLeaks.push('realtime foreign org topic');
+
+  // Positive control: a topic inside the fixture's OWN org must still join,
+  // otherwise "blocked" above would prove nothing.
+  realtime['own_org_topic'] = fixtureProfile?.org_id
+    ? await tryTopic(`org-${fixtureProfile.org_id}-updates`)
+    : 'skipped';
+
   await admin.auth.admin.updateUserById(FIXTURE_USER_ID, {
     password: crypto.randomUUID() + crypto.randomUUID(),
   });
@@ -126,8 +220,17 @@ Deno.serve(async (req) => {
     ...Object.entries(counts).filter(([, n]) => n > 0).map(([t]) => t),
     ...Object.entries(byId).filter(([, n]) => n > 0).map(([t]) => `${t} (by id)`),
     ...(foreignProfiles > 0 ? ['profiles (other users)'] : []),
+    ...storageLeaks,
+    ...realtimeLeaks,
   ];
-  const vacuous = Object.entries(controls).filter(([, n]) => n === 0).map(([t]) => t);
+  const vacuous = [
+    ...Object.entries(controls).filter(([, n]) => n === 0).map(([t]) => t),
+    ...Object.entries(storageControls)
+      .filter(([k, v]) => (k.endsWith(':seed') ? v !== 'ok' : Number(v) === 0))
+      .map(([k]) => `storage ${k}`),
+    ...(realtime['own_org_topic'] === 'blocked' ? ['realtime own-org topic'] : []),
+  ];
+
 
   return json({
     fixture: { id: FIXTURE_USER_ID, email, displayName: 'Kristen Schulz' },
