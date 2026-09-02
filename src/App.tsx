@@ -60,6 +60,7 @@ import AdminOnboardingRequests from "./pages/AdminOnboardingRequests";
 import InstanceSetup from "./pages/InstanceSetup";
 import AdminTenants from "./pages/AdminTenants";
 import AdminTenantPreview from "./pages/AdminTenantPreview";
+import { OrgPreviewRouteGuard } from "@/components/OrgPreviewRouteGuard";
 import TeamSeats from "./pages/TeamSeats";
 import JoinOrg from "./pages/JoinOrg";
 
@@ -104,6 +105,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <OpenHouseNavigationGuard />
+          <OrgPreviewRouteGuard />
           <Routes>
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<Login />} />
@@ -129,6 +131,9 @@ const App = () => (
             } />
             <Route path="/client-portal/login" element={<ClientLogin />} />
             <Route path="/client-portal/signup" element={<ClientSignup />} />
+            {/* Team preview: standalone, outside the dashboard shell, so there is
+                no navigation out of it into pages that read the signed-in org. */}
+            <Route path="/dashboard/admin/tenants/:orgId/preview" element={<ProtectedRoute><AdminTenantPreview /></ProtectedRoute>} />
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <DashboardLayout />
@@ -167,7 +172,6 @@ const App = () => (
               <Route path="admin/client-portals" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><TierGuard feature="canAccessClientPortals" featureName="Client Portals" requiredTierLabel="Pro+ or Team"><AdminClientPortals /></TierGuard></RoleGuard>} />
               <Route path="team" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><TeamSeats /></RoleGuard>} />
               <Route path="admin/tenants" element={<RoleGuard allowedRoles={['owner', 'admin']} blockPlanning={false}><AdminTenants /></RoleGuard>} />
-              <Route path="admin/tenants/:orgId/preview" element={<RoleGuard allowedRoles={['owner', 'admin']} blockPlanning={false}><AdminTenantPreview /></RoleGuard>} />
               <Route path="admin/onboarding-requests" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><AdminOnboardingRequests /></RoleGuard>} />
               <Route path="admin/tickets" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><AdminTickets /></RoleGuard>} />
               <Route path="admin/coaching-notes" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><CoachingNotes /></RoleGuard>} />

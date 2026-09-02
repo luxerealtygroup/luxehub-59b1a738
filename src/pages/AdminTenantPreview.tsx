@@ -11,6 +11,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   Building2,
   CalendarDays,
+  AlertTriangle,
   FileText,
   Loader2,
   Lock,
@@ -37,6 +38,22 @@ const Empty = ({ label }: { label: string }) => (
   <p className="py-8 text-center text-sm text-muted-foreground">{label}</p>
 );
 
+/**
+ * Hard-fail state. A previewed surface that cannot load its allowlisted dataset
+ * says so — it must never fall back to a direct query, which would resolve to
+ * the signed-in user's own organization.
+ */
+const Failed = ({ label, error }: { label: string; error: string }) => (
+  <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm">
+    <p className="flex items-center gap-2 font-medium text-destructive">
+      <AlertTriangle className="h-4 w-4" /> {label} could not be loaded
+    </p>
+    <p className="mt-1 text-muted-foreground">
+      {error} Nothing is shown rather than risking another team's data appearing here.
+    </p>
+  </div>
+);
+
 const AdminTenantPreview = () => {
   const { orgId } = useParams<{ orgId: string }>();
   const navigate = useNavigate();
@@ -49,6 +66,7 @@ const AdminTenantPreview = () => {
   const [manual, setManual] = useState<Record<string, unknown>[]>([]);
   const [weekly, setWeekly] = useState<Record<string, unknown>[]>([]);
   const [portals, setPortals] = useState<{ id: string; full_name: string | null }[]>([]);
+  const [errors, setErrors] = useState<Record<string, string | null>>({});
 
   const boot = useCallback(async () => {
     if (!orgId) return;
@@ -70,15 +88,23 @@ const AdminTenantPreview = () => {
       read<{ rows: Record<string, unknown>[] }>('weekly_411'),
       read<{ portals: { id: string; full_name: string | null }[] }>('portal_shell'),
     ]);
-    setSummary(s);
-    setPipeline(p?.rows ?? []);
-    setCommissions(t?.commissions ?? []);
-    setManual(t?.manual ?? []);
-    setWeekly(w?.rows ?? []);
-    setPortals(ps?.portals ?? []);
+    setSummary(s.ok ? s.data : null);
+    setPipeline(p.ok ? (p.data.rows ?? []) : []);
+    setCommissions(t.ok ? (t.data.commissions ?? []) : []);
+    setManual(t.ok ? (t.data.manual ?? []) : []);
+    setWeekly(w.ok ? (w.data.rows ?? []) : []);
+    setPortals(ps.ok ? (ps.data.portals ?? []) : []);
+    setErrors({
+      dashboard: s.ok ? null : s.error,
+      pipeline: p.ok ? null : p.error,
+      transactions: t.ok ? null : t.error,
+      weekly: w.ok ? null : w.error,
+      portal: ps.ok ? null : ps.error,
+    });
     setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orgId]);
+
 
   useEffect(() => {
     void boot();
@@ -152,7 +178,9 @@ const AdminTenantPreview = () => {
               <TabsTrigger value="portal">Client portal</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="dashboard" className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <TabsContent value="dashboard" className="mt-4 space-y-4">
+              {errors.dashboard && <Failed label="Dashboard" error={errors.dashboard} />}
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {[
                 { label: 'Team members', value: summary?.memberCount ?? 0, icon: Users },
                 { label: 'Pipeline clients', value: summary?.pipelineCount ?? 0, icon: Building2 },
@@ -175,6 +203,7 @@ const AdminTenantPreview = () => {
                   </CardContent>
                 </Card>
               ))}
+              </div>
             </TabsContent>
 
             <TabsContent value="pipeline" className="mt-4">
@@ -188,7 +217,9 @@ const AdminTenantPreview = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  {pipeline.length === 0 ? (
+                  {errors.pipeline ? (
+                    <Failed label="Pipeline" error={errors.pipeline} />
+                  ) : pipeline.length === 0 ? (
                     <Empty label="No pipeline clients yet — this is the empty state the team will see." />
                   ) : (
                     pipeline.map((r) => (
@@ -211,7 +242,9 @@ const AdminTenantPreview = () => {
                   <CardTitle className="text-base">Commissions</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {commissions.length === 0 ? (
+                  {errors.transactions ? (
+                    <Failed label="Commissions" error={errors.transactions} />
+                  ) : commissions.length === 0 ? (
                     <Empty label="No commission records yet." />
                   ) : (
                     <p className="text-sm">{commissions.length.toLocaleString()} record(s)</p>
@@ -223,7 +256,9 @@ const AdminTenantPreview = () => {
                   <CardTitle className="text-base">Manual production</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {manual.length === 0 ? (
+                  {errors.transactions ? (
+                    <Failed label="Manual production" error={errors.transactions} />
+                  ) : manual.length === 0 ? (
                     <Empty label="No manual production entered yet." />
                   ) : (
                     <p className="text-sm">{manual.length.toLocaleString()} month(s) recorded</p>
@@ -239,7 +274,9 @@ const AdminTenantPreview = () => {
                   <CardDescription>4-1-1 records for this team.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  {weekly.length === 0 ? (
+                  {errors.weekly ? (
+                    <Failed label="Weekly accountability" error={errors.weekly} />
+                  ) : weekly.length === 0 ? (
                     <Empty label="No weekly records yet." />
                   ) : (
                     weekly.map((w) => (
@@ -262,7 +299,9 @@ const AdminTenantPreview = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  {portals.length === 0 ? (
+                  {errors.portal ? (
+                    <Failed label="Client portal" error={errors.portal} />
+                  ) : portals.length === 0 ? (
                     <Empty label="No client portals yet — the shell is ready for their first client." />
                   ) : (
                     portals.map((p) => (
