@@ -15,9 +15,8 @@ interface Props {
   inviteUrl?: string
   /** Human-readable expiry, e.g. "September 16, 2026". */
   expiresOn?: string
-  /** Person who issued the invitation. */
-  inviterName?: string
-  senderEmail?: string
+  /** Drop the leading "Your" from the subject line (for team names starting with "The"). */
+  subjectDropYour?: boolean
 }
 
 const Email = (p: Props) => (
@@ -32,19 +31,20 @@ const Email = (p: Props) => (
         <Text style={text}>Hi {p.ownerName ?? 'there'},</Text>
 
         <Text style={text}>
-          Quick correction to our earlier email: it had my name wrong — it's Kristen Schulz.
+          A quick correction — my name was wrong in the email you just received. It's Kristen
+          Schulz. Apologies for the confusion.
         </Text>
 
         <Text style={text}>
-          {p.inviterName ?? 'Kristen Schulz'} has set up your own real estate hub for{' '}
-          <strong>{p.teamName ?? 'your business'}</strong>. You are being added as the owner of the
-          account, which means you control your team, your settings and your data.
+          Everything else stands. Your own real estate hub for{' '}
+          <strong>{p.teamName ?? 'your business'}</strong> is ready, and you're set up as the
+          owner, which means you control your team, your settings and your data.
         </Text>
 
         <Text style={text}>
-          Your hub lives at <strong>{p.hubHost ?? ''}</strong>. The invitation link is unchanged
-          from the earlier email — use the button below to accept the invitation and create your
-          password.
+          Your hub lives at <strong>{p.hubHost ?? ''}</strong>. Use the link below to accept and
+          create your password — the link from the first email still works, so use whichever is
+          handy.
         </Text>
 
         <Section style={{ textAlign: 'center', margin: '28px 0' }}>
@@ -54,7 +54,7 @@ const Email = (p: Props) => (
         </Section>
 
         <Text style={small}>
-          If the button does not work, copy and paste this link into your browser:
+          If the button doesn't work, paste this into your browser:
           <br />
           <Link href={p.inviteUrl} style={link}>{p.inviteUrl}</Link>
         </Text>
@@ -66,7 +66,12 @@ const Email = (p: Props) => (
         </Text>
 
         <Text style={footer}>
-          Questions? Reply to {p.senderEmail ?? 'this email'} and Kristen will help you get started.
+          Questions? Just reply to this email.
+          <br />
+          <br />
+          Kristen Schulz
+          <br />
+          LUXE Realty Group
         </Text>
 
       </Container>
@@ -76,7 +81,8 @@ const Email = (p: Props) => (
 
 export const template = {
   component: Email,
-  subject: (d: Props) => `Correction: Your ${d?.teamName ?? 'real estate'} hub is ready`,
+  subject: (d: Props) =>
+    `Correction: ${d?.subjectDropYour ? '' : 'Your '}${d?.teamName ?? 'real estate'} hub is ready`,
   displayName: 'Team owner invitation (correction)',
   previewData: {
     ownerName: 'Gabriele',
@@ -84,8 +90,6 @@ export const template = {
     hubHost: 'homesintoreality.luxerealtyhub.com',
     inviteUrl: 'https://homesintoreality.luxerealtyhub.com/join?token=example',
     expiresOn: 'September 16, 2026',
-    inviterName: 'Kristen Schulz',
-    senderEmail: 'info@luxerealtygroup.ca',
   },
 } satisfies TemplateEntry
 
