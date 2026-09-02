@@ -5014,6 +5014,7 @@ export type Database = {
         Args: { _portal_id: string; _user_id: string }
         Returns: boolean
       }
+      portal_object_in_my_org: { Args: { _name: string }; Returns: boolean }
       portal_send_email: {
         Args: {
           _data: Json
@@ -5081,6 +5082,7 @@ export type Database = {
         Args: { _actor: string; _key: string; _org_id: string; _value: string }
         Returns: undefined
       }
+      topic_in_my_org: { Args: { _topic: string }; Returns: boolean }
       user_in_my_org: { Args: { _user_id: string }; Returns: boolean }
       validate_org_invite: {
         Args: { _token: string }
