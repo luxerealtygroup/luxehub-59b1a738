@@ -149,7 +149,7 @@ Deno.serve(async (req) => {
   if (dataset === 'pipeline') {
     const { data } = await db
       .from('pipeline_clients')
-      .select('id, client_name, status, estimated_value, target_date')
+      .select('id, client_name, stage, status, property_address, projected_sale_amount, projected_gci, expected_pending_date')
       .eq('org_id', orgId)
       .order('created_at', { ascending: false })
       .limit(50);
@@ -160,15 +160,15 @@ Deno.serve(async (req) => {
     const [commissions, manual] = await Promise.all([
       db
         .from('commissions')
-        .select('id, property_address, sale_price, gross_commission, status, closing_date')
+        .select('id, amount, gross_commission, status, transaction_side, paid_at')
         .eq('org_id', orgId)
-        .order('closing_date', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(50),
       db
         .from('manual_production')
-        .select('id, property_address, sale_price, status, closing_date')
+        .select('id, year, month, closed_deals, pending_deals, gci_closed, gci_pending, total_volume')
         .eq('org_id', orgId)
-        .order('closing_date', { ascending: false })
+        .order('year', { ascending: false })
         .limit(50),
     ]);
     return json({ commissions: commissions.data ?? [], manual: manual.data ?? [], fubEnabled });
