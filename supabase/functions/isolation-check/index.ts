@@ -418,12 +418,15 @@ Deno.serve(async (req) => {
       await admin.from('profiles').delete().eq('id', intruderId);
     }
 
-    // Positive control: the service role CAN do it (proves the probe is real).
-    const ctlId = crypto.randomUUID();
+    // Positive control: the service role CAN move the same row (proves the
+    // probe targets a real, writable column and is not failing for other reasons).
     const { error: ctlErr } = await admin
-      .from('profiles').insert({ id: ctlId, email: 'escalation-control@example.com', org_id: luxeOrg });
-    escalation['control_service_role_insert'] = ctlErr ? `FAILED (${ctlErr.message})` : 'ok';
-    await admin.from('profiles').delete().eq('id', ctlId);
+      .from('profiles').update({ org_id: luxeOrg }).eq('id', FIXTURE_USER_ID);
+    const { data: ctlRow } = await admin
+      .from('profiles').select('org_id').eq('id', FIXTURE_USER_ID).maybeSingle();
+    escalation['control_service_role_insert'] =
+      !ctlErr && ctlRow?.org_id === luxeOrg ? 'ok' : `FAILED (${ctlErr?.message ?? 'no change'})`;
+    await admin.from('profiles').update({ org_id: fixtureOrgId }).eq('id', FIXTURE_USER_ID);
   }
 
   await admin.auth.admin.updateUserById(FIXTURE_USER_ID, {
