@@ -32,11 +32,29 @@ const JoinOrg = () => {
   const [info, setInfo] = useState<InviteInfo | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
+  const [currentEmail, setCurrentEmail] = useState<string | null>(null);
+  const [currentOrgId, setCurrentOrgId] = useState<string | null>(null);
+  const [currentOrgName, setCurrentOrgName] = useState<string | null>(null);
+  const [confirmMove, setConfirmMove] = useState(false);
 
   useEffect(() => {
     const run = async () => {
       const { data: sess } = await supabase.auth.getSession();
-      setSignedIn(Boolean(sess.session));
+      const session = sess.session;
+      setSignedIn(Boolean(session));
+      setCurrentEmail(session?.user.email ?? null);
+
+      if (session) {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('org_id, organizations(name)')
+          .eq('id', session.user.id)
+          .maybeSingle();
+        setCurrentOrgId(prof?.org_id ?? null);
+        setCurrentOrgName(
+          (prof?.organizations as { name: string } | null)?.name ?? null,
+        );
+      }
 
       const { data, error } = await supabase.rpc('validate_org_invite', { _token: token });
       const row = (Array.isArray(data) ? data[0] : data) as InviteInfo | undefined;
@@ -48,8 +66,25 @@ const JoinOrg = () => {
     else void run();
   }, [token]);
 
+  // A signed-in session that already belongs to a DIFFERENT team would be moved
+  // out of that team by accepting. Never let that happen silently.
+  const wouldMoveAccount =
+    signedIn &&
+    Boolean(currentOrgId) &&
+    Boolean(info?.org_id) &&
+    currentOrgId !== info?.org_id;
+
+  const signOutAndRestart = async () => {
+    await supabase.auth.signOut();
+    window.location.href = `/join?token=${encodeURIComponent(token)}`;
+  };
+
   const accept = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (wouldMoveAccount && !confirmMove) {
+      toast.error('Tick the confirmation box first — this moves your account between teams.');
+      return;
+    }
     const fd = new FormData(e.currentTarget);
     const fullName = String(fd.get('fullName') ?? '').trim();
     const password = String(fd.get('password') ?? '');
@@ -86,6 +121,7 @@ const JoinOrg = () => {
     }
   };
 
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/30 p-6">
       <Card className="w-full max-w-md">
@@ -106,10 +142,46 @@ const JoinOrg = () => {
           {status === 'loading' && <Loader2 className="h-5 w-5 animate-spin" />}
           {status === 'valid' && (
             <form onSubmit={accept} className="space-y-4">
+              {wouldMoveAccount && (
+                <div className="space-y-3 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+                  <p className="font-medium text-destructive">
+                    You are signed in as {currentEmail} on{' '}
+                    {currentOrgName ?? 'another team'}.
+                  </p>
+                  <p className="text-muted-foreground">
+                    An account can belong to only one team. Accepting this invitation will move
+                    this account out of {currentOrgName ?? 'your current team'} and into{' '}
+                    {info?.org_name ?? 'the new team'}, and you will lose access to{' '}
+                    {currentOrgName ?? 'your current team'}'s data. If this invitation is meant
+                    for a different person or a separate account, sign out first.
+                  </p>
+                  <label className="flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={confirmMove}
+                      onChange={(ev) => setConfirmMove(ev.target.checked)}
+                    />
+                    <span>
+                      I understand: move this account from {currentOrgName ?? 'my current team'}{' '}
+                      to {info?.org_name ?? 'the new team'}.
+                    </span>
+                  </label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => void signOutAndRestart()}
+                  >
+                    Sign out and accept as {info?.email ?? 'the invited address'}
+                  </Button>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input id="email" value={info?.email ?? ''} readOnly disabled />
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="fullName">Full name</Label>
                 <Input
@@ -144,7 +216,11 @@ const JoinOrg = () => {
                   </div>
                 </>
               )}
-              <Button type="submit" className="w-full" disabled={submitting}>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={submitting || (wouldMoveAccount && !confirmMove)}
+              >
                 {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Accept invitation
               </Button>
