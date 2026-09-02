@@ -238,9 +238,13 @@ Deno.serve(async (req) => {
     foreignProfiles,
     byId,
     controls,
+    storage,
+    storageControls,
+    realtime,
     denied: errors,
     leaks,
     vacuous,
     pass: leaks.length === 0 && vacuous.length === 0,
   });
 });
+
