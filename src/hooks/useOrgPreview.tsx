@@ -41,7 +41,18 @@ interface PreviewState {
 
 const STORAGE_KEY = 'orgPreviewSession';
 
+export type PreviewRead<T> = { ok: true; data: T } | { ok: false; error: string };
+
+/**
+ * The only route allowed to render a preview. A preview session is torn down as
+ * soon as the app navigates anywhere else, so no real page can ever be painted
+ * in another team's branding while reading the signed-in user's own org.
+ */
+export const ORG_PREVIEW_PATH = /^\/dashboard\/admin\/tenants\/[^/]+\/preview\/?$/;
+export const isOrgPreviewPath = (pathname: string) => ORG_PREVIEW_PATH.test(pathname);
+
 let state: PreviewState | null = readStored();
+
 const listeners = new Set<() => void>();
 
 function readStored(): PreviewState | null {
