@@ -129,6 +129,14 @@ Deno.serve(async (req) => {
   if (luxePortal?.id) {
     const folder = luxePortal.id as string;
     for (const bucket of ['portal-documents', 'portal-photos'] as const) {
+      // Sweep any leftovers from an earlier run before starting.
+      const { data: stale } = await admin.storage.from(bucket).list(folder);
+      const staleNames = (stale ?? [])
+        .filter((o) => o.name.startsWith('isolation-probe-') || o.name.startsWith('fixture-intrusion-'))
+        .map((o) => `${folder}/${o.name}`);
+      if (staleNames.length) await admin.storage.from(bucket).remove(staleNames);
+
+
       // Probe object written with the service role inside the Luxe portal folder.
       const probePath = `${folder}/isolation-probe-${crypto.randomUUID()}.txt`;
       const probe = new Blob(['isolation probe'], { type: 'text/plain' });
