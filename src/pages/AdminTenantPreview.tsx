@@ -11,6 +11,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   Building2,
   CalendarDays,
+  AlertTriangle,
   FileText,
   Loader2,
   Lock,
@@ -177,7 +178,9 @@ const AdminTenantPreview = () => {
               <TabsTrigger value="portal">Client portal</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="dashboard" className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <TabsContent value="dashboard" className="mt-4 space-y-4">
+              {errors.dashboard && <Failed label="Dashboard" error={errors.dashboard} />}
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {[
                 { label: 'Team members', value: summary?.memberCount ?? 0, icon: Users },
                 { label: 'Pipeline clients', value: summary?.pipelineCount ?? 0, icon: Building2 },
@@ -200,6 +203,7 @@ const AdminTenantPreview = () => {
                   </CardContent>
                 </Card>
               ))}
+              </div>
             </TabsContent>
 
             <TabsContent value="pipeline" className="mt-4">
@@ -213,7 +217,9 @@ const AdminTenantPreview = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  {pipeline.length === 0 ? (
+                  {errors.pipeline ? (
+                    <Failed label="Pipeline" error={errors.pipeline} />
+                  ) : pipeline.length === 0 ? (
                     <Empty label="No pipeline clients yet — this is the empty state the team will see." />
                   ) : (
                     pipeline.map((r) => (
@@ -236,7 +242,9 @@ const AdminTenantPreview = () => {
                   <CardTitle className="text-base">Commissions</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {commissions.length === 0 ? (
+                  {errors.transactions ? (
+                    <Failed label="Commissions" error={errors.transactions} />
+                  ) : commissions.length === 0 ? (
                     <Empty label="No commission records yet." />
                   ) : (
                     <p className="text-sm">{commissions.length.toLocaleString()} record(s)</p>
@@ -248,7 +256,9 @@ const AdminTenantPreview = () => {
                   <CardTitle className="text-base">Manual production</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {manual.length === 0 ? (
+                  {errors.transactions ? (
+                    <Failed label="Manual production" error={errors.transactions} />
+                  ) : manual.length === 0 ? (
                     <Empty label="No manual production entered yet." />
                   ) : (
                     <p className="text-sm">{manual.length.toLocaleString()} month(s) recorded</p>
@@ -264,7 +274,9 @@ const AdminTenantPreview = () => {
                   <CardDescription>4-1-1 records for this team.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  {weekly.length === 0 ? (
+                  {errors.weekly ? (
+                    <Failed label="Weekly accountability" error={errors.weekly} />
+                  ) : weekly.length === 0 ? (
                     <Empty label="No weekly records yet." />
                   ) : (
                     weekly.map((w) => (
@@ -287,7 +299,9 @@ const AdminTenantPreview = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  {portals.length === 0 ? (
+                  {errors.portal ? (
+                    <Failed label="Client portal" error={errors.portal} />
+                  ) : portals.length === 0 ? (
                     <Empty label="No client portals yet — the shell is ready for their first client." />
                   ) : (
                     portals.map((p) => (
