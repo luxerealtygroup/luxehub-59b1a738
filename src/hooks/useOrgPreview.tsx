@@ -113,14 +113,25 @@ export function useOrgPreview() {
     }
   };
 
-  const read = async <T,>(dataset: string): Promise<T | null> => {
-    if (!state) return null;
+  /**
+   * Reads one allowlisted dataset from the org-preview function.
+   *
+   * Hard fail by design: a dataset that cannot be read returns `ok: false` so
+   * the caller renders an explicit error state. Nothing here ever falls back to
+   * a direct Supabase query — that would resolve to the signed-in user's own
+   * org and display one team's records inside another team's branding.
+   */
+  const read = async <T,>(dataset: string): Promise<PreviewRead<T>> => {
+    if (!state) return { ok: false, error: 'No active preview session.' };
     const { data, error } = await supabase.functions.invoke('org-preview', {
       body: { action: 'read', org_id: state.branding.orgId, dataset },
     });
-    if (error) return null;
-    return data as T;
+    if (error || data == null) {
+      return { ok: false, error: error?.message || `Could not load "${dataset}".` };
+    }
+    return { ok: true, data: data as T };
   };
+
 
   const stop = async () => {
     const sessionId = state?.sessionId;
