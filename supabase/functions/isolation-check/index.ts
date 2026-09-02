@@ -81,10 +81,17 @@ Deno.serve(async (req) => {
     global: { headers: { Authorization: `Bearer ${session.session.access_token}` } },
   });
 
+  // The fixture's own throwaway org (its own rows are legitimate, not leaks).
+  const { data: fixtureProfile } = await admin
+    .from('profiles').select('org_id').eq('id', FIXTURE_USER_ID).maybeSingle();
+  const fixtureOrgId = (fixtureProfile?.org_id as string | undefined) ?? null;
+
   const counts: Record<string, number> = {};
   const errors: Record<string, string> = {};
   for (const t of TABLES) {
-    const { count, error } = await asFixture.from(t).select('id', { count: 'exact', head: true });
+    let q = asFixture.from(t).select('id', { count: 'exact', head: true });
+    if (fixtureOrgId) q = q.neq('org_id', fixtureOrgId);
+    const { count, error } = await q;
     if (error) {
       // A denial is a pass (no rows reachable); record it for the report.
       errors[t] = error.message;
@@ -94,9 +101,10 @@ Deno.serve(async (req) => {
     }
   }
 
-  // Profiles: only the fixture's own row may be visible.
-  const { data: profileRows } = await asFixture.from('profiles').select('id');
-  const foreignProfiles = (profileRows ?? []).filter((r) => r.id !== FIXTURE_USER_ID).length;
+  // Profiles: no profile from another org may be visible.
+  const { data: profileRows } = await asFixture.from('profiles').select('id, org_id');
+  const foreignProfiles = (profileRows ?? [])
+    .filter((r) => r.id !== FIXTURE_USER_ID && r.org_id !== fixtureOrgId).length;
 
   // Direct-by-ID reads of known Luxe records must return nothing.
   const { data: org } = await admin
@@ -188,15 +196,13 @@ Deno.serve(async (req) => {
   }
 
   // ---- Realtime: private topics must be org-scoped ----
-  const { data: fixtureProfile } = await admin
-    .from('profiles').select('org_id').eq('id', FIXTURE_USER_ID).maybeSingle();
 
-  async function tryTopic(topic: string): Promise<'joined' | 'blocked'> {
+  async function tryTopicAs(token: string, topic: string): Promise<'joined' | 'blocked'> {
     const rt = createClient(url, anonKey, {
       auth: { persistSession: false },
-      global: { headers: { Authorization: `Bearer ${session!.session!.access_token}` } },
+      global: { headers: { Authorization: `Bearer ${token}` } },
     });
-    await rt.realtime.setAuth(session!.session!.access_token);
+    await rt.realtime.setAuth(token);
     const ch = rt.channel(topic, { config: { private: true } });
     const result = await new Promise<'joined' | 'blocked'>((resolve) => {
       const timer = setTimeout(() => resolve('blocked'), 8000);
@@ -210,6 +216,7 @@ Deno.serve(async (req) => {
     await rt.removeChannel(ch);
     return result;
   }
+  const tryTopic = (topic: string) => tryTopicAs(session!.session!.access_token, topic);
 
   const realtime: Record<string, string> = {};
   const realtimeLeaks: string[] = [];
@@ -226,6 +233,160 @@ Deno.serve(async (req) => {
     ? await tryTopic(`org-${fixtureProfile.org_id}-updates`)
     : 'skipped';
 
+  // ---- Same team, unassigned agent ----
+  // Portal access is now limited to the assigned agent (client_accounts.invited_by)
+  // or a same-org admin/owner. Prove that an agent in the SAME org who is not
+  // assigned to the portal cannot read its files, rows, or realtime topic —
+  // with the assigned agent as the positive control.
+  const sameTeam: Record<string, string> = {};
+  const sameTeamLeaks: string[] = [];
+  const sameTeamVacuous: string[] = [];
+  const fixtureOrg = fixtureProfile?.org_id as string | undefined;
+
+  async function fixtureAgent(email: string): Promise<{ id: string; token: string } | null> {
+    const password = crypto.randomUUID() + crypto.randomUUID();
+    const { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    let user = (list?.users ?? []).find((u) => u.email === email) ?? null;
+    if (!user) {
+      const { data: created } = await admin.auth.admin.createUser({
+        email, password, email_confirm: true,
+      });
+      user = created?.user ?? null;
+    } else {
+      await admin.auth.admin.updateUserById(user.id, { password, email_confirm: true });
+    }
+    if (!user) return null;
+    await admin.from('profiles').upsert(
+      { id: user.id, email, full_name: 'Isolation Fixture Agent', org_id: fixtureOrg },
+      { onConflict: 'id' },
+    );
+    await admin.from('user_roles').upsert(
+      { user_id: user.id, role: 'agent' }, { onConflict: 'user_id,role' },
+    );
+    const { data: s } = await anon.auth.signInWithPassword({ email, password });
+    if (!s?.session) return null;
+    return { id: user.id, token: s.session.access_token };
+  }
+
+  if (fixtureOrg) {
+    const assigned = await fixtureAgent('isolation-assigned@isolation.invalid');
+    const unassigned = await fixtureAgent('isolation-unassigned@isolation.invalid');
+
+    if (!assigned || !unassigned) {
+      sameTeamVacuous.push('same-team fixture agents could not be prepared');
+    } else {
+      // A portal in the fixture org, assigned to `assigned`.
+      const { data: existing } = await admin
+        .from('client_accounts')
+        .select('id')
+        .eq('org_id', fixtureOrg)
+        .eq('email', 'isolation-portal@isolation.invalid')
+        .maybeSingle();
+      let portalId = existing?.id as string | undefined;
+      if (!portalId) {
+        const { data: ins } = await admin
+          .from('client_accounts')
+          .insert({
+            org_id: fixtureOrg,
+            email: 'isolation-portal@isolation.invalid',
+            full_name: 'Isolation Fixture Client',
+            invited_by: assigned.id,
+          })
+          .select('id')
+          .maybeSingle();
+        portalId = ins?.id as string | undefined;
+      } else {
+        await admin.from('client_accounts').update({ invited_by: assigned.id }).eq('id', portalId);
+      }
+
+      if (!portalId) {
+        sameTeamVacuous.push('same-team fixture portal could not be prepared');
+      } else {
+        sameTeam['assignment_column'] = 'client_accounts.invited_by';
+        const probePath = `${portalId}/isolation-probe-${crypto.randomUUID()}.txt`;
+        const blob = new Blob(['same team probe'], { type: 'text/plain' });
+        const { error: seedErr } = await admin.storage
+          .from('portal-documents').upload(probePath, blob);
+        if (seedErr) {
+          sameTeamVacuous.push('same-team storage probe seed failed: ' + seedErr.message);
+        } else {
+          const asAgent = (token: string) =>
+            createClient(url, anonKey, {
+              auth: { persistSession: false },
+              global: { headers: { Authorization: `Bearer ${token}` } },
+            });
+
+          const un = asAgent(unassigned.token);
+          const as = asAgent(assigned.token);
+
+          const { data: unList } = await un.storage.from('portal-documents').list(portalId);
+          sameTeam['unassigned:list'] = String((unList ?? []).length);
+          if ((unList ?? []).length > 0) sameTeamLeaks.push('same-team unassigned list');
+
+          const { data: unDl, error: unDlErr } = await un.storage
+            .from('portal-documents').download(probePath);
+          sameTeam['unassigned:download'] = unDlErr ? `denied (${unDlErr.message})` : 'DOWNLOADED';
+          if (!unDlErr && unDl) sameTeamLeaks.push('same-team unassigned download');
+
+          const intrusion = `${portalId}/fixture-intrusion-${crypto.randomUUID()}.txt`;
+          const { error: unUpErr } = await un.storage
+            .from('portal-documents').upload(intrusion, blob);
+          sameTeam['unassigned:upload'] = unUpErr ? `denied (${unUpErr.message})` : 'UPLOADED';
+          if (!unUpErr) {
+            sameTeamLeaks.push('same-team unassigned upload');
+            await admin.storage.from('portal-documents').remove([intrusion]);
+          }
+
+          const { data: unDel, error: unDelErr } = await un.storage
+            .from('portal-documents').remove([probePath]);
+          const unDeleted = !unDelErr && (unDel ?? []).length > 0;
+          sameTeam['unassigned:delete'] = unDeleted ? 'DELETED' : 'denied';
+          if (unDeleted) sameTeamLeaks.push('same-team unassigned delete');
+
+          // Row-level: the portal itself must be invisible to the unassigned agent.
+          const { data: unRow } = await un.from('client_accounts').select('id').eq('id', portalId);
+          sameTeam['unassigned:client_accounts_by_id'] = String((unRow ?? []).length);
+          if ((unRow ?? []).length > 0) sameTeamLeaks.push('same-team unassigned client_accounts row');
+
+          // Realtime
+          sameTeam['unassigned:portal_topic'] = await tryTopicAs(
+            unassigned.token, `portal-messages-${portalId}-agent`,
+          );
+          if (sameTeam['unassigned:portal_topic'] === 'joined') {
+            sameTeamLeaks.push('same-team unassigned portal topic');
+          }
+
+          // Positive controls: the ASSIGNED agent can do all of it.
+          if (unDeleted) {
+            await admin.storage.from('portal-documents').upload(probePath, blob);
+          }
+          const { data: asList } = await as.storage.from('portal-documents').list(portalId);
+          sameTeam['assigned:list'] = String((asList ?? []).length);
+          if ((asList ?? []).length === 0) sameTeamVacuous.push('assigned agent cannot list portal files');
+
+          const { data: asDl, error: asDlErr } = await as.storage
+            .from('portal-documents').download(probePath);
+          sameTeam['assigned:download'] = asDlErr ? `DENIED (${asDlErr.message})` : 'ok';
+          if (asDlErr || !asDl) sameTeamVacuous.push('assigned agent cannot download portal file');
+
+          sameTeam['assigned:portal_topic'] = await tryTopicAs(
+            assigned.token, `portal-messages-${portalId}-agent`,
+          );
+          if (sameTeam['assigned:portal_topic'] !== 'joined') {
+            sameTeamVacuous.push('assigned agent cannot join portal topic');
+          }
+
+          // Cleanup any test artifacts.
+          const { data: leftovers } = await admin.storage.from('portal-documents').list(portalId);
+          const paths = (leftovers ?? [])
+            .filter((o) => o.name.startsWith('isolation-probe-') || o.name.startsWith('fixture-intrusion-'))
+            .map((o) => `${portalId}/${o.name}`);
+          if (paths.length) await admin.storage.from('portal-documents').remove(paths);
+        }
+      }
+    }
+  }
+
   await admin.auth.admin.updateUserById(FIXTURE_USER_ID, {
     password: crypto.randomUUID() + crypto.randomUUID(),
   });
@@ -236,6 +397,7 @@ Deno.serve(async (req) => {
     ...(foreignProfiles > 0 ? ['profiles (other users)'] : []),
     ...storageLeaks,
     ...realtimeLeaks,
+    ...sameTeamLeaks,
   ];
   const vacuous = [
     ...Object.entries(controls).filter(([, n]) => n === 0).map(([t]) => t),
@@ -243,6 +405,7 @@ Deno.serve(async (req) => {
       .filter(([k, v]) => (k.endsWith(':seed') ? v !== 'ok' : Number(v) === 0))
       .map(([k]) => `storage ${k}`),
     ...(realtime['own_org_topic'] === 'blocked' ? ['realtime own-org topic'] : []),
+    ...sameTeamVacuous,
   ];
 
 
@@ -255,6 +418,7 @@ Deno.serve(async (req) => {
     storage,
     storageControls,
     realtime,
+    sameTeam,
     denied: errors,
     leaks,
     vacuous,

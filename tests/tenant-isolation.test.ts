@@ -25,6 +25,7 @@ interface Result {
   storage: Record<string, string>;
   storageControls: Record<string, string>;
   realtime: Record<string, string>;
+  sameTeam: Record<string, string>;
   leaks: string[];
   vacuous: string[];
   pass: boolean;
@@ -83,6 +84,25 @@ describe('tenant isolation (identity-colliding fixture)', () => {
     expect(r.realtime.foreign_org_topic, 'joined another org realtime topic').toBe('blocked');
     expect(r.realtime.own_org_topic, 'realtime positive control failed — test would pass vacuously')
       .toBe('joined');
+
+    // Same team, agent NOT assigned to the portal: no files, no rows, no topic.
+    const st = r.sameTeam ?? {};
+    expect(st.assignment_column, 'same-team fixture did not run').toBe('client_accounts.invited_by');
+    expect(Number(st['unassigned:list']), 'unassigned same-team agent listed portal files').toBe(0);
+    expect(st['unassigned:download'], 'unassigned same-team agent downloaded a portal file')
+      .toMatch(/^denied/);
+    expect(st['unassigned:upload'], 'unassigned same-team agent uploaded into a portal')
+      .toMatch(/^denied/);
+    expect(st['unassigned:delete'], 'unassigned same-team agent deleted a portal file').toBe('denied');
+    expect(Number(st['unassigned:client_accounts_by_id']), 'unassigned agent read the portal row').toBe(0);
+    expect(st['unassigned:portal_topic'], 'unassigned agent joined the portal realtime topic')
+      .toBe('blocked');
+    // Positive control: the ASSIGNED agent still has full access.
+    expect(Number(st['assigned:list']), 'assigned agent cannot list — test would pass vacuously')
+      .toBeGreaterThan(0);
+    expect(st['assigned:download'], 'assigned agent cannot download — vacuous').toBe('ok');
+    expect(st['assigned:portal_topic'], 'assigned agent cannot subscribe — vacuous').toBe('joined');
+
 
     expect(r.leaks).toEqual([]);
     expect(r.vacuous).toEqual([]);
