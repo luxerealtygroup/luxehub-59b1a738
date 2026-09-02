@@ -151,11 +151,17 @@ Deno.serve(async (req) => {
       if (!dlErr && dl) storageLeaks.push(`${bucket} download`);
 
       // upload
+      const intrusionPath = `${folder}/fixture-intrusion-${crypto.randomUUID()}.txt`;
       const { error: upErr } = await asFixture.storage
         .from(bucket)
-        .upload(`${folder}/fixture-intrusion-${crypto.randomUUID()}.txt`, probe);
+        .upload(intrusionPath, probe);
       storage[`${bucket}:upload`] = upErr ? `denied (${upErr.message})` : 'UPLOADED';
-      if (!upErr) storageLeaks.push(`${bucket} upload`);
+      if (!upErr) {
+        storageLeaks.push(`${bucket} upload`);
+        // Never leave test data inside a real tenant's portal folder.
+        await admin.storage.from(bucket).remove([intrusionPath]);
+      }
+
 
       // delete
       const { data: del, error: delErr } = await asFixture.storage.from(bucket).remove([probePath]);
