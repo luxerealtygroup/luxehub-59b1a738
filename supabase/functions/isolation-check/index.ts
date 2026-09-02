@@ -81,10 +81,17 @@ Deno.serve(async (req) => {
     global: { headers: { Authorization: `Bearer ${session.session.access_token}` } },
   });
 
+  // The fixture's own throwaway org (its own rows are legitimate, not leaks).
+  const { data: fixtureProfile } = await admin
+    .from('profiles').select('org_id').eq('id', FIXTURE_USER_ID).maybeSingle();
+  const fixtureOrgId = (fixtureProfile?.org_id as string | undefined) ?? null;
+
   const counts: Record<string, number> = {};
   const errors: Record<string, string> = {};
   for (const t of TABLES) {
-    const { count, error } = await asFixture.from(t).select('id', { count: 'exact', head: true });
+    let q = asFixture.from(t).select('id', { count: 'exact', head: true });
+    if (fixtureOrgId) q = q.neq('org_id', fixtureOrgId);
+    const { count, error } = await q;
     if (error) {
       // A denial is a pass (no rows reachable); record it for the report.
       errors[t] = error.message;
@@ -94,9 +101,10 @@ Deno.serve(async (req) => {
     }
   }
 
-  // Profiles: only the fixture's own row may be visible.
-  const { data: profileRows } = await asFixture.from('profiles').select('id');
-  const foreignProfiles = (profileRows ?? []).filter((r) => r.id !== FIXTURE_USER_ID).length;
+  // Profiles: no profile from another org may be visible.
+  const { data: profileRows } = await asFixture.from('profiles').select('id, org_id');
+  const foreignProfiles = (profileRows ?? [])
+    .filter((r) => r.id !== FIXTURE_USER_ID && r.org_id !== fixtureOrgId).length;
 
   // Direct-by-ID reads of known Luxe records must return nothing.
   const { data: org } = await admin
