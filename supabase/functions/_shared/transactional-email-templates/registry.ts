@@ -28,4 +28,5 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'portal-new-message': portalNewMessage,
   'onboarding-request': onboardingRequest,
   'team-owner-invite': teamOwnerInvite,
+  'team-owner-invite-correction': teamOwnerInviteCorrection,
 }
