@@ -142,10 +142,46 @@ const JoinOrg = () => {
           {status === 'loading' && <Loader2 className="h-5 w-5 animate-spin" />}
           {status === 'valid' && (
             <form onSubmit={accept} className="space-y-4">
+              {wouldMoveAccount && (
+                <div className="space-y-3 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+                  <p className="font-medium text-destructive">
+                    You are signed in as {currentEmail} on{' '}
+                    {currentOrgName ?? 'another team'}.
+                  </p>
+                  <p className="text-muted-foreground">
+                    An account can belong to only one team. Accepting this invitation will move
+                    this account out of {currentOrgName ?? 'your current team'} and into{' '}
+                    {info?.org_name ?? 'the new team'}, and you will lose access to{' '}
+                    {currentOrgName ?? 'your current team'}'s data. If this invitation is meant
+                    for a different person or a separate account, sign out first.
+                  </p>
+                  <label className="flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={confirmMove}
+                      onChange={(ev) => setConfirmMove(ev.target.checked)}
+                    />
+                    <span>
+                      I understand: move this account from {currentOrgName ?? 'my current team'}{' '}
+                      to {info?.org_name ?? 'the new team'}.
+                    </span>
+                  </label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => void signOutAndRestart()}
+                  >
+                    Sign out and accept as {info?.email ?? 'the invited address'}
+                  </Button>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input id="email" value={info?.email ?? ''} readOnly disabled />
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="fullName">Full name</Label>
                 <Input
