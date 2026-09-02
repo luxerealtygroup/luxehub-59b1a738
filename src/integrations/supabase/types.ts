@@ -5014,6 +5014,7 @@ export type Database = {
         Args: { _portal_id: string; _user_id: string }
         Returns: boolean
       }
+      portal_object_accessible: { Args: { _name: string }; Returns: boolean }
       portal_object_in_my_org: { Args: { _name: string }; Returns: boolean }
       portal_send_email: {
         Args: {
