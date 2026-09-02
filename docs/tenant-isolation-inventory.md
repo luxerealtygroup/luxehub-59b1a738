@@ -81,7 +81,7 @@ service-role only.
 | has_role / is_admin_or_owner / is_team_member / is_client / is_demo_account | identity | role checks only; always combined with an org predicate in policies |
 | is_super_admin | org | requires membership of the original org |
 | can_access_portal / owns_portal / get_portal_realtor | PARENT | portal ownership |
-| get_team_agents | **identity only** | returns team members app-wide — see "Cannot be org-scoped / follow-ups" |
+| get_team_agents | org | **fixed this pass** — now filters `p.org_id = current_user_org_id()` |
 | create_org_invite / revoke_org_invite / claim_org_invite / validate_org_invite | org | seat limits enforced per org |
 | create_portal_invite / claim_portal_invite / validate_portal_invite | PARENT | |
 | get_org_secret / set_org_secret / set_my_org_secret / org_has_integration | org | per-org Vault credentials |
@@ -126,10 +126,6 @@ top of policies that already require `org_id`.
 
 ## 6. Cannot be made org-scoped, and why
 
-- **`get_team_agents()`** — `SECURITY DEFINER`, returns id/name/email for every
-  team member app-wide. It is not currently org-filtered. Recommended follow-up:
-  add `AND p.org_id = current_user_org_id()`. Listed here rather than silently
-  changed because several admin pickers depend on its shape.
 - **Email plumbing tables and the queue functions** — instance-wide by design
   (one sender infrastructure). No tenant data beyond recipient addresses.
 - **`organizations`, `org_preview_sessions`, `profiles_backup_*`,
