@@ -438,6 +438,7 @@ Deno.serve(async (req) => {
     ...storageLeaks,
     ...realtimeLeaks,
     ...sameTeamLeaks,
+    ...escalationLeaks,
   ];
   const vacuous = [
     ...Object.entries(controls).filter(([, n]) => n === 0).map(([t]) => t),
@@ -446,6 +447,9 @@ Deno.serve(async (req) => {
       .map(([k]) => `storage ${k}`),
     ...(realtime['own_org_topic'] === 'blocked' ? ['realtime own-org topic'] : []),
     ...sameTeamVacuous,
+    ...(escalation['control_service_role_insert'] && escalation['control_service_role_insert'] !== 'ok'
+      ? ['escalation probe control']
+      : []),
   ];
 
 
@@ -459,6 +463,7 @@ Deno.serve(async (req) => {
     storageControls,
     realtime,
     sameTeam,
+    escalation,
     denied: errors,
     leaks,
     vacuous,
