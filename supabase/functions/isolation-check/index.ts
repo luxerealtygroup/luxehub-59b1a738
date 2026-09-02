@@ -391,6 +391,7 @@ Deno.serve(async (req) => {
     ...(foreignProfiles > 0 ? ['profiles (other users)'] : []),
     ...storageLeaks,
     ...realtimeLeaks,
+    ...sameTeamLeaks,
   ];
   const vacuous = [
     ...Object.entries(controls).filter(([, n]) => n === 0).map(([t]) => t),
@@ -398,6 +399,7 @@ Deno.serve(async (req) => {
       .filter(([k, v]) => (k.endsWith(':seed') ? v !== 'ok' : Number(v) === 0))
       .map(([k]) => `storage ${k}`),
     ...(realtime['own_org_topic'] === 'blocked' ? ['realtime own-org topic'] : []),
+    ...sameTeamVacuous,
   ];
 
 
@@ -410,6 +412,7 @@ Deno.serve(async (req) => {
     storage,
     storageControls,
     realtime,
+    sameTeam,
     denied: errors,
     leaks,
     vacuous,
