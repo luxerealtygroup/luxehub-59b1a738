@@ -26,6 +26,7 @@ interface Result {
   storageControls: Record<string, string>;
   realtime: Record<string, string>;
   sameTeam: Record<string, string>;
+  escalation: Record<string, string>;
   leaks: string[];
   vacuous: string[];
   pass: boolean;
@@ -103,6 +104,15 @@ describe('tenant isolation (identity-colliding fixture)', () => {
     expect(st['assigned:download'], 'assigned agent cannot download — vacuous').toBe('ok');
     expect(st['assigned:portal_topic'], 'assigned agent cannot subscribe — vacuous').toBe('joined');
 
+
+    // Privilege escalation: the fixture must not be able to join the Luxe org.
+    const esc = r.escalation ?? {};
+    expect(esc.self_update_org_id, 'fixture updated its own profiles.org_id to the Luxe org')
+      .toMatch(/^denied/);
+    expect(esc.insert_profile_with_luxe_org, 'fixture inserted a profile with the Luxe org_id')
+      .toMatch(/^denied/);
+    expect(esc.control_service_role_insert, 'escalation probe control failed — test would pass vacuously')
+      .toBe('ok');
 
     expect(r.leaks).toEqual([]);
     expect(r.vacuous).toEqual([]);
