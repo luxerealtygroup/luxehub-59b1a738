@@ -70,16 +70,17 @@ Deno.serve(async (req) => {
 
     const { data: portal } = await admin
       .from('client_accounts')
-      .select('id, fub_person_id')
+      .select('id, fub_person_id, org_id')
       .eq('id', doc.portal_id)
       .maybeSingle();
 
     // No FUB link -> skip silently.
     if (!portal?.fub_person_id) return json({ skipped: 'no_fub_link' });
 
-    const apiKey = await getInstanceSecret('FUB_API_KEY');
+    // Scoped to the portal's own organization — never another team's CRM.
+    const apiKey = await getFubApiKeyForOrg(portal.org_id ?? null);
     if (!apiKey) {
-      console.warn('fub-push-attachment: Follow Up Boss is not connected for this instance');
+      console.warn('fub-push-attachment: Follow Up Boss is not connected for this team');
       return json({ skipped: 'no_api_key' });
     }
 
