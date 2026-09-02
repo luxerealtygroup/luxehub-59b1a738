@@ -37,6 +37,22 @@ const Empty = ({ label }: { label: string }) => (
   <p className="py-8 text-center text-sm text-muted-foreground">{label}</p>
 );
 
+/**
+ * Hard-fail state. A previewed surface that cannot load its allowlisted dataset
+ * says so — it must never fall back to a direct query, which would resolve to
+ * the signed-in user's own organization.
+ */
+const Failed = ({ label, error }: { label: string; error: string }) => (
+  <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm">
+    <p className="flex items-center gap-2 font-medium text-destructive">
+      <AlertTriangle className="h-4 w-4" /> {label} could not be loaded
+    </p>
+    <p className="mt-1 text-muted-foreground">
+      {error} Nothing is shown rather than risking another team's data appearing here.
+    </p>
+  </div>
+);
+
 const AdminTenantPreview = () => {
   const { orgId } = useParams<{ orgId: string }>();
   const navigate = useNavigate();
@@ -49,6 +65,7 @@ const AdminTenantPreview = () => {
   const [manual, setManual] = useState<Record<string, unknown>[]>([]);
   const [weekly, setWeekly] = useState<Record<string, unknown>[]>([]);
   const [portals, setPortals] = useState<{ id: string; full_name: string | null }[]>([]);
+  const [errors, setErrors] = useState<Record<string, string | null>>({});
 
   const boot = useCallback(async () => {
     if (!orgId) return;
@@ -70,15 +87,23 @@ const AdminTenantPreview = () => {
       read<{ rows: Record<string, unknown>[] }>('weekly_411'),
       read<{ portals: { id: string; full_name: string | null }[] }>('portal_shell'),
     ]);
-    setSummary(s);
-    setPipeline(p?.rows ?? []);
-    setCommissions(t?.commissions ?? []);
-    setManual(t?.manual ?? []);
-    setWeekly(w?.rows ?? []);
-    setPortals(ps?.portals ?? []);
+    setSummary(s.ok ? s.data : null);
+    setPipeline(p.ok ? (p.data.rows ?? []) : []);
+    setCommissions(t.ok ? (t.data.commissions ?? []) : []);
+    setManual(t.ok ? (t.data.manual ?? []) : []);
+    setWeekly(w.ok ? (w.data.rows ?? []) : []);
+    setPortals(ps.ok ? (ps.data.portals ?? []) : []);
+    setErrors({
+      dashboard: s.ok ? null : s.error,
+      pipeline: p.ok ? null : p.error,
+      transactions: t.ok ? null : t.error,
+      weekly: w.ok ? null : w.error,
+      portal: ps.ok ? null : ps.error,
+    });
     setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orgId]);
+
 
   useEffect(() => {
     void boot();
