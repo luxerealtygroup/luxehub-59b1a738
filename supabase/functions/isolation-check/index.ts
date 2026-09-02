@@ -12,6 +12,7 @@
 // Guarded by the ISOLATION_TEST_TOKEN secret; never returns record contents.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { getInstanceSecret } from '../_shared/instanceSecrets.ts';
 
 const FIXTURE_USER_ID = 'a43390e7-dbaa-48a9-b5cc-aac223cb46d7';
 
@@ -504,7 +505,7 @@ Deno.serve(async (req) => {
     denied: errors,
     leaks,
     vacuous,
-    pass: leaks.length === 0 && vacuous.length === 0,
+    pass,
   });
 });
 
