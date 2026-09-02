@@ -1,16 +1,17 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { requireStaff } from '../_shared/auth.ts';
 
-import { fubAuthHeader } from '../_shared/fub.ts';
+import { fubAuthHeaderForUser } from '../_shared/fub.ts';
 
-// One instance, one CRM: fubAuthHeader() throws if FUB_API_KEY is missing.
-const authHeader = fubAuthHeader;
+// Credentials are scoped to the caller's organization; throws when that org
+// has no Follow Up Boss key. There is never a cross-org fallback.
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   const guard = await requireStaff(req, { cors: corsHeaders });
   if (!guard.ok) return guard.response;
+  const authHeader = () => fubAuthHeaderForUser(guard.caller.userId);
   try {
     const { query } = await req.json();
     if (!query || typeof query !== 'string' || query.trim().length < 2) {

@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { FUB_BASE_URL, FubConfigError, fubAuthHeader } from "../_shared/fub.ts";
+import { FUB_BASE_URL, FubConfigError, fubAuthHeaderForUser } from "../_shared/fub.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -178,10 +178,11 @@ serve(async (req) => {
     const viewAsUserId = resolveViewAsUserId(req, caller);
     if (viewAsUserId) console.log('FUB view-as active:', viewAsUserId);
 
-    // One instance, one CRM. Missing key = hard error, never a fallback.
+    // The CRM credential is scoped to the CALLER'S organization. A tenant with
+    // no key of its own gets a hard error, never another org's Follow Up Boss.
     let authHeader: string;
     try {
-      authHeader = await fubAuthHeader();
+      authHeader = await fubAuthHeaderForUser(caller.kind === 'service' ? null : caller.userId);
     } catch (e) {
       if (e instanceof FubConfigError) {
         console.error(e.message);
