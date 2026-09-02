@@ -79,6 +79,16 @@ function hexToHsl(hex: string): string | null {
   return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
 }
 
+/** Nudge an "H S% L%" string lighter or darker, clamped to 4–96% lightness. */
+function shiftLightness(hsl: string, delta: number): string {
+  const parts = hsl.split(' ');
+  const l = parseFloat(parts[2]);
+  if (Number.isNaN(l)) return hsl;
+  return `${parts[0]} ${parts[1]} ${Math.min(96, Math.max(4, Math.round(l + delta)))}%`;
+}
+
+
+
 interface Row {
   id: string;
   slug: string | null;
@@ -233,6 +243,11 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   }, [value, fubEnabled, previewBranding]);
 
   // Push brand colours into the design system as CSS variables.
+  //
+  // The LUXE theme paints accents with the `gold` token family, so a tenant
+  // brand has to override those too — otherwise another team's login page
+  // renders LUXE gold buttons. Only non-default tenants override; LUXE keeps
+  // its own palette untouched.
   useEffect(() => {
     const root = document.documentElement;
     const primary = memo.primaryColor ? hexToHsl(memo.primaryColor) : null;
@@ -246,7 +261,25 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       root.style.removeProperty('--tenant-brand-text');
       root.style.removeProperty('--tenant-brand-foreground');
     }
-  }, [memo.primaryColor, memo.textColor]);
+
+    const themed = ['--primary', '--gold', '--gold-light', '--gold-dark', '--ring', '--sidebar-primary'];
+    if (!memo.isDefaultTenant && primary) {
+      const accent = text ?? primary;
+      root.style.setProperty('--primary', accent);
+      root.style.setProperty('--primary-foreground', '0 0% 100%');
+      root.style.setProperty('--gold', accent);
+      root.style.setProperty('--gold-light', shiftLightness(primary, 16));
+      root.style.setProperty('--gold-dark', shiftLightness(accent, -14));
+      root.style.setProperty('--ring', accent);
+      root.style.setProperty('--sidebar-primary', accent);
+      root.style.setProperty('--sidebar-primary-foreground', '0 0% 100%');
+    } else {
+      themed.forEach((v) => root.style.removeProperty(v));
+      root.style.removeProperty('--primary-foreground');
+      root.style.removeProperty('--sidebar-primary-foreground');
+    }
+  }, [memo.primaryColor, memo.textColor, memo.isDefaultTenant]);
+
 
   return <TenantContext.Provider value={memo}>{children}</TenantContext.Provider>;
 

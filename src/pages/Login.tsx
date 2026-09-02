@@ -10,7 +10,8 @@ import { getRoleBasedRedirect } from '@/lib/utils/roleRedirect';
 import { cn } from '@/lib/utils';
 import { User, Building2 } from 'lucide-react';
 import luxeLogo from '@/assets/luxe-logo.png.asset.json';
-import { tenant } from '@/config/tenant';
+import { useTenant } from '@/hooks/useTenant';
+import { TenantLogo } from '@/components/TenantLogo';
 
 type LoginMode = 'realtor' | 'client';
 
@@ -97,6 +98,7 @@ const Login = () => {
   };
 
   const isRealtor = mode === 'realtor';
+  const t = useTenant();
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4">
@@ -106,11 +108,15 @@ const Login = () => {
       )}>
         <CardHeader className="text-center">
           <div className="mx-auto mb-4">
-            <img
-              src={luxeLogo.url}
-              alt={tenant.brokerageName}
-              className="mx-auto h-auto max-h-32 w-auto object-contain"
-            />
+            {t.isDefaultTenant ? (
+              <img
+                src={luxeLogo.url}
+                alt={t.brokerageName}
+                className="mx-auto h-auto max-h-32 w-auto object-contain"
+              />
+            ) : (
+              <TenantLogo height={96} className="mx-auto" />
+            )}
           </div>
           <CardTitle className={cn(
             "text-3xl font-display",
@@ -216,7 +222,7 @@ const Login = () => {
 
       <p className="mt-6 text-center text-xs text-muted-foreground">
         <Link to="/get-started" className="hover:text-foreground hover:underline">
-          Not with {tenant.brokerageName}? Set up your own real estate hub
+          Not with {t.brokerageName}? Set up your own real estate hub
         </Link>
       </p>
     </div>
