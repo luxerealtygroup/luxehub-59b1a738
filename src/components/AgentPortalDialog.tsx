@@ -37,6 +37,7 @@ import { PortalDealSuggestions } from '@/components/portal/PortalDealSuggestions
 import { usePortalDealSuggestions } from '@/hooks/usePortalDealSuggestions';
 import { followUpBossApi } from '@/lib/api/followUpBoss';
 import { Badge } from '@/components/ui/badge';
+import { isValidEmail } from '@/lib/validation/email';
 
 
 interface AgentPortalDialogProps {
@@ -125,18 +126,27 @@ export function AgentPortalDialog({
     recheck();
   };
 
+  // Identity is captured from the props when the dialog opens — never from the
+  // editable email field. Typing in the form must not re-run the lookup.
   const lookupKey = useMemo(
-    () => (form.email || clientEmail || '').trim().toLowerCase(),
-    [form.email, clientEmail],
+    () => (clientEmail || '').trim().toLowerCase(),
+    [clientEmail],
   );
 
   useEffect(() => {
     if (!open) return;
+    // Once we're bound to a portal row, its id is the identity: never re-resolve
+    // from mutable fields (that caused the setForm -> lookup -> setForm loop).
+    if (account) return;
     const run = async () => {
       setLoading(true);
       let query = supabase.from('client_accounts').select('*').limit(1);
       if (lookupKey) query = query.eq('email', lookupKey);
       else if (fubPersonId) query = query.eq('fub_person_id', fubPersonId);
+      else {
+        setLoading(false);
+        return;
+      }
       const { data } = await query.maybeSingle();
       setAccount((data as ClientAccountRow) ?? null);
       setAssignedAgentId((data as ClientAccountRow)?.invited_by || user?.id || '');
@@ -154,7 +164,15 @@ export function AgentPortalDialog({
       setLoading(false);
     };
     run();
+    // `account` is intentionally read, not tracked, beyond the guard above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, lookupKey, fubPersonId, user?.id]);
+
+  // Closing the dialog releases the bound portal so reopening (possibly for a
+  // different client) resolves fresh.
+  useEffect(() => {
+    if (!open) setAccount(null);
+  }, [open]);
 
   // Admins can reassign a portal to another agent.
   useEffect(() => {
@@ -170,13 +188,19 @@ export function AgentPortalDialog({
 
   const saveAccount = async (): Promise<ClientAccountRow | null> => {
     if (!user) return null;
-    if (!form.email.trim()) {
-      toast({ title: 'Email required', variant: 'destructive' });
+    const email = form.email.trim().toLowerCase();
+    if (!isValidEmail(email)) {
+      toast({
+        title: 'Enter a valid email address',
+        description: 'The client needs a real address to receive their portal invite.',
+        variant: 'destructive',
+      });
       return null;
     }
+
     setSaving(true);
     const payload = {
-      email: form.email.trim().toLowerCase(),
+      email,
       full_name: form.full_name.trim() || null,
       client_type: form.client_type,
       fub_person_id: form.fub_person_id ? Number(form.fub_person_id) : null,
