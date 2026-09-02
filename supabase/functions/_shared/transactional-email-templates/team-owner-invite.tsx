@@ -81,8 +81,9 @@ export const template = {
     hubHost: 'homesintoreality.luxerealtyhub.com',
     inviteUrl: 'https://homesintoreality.luxerealtyhub.com/join?token=example',
     expiresOn: 'September 16, 2026',
-    inviterName: 'Kristen Ellis',
-    inviterEmail: 'info@luxerealtygroup.ca',
+    senderOrgName: 'LUXE Realty Group',
+    senderEmail: 'info@luxerealtygroup.ca',
+
   },
 } satisfies TemplateEntry
 
