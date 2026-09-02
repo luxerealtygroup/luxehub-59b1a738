@@ -11,7 +11,8 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import { Building2, Copy, Eye, Loader2, Plus, ShieldAlert } from 'lucide-react';
+import { Building2, Copy, Eye, Loader2, Palette, Plus, ShieldAlert } from 'lucide-react';
+import { EditTenantBrandingDialog, type EditableOrg } from '@/components/admin/EditTenantBrandingDialog';
 import { useNavigate } from 'react-router-dom';
 
 interface Org {
@@ -73,6 +74,7 @@ const AdminTenants = () => {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [markFile, setMarkFile] = useState<File | null>(null);
   const [invites, setInvites] = useState<Record<string, string>>({});
+  const [editing, setEditing] = useState<EditableOrg | null>(null);
   const logoRef = useRef<HTMLInputElement>(null);
   const markRef = useRef<HTMLInputElement>(null);
 
@@ -402,6 +404,12 @@ const AdminTenants = () => {
                     Preview hub
                   </Button>
                 )}
+                {isSuperAdmin && (
+                  <Button size="sm" variant="outline" onClick={() => setEditing(o)}>
+                    <Palette className="mr-1 h-3.5 w-3.5" />
+                    Edit branding
+                  </Button>
+                )}
               </div>
               {invites[o.id] && (
                 <div className="mt-3 flex items-center gap-2 rounded-md bg-muted p-2 text-xs">
@@ -427,6 +435,14 @@ const AdminTenants = () => {
           </p>
         </CardContent>
       </Card>
+
+      <EditTenantBrandingDialog
+        org={editing}
+        onOpenChange={(open) => {
+          if (!open) setEditing(null);
+        }}
+        onSaved={() => void load()}
+      />
     </div>
   );
 };
