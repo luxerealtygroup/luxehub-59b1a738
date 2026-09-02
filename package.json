@@ -10,7 +10,8 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "verify:isolation": "node scripts/isolation-gate.mjs"
+    "verify:isolation": "node scripts/isolation-gate.mjs",
+    "test:portal": "vitest run tests/portal-dialog-identity.test.tsx --environment jsdom"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.0",
