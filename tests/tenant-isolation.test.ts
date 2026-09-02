@@ -22,10 +22,14 @@ interface Result {
   foreignProfiles: number;
   byId: Record<string, number>;
   controls: Record<string, number>;
+  storage: Record<string, string>;
+  storageControls: Record<string, string>;
+  realtime: Record<string, string>;
   leaks: string[];
   vacuous: string[];
   pass: boolean;
 }
+
 
 describe('tenant isolation (identity-colliding fixture)', () => {
   it('exposes zero Luxe rows to an outside-org account', async () => {
