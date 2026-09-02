@@ -25,6 +25,7 @@ interface Result {
   storage: Record<string, string>;
   storageControls: Record<string, string>;
   realtime: Record<string, string>;
+  sameTeam: Record<string, string>;
   leaks: string[];
   vacuous: string[];
   pass: boolean;
