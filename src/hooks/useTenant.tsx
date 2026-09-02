@@ -79,6 +79,16 @@ function hexToHsl(hex: string): string | null {
   return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
 }
 
+/** Nudge an "H S% L%" string lighter or darker, clamped to 4–96% lightness. */
+function shiftLightness(hsl: string, delta: number): string {
+  const parts = hsl.split(' ');
+  const l = parseFloat(parts[2]);
+  if (Number.isNaN(l)) return hsl;
+  return `${parts[0]} ${parts[1]} ${Math.min(96, Math.max(4, Math.round(l + delta)))}%`;
+}
+
+
+
 interface Row {
   id: string;
   slug: string | null;
