@@ -106,12 +106,11 @@ describe('AgentPortalDialog identity stability', () => {
   it('keeps the portal bound while the email is edited, and updates instead of inserting', async () => {
     render(
       <MemoryRouter>
-        <AgentPortalDialog clientEmail={EXISTING.email} clientName={EXISTING.full_name} />
+        <AgentPortalDialog clientEmail={EXISTING.email} clientName={EXISTING.full_name} initialTab="setup" />
       </MemoryRouter>,
     );
 
     fireEvent.click(screen.getByRole('button', { name: /client portal/i }));
-    fireEvent.click(await screen.findByRole('tab', { name: /setup/i }));
     await screen.findByRole('button', { name: /save changes/i });
 
     const selectsAfterLoad = calls.selects;
@@ -137,11 +136,10 @@ describe('AgentPortalDialog identity stability', () => {
   it('rejects junk emails like "rt" instead of creating a portal', async () => {
     render(
       <MemoryRouter>
-        <AgentPortalDialog clientEmail={EXISTING.email} clientName={EXISTING.full_name} />
+        <AgentPortalDialog clientEmail={EXISTING.email} clientName={EXISTING.full_name} initialTab="setup" />
       </MemoryRouter>,
     );
     fireEvent.click(screen.getByRole('button', { name: /client portal/i }));
-    fireEvent.click(await screen.findByRole('tab', { name: /setup/i }));
     const saveBtn = await screen.findByRole('button', { name: /save changes/i });
 
     fireEvent.change(screen.getByDisplayValue(EXISTING.email), { target: { value: 'rt' } });
