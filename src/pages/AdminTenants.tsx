@@ -11,7 +11,8 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import { Building2, Copy, Loader2, Plus, ShieldAlert } from 'lucide-react';
+import { Building2, Copy, Eye, Loader2, Plus, ShieldAlert } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface Org {
   id: string;
@@ -63,6 +64,8 @@ const emptyForm = {
 };
 
 const AdminTenants = () => {
+  const navigate = useNavigate();
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -375,6 +378,17 @@ const AdminTenants = () => {
                     className="h-4 w-4 rounded-full border"
                     style={{ background: o.branding_primary_color }}
                   />
+                )}
+                {isSuperAdmin && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="ml-auto"
+                    onClick={() => navigate(`/dashboard/admin/tenants/${o.id}/preview`)}
+                  >
+                    <Eye className="mr-1 h-3.5 w-3.5" />
+                    Preview hub
+                  </Button>
                 )}
               </div>
               {invites[o.id] && (
