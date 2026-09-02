@@ -216,7 +216,11 @@ const JoinOrg = () => {
                   </div>
                 </>
               )}
-              <Button type="submit" className="w-full" disabled={submitting}>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={submitting || (wouldMoveAccount && !confirmMove)}
+              >
                 {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Accept invitation
               </Button>
