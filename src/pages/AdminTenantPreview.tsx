@@ -94,12 +94,14 @@ const AdminTenantPreview = () => {
     setManual(t.ok ? (t.data.manual ?? []) : []);
     setWeekly(w.ok ? (w.data.rows ?? []) : []);
     setPortals(ps.ok ? (ps.data.portals ?? []) : []);
+    const errOf = (r: { ok: boolean } & Record<string, unknown>): string | null =>
+      r.ok ? null : ((r.error as string) ?? 'Preview data unavailable');
     setErrors({
-      dashboard: s.ok ? null : s.error,
-      pipeline: p.ok ? null : p.error,
-      transactions: t.ok ? null : t.error,
-      weekly: w.ok ? null : w.error,
-      portal: ps.ok ? null : ps.error,
+      dashboard: errOf(s),
+      pipeline: errOf(p),
+      transactions: errOf(t),
+      weekly: errOf(w),
+      portal: errOf(ps),
     });
     setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
