@@ -2584,6 +2584,47 @@ export type Database = {
           },
         ]
       }
+      org_preview_sessions: {
+        Row: {
+          actor_id: string
+          created_at: string
+          ended_at: string | null
+          expires_at: string
+          id: string
+          org_id: string
+          started_at: string
+          updated_at: string
+        }
+        Insert: {
+          actor_id: string
+          created_at?: string
+          ended_at?: string | null
+          expires_at?: string
+          id?: string
+          org_id: string
+          started_at?: string
+          updated_at?: string
+        }
+        Update: {
+          actor_id?: string
+          created_at?: string
+          ended_at?: string | null
+          expires_at?: string
+          id?: string
+          org_id?: string
+          started_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_preview_sessions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       org_resources: {
         Row: {
           category: string
