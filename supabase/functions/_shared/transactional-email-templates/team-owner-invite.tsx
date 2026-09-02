@@ -33,7 +33,7 @@ const Email = (p: Props) => (
         <Text style={text}>Hi {p.ownerName ?? 'there'},</Text>
 
         <Text style={text}>
-          {p.inviterName ?? 'Kristen Ellis'} has set up your own real estate hub for{' '}
+          {p.senderOrgName ?? 'LUXE Realty Group'} has set up your own real estate hub for{' '}
           <strong>{p.teamName ?? 'your business'}</strong>. You are being added as the owner of the
           account, which means you control your team, your settings and your data.
         </Text>
