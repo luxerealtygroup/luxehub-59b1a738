@@ -274,6 +274,25 @@ async function escalate(
     if (prof?.full_name) userName = prof.full_name;
   } catch (_) {}
 
+  // Resolve the organisation this ticket belongs to, so the operator can tell
+  // instantly whose team it came from. Falls back to the ticket author's profile.
+  let orgName = 'Unknown team';
+  try {
+    let orgId: string | null = ticket.org_id ?? null;
+    if (!orgId && ticket.user_id) {
+      const { data: p } = await admin
+        .from('profiles').select('org_id').eq('id', ticket.user_id).maybeSingle();
+      orgId = (p?.org_id as string | undefined) ?? null;
+    }
+    if (orgId) {
+      const { data: org } = await admin
+        .from('organizations').select('name, app_name').eq('id', orgId).maybeSingle();
+      if (org) orgName = (org.name as string) || (org.app_name as string) || orgName;
+    }
+  } catch (e) {
+    console.error('Org lookup for escalation email failed:', e);
+  }
+
   // Fire off the transactional email (best-effort)
   try {
     await admin.functions.invoke('send-transactional-email', {
@@ -282,6 +301,7 @@ async function escalate(
         recipientEmail: ESCALATION_ADMIN_EMAIL,
         idempotencyKey: `escalation-${ticket.id}`,
         templateData: {
+          orgName,
           userName,
           userEmail,
           userType: ticket.user_type,
@@ -295,6 +315,7 @@ async function escalate(
   } catch (e) {
     console.error('Escalation email failed:', e);
   }
+
 }
 
 function json(payload: unknown, status = 200) {
