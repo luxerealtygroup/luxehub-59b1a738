@@ -6,6 +6,7 @@ import type { TemplateEntry } from './registry.ts'
 import { tenant } from '../tenant.ts'
 
 interface Props {
+  orgName?: string
   userName?: string
   userEmail: string
   userType: 'realtor' | 'client'
@@ -16,6 +17,7 @@ interface Props {
 }
 
 const Email = ({
+  orgName = 'Unknown team',
   userName = 'A user',
   userEmail,
   userType,
@@ -37,6 +39,8 @@ const Email = ({
         </Text>
 
         <Section style={box}>
+          <Text style={label}>Team</Text>
+          <Text style={value}>{orgName}</Text>
           <Text style={label}>From</Text>
           <Text style={value}>{userName} ({userType})</Text>
           <Text style={label}>Email</Text>
@@ -79,9 +83,12 @@ const Email = ({
 export const template = {
   component: Email,
   subject: (data: Props) =>
-    `[${tenant.appName} Support] Escalated ticket — ${data.userName || data.userEmail}`,
+    `[${data.orgName || 'Unknown team'}] Support: ${
+      data.subject || data.reason || 'Escalated ticket'
+    } — ${data.userName || data.userEmail}`,
   displayName: 'Support Ticket Escalated',
   previewData: {
+    orgName: 'Homes Into Reality',
     userName: 'Hana Realtor',
     userEmail: 'hana@example.com',
     userType: 'realtor',
