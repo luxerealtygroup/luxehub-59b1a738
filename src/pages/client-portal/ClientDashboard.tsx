@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import type { Session } from '@supabase/supabase-js';
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -105,9 +107,37 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
   } = usePortalProperties(portalId);
 
   useEffect(() => {
+    let cancelled = false;
+    let unsub: (() => void) | undefined;
+
+    // Wait for the persisted session to finish restoring before deciding the
+    // visitor is signed out. Without this, a remount (closing a document,
+    // browser Back) can race the restore and bounce the client to /login.
+    const resolveSession = () =>
+      new Promise<Session | null>((resolve) => {
+        let settled = false;
+        const finish = (s: Session | null) => {
+          if (settled) return;
+          settled = true;
+          resolve(s);
+        };
+        const { data } = supabase.auth.onAuthStateChange((_e, s) => {
+          if (s) finish(s);
+        });
+        unsub = () => data.subscription.unsubscribe();
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (session) finish(session);
+          // No session yet: give the client a moment to hydrate/refresh
+          // before treating this as signed out.
+          else setTimeout(() => finish(null), 2500);
+        });
+      });
+
     const checkAuthAndFetchData = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      
+      const session = await resolveSession();
+      const user = session?.user ?? null;
+      if (cancelled) return;
+
       if (!user) {
         navigate(isPreview ? '/login' : '/client-portal/login');
         return;
@@ -119,16 +149,16 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
         ? accountQuery.eq('id', previewPortalId)
         : accountQuery.eq('user_id', user.id)
       ).maybeSingle();
+      if (cancelled) return;
 
       if (accountError || !account) {
-        if (isPreview) {
-          setLoading(false);
-          return;
-        }
-        await supabase.auth.signOut();
-        navigate('/client-portal/login');
+        // Never sign the client out here — a transient query failure is not
+        // proof they lack a portal.
+        setLoading(false);
+        if (!isPreview && !accountError) navigate('/client-portal/login');
         return;
       }
+
 
       setClientAccount(account);
       setPortalId(account.id);
@@ -234,7 +264,12 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
     };
 
     checkAuthAndFetchData();
+    return () => {
+      cancelled = true;
+      unsub?.();
+    };
   }, [navigate, toast, previewPortalId, isPreview]);
+
 
   const handleSignOut = async () => {
     // In preview mode never touch the admin/agent's own session.
