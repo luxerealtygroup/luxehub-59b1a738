@@ -163,7 +163,7 @@ export function PortalDocumentsPanel({
     const isImg = (d.file_type || '').startsWith('image/');
     const isPdf = d.file_type === 'application/pdf' || d.file_name.toLowerCase().endsWith('.pdf');
     if (isImg || isPdf) setPreview({ url, type: isImg ? 'image' : 'pdf', name: d.display_name || d.file_name });
-    else window.open(url, '_blank');
+    else window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   const download = async (d: PortalDocument) => {
@@ -381,7 +381,7 @@ export function PortalDocumentsPanel({
             </DialogTitle>
             <div className="flex items-center gap-2">
               {preview && (
-                <Button size="sm" variant="outline" className="rounded-full" onClick={() => window.open(preview.url, '_blank')}>
+                <Button size="sm" variant="outline" className="rounded-full" onClick={() => window.open(preview.url, '_blank', 'noopener,noreferrer')}>
                   <Download className="h-4 w-4 mr-2" /> Download
                 </Button>
               )}
