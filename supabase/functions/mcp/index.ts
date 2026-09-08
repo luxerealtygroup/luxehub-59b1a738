@@ -180,18 +180,79 @@ var add_pipeline_client_default = defineTool4({
   }
 });
 
+// src/lib/mcp/tools/record-weekly-411-actuals.ts
+import { defineTool as defineTool5 } from "npm:@lovable.dev/mcp-js@0.28.0";
+import { z as z5 } from "npm:zod@^3.25.76";
+var actualsSchema = z5.object({
+  leads_received: z5.number().int().min(0).optional(),
+  dials: z5.number().int().min(0).optional(),
+  connects: z5.number().int().min(0).optional(),
+  conversations: z5.number().int().min(0).optional(),
+  texts_sent: z5.number().int().min(0).optional(),
+  appointments_set: z5.number().int().min(0).optional(),
+  talk_time_minutes: z5.number().int().min(0).optional(),
+  speed_to_first_touch_minutes: z5.number().int().min(0).optional(),
+  contacts_held: z5.number().int().min(0).optional().describe("Total contacts assigned to the agent."),
+  contacts_unstaged: z5.number().int().min(0).optional().describe("How many of those contacts sit in the default Contact or Lead stages."),
+  contacts_per_live_deal: z5.number().int().min(0).nullable().optional().describe("Contacts per live deal; omit or null when the agent has no live deal.")
+}).describe("Weekly activity and database-health actuals. Omitted fields keep their existing value.");
+var record_weekly_411_actuals_default = defineTool5({
+  name: "record_weekly_411_actuals",
+  title: "Record weekly 4-1-1 actuals",
+  description: "Record an agent's weekly 4-1-1 activity and database-health actuals from an external system (e.g. a Follow Up Boss weekly automation). Upserts on agent + week, so re-running a week overwrites instead of duplicating. Owners and admins only, and only for agents in their own brokerage.",
+  inputSchema: {
+    agent_email: z5.string().trim().email().describe("Login email of the agent in your brokerage."),
+    week_start: z5.string().trim().describe("ISO date (YYYY-MM-DD) inside the week; normalised to that week's Monday."),
+    actuals: actualsSchema,
+    note: z5.string().trim().max(2e3).optional().describe("Short coaching line stored with the week.")
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  handler: async ({ agent_email, week_start, actuals, note }, ctx) => {
+    if (!ctx.isAuthenticated()) {
+      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(week_start)) {
+      return {
+        content: [{ type: "text", text: "week_start must be an ISO date in YYYY-MM-DD format." }],
+        isError: true
+      };
+    }
+    const payload = Object.fromEntries(
+      Object.entries(actuals ?? {}).filter(([, v]) => v !== void 0)
+    );
+    const supabase = supabaseForUser(ctx);
+    const { data, error } = await supabase.rpc("record_weekly_411_actuals", {
+      _agent_email: agent_email,
+      _week_start: week_start,
+      _actuals: payload,
+      _note: note ?? null
+    });
+    if (error) {
+      const message = error.message.includes("AGENT_NOT_FOUND_IN_ORG") ? `No agent with the email ${agent_email} exists in your brokerage. Check that the Follow Up Boss email matches the agent's login email, then retry.` : error.message.includes("FORBIDDEN_ADMIN_ONLY") ? "Only owners and admins can record weekly 4-1-1 actuals." : error.message;
+      return { content: [{ type: "text", text: message }], isError: true };
+    }
+    const result = data ?? {};
+    const written = Object.keys(payload);
+    const summary = `${result.action === "updated" ? "Updated" : "Created"} the week of ${result.week_start_date ?? week_start} for ${agent_email}${written.length ? ` (${written.join(", ")})` : ""}.`;
+    return {
+      content: [{ type: "text", text: summary }],
+      structuredContent: { agent_email, ...result, fields_written: written }
+    };
+  }
+});
+
 // src/lib/mcp/index.ts
 var projectRef = "sxpfxmlxegpmfamlmjyg";
 var mcp_default = defineMcp({
   name: "luxehub",
   title: "LUXEhub",
   version: "1.0.0",
-  instructions: "Tools for LUXEhub, a real estate agent hub. Read the signed-in agent's pipeline clients, deals and weekly 4-1-1 accountability entries, and add new pipeline clients. All data is scoped to the signed-in agent.",
+  instructions: "Tools for LUXEhub, a real estate agent hub. Read the signed-in agent's pipeline clients, deals and weekly 4-1-1 accountability entries, and add new pipeline clients. Owners and admins can also record weekly 4-1-1 actuals for agents in their own brokerage. All data is scoped to the signed-in user's brokerage.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated"
   }),
-  tools: [get_my_pipeline_default, get_my_deals_default, get_my_weekly_411_default, add_pipeline_client_default]
+  tools: [get_my_pipeline_default, get_my_deals_default, get_my_weekly_411_default, add_pipeline_client_default, record_weekly_411_actuals_default]
 });
 
 // lovable-mcp-supabase-entry.ts

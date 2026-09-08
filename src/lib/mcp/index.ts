@@ -12,10 +12,10 @@ export default defineMcp({
   title: "LUXEhub",
   version: "1.0.0",
   instructions:
-    "Tools for LUXEhub, a real estate agent hub. Read the signed-in agent's pipeline clients, deals and weekly 4-1-1 accountability entries, and add new pipeline clients. All data is scoped to the signed-in agent.",
+    "Tools for LUXEhub, a real estate agent hub. Read the signed-in agent's pipeline clients, deals and weekly 4-1-1 accountability entries, and add new pipeline clients. Owners and admins can also record weekly 4-1-1 actuals for agents in their own brokerage. All data is scoped to the signed-in user's brokerage.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated",
   }),
-  tools: [getMyPipeline, getMyDeals, getMyWeekly411, addPipelineClient],
+  tools: [getMyPipeline, getMyDeals, getMyWeekly411, addPipelineClient, recordWeekly411Actuals],
 });

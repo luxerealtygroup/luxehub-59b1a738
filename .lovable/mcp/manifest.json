@@ -161,6 +161,105 @@
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "outputSchema": null
+      },
+      {
+        "name": "record_weekly_411_actuals",
+        "title": "Record weekly 4-1-1 actuals",
+        "description": "Record an agent's weekly 4-1-1 activity and database-health actuals from an external system (e.g. a Follow Up Boss weekly automation). Upserts on agent + week, so re-running a week overwrites instead of duplicating. Owners and admins only, and only for agents in their own brokerage.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "agent_email": {
+              "type": "string",
+              "format": "email",
+              "description": "Login email of the agent in your brokerage."
+            },
+            "week_start": {
+              "type": "string",
+              "description": "ISO date (YYYY-MM-DD) inside the week; normalised to that week's Monday."
+            },
+            "actuals": {
+              "type": "object",
+              "properties": {
+                "leads_received": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "dials": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "connects": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "conversations": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "texts_sent": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "appointments_set": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "talk_time_minutes": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "speed_to_first_touch_minutes": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "contacts_held": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Total contacts assigned to the agent."
+                },
+                "contacts_unstaged": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "How many of those contacts sit in the default Contact or Lead stages."
+                },
+                "contacts_per_live_deal": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Contacts per live deal; omit or null when the agent has no live deal."
+                }
+              },
+              "additionalProperties": false,
+              "description": "Weekly activity and database-health actuals. Omitted fields keep their existing value."
+            },
+            "note": {
+              "type": "string",
+              "maxLength": 2000,
+              "description": "Short coaching line stored with the week."
+            }
+          },
+          "required": [
+            "agent_email",
+            "week_start",
+            "actuals"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
       }
     ]
   }
