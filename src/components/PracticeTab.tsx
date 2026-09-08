@@ -122,6 +122,8 @@ export function PracticeTab({ userId, canLog }: PracticeTabProps) {
       appointment_set: draft.appointment_set,
       strongest_moment: draft.strongest_moment || null,
       costliest_moment: draft.costliest_moment || null,
+      magic_words_used: draft.magic_words_used || null,
+      magic_words_missed: draft.magic_words_missed || null,
       one_thing_to_change: draft.one_thing_to_change || null,
       drill_again: draft.drill_again || null,
       coach_note: draft.coach_note || null,
