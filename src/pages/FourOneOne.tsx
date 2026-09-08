@@ -380,7 +380,7 @@ const FourOneOne = () => {
       setAutoSaving(true);
       const weekStart = format(currentWeek, 'yyyy-MM-dd');
       const payload = {
-        ...weeklyData,
+        ...buildAgentPayload(weeklyData),
         user_id: user.id,
         week_start_date: weekStart,
         appointments_held: appointmentRecords.length,
