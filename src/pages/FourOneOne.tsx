@@ -739,6 +739,41 @@ const FourOneOne = () => {
             </CardContent>
           </Card>
 
+          {/* Database Health & Follow Up Boss activity (written by the weekly automation) */}
+          <Card className="border-primary/10">
+            <CardHeader>
+              <CardTitle className="text-lg font-display">Database Health</CardTitle>
+              <p className="text-xs text-muted-foreground">From Follow Up Boss — updated weekly</p>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                {[
+                  { label: 'Contacts Held', key: 'contacts_held' },
+                  { label: 'Contacts Unstaged', key: 'contacts_unstaged' },
+                  { label: 'Contacts / Live Deal', key: 'contacts_per_live_deal' },
+                  { label: 'Leads Received', key: 'leads_received' },
+                  { label: 'Connects', key: 'connects' },
+                  { label: 'Conversations', key: 'conversations' },
+                  { label: 'Texts Sent', key: 'texts_sent' },
+                  { label: 'Talk Time (min)', key: 'talk_time_minutes' },
+                  { label: 'Speed to First Touch (min)', key: 'speed_to_first_touch_minutes' },
+                ].map((field) => {
+                  const value = (weeklyData as unknown as Record<string, number | null | undefined>)[field.key];
+                  return (
+                    <div key={field.key} className="space-y-1">
+                      <Label className="text-xs font-medium text-muted-foreground">{field.label}</Label>
+                      <div className="flex h-10 items-center rounded-md border border-input bg-muted/50 px-3 text-sm font-semibold">
+                        {value === null || value === undefined ? '—' : value.toLocaleString()}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+
+
           {/* Legacy Activity Metrics with Goals */}
           <Card className="border-primary/10">
             <CardHeader>
