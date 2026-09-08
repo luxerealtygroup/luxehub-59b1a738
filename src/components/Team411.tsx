@@ -321,7 +321,7 @@ const Team411 = () => {
                     {agentAppts.length > 0 && (
                       <div>
                         <p className="text-sm font-medium mb-2 flex items-center gap-1">
-                          <CalendarDays className="h-4 w-4" /> Appointments Held ({agentAppts.length})
+                          <CalendarDays className="h-4 w-4" /> Appointments That Happened ({agentAppts.length})
                         </p>
                         <div className="space-y-1">
                           {agentAppts.map(appt => (

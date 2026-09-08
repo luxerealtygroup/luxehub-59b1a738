@@ -828,7 +828,7 @@ const FourOneOne = () => {
           <Card className="border-primary/10">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-lg font-display flex items-center gap-2">
-                <CalendarDays className="h-5 w-5" /> Appointments Held ({appointmentRecords.length})
+                <CalendarDays className="h-5 w-5" /> Appointments That Happened ({appointmentRecords.length})
               </CardTitle>
               <Dialog open={showAppointmentDialog} onOpenChange={setShowAppointmentDialog}>
                 <DialogTrigger asChild>
