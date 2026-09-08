@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Target, Trophy, TrendingUp, ChevronLeft, ChevronRight, Users, Loader2, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { CollapsibleMetricSection, summarise } from '@/components/CollapsibleMetricSection';
 import { format, startOfWeek, addWeeks, subWeeks } from 'date-fns';
 
 interface AgentProfile {
