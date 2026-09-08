@@ -163,6 +163,15 @@ const Team411 = () => {
 
       setProductionGoals(goals || []);
 
+      const { data: practice } = await supabase
+        .from('practice_sessions')
+        .select('*')
+        .order('session_date', { ascending: false })
+        .order('created_at', { ascending: false });
+
+      setPracticeSessions((practice as unknown as (PracticeSession & { user_id: string })[]) || []);
+
+
       setLoading(false);
     };
 
