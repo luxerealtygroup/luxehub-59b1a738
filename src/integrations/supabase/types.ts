@@ -4762,16 +4762,22 @@ export type Database = {
           calls_actual: number | null
           calls_goal: number | null
           challenges: string | null
+          connects: number | null
+          contacts_held: number | null
           contacts_made: number | null
+          contacts_per_live_deal: number | null
+          contacts_unstaged: number | null
           contracts_actual: number | null
           contracts_goal: number | null
           contracts_signed: number | null
+          conversations: number | null
           created_at: string
           database_size: number | null
           dials: number | null
           doors_knocked: number | null
           firm_deals: number | null
           id: string
+          leads_received: number | null
           listings_actual: number | null
           listings_goal: number | null
           next_steps: string | null
@@ -4792,6 +4798,9 @@ export type Database = {
           priority_3_completed: boolean | null
           priority_4: string | null
           priority_4_completed: boolean | null
+          speed_to_first_touch_minutes: number | null
+          talk_time_minutes: number | null
+          texts_sent: number | null
           updated_at: string
           user_id: string
           week_start_date: string
@@ -4805,16 +4814,22 @@ export type Database = {
           calls_actual?: number | null
           calls_goal?: number | null
           challenges?: string | null
+          connects?: number | null
+          contacts_held?: number | null
           contacts_made?: number | null
+          contacts_per_live_deal?: number | null
+          contacts_unstaged?: number | null
           contracts_actual?: number | null
           contracts_goal?: number | null
           contracts_signed?: number | null
+          conversations?: number | null
           created_at?: string
           database_size?: number | null
           dials?: number | null
           doors_knocked?: number | null
           firm_deals?: number | null
           id?: string
+          leads_received?: number | null
           listings_actual?: number | null
           listings_goal?: number | null
           next_steps?: string | null
@@ -4835,6 +4850,9 @@ export type Database = {
           priority_3_completed?: boolean | null
           priority_4?: string | null
           priority_4_completed?: boolean | null
+          speed_to_first_touch_minutes?: number | null
+          talk_time_minutes?: number | null
+          texts_sent?: number | null
           updated_at?: string
           user_id: string
           week_start_date: string
@@ -4848,16 +4866,22 @@ export type Database = {
           calls_actual?: number | null
           calls_goal?: number | null
           challenges?: string | null
+          connects?: number | null
+          contacts_held?: number | null
           contacts_made?: number | null
+          contacts_per_live_deal?: number | null
+          contacts_unstaged?: number | null
           contracts_actual?: number | null
           contracts_goal?: number | null
           contracts_signed?: number | null
+          conversations?: number | null
           created_at?: string
           database_size?: number | null
           dials?: number | null
           doors_knocked?: number | null
           firm_deals?: number | null
           id?: string
+          leads_received?: number | null
           listings_actual?: number | null
           listings_goal?: number | null
           next_steps?: string | null
@@ -4878,6 +4902,9 @@ export type Database = {
           priority_3_completed?: boolean | null
           priority_4?: string | null
           priority_4_completed?: boolean | null
+          speed_to_first_touch_minutes?: number | null
+          talk_time_minutes?: number | null
+          texts_sent?: number | null
           updated_at?: string
           user_id?: string
           week_start_date?: string
@@ -5054,6 +5081,15 @@ export type Database = {
           msg_id: number
           read_ct: number
         }[]
+      }
+      record_weekly_411_actuals: {
+        Args: {
+          _actuals: Json
+          _agent_email: string
+          _note?: string
+          _week_start: string
+        }
+        Returns: Json
       }
       resolve_org_by_host: {
         Args: { _host: string }
