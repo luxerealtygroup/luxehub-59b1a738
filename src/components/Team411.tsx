@@ -336,6 +336,47 @@ const Team411 = () => {
                           </div>
                         </CollapsibleMetricSection>
                       </CardContent>
+
+                      {/* Practice — Scripting Boss sessions */}
+                      {(() => {
+                        const agentSessions = practiceSessions.filter(s => s.user_id === agent.id);
+                        const p = practiceSummary(agentSessions);
+                        const none = agentSessions.length === 0;
+                        return (
+                          <CardContent className="pb-4">
+                            <CollapsibleMetricSection
+                              storageKey="team411.section.practice"
+                              defaultOpen={false}
+                              title="Practice — call practice sessions"
+                              summary={none ? '— no sessions yet' : `${p.thisWeek} this week · ${p.thisMonth} this month`}
+                            >
+                              {none ? (
+                                <p className="text-sm text-muted-foreground">— no sessions yet</p>
+                              ) : (
+                                <div className="space-y-2">
+                                  <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-2">
+                                    {tile('Sessions This Week', p.thisWeek, 'bg-muted/30')}
+                                    {tile('Average Score This Month', p.avgTotal, 'bg-muted/30')}
+                                    <div className="text-center p-2 rounded-lg bg-muted/30">
+                                      <p className="text-lg font-bold text-foreground">{p.latest?.grade || '—'}</p>
+                                      <p className="text-xs text-muted-foreground">Latest Grade</p>
+                                    </div>
+                                    <div className="text-center p-2 rounded-lg bg-muted/30 col-span-2">
+                                      <p className="text-sm font-medium text-foreground">{p.latest?.scenario || '—'}</p>
+                                      <p className="text-xs text-muted-foreground">Latest Scenario</p>
+                                    </div>
+                                  </div>
+                                  <p className="text-sm">
+                                    <span className="text-muted-foreground">Coach note: </span>
+                                    {p.latest?.coach_note || '—'}
+                                  </p>
+                                </div>
+                              )}
+                            </CollapsibleMetricSection>
+                          </CardContent>
+                        );
+                      })()}
+
                     </>
                   );
                 })()}
