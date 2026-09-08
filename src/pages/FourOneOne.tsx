@@ -15,7 +15,9 @@ import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { ChevronLeft, ChevronRight, Save, Target, Trophy, TrendingUp, FileText, ArrowRight, Plus, Trash2, CalendarDays, Copy, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, Target, Trophy, TrendingUp, FileText, ArrowRight, Plus, Trash2, CalendarDays, Copy, Check, Mic } from 'lucide-react';
+import { PracticeTab } from '@/components/PracticeTab';
+
 import { useToast } from '@/hooks/use-toast';
 import { format, startOfWeek, addWeeks, subWeeks } from 'date-fns';
 import { FUBContactTypeahead } from '@/components/FUBContactTypeahead';
@@ -705,8 +707,12 @@ const FourOneOne = () => {
           <TabsTrigger value="monthly" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <TrendingUp className="h-4 w-4 mr-2" /> Monthly
           </TabsTrigger>
+          <TabsTrigger value="practice" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <Mic className="h-4 w-4 mr-2" /> Practice
+          </TabsTrigger>
 
         </TabsList>
+
 
         {/* WEEKLY TAB */}
         <TabsContent value="weekly" className="space-y-6">
@@ -1369,6 +1375,13 @@ const FourOneOne = () => {
             <Save className="h-4 w-4 mr-2" /> {saving ? 'Saving...' : 'Save Monthly Goals'}
           </Button>
         </TabsContent>
+
+        {/* PRACTICE TAB */}
+        <TabsContent value="practice" className="space-y-6">
+          <PracticeTab userId={queryUserId} canLog={!isViewingAsAgent && !!user?.id && queryUserId === user?.id} />
+        </TabsContent>
+
+
 
       </Tabs>
     </div>

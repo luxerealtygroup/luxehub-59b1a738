@@ -9,6 +9,8 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Target, Trophy, TrendingUp, ChevronLeft, ChevronRight, Users, Loader2, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CollapsibleMetricSection, summarise } from '@/components/CollapsibleMetricSection';
+import { PracticeSession, practiceSummary } from '@/components/PracticeTab';
+
 import { format, startOfWeek, addWeeks, subWeeks } from 'date-fns';
 
 interface AgentProfile {
@@ -97,6 +99,8 @@ const Team411 = () => {
   const [weeklyData, setWeeklyData] = useState<Weekly411Data[]>([]);
   const [appointmentRecords, setAppointmentRecords] = useState<AppointmentRecordData[]>([]);
   const [productionGoals, setProductionGoals] = useState<ProductionGoalData[]>([]);
+  const [practiceSessions, setPracticeSessions] = useState<(PracticeSession & { user_id: string })[]>([]);
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -162,6 +166,15 @@ const Team411 = () => {
         .eq('year', currentYear);
 
       setProductionGoals(goals || []);
+
+      const { data: practice } = await supabase
+        .from('practice_sessions')
+        .select('*')
+        .order('session_date', { ascending: false })
+        .order('created_at', { ascending: false });
+
+      setPracticeSessions((practice as unknown as (PracticeSession & { user_id: string })[]) || []);
+
 
       setLoading(false);
     };
@@ -323,6 +336,47 @@ const Team411 = () => {
                           </div>
                         </CollapsibleMetricSection>
                       </CardContent>
+
+                      {/* Practice — Scripting Boss sessions */}
+                      {(() => {
+                        const agentSessions = practiceSessions.filter(s => s.user_id === agent.id);
+                        const p = practiceSummary(agentSessions);
+                        const none = agentSessions.length === 0;
+                        return (
+                          <CardContent className="pb-4">
+                            <CollapsibleMetricSection
+                              storageKey="team411.section.practice"
+                              defaultOpen={false}
+                              title="Practice — call practice sessions"
+                              summary={none ? '— no sessions yet' : `${p.thisWeek} this week · ${p.thisMonth} this month`}
+                            >
+                              {none ? (
+                                <p className="text-sm text-muted-foreground">— no sessions yet</p>
+                              ) : (
+                                <div className="space-y-2">
+                                  <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-2">
+                                    {tile('Sessions This Week', p.thisWeek, 'bg-muted/30')}
+                                    {tile('Average Score This Month', p.avgTotal, 'bg-muted/30')}
+                                    <div className="text-center p-2 rounded-lg bg-muted/30">
+                                      <p className="text-lg font-bold text-foreground">{p.latest?.grade || '—'}</p>
+                                      <p className="text-xs text-muted-foreground">Latest Grade</p>
+                                    </div>
+                                    <div className="text-center p-2 rounded-lg bg-muted/30 col-span-2">
+                                      <p className="text-sm font-medium text-foreground">{p.latest?.scenario || '—'}</p>
+                                      <p className="text-xs text-muted-foreground">Latest Scenario</p>
+                                    </div>
+                                  </div>
+                                  <p className="text-sm">
+                                    <span className="text-muted-foreground">Coach note: </span>
+                                    {p.latest?.coach_note || '—'}
+                                  </p>
+                                </div>
+                              )}
+                            </CollapsibleMetricSection>
+                          </CardContent>
+                        );
+                      })()}
+
                     </>
                   );
                 })()}

@@ -3962,6 +3962,84 @@ export type Database = {
           },
         ]
       }
+      practice_sessions: {
+        Row: {
+          appointment_set: boolean | null
+          coach_note: string | null
+          costliest_moment: string | null
+          created_at: string
+          drill_again: string | null
+          earn_30_seconds: number | null
+          exchanges: number | null
+          grade: string | null
+          id: string
+          mode: string | null
+          motivation_discovery: number | null
+          next_step_locked: number | null
+          objection_handling: number | null
+          one_thing_to_change: string | null
+          org_id: string
+          raw_report: string | null
+          scenario: string | null
+          session_date: string
+          strongest_moment: string | null
+          talk_less_ratio: number | null
+          the_ask: number | null
+          total: number | null
+          user_id: string
+        }
+        Insert: {
+          appointment_set?: boolean | null
+          coach_note?: string | null
+          costliest_moment?: string | null
+          created_at?: string
+          drill_again?: string | null
+          earn_30_seconds?: number | null
+          exchanges?: number | null
+          grade?: string | null
+          id?: string
+          mode?: string | null
+          motivation_discovery?: number | null
+          next_step_locked?: number | null
+          objection_handling?: number | null
+          one_thing_to_change?: string | null
+          org_id?: string
+          raw_report?: string | null
+          scenario?: string | null
+          session_date?: string
+          strongest_moment?: string | null
+          talk_less_ratio?: number | null
+          the_ask?: number | null
+          total?: number | null
+          user_id: string
+        }
+        Update: {
+          appointment_set?: boolean | null
+          coach_note?: string | null
+          costliest_moment?: string | null
+          created_at?: string
+          drill_again?: string | null
+          earn_30_seconds?: number | null
+          exchanges?: number | null
+          grade?: string | null
+          id?: string
+          mode?: string | null
+          motivation_discovery?: number | null
+          next_step_locked?: number | null
+          objection_handling?: number | null
+          one_thing_to_change?: string | null
+          org_id?: string
+          raw_report?: string | null
+          scenario?: string | null
+          session_date?: string
+          strongest_moment?: string | null
+          talk_less_ratio?: number | null
+          the_ask?: number | null
+          total?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       production_goals: {
         Row: {
           annual_focus: string | null
