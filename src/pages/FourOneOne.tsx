@@ -698,9 +698,13 @@ const FourOneOne = () => {
           <TabsTrigger value="weekly" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <Target className="h-4 w-4 mr-2" /> Weekly
           </TabsTrigger>
+          <TabsTrigger value="scorecard" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <Trophy className="h-4 w-4 mr-2" /> Scorecard
+          </TabsTrigger>
           <TabsTrigger value="monthly" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <TrendingUp className="h-4 w-4 mr-2" /> Monthly
           </TabsTrigger>
+
         </TabsList>
 
         {/* WEEKLY TAB */}
@@ -729,85 +733,9 @@ const FourOneOne = () => {
             </Button>
           </div>
 
-          {/* 1. Activity — measured by Follow Up Boss (read-only) */}
-          {(() => {
-            const raw = weeklyData as unknown as Record<string, number | string | null | undefined>;
-            const isSynced = Boolean(weeklyData.fub_synced_at);
-            const legacyKeys = new Set(['dials', 'appointments_set']);
-            const activityFields = [
-              { label: 'Leads Received', key: 'leads_received' },
-              { label: 'Dials', key: 'dials' },
-              { label: 'Connects', key: 'connects' },
-              { label: 'Conversations', key: 'conversations' },
-              { label: 'Texts Sent', key: 'texts_sent' },
-              { label: 'Talk Time (min)', key: 'talk_time_minutes' },
-              { label: 'Speed to First Touch (min)', key: 'speed_to_first_touch_minutes' },
-              { label: 'Appointments Set', key: 'appointments_set' },
-            ];
-            const healthFields = [
-              { label: 'Contacts Held', key: 'contacts_held' },
-              { label: 'Contacts Unstaged', key: 'contacts_unstaged' },
-              { label: 'Contacts / Live Deal', key: 'contacts_per_live_deal' },
-            ];
-            const renderField = (field: { label: string; key: string }) => {
-              const value = raw[field.key] as number | null | undefined;
-              const legacyManual = !isSynced && legacyKeys.has(field.key) && typeof value === 'number' && value > 0;
-              const display = value === null || value === undefined || (!isSynced && !legacyManual)
-                ? '—'
-                : value.toLocaleString();
-              return (
-                <div key={field.key} className="space-y-1">
-                  <Label className="text-xs font-medium text-muted-foreground">{field.label}</Label>
-                  <div
-                    className={`flex h-10 items-center rounded-md border border-input bg-muted/50 px-3 text-sm font-semibold ${
-                      legacyManual ? 'text-muted-foreground' : ''
-                    }`}
-                  >
-                    {display}
-                  </div>
-                  {legacyManual && (
-                    <p className="text-xs text-muted-foreground">Entered by hand — before automation</p>
-                  )}
-                </div>
-              );
-            };
+          {/* Automated Follow Up Boss numbers now live on the Scorecard tab */}
 
-            return (
-              <>
-                <Card className="border-primary/10">
-                  <CardHeader>
-                    <CardTitle className="text-lg font-display">Activity</CardTitle>
-                    <p className="text-xs text-muted-foreground">
-                      Measured by Follow Up Boss — updates weekly
-                    </p>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                      {activityFields.map(renderField)}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Set = booked, counted by Follow Up Boss. Held = actually happened, counted from your
-                      appointment records (below).
-                    </p>
-                  </CardContent>
-                </Card>
 
-                <Card className="border-primary/10">
-                  <CardHeader>
-                    <CardTitle className="text-lg font-display">Database Health</CardTitle>
-                    <p className="text-xs text-muted-foreground">
-                      Measured by Follow Up Boss — updates weekly
-                    </p>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {healthFields.map(renderField)}
-                    </div>
-                  </CardContent>
-                </Card>
-              </>
-            );
-          })()}
 
           {/* 3. Weekly Activity Tracking — manual entry */}
           <Card className="border-primary/10">
@@ -819,14 +747,15 @@ const FourOneOne = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                {/* Appointments Held - auto-calculated */}
+                {/* Appointments That Happened - auto-calculated */}
                 <div className="space-y-1">
-                  <Label className="text-xs font-medium text-muted-foreground">Appointments Held</Label>
+                  <Label className="text-xs font-medium text-muted-foreground">Appointments That Happened</Label>
                   <div className="flex h-10 items-center rounded-md border border-input bg-muted/50 px-3 text-sm font-semibold">
                     {appointmentRecords.length}
                   </div>
                   <p className="text-xs text-muted-foreground">Auto-calculated</p>
                 </div>
+
                 {[
                   { label: 'Doors Knocked', key: 'doors_knocked' },
                   { label: 'Pipeline Additions', key: 'pipeline_additions' },
@@ -843,7 +772,12 @@ const FourOneOne = () => {
                   </div>
                 ))}
               </div>
+              <p className="text-xs text-muted-foreground">
+                That Happened = actually happened, counted from your appointment records. Booked is on the
+                Scorecard tab.
+              </p>
             </CardContent>
+
           </Card>
 
 
@@ -894,7 +828,7 @@ const FourOneOne = () => {
           <Card className="border-primary/10">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-lg font-display flex items-center gap-2">
-                <CalendarDays className="h-5 w-5" /> Appointments Held ({appointmentRecords.length})
+                <CalendarDays className="h-5 w-5" /> Appointments That Happened ({appointmentRecords.length})
               </CardTitle>
               <Dialog open={showAppointmentDialog} onOpenChange={setShowAppointmentDialog}>
                 <DialogTrigger asChild>
@@ -1244,6 +1178,111 @@ const FourOneOne = () => {
             </Button>
           </div>
         </TabsContent>
+
+        {/* SCORECARD TAB — automated Follow Up Boss numbers, read-only */}
+        <TabsContent value="scorecard" className="space-y-6">
+          <div className="flex items-center justify-between">
+            <Button variant="outline" size="sm" onClick={() => setCurrentWeek(subWeeks(currentWeek, 1))}>
+              <ChevronLeft className="h-4 w-4 mr-1" /> Previous
+            </Button>
+            <div className="text-center">
+              <h2 className="text-lg font-display font-semibold">
+                Week of {format(currentWeek, 'MMM d, yyyy')}
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Updates every Sunday from Follow Up Boss. Shows a dash until the first run.
+              </p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setCurrentWeek(addWeeks(currentWeek, 1))}>
+              Next <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
+
+          {(() => {
+            const raw = weeklyData as unknown as Record<string, number | string | null | undefined>;
+            const isSynced = Boolean(weeklyData.fub_synced_at);
+            const legacyKeys = new Set(['dials', 'appointments_set']);
+            const activityFields = [
+              { label: 'New Leads', key: 'leads_received' },
+              { label: 'Calls Made', key: 'dials' },
+              { label: 'Calls Answered', key: 'connects' },
+              { label: 'Real Conversations', key: 'conversations' },
+              { label: 'Texts Sent', key: 'texts_sent' },
+              { label: 'Time on the Phone (min)', key: 'talk_time_minutes' },
+              { label: 'Time to First Contact (min)', key: 'speed_to_first_touch_minutes' },
+              { label: 'Appointments Booked', key: 'appointments_set' },
+            ];
+            const healthFields = [
+              { label: 'Database Size', key: 'contacts_held' },
+              { label: 'Unsorted Records', key: 'contacts_unstaged' },
+              { label: 'Records per Live Deal', key: 'contacts_per_live_deal' },
+            ];
+            const renderField = (field: { label: string; key: string }) => {
+              const value = raw[field.key] as number | null | undefined;
+              const legacyManual = !isSynced && legacyKeys.has(field.key) && typeof value === 'number' && value > 0;
+              const display = value === null || value === undefined || (!isSynced && !legacyManual)
+                ? '—'
+                : value.toLocaleString();
+              return (
+                <div key={field.key} className="space-y-1">
+                  <Label className="text-xs font-medium text-muted-foreground">{field.label}</Label>
+                  <div
+                    className={`flex h-10 items-center rounded-md border border-input bg-muted/50 px-3 text-sm font-semibold ${
+                      legacyManual ? 'text-muted-foreground' : ''
+                    }`}
+                  >
+                    {display}
+                  </div>
+                  {legacyManual && (
+                    <p className="text-xs text-muted-foreground">Entered by hand — before automation</p>
+                  )}
+                </div>
+              );
+            };
+
+            return (
+              <>
+                <Card className="border-primary/10">
+                  <CardHeader>
+                    <CardTitle className="text-lg font-display">Activity</CardTitle>
+                    <p className="text-xs text-muted-foreground">
+                      Measured by Follow Up Boss — updates weekly
+                    </p>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {activityFields.map(renderField)}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Calls Made, Calls Answered and Real Conversations are the funnel of a phone call — calls
+                      placed, calls someone picked up, and calls that became a real exchange. The drop between
+                      them is the point.
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Booked = booked, counted by Follow Up Boss. See Appointments That Happened on the Weekly tab.
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-primary/10">
+                  <CardHeader>
+                    <CardTitle className="text-lg font-display">Database Health</CardTitle>
+                    <p className="text-xs text-muted-foreground">
+                      Measured by Follow Up Boss — updates weekly
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {healthFields.map(renderField)}
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            );
+          })()}
+        </TabsContent>
+
+
 
         {/* MONTHLY TAB */}
         <TabsContent value="monthly" className="space-y-6">

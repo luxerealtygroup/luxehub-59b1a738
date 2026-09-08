@@ -252,15 +252,16 @@ const Team411 = () => {
                   </p>
                   <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-2">
                     {[
-                      { label: 'Contacts Held', key: 'contacts_held' },
-                      { label: 'Unstaged', key: 'contacts_unstaged' },
+                      { label: 'Database Size', key: 'contacts_held' },
+                      { label: 'Unsorted', key: 'contacts_unstaged' },
                       { label: 'Per Live Deal', key: 'contacts_per_live_deal' },
-                      { label: 'Leads', key: 'leads_received' },
-                      { label: 'Connects', key: 'connects' },
-                      { label: 'Convos', key: 'conversations' },
+                      { label: 'New Leads', key: 'leads_received' },
+                      { label: 'Calls Answered', key: 'connects' },
+                      { label: 'Real Conversations', key: 'conversations' },
                       { label: 'Texts', key: 'texts_sent' },
-                      { label: 'Talk (min)', key: 'talk_time_minutes' },
-                      { label: 'Speed (min)', key: 'speed_to_first_touch_minutes' },
+                      { label: 'Time on Phone (min)', key: 'talk_time_minutes' },
+                      { label: 'Time to First Contact (min)', key: 'speed_to_first_touch_minutes' },
+
                     ].map(field => {
                       const value = (data as unknown as Record<string, number | null | undefined> | undefined)?.[field.key];
                       return (
@@ -279,15 +280,14 @@ const Team411 = () => {
                     {/* New Activity Tracking Fields */}
                     <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-2">
                       {[
-                        { label: 'Contacts', value: data.contacts_made },
-                        { label: 'Dials', value: data.dials },
+                        { label: 'Calls Made', value: data.dials },
                         { label: 'Doors', value: data.doors_knocked },
-                        { label: 'Appts Set', value: data.appointments_set },
-                        { label: 'Appts Held', value: agentAppts.length || data.appointments_held },
+                        { label: 'Appts Booked', value: data.appointments_set },
+                        { label: 'Appts Happened', value: agentAppts.length || data.appointments_held },
                         { label: 'Pipeline+', value: data.pipeline_additions },
                         { label: 'Contracts', value: data.contracts_signed },
                         { label: 'Firm', value: data.firm_deals },
-                        { label: 'DB Size', value: data.database_size },
+
                       ].map(field => (
                         <div key={field.label} className="text-center p-2 rounded-lg bg-muted/50">
                           <p className="text-lg font-bold text-foreground">{field.value || 0}</p>
@@ -321,7 +321,7 @@ const Team411 = () => {
                     {agentAppts.length > 0 && (
                       <div>
                         <p className="text-sm font-medium mb-2 flex items-center gap-1">
-                          <CalendarDays className="h-4 w-4" /> Appointments Held ({agentAppts.length})
+                          <CalendarDays className="h-4 w-4" /> Appointments That Happened ({agentAppts.length})
                         </p>
                         <div className="space-y-1">
                           {agentAppts.map(appt => (
