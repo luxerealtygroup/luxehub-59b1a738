@@ -245,6 +245,35 @@ const Team411 = () => {
                     {!data && <Badge variant="outline" className="text-muted-foreground">No entry this week</Badge>}
                   </div>
                 </CardHeader>
+                {/* Database Health & Follow Up Boss activity (weekly automation) */}
+                <CardContent className="pb-4">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">
+                    Database Health — from Follow Up Boss
+                  </p>
+                  <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-2">
+                    {[
+                      { label: 'Contacts Held', key: 'contacts_held' },
+                      { label: 'Unstaged', key: 'contacts_unstaged' },
+                      { label: 'Per Live Deal', key: 'contacts_per_live_deal' },
+                      { label: 'Leads', key: 'leads_received' },
+                      { label: 'Connects', key: 'connects' },
+                      { label: 'Convos', key: 'conversations' },
+                      { label: 'Texts', key: 'texts_sent' },
+                      { label: 'Talk (min)', key: 'talk_time_minutes' },
+                      { label: 'Speed (min)', key: 'speed_to_first_touch_minutes' },
+                    ].map(field => {
+                      const value = (data as unknown as Record<string, number | null | undefined> | undefined)?.[field.key];
+                      return (
+                        <div key={field.label} className="text-center p-2 rounded-lg bg-muted/30">
+                          <p className="text-lg font-bold text-foreground">
+                            {value === null || value === undefined ? '—' : Number(value).toLocaleString()}
+                          </p>
+                          <p className="text-xs text-muted-foreground">{field.label}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
                 {data && (
                   <CardContent className="space-y-4">
                     {/* New Activity Tracking Fields */}
@@ -267,32 +296,6 @@ const Team411 = () => {
                       ))}
                     </div>
 
-                    {/* Database Health & Follow Up Boss activity (weekly automation) */}
-                    <div>
-                      <p className="text-xs font-medium text-muted-foreground mb-2">
-                        Database Health — from Follow Up Boss
-                      </p>
-                      <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-2">
-                        {[
-                          { label: 'Contacts Held', value: (data as any).contacts_held },
-                          { label: 'Unstaged', value: (data as any).contacts_unstaged },
-                          { label: 'Per Live Deal', value: (data as any).contacts_per_live_deal },
-                          { label: 'Leads', value: (data as any).leads_received },
-                          { label: 'Connects', value: (data as any).connects },
-                          { label: 'Convos', value: (data as any).conversations },
-                          { label: 'Texts', value: (data as any).texts_sent },
-                          { label: 'Talk (min)', value: (data as any).talk_time_minutes },
-                          { label: 'Speed (min)', value: (data as any).speed_to_first_touch_minutes },
-                        ].map(field => (
-                          <div key={field.label} className="text-center p-2 rounded-lg bg-muted/30">
-                            <p className="text-lg font-bold text-foreground">
-                              {field.value === null || field.value === undefined ? '—' : Number(field.value).toLocaleString()}
-                            </p>
-                            <p className="text-xs text-muted-foreground">{field.label}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
 
 
 
