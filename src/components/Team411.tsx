@@ -370,6 +370,10 @@ const Team411 = () => {
                                     <span className="text-muted-foreground">Coach note: </span>
                                     {p.latest?.coach_note || '—'}
                                   </p>
+                                  <p className="text-sm">
+                                    <span className="text-muted-foreground">Working on: </span>
+                                    {p.latest?.magic_words_missed || '—'}
+                                  </p>
                                 </div>
                               )}
                             </CollapsibleMetricSection>

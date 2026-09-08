@@ -19,6 +19,8 @@ export interface ParsedPracticeReport {
   appointment_set: boolean | null;
   strongest_moment: string;
   costliest_moment: string;
+  magic_words_used: string;
+  magic_words_missed: string;
   one_thing_to_change: string;
   drill_again: string;
   coach_note: string;
@@ -91,6 +93,8 @@ export function parsePracticeReport(text: string): ParsedPracticeReport {
     appointment_set,
     strongest_moment: field(src, ['strongest moment', 'strongest']),
     costliest_moment: field(src, ['costliest moment', 'costliest']),
+    magic_words_used: field(src, ['magic words used']),
+    magic_words_missed: field(src, ['magic words missed']),
     one_thing_to_change: field(src, ['one thing to change', 'one thing']),
     drill_again: field(src, ['drill again', 'drill']),
     coach_note: field(src, ['coach note', "coach's note", 'coaching note']),
