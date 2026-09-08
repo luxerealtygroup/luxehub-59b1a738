@@ -819,14 +819,15 @@ const FourOneOne = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                {/* Appointments Held - auto-calculated */}
+                {/* Appointments That Happened - auto-calculated */}
                 <div className="space-y-1">
-                  <Label className="text-xs font-medium text-muted-foreground">Appointments Held</Label>
+                  <Label className="text-xs font-medium text-muted-foreground">Appointments That Happened</Label>
                   <div className="flex h-10 items-center rounded-md border border-input bg-muted/50 px-3 text-sm font-semibold">
                     {appointmentRecords.length}
                   </div>
                   <p className="text-xs text-muted-foreground">Auto-calculated</p>
                 </div>
+
                 {[
                   { label: 'Doors Knocked', key: 'doors_knocked' },
                   { label: 'Pipeline Additions', key: 'pipeline_additions' },
