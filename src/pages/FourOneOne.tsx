@@ -59,6 +59,16 @@ interface Weekly411 {
   challenges: string;
   next_steps: string;
   notes: string;
+  // Written by the weekly Follow Up Boss automation (read-only in the app)
+  leads_received?: number | null;
+  connects?: number | null;
+  conversations?: number | null;
+  texts_sent?: number | null;
+  talk_time_minutes?: number | null;
+  speed_to_first_touch_minutes?: number | null;
+  contacts_held?: number | null;
+  contacts_unstaged?: number | null;
+  contacts_per_live_deal?: number | null;
 }
 
 interface AppointmentRecord {
