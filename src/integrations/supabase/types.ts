@@ -4776,6 +4776,7 @@ export type Database = {
           dials: number | null
           doors_knocked: number | null
           firm_deals: number | null
+          fub_synced_at: string | null
           id: string
           leads_received: number | null
           listings_actual: number | null
@@ -4828,6 +4829,7 @@ export type Database = {
           dials?: number | null
           doors_knocked?: number | null
           firm_deals?: number | null
+          fub_synced_at?: string | null
           id?: string
           leads_received?: number | null
           listings_actual?: number | null
@@ -4880,6 +4882,7 @@ export type Database = {
           dials?: number | null
           doors_knocked?: number | null
           firm_deals?: number | null
+          fub_synced_at?: string | null
           id?: string
           leads_received?: number | null
           listings_actual?: number | null
