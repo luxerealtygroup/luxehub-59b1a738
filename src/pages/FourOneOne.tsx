@@ -768,7 +768,12 @@ const FourOneOne = () => {
                   </div>
                 ))}
               </div>
+              <p className="text-xs text-muted-foreground">
+                That Happened = actually happened, counted from your appointment records. Booked is on the
+                Scorecard tab.
+              </p>
             </CardContent>
+
           </Card>
 
 
