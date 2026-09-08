@@ -7,8 +7,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ChevronDown, Mic, Save } from 'lucide-react';
+import { ChevronDown, ExternalLink, Mic, Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useUserRole } from '@/hooks/useUserRole';
 import { format, parseISO, startOfMonth, startOfWeek } from 'date-fns';
 import { parsePracticeReport, SCORE_FIELDS, ParsedPracticeReport } from '@/lib/practiceReport';
 
