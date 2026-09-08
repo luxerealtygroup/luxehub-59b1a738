@@ -280,15 +280,14 @@ const Team411 = () => {
                     {/* New Activity Tracking Fields */}
                     <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-2">
                       {[
-                        { label: 'Contacts', value: data.contacts_made },
-                        { label: 'Dials', value: data.dials },
+                        { label: 'Calls Made', value: data.dials },
                         { label: 'Doors', value: data.doors_knocked },
-                        { label: 'Appts Set', value: data.appointments_set },
-                        { label: 'Appts Held', value: agentAppts.length || data.appointments_held },
+                        { label: 'Appts Booked', value: data.appointments_set },
+                        { label: 'Appts Happened', value: agentAppts.length || data.appointments_held },
                         { label: 'Pipeline+', value: data.pipeline_additions },
                         { label: 'Contracts', value: data.contracts_signed },
                         { label: 'Firm', value: data.firm_deals },
-                        { label: 'DB Size', value: data.database_size },
+
                       ].map(field => (
                         <div key={field.label} className="text-center p-2 rounded-lg bg-muted/50">
                           <p className="text-lg font-bold text-foreground">{field.value || 0}</p>
