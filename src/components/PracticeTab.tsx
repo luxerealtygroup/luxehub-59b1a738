@@ -248,6 +248,8 @@ export function PracticeTab({ userId, canLog }: PracticeTabProps) {
                 {([
                   ['strongest_moment', 'Strongest Moment'],
                   ['costliest_moment', 'Costliest Moment'],
+                  ['magic_words_used', 'Magic Words Used'],
+                  ['magic_words_missed', 'Magic Words Missed'],
                   ['one_thing_to_change', 'One Thing to Change'],
                   ['drill_again', 'Drill Again'],
                   ['coach_note', 'Coach Note'],
@@ -316,6 +318,8 @@ export function PracticeTab({ userId, canLog }: PracticeTabProps) {
                       ['exchanges', 'Exchanges'],
                       ['strongest_moment', 'Strongest Moment'],
                       ['costliest_moment', 'Costliest Moment'],
+                      ['magic_words_used', 'Magic Words Used'],
+                      ['magic_words_missed', 'Magic Words Missed'],
                       ['one_thing_to_change', 'One Thing to Change'],
                       ['drill_again', 'Drill Again'],
                       ['coach_note', 'Coach Note'],
