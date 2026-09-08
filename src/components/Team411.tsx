@@ -267,6 +267,35 @@ const Team411 = () => {
                       ))}
                     </div>
 
+                    {/* Database Health & Follow Up Boss activity (weekly automation) */}
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-2">
+                        Database Health — from Follow Up Boss
+                      </p>
+                      <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-2">
+                        {[
+                          { label: 'Contacts Held', value: (data as any).contacts_held },
+                          { label: 'Unstaged', value: (data as any).contacts_unstaged },
+                          { label: 'Per Live Deal', value: (data as any).contacts_per_live_deal },
+                          { label: 'Leads', value: (data as any).leads_received },
+                          { label: 'Connects', value: (data as any).connects },
+                          { label: 'Convos', value: (data as any).conversations },
+                          { label: 'Texts', value: (data as any).texts_sent },
+                          { label: 'Talk (min)', value: (data as any).talk_time_minutes },
+                          { label: 'Speed (min)', value: (data as any).speed_to_first_touch_minutes },
+                        ].map(field => (
+                          <div key={field.label} className="text-center p-2 rounded-lg bg-muted/30">
+                            <p className="text-lg font-bold text-foreground">
+                              {field.value === null || field.value === undefined ? '—' : Number(field.value).toLocaleString()}
+                            </p>
+                            <p className="text-xs text-muted-foreground">{field.label}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+
+
                     {/* Legacy Goal Metrics */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       {[
