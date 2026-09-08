@@ -242,6 +242,7 @@ export function PracticeTab({ userId, canLog }: PracticeTabProps) {
 
   return (
     <div className="space-y-6">
+      <ScriptingBossLink />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {stat('Sessions This Week', String(summary.thisWeek))}
         {stat('Sessions This Month', String(summary.thisMonth))}
