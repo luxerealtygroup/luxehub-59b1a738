@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS include_in_team_coaching boolean NOT NULL DEFAULT true;
