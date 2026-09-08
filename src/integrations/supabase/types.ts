@@ -4023,6 +4023,7 @@ export type Database = {
           fub_user_id: number | null
           full_name: string | null
           id: string
+          include_in_team_coaching: boolean
           is_demo_account: boolean
           launchpad_track: string | null
           mentor_id: string | null
@@ -4040,6 +4041,7 @@ export type Database = {
           fub_user_id?: number | null
           full_name?: string | null
           id: string
+          include_in_team_coaching?: boolean
           is_demo_account?: boolean
           launchpad_track?: string | null
           mentor_id?: string | null
@@ -4057,6 +4059,7 @@ export type Database = {
           fub_user_id?: number | null
           full_name?: string | null
           id?: string
+          include_in_team_coaching?: boolean
           is_demo_account?: boolean
           launchpad_track?: string | null
           mentor_id?: string | null
