@@ -1374,6 +1374,13 @@ const FourOneOne = () => {
           </Button>
         </TabsContent>
 
+        {/* PRACTICE TAB */}
+        <TabsContent value="practice" className="space-y-6">
+          <PracticeTab userId={queryUserId} canLog={!isViewingAsAgent && !!user?.id && queryUserId === user?.id} />
+        </TabsContent>
+
+
+
       </Tabs>
     </div>
   );
