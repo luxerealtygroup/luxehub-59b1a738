@@ -1,4 +1,4 @@
-# Weekly 4-1-1 tab: plain-English field labels
+# 4-1-1: plain-English labels + a new Scorecard tab
 
 Rename every field label on the Weekly tab to plain English so agents read it themselves instead of internal Follow Up Boss jargon. **Display labels only** — the underlying `weekly_411` column names stay exactly as they are, so nothing breaks and no data moves. No migration, no type changes, no save-path change.
 
@@ -50,10 +50,35 @@ The existing line "Set = booked, counted by Follow Up Boss. Held = actually happ
 
 The two read-only cards keep their "Measured by Follow Up Boss — updates weekly" caption, and the manual card keeps "Things Follow Up Boss can't see — enter these yourself." Every automated field still shows an em dash until the weekly run writes it, and the greyed "entered by hand — before automation" note for legacy un-stamped weeks is unchanged.
 
+## New Scorecard tab
+
+The Weekly tab is doing too much, so the two read-only Follow Up Boss cards move out of it into a third tab in the existing 4-1-1 tab strip, alongside Weekly and Monthly, with the same styling as those triggers.
+
+- **Weekly tab** keeps only what the agent plans and enters by hand: goals, priorities, wins/challenges/next steps, Doors Knocked, Pipeline Additions, Contracts Signed, Firm Sales, the Goal Tracking card, the appointment records, and the auto-calculated **Appointments That Happened**.
+- **Scorecard tab** holds only the automated numbers, all read-only, with a caption at the top: "Updates every Sunday from Follow Up Boss. Shows a dash until the first run." Inside it, the two cards stay separate and in this order:
+  1. **Activity** — New Leads, Calls Made, Calls Answered, Real Conversations, Texts Sent, Time on the Phone, Time to First Contact, Appointments Booked — with the phone-call funnel caption under the three call fields.
+  2. **Database Health** — Database Size, Unsorted Records, Records per Live Deal.
+
+The Scorecard reads the same week as the Weekly tab (the same week picker selection and the same loaded record), so it behaves identically whether an agent is viewing their own 4-1-1 or an owner is viewing an agent's through View as Agent — no separate query, no separate permissions. The em dash rule and the greyed "entered by hand — before automation" note for legacy un-stamped weeks move across unchanged.
+
+Because the Appointments Booked / Appointments That Happened pair is now split across two tabs, each side carries a short pointer instead of the single shared line: Scorecard says "Booked = booked, counted by Follow Up Boss. See Appointments That Happened on the Weekly tab." and the Weekly tab says "That Happened = actually happened, counted from your appointment records. Booked is on the Scorecard tab."
+
+## Team Coaching labels (`Team411.tsx`)
+
+The admin Team Coaching view gets the same plain-English names so coaching conversations use one vocabulary. Space is tighter there, so the labels are the same words, shortened only where the grid demands it:
+
+- Contacts Held → **Database Size**, Unstaged → **Unsorted**, Per Live Deal → **Per Live Deal**
+- Leads → **New Leads**, Connects → **Calls Answered**, Convos → **Real Conversations**, Talk (min) → **Time on Phone**, Speed (min) → **Time to First Contact**
+- Dials → **Calls Made**, Appts Set → **Appts Booked**, Appts Held → **Appts Happened**
+- **Contacts** (`contacts_made`) and **DB Size** (`database_size`, the old manual column) are removed from the Team Coaching grid — Calls Answered / Real Conversations and the automated Database Size replace them.
+
+Keys and columns are untouched here too; this is label text and two removed tiles.
+
 ## Files touched
 
-- `src/pages/FourOneOne.tsx` — label strings only (the `activityFields`, `healthFields`, and manual-card arrays, plus the two caption lines). No keys, no save payload, no column references change.
+- `src/pages/FourOneOne.tsx` — new Scorecard tab trigger and panel, the two read-only cards moved into it, label strings, captions.
+- `src/components/Team411.tsx` — label strings and the two removed tiles.
 
-Unchanged: the `weekly_411` table, the `record_weekly_411_actuals` RPC, `get-my-weekly-411.ts`, `Team411.tsx` (admin Team Coaching keeps its own labels), `weekly411Fallback.ts`, and all reports. The admin Team Coaching view is out of scope for this pass; it can be aligned in a follow-up if you want.
+Unchanged: the `weekly_411` table, the `record_weekly_411_actuals` RPC, `get-my-weekly-411.ts`, `weekly411Fallback.ts`, the save payload, and all reports.
 
-No migration. No type regeneration. This is a pure UI-label change.
+No migration. No type regeneration. This is a UI-only change.
