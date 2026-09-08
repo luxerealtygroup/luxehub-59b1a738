@@ -3973,6 +3973,8 @@ export type Database = {
           exchanges: number | null
           grade: string | null
           id: string
+          magic_words_missed: string | null
+          magic_words_used: string | null
           mode: string | null
           motivation_discovery: number | null
           next_step_locked: number | null
@@ -3998,6 +4000,8 @@ export type Database = {
           exchanges?: number | null
           grade?: string | null
           id?: string
+          magic_words_missed?: string | null
+          magic_words_used?: string | null
           mode?: string | null
           motivation_discovery?: number | null
           next_step_locked?: number | null
@@ -4023,6 +4027,8 @@ export type Database = {
           exchanges?: number | null
           grade?: string | null
           id?: string
+          magic_words_missed?: string | null
+          magic_words_used?: string | null
           mode?: string | null
           motivation_discovery?: number | null
           next_step_locked?: number | null
