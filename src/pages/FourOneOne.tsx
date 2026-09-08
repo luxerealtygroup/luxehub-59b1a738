@@ -69,6 +69,7 @@ interface Weekly411 {
   contacts_held?: number | null;
   contacts_unstaged?: number | null;
   contacts_per_live_deal?: number | null;
+  fub_synced_at?: string | null;
 }
 
 interface AppointmentRecord {
