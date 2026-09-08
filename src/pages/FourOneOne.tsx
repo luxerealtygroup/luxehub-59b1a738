@@ -15,7 +15,9 @@ import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { ChevronLeft, ChevronRight, Save, Target, Trophy, TrendingUp, FileText, ArrowRight, Plus, Trash2, CalendarDays, Copy, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Save, Target, Trophy, TrendingUp, FileText, ArrowRight, Plus, Trash2, CalendarDays, Copy, Check, Mic } from 'lucide-react';
+import { PracticeTab } from '@/components/PracticeTab';
+
 import { useToast } from '@/hooks/use-toast';
 import { format, startOfWeek, addWeeks, subWeeks } from 'date-fns';
 import { FUBContactTypeahead } from '@/components/FUBContactTypeahead';
