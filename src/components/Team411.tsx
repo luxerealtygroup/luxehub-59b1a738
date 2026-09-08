@@ -105,6 +105,7 @@ const Team411 = () => {
       const { data: profiles } = await supabase
         .from('profiles')
         .select('id, full_name')
+        .neq('include_in_team_coaching', false)
         .not('full_name', 'is', null);
 
       const { data: usersWith411 } = await supabase
