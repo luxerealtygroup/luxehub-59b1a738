@@ -82,6 +82,98 @@ interface PracticeTabProps {
   canLog: boolean;
 }
 
+const SCRIPTING_BOSS_KEY = 'scripting_boss_url';
+
+function ScriptingBossLink() {
+  const { toast } = useToast();
+  const { isAdmin } = useUserRole();
+  const [url, setUrl] = useState<string | null>(null);
+  const [value, setValue] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const { data } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', SCRIPTING_BOSS_KEY)
+        .maybeSingle();
+      if (!active) return;
+      const v = (data as { value: string | null } | null)?.value ?? null;
+      setUrl(v);
+      setValue(v || '');
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleSave = async () => {
+    const trimmed = value.trim();
+    let valid = false;
+    try {
+      valid = new URL(trimmed).protocol === 'https:';
+    } catch {
+      valid = false;
+    }
+    if (!valid) {
+      toast({ title: 'Enter a link that starts with https://', variant: 'destructive' });
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase
+      .from('app_settings')
+      .upsert({ key: SCRIPTING_BOSS_KEY, value: trimmed }, { onConflict: 'org_id,key' });
+    setSaving(false);
+    if (error) {
+      toast({ title: 'Could not save the link', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setUrl(trimmed);
+    toast({ title: 'Link saved' });
+  };
+
+  return (
+    <Card className="border-primary/10">
+      <CardContent className="space-y-3 pt-6">
+        {url ? (
+          <div>
+            <Button asChild>
+              <a href={url} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-4 w-4 mr-2" /> Open Scripting Boss
+              </a>
+            </Button>
+            <p className="text-xs text-muted-foreground mt-2">Practise there, then paste your report below.</p>
+          </div>
+        ) : (
+          !isAdmin && (
+            <p className="text-sm text-muted-foreground">The Scripting Boss link is coming soon.</p>
+          )
+        )}
+
+        {isAdmin && (
+          <div className="space-y-2">
+            <Label className="text-xs">
+              {url ? 'Scripting Boss link' : 'Add the Scripting Boss link'}
+            </Label>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Input
+                value={value}
+                onChange={e => setValue(e.target.value)}
+                placeholder="https://claude.ai/project/…"
+              />
+              <Button variant="outline" onClick={handleSave} disabled={saving}>
+                {saving ? 'Saving…' : 'Save link'}
+              </Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function PracticeTab({ userId, canLog }: PracticeTabProps) {
   const { toast } = useToast();
   const { sessions, loading, reload } = usePracticeSessions(userId);
