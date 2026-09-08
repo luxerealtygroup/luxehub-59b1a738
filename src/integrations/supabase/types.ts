@@ -4012,6 +4012,7 @@ export type Database = {
           scenario: string | null
           session_date: string
           strongest_moment: string | null
+          structure_covered: string | null
           talk_less_ratio: number | null
           the_ask: number | null
           total: number | null
@@ -4039,6 +4040,7 @@ export type Database = {
           scenario?: string | null
           session_date?: string
           strongest_moment?: string | null
+          structure_covered?: string | null
           talk_less_ratio?: number | null
           the_ask?: number | null
           total?: number | null
@@ -4066,6 +4068,7 @@ export type Database = {
           scenario?: string | null
           session_date?: string
           strongest_moment?: string | null
+          structure_covered?: string | null
           talk_less_ratio?: number | null
           the_ask?: number | null
           total?: number | null

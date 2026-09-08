@@ -215,6 +215,7 @@ export function PracticeTab({ userId, canLog }: PracticeTabProps) {
       appointment_set: draft.appointment_set,
       strongest_moment: draft.strongest_moment || null,
       costliest_moment: draft.costliest_moment || null,
+      structure_covered: draft.structure_covered || null,
       magic_words_used: draft.magic_words_used || null,
       magic_words_missed: draft.magic_words_missed || null,
       one_thing_to_change: draft.one_thing_to_change || null,
@@ -342,6 +343,7 @@ export function PracticeTab({ userId, canLog }: PracticeTabProps) {
                 {([
                   ['strongest_moment', 'Strongest Moment'],
                   ['costliest_moment', 'Costliest Moment'],
+                  ['structure_covered', 'Structure Covered'],
                   ['magic_words_used', 'Magic Words Used'],
                   ['magic_words_missed', 'Magic Words Missed'],
                   ['one_thing_to_change', 'One Thing to Change'],
@@ -412,6 +414,7 @@ export function PracticeTab({ userId, canLog }: PracticeTabProps) {
                       ['exchanges', 'Exchanges'],
                       ['strongest_moment', 'Strongest Moment'],
                       ['costliest_moment', 'Costliest Moment'],
+                      ['structure_covered', 'Structure Covered'],
                       ['magic_words_used', 'Magic Words Used'],
                       ['magic_words_missed', 'Magic Words Missed'],
                       ['one_thing_to_change', 'One Thing to Change'],
