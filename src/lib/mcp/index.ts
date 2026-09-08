@@ -3,6 +3,7 @@ import getMyPipeline from "./tools/get-my-pipeline";
 import getMyDeals from "./tools/get-my-deals";
 import getMyWeekly411 from "./tools/get-my-weekly-411";
 import addPipelineClient from "./tools/add-pipeline-client";
+import recordWeekly411Actuals from "./tools/record-weekly-411-actuals";
 
 const projectRef = import.meta.env.VITE_SUPABASE_PROJECT_ID ?? "project-ref-unset";
 
