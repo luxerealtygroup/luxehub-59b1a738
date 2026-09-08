@@ -97,6 +97,8 @@ const Team411 = () => {
   const [weeklyData, setWeeklyData] = useState<Weekly411Data[]>([]);
   const [appointmentRecords, setAppointmentRecords] = useState<AppointmentRecordData[]>([]);
   const [productionGoals, setProductionGoals] = useState<ProductionGoalData[]>([]);
+  const [practiceSessions, setPracticeSessions] = useState<(PracticeSession & { user_id: string })[]>([]);
+
 
   useEffect(() => {
     const fetchData = async () => {
