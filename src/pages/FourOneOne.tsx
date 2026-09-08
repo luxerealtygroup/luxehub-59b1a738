@@ -72,6 +72,33 @@ interface Weekly411 {
   fub_synced_at?: string | null;
 }
 
+/**
+ * Columns owned by the weekly Follow Up Boss automation. The page never writes these,
+ * so an agent save can't overwrite measured numbers. Historical values stay untouched.
+ */
+const AUTOMATION_OWNED_FIELDS = [
+  'leads_received',
+  'dials',
+  'connects',
+  'conversations',
+  'texts_sent',
+  'appointments_set',
+  'talk_time_minutes',
+  'speed_to_first_touch_minutes',
+  'contacts_held',
+  'contacts_unstaged',
+  'contacts_per_live_deal',
+  'contacts_made',
+  'database_size',
+  'fub_synced_at',
+] as const;
+
+function buildAgentPayload(data: Weekly411): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...data };
+  for (const key of AUTOMATION_OWNED_FIELDS) delete out[key];
+  return out;
+}
+
 interface AppointmentRecord {
   id?: string;
   fub_contact_id: number | null;
