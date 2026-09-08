@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useViewAsAgent } from '@/hooks/useViewAsAgent';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { CollapsibleMetricSection, summarise } from '@/components/CollapsibleMetricSection';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -1243,13 +1244,17 @@ const FourOneOne = () => {
             return (
               <>
                 <Card className="border-primary/10">
-                  <CardHeader>
-                    <CardTitle className="text-lg font-display">Activity</CardTitle>
-                    <p className="text-xs text-muted-foreground">
+                  <CardContent className="pt-6 space-y-2">
+                    <CollapsibleMetricSection
+                      storageKey="fouroneone.scorecard.activity"
+                      defaultOpen
+                      title="Activity"
+                      titleClassName="text-lg font-display font-semibold"
+                      summary={summarise(activityFields.map(f => (isSynced ? (raw[f.key] as number | null | undefined) : null)))}
+                    >
+                    <p className="text-xs text-muted-foreground mb-4">
                       Measured by Follow Up Boss — updates weekly
                     </p>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                       {activityFields.map(renderField)}
                     </div>
@@ -1261,20 +1266,26 @@ const FourOneOne = () => {
                     <p className="text-xs text-muted-foreground">
                       Booked = booked, counted by Follow Up Boss. See Appointments That Happened on the Weekly tab.
                     </p>
+                    </CollapsibleMetricSection>
                   </CardContent>
                 </Card>
 
                 <Card className="border-primary/10">
-                  <CardHeader>
-                    <CardTitle className="text-lg font-display">Database Health</CardTitle>
-                    <p className="text-xs text-muted-foreground">
-                      Measured by Follow Up Boss — updates weekly
-                    </p>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {healthFields.map(renderField)}
-                    </div>
+                  <CardContent className="pt-6">
+                    <CollapsibleMetricSection
+                      storageKey="fouroneone.scorecard.database-health"
+                      defaultOpen={false}
+                      title="Database Health"
+                      titleClassName="text-lg font-display font-semibold"
+                      summary={summarise(healthFields.map(f => (isSynced ? (raw[f.key] as number | null | undefined) : null)))}
+                    >
+                      <p className="text-xs text-muted-foreground mb-4">
+                        Measured by Follow Up Boss — updates weekly
+                      </p>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        {healthFields.map(renderField)}
+                      </div>
+                    </CollapsibleMetricSection>
                   </CardContent>
                 </Card>
               </>
