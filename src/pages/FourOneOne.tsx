@@ -69,6 +69,34 @@ interface Weekly411 {
   contacts_held?: number | null;
   contacts_unstaged?: number | null;
   contacts_per_live_deal?: number | null;
+  fub_synced_at?: string | null;
+}
+
+/**
+ * Columns owned by the weekly Follow Up Boss automation. The page never writes these,
+ * so an agent save can't overwrite measured numbers. Historical values stay untouched.
+ */
+const AUTOMATION_OWNED_FIELDS = [
+  'leads_received',
+  'dials',
+  'connects',
+  'conversations',
+  'texts_sent',
+  'appointments_set',
+  'talk_time_minutes',
+  'speed_to_first_touch_minutes',
+  'contacts_held',
+  'contacts_unstaged',
+  'contacts_per_live_deal',
+  'contacts_made',
+  'database_size',
+  'fub_synced_at',
+] as const;
+
+function buildAgentPayload(data: Weekly411): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...data };
+  for (const key of AUTOMATION_OWNED_FIELDS) delete out[key];
+  return out;
 }
 
 interface AppointmentRecord {
@@ -379,7 +407,7 @@ const FourOneOne = () => {
       setAutoSaving(true);
       const weekStart = format(currentWeek, 'yyyy-MM-dd');
       const payload = {
-        ...weeklyData,
+        ...buildAgentPayload(weeklyData),
         user_id: user.id,
         week_start_date: weekStart,
         appointments_held: appointmentRecords.length,
@@ -428,7 +456,7 @@ const FourOneOne = () => {
 
     const weekStart = format(currentWeek, 'yyyy-MM-dd');
     const payload = {
-      ...weeklyData,
+      ...buildAgentPayload(weeklyData),
       user_id: user.id,
       week_start_date: weekStart,
       appointments_held: appointmentRecords.length,
@@ -701,22 +729,109 @@ const FourOneOne = () => {
             </Button>
           </div>
 
-          {/* Activity Metrics - New fields */}
+          {/* 1. Activity — measured by Follow Up Boss (read-only) */}
+          {(() => {
+            const raw = weeklyData as unknown as Record<string, number | string | null | undefined>;
+            const isSynced = Boolean(weeklyData.fub_synced_at);
+            const legacyKeys = new Set(['dials', 'appointments_set']);
+            const activityFields = [
+              { label: 'Leads Received', key: 'leads_received' },
+              { label: 'Dials', key: 'dials' },
+              { label: 'Connects', key: 'connects' },
+              { label: 'Conversations', key: 'conversations' },
+              { label: 'Texts Sent', key: 'texts_sent' },
+              { label: 'Talk Time (min)', key: 'talk_time_minutes' },
+              { label: 'Speed to First Touch (min)', key: 'speed_to_first_touch_minutes' },
+              { label: 'Appointments Set', key: 'appointments_set' },
+            ];
+            const healthFields = [
+              { label: 'Contacts Held', key: 'contacts_held' },
+              { label: 'Contacts Unstaged', key: 'contacts_unstaged' },
+              { label: 'Contacts / Live Deal', key: 'contacts_per_live_deal' },
+            ];
+            const renderField = (field: { label: string; key: string }) => {
+              const value = raw[field.key] as number | null | undefined;
+              const legacyManual = !isSynced && legacyKeys.has(field.key) && typeof value === 'number' && value > 0;
+              const display = value === null || value === undefined || (!isSynced && !legacyManual)
+                ? '—'
+                : value.toLocaleString();
+              return (
+                <div key={field.key} className="space-y-1">
+                  <Label className="text-xs font-medium text-muted-foreground">{field.label}</Label>
+                  <div
+                    className={`flex h-10 items-center rounded-md border border-input bg-muted/50 px-3 text-sm font-semibold ${
+                      legacyManual ? 'text-muted-foreground' : ''
+                    }`}
+                  >
+                    {display}
+                  </div>
+                  {legacyManual && (
+                    <p className="text-xs text-muted-foreground">Entered by hand — before automation</p>
+                  )}
+                </div>
+              );
+            };
+
+            return (
+              <>
+                <Card className="border-primary/10">
+                  <CardHeader>
+                    <CardTitle className="text-lg font-display">Activity</CardTitle>
+                    <p className="text-xs text-muted-foreground">
+                      Measured by Follow Up Boss — updates weekly
+                    </p>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {activityFields.map(renderField)}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Set = booked, counted by Follow Up Boss. Held = actually happened, counted from your
+                      appointment records (below).
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-primary/10">
+                  <CardHeader>
+                    <CardTitle className="text-lg font-display">Database Health</CardTitle>
+                    <p className="text-xs text-muted-foreground">
+                      Measured by Follow Up Boss — updates weekly
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {healthFields.map(renderField)}
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            );
+          })()}
+
+          {/* 3. Weekly Activity Tracking — manual entry */}
           <Card className="border-primary/10">
             <CardHeader>
               <CardTitle className="text-lg font-display">Weekly Activity Tracking</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Things Follow Up Boss can't see — enter these yourself
+              </p>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                {/* Appointments Held - auto-calculated */}
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium text-muted-foreground">Appointments Held</Label>
+                  <div className="flex h-10 items-center rounded-md border border-input bg-muted/50 px-3 text-sm font-semibold">
+                    {appointmentRecords.length}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Auto-calculated</p>
+                </div>
                 {[
-                  { label: 'Contacts Made', key: 'contacts_made' },
-                  { label: 'Dials', key: 'dials' },
                   { label: 'Doors Knocked', key: 'doors_knocked' },
-                  { label: 'Appointments Set', key: 'appointments_set' },
                   { label: 'Pipeline Additions', key: 'pipeline_additions' },
                   { label: 'Contracts Signed', key: 'contracts_signed' },
                   { label: 'Firm Sales', key: 'firm_deals' },
-                  { label: 'Database Size', key: 'database_size' },
                 ].map((field) => (
                   <div key={field.key} className="space-y-1">
                     <Label className="text-xs font-medium text-muted-foreground">{field.label}</Label>
@@ -727,47 +842,6 @@ const FourOneOne = () => {
                     />
                   </div>
                 ))}
-                {/* Appointments Held - auto-calculated */}
-                <div className="space-y-1">
-                  <Label className="text-xs font-medium text-muted-foreground">Appointments Held</Label>
-                  <div className="flex h-10 items-center rounded-md border border-input bg-muted/50 px-3 text-sm font-semibold">
-                    {appointmentRecords.length}
-                  </div>
-                  <p className="text-xs text-muted-foreground">Auto-calculated</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Database Health & Follow Up Boss activity (written by the weekly automation) */}
-          <Card className="border-primary/10">
-            <CardHeader>
-              <CardTitle className="text-lg font-display">Database Health</CardTitle>
-              <p className="text-xs text-muted-foreground">From Follow Up Boss — updated weekly</p>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                {[
-                  { label: 'Contacts Held', key: 'contacts_held' },
-                  { label: 'Contacts Unstaged', key: 'contacts_unstaged' },
-                  { label: 'Contacts / Live Deal', key: 'contacts_per_live_deal' },
-                  { label: 'Leads Received', key: 'leads_received' },
-                  { label: 'Connects', key: 'connects' },
-                  { label: 'Conversations', key: 'conversations' },
-                  { label: 'Texts Sent', key: 'texts_sent' },
-                  { label: 'Talk Time (min)', key: 'talk_time_minutes' },
-                  { label: 'Speed to First Touch (min)', key: 'speed_to_first_touch_minutes' },
-                ].map((field) => {
-                  const value = (weeklyData as unknown as Record<string, number | null | undefined>)[field.key];
-                  return (
-                    <div key={field.key} className="space-y-1">
-                      <Label className="text-xs font-medium text-muted-foreground">{field.label}</Label>
-                      <div className="flex h-10 items-center rounded-md border border-input bg-muted/50 px-3 text-sm font-semibold">
-                        {value === null || value === undefined ? '—' : value.toLocaleString()}
-                      </div>
-                    </div>
-                  );
-                })}
               </div>
             </CardContent>
           </Card>
