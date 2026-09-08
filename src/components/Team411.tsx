@@ -9,6 +9,8 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Target, Trophy, TrendingUp, ChevronLeft, ChevronRight, Users, Loader2, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CollapsibleMetricSection, summarise } from '@/components/CollapsibleMetricSection';
+import { PracticeSession, practiceSummary } from '@/components/PracticeTab';
+
 import { format, startOfWeek, addWeeks, subWeeks } from 'date-fns';
 
 interface AgentProfile {
