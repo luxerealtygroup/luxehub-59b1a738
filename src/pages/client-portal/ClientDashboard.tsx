@@ -822,6 +822,8 @@ const ClientDashboard = ({ previewPortalId, section }: ClientDashboardProps = {}
       case 'library': return 'My Documents';
       case 'contacts': return 'Important Contacts';
       case 'photos': return 'Photos';
+      case 'agent': return 'Your Agent';
+
       case 'messages': return 'Messages';
       default: return 'Dashboard';
     }
@@ -837,6 +839,8 @@ const ClientDashboard = ({ previewPortalId, section }: ClientDashboardProps = {}
       case 'library': return <FolderHeart className="h-5 w-5" />;
       case 'contacts': return <Users className="h-5 w-5" />;
       case 'photos': return <ImageIcon className="h-5 w-5" />;
+      case 'agent': return <UserRound className="h-5 w-5" />;
+
       case 'messages': return <MessageCircle className="h-5 w-5" />;
       default: return <Home className="h-5 w-5" />;
     }
