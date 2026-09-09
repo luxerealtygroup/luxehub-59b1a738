@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import {
   ChevronDown, Loader2, Mail, MessageSquare, Trash2, UserCheck, Tablet, CheckCircle2,
-  Building2, ExternalLink,
+  Building2, ExternalLink, Send,
 } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
@@ -175,6 +175,21 @@ export function GuestCard({
             <a href={reportLink} target="_blank" rel="noopener noreferrer">
               <ExternalLink className="mr-1.5 h-4 w-4" /> Homes like this
             </a>
+          </Button>
+        )}
+        {guest.fub_sent_at ? (
+          <Badge className="gap-1 border-success/30 bg-success/15 text-success text-[10px]">
+            <CheckCircle2 className="h-3 w-3" /> In Follow Up Boss ·{' '}
+            {new Date(guest.fub_sent_at).toLocaleDateString()}
+          </Badge>
+        ) : (
+          <Button size="sm" variant="outline" onClick={sendToFub} disabled={sending}>
+            {sending ? (
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="mr-1.5 h-4 w-4" />
+            )}
+            Send to Follow Up Boss
           </Button>
         )}
         <Button size="sm" variant="outline" onClick={() => setShowFeatured(true)}>
