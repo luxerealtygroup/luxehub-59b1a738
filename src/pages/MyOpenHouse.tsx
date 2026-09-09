@@ -29,6 +29,10 @@ import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { tenant } from '@/config/tenant';
+import { QrCode } from '@/components/openhouse/QrCode';
+import { PrintQrButton } from '@/components/openhouse/PrintableQrCard';
+import { agentUrl, kioskUrl, makeSlug, signInUrl } from '@/lib/openHouse/options';
+
 
 type OpenHouse = {
   id: string;
