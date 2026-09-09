@@ -109,7 +109,7 @@ const allSections: MenuSection[] = [
     label: 'Operations',
     items: [
       { title: 'Submissions', subtitle: 'Paperwork', url: '/dashboard/submissions', icon: SendHorizonal },
-      { title: 'Open Houses', subtitle: 'Sign-in & QR', url: '/dashboard/open-houses', icon: DoorOpen },
+      
     ],
 
   },
