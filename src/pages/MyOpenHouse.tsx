@@ -506,7 +506,8 @@ function OpenHouseFormDialog({
   };
 
   return (
-    <DialogContent className="max-w-lg">
+    <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+
       <DialogHeader>
         <DialogTitle>{initial ? 'Edit open house' : 'New open house'}</DialogTitle>
       </DialogHeader>
@@ -625,7 +626,58 @@ function OpenHouseFormDialog({
             </div>
           )}
         </Field>
+
+        <Separator className="my-2" />
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Visitor sign-in page
+        </p>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="City">
+            <Input value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} />
+          </Field>
+          <Field label="MLS number">
+            <Input value={form.mls_number} onChange={e => setForm({ ...form, mls_number: e.target.value })} />
+          </Field>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Start time">
+            <Input type="time" value={form.start_time} onChange={e => setForm({ ...form, start_time: e.target.value })} />
+          </Field>
+          <Field label="End time">
+            <Input type="time" value={form.end_time} onChange={e => setForm({ ...form, end_time: e.target.value })} />
+          </Field>
+        </div>
+        <Field label="List price">
+          <Input value={form.list_price} onChange={e => setForm({ ...form, list_price: e.target.value })} placeholder="899000" />
+        </Field>
+        <Field label="Photo URL">
+          <Input value={form.cover_photo_url} onChange={e => setForm({ ...form, cover_photo_url: e.target.value })} placeholder="https://..." />
+        </Field>
+        <Field label="Disclosure text">
+          <Textarea rows={3} value={form.disclosure_text} onChange={e => setForm({ ...form, disclosure_text: e.target.value })} />
+        </Field>
+        <Field label="Custom questions">
+          <Input value={form.q1} onChange={e => setForm({ ...form, q1: e.target.value })} placeholder="Question 1" />
+          <Input className="mt-2" value={form.q2} onChange={e => setForm({ ...form, q2: e.target.value })} placeholder="Question 2" />
+          <Input className="mt-2" value={form.q3} onChange={e => setForm({ ...form, q3: e.target.value })} placeholder="Question 3" />
+        </Field>
+        <div className="flex items-center justify-between rounded-lg border border-border p-3">
+          <div>
+            <p className="text-sm font-medium">Require a phone number</p>
+            <p className="text-xs text-muted-foreground">Visitors must leave a 10-digit phone.</p>
+          </div>
+          <Switch checked={form.require_phone} onCheckedChange={v => setForm({ ...form, require_phone: v })} />
+        </div>
+        <div className="flex items-center justify-between rounded-lg border border-border p-3">
+          <div>
+            <p className="text-sm font-medium">Sign-in page open</p>
+            <p className="text-xs text-muted-foreground">Turn off once the open house is over.</p>
+          </div>
+          <Switch checked={form.is_active} onCheckedChange={v => setForm({ ...form, is_active: v })} />
+        </div>
       </div>
+
       <DialogFooter>
         <Button variant="outline" onClick={onClose}>Cancel</Button>
         <Button onClick={save} disabled={saving}>
