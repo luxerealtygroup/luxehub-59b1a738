@@ -85,6 +85,7 @@ export function GuestCard({
   const [notes, setNotes] = useState(guest.notes || '');
   const [openDetail, setOpenDetail] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [showFeatured, setShowFeatured] = useState(false);
 
   useEffect(() => setNotes(guest.notes || ''), [guest.id]);
 
@@ -310,6 +311,20 @@ export function GuestCard({
           </span>
         )}
       </div>
+
+      {showFeatured && (
+        <Dialog open onOpenChange={(o) => { if (!o) setShowFeatured(false); }}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Homes to feature for {guestName(guest)}</DialogTitle>
+            </DialogHeader>
+            <ListingPicker value={asListings(guest.featured_listings)} onChange={saveFeatured} max={3} />
+            <DialogFooter>
+              <Button onClick={() => setShowFeatured(false)}>Done</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
 
       <button
         type="button"

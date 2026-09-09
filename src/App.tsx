@@ -65,6 +65,8 @@ import TeamSeats from "./pages/TeamSeats";
 import JoinOrg from "./pages/JoinOrg";
 
 import OpenHouseSignIn from "./pages/openhouse/OpenHouseSignIn";
+import SellerReport from './pages/openhouse/SellerReport';
+import BuyerReport from './pages/openhouse/BuyerReport';
 import AgentOpenHouseRedirect from "./pages/openhouse/AgentOpenHouseRedirect";
 
 const queryClient = new QueryClient();
@@ -125,6 +127,8 @@ const App = () => (
             <Route path="/nominate" element={<Nominate />} />
             {/* Public open house sign-in */}
             <Route path="/oh/agent/:agentSlug" element={<AgentOpenHouseRedirect />} />
+            <Route path="/oh/report/:slug" element={<SellerReport />} />
+            <Route path="/oh/homes/:token" element={<BuyerReport />} />
             <Route path="/oh/:slug" element={<OpenHouseSignIn />} />
             <Route path="/agent/google-drive/callback" element={<GoogleDriveCallback />} />
             
