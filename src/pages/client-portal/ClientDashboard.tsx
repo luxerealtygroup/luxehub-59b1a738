@@ -80,9 +80,16 @@ interface ClientDashboardProps {
    * preview wrapper; every write path is blocked by PortalPreviewProvider).
    */
   previewPortalId?: string;
+  /**
+   * Which section this route renders. The portal is split into real routes
+   * (/client-portal, /client-portal/documents, /photos, /agent) that all
+   * render this same layout, so the page is never unmounted between them.
+   */
+  section?: string;
 }
 
-const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
+const ClientDashboard = ({ previewPortalId, section }: ClientDashboardProps = {}) => {
+
   const [documents, setDocuments] = useState<ClientDocument[]>([]);
   // Count of the documents the Documents tab actually shows (portal_documents,
   // client-visible only) so the Overview stat can't disagree with the tab.
@@ -91,7 +98,7 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [clientAccount, setClientAccount] = useState<ClientAccount | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(section ?? 'overview');
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
   const [scope, setScope] = useState<PortalScope>('all');
   const navigate = useNavigate();
@@ -105,6 +112,27 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
     transactions: portalTransactions,
     transactionsByProperty,
   } = usePortalProperties(portalId);
+
+  // Sections that have their own URL. Everything else stays on the overview URL.
+  const ROUTED_SECTIONS: Record<string, string> = {
+    documents: '/client-portal/documents',
+    photos: '/client-portal/photos',
+    agent: '/client-portal/agent',
+  };
+
+  // Keep the visible section in step with the route (Back/Forward included).
+  useEffect(() => {
+    if (isPreview) return;
+    setActiveTab(section ?? 'overview');
+  }, [section, isPreview]);
+
+  const changeTab = (tab: string) => {
+    setActiveTab(tab);
+    if (isPreview) return;
+    const target = ROUTED_SECTIONS[tab] ?? '/client-portal';
+    if (window.location.pathname !== target) navigate(target);
+  };
+
 
   useEffect(() => {
     let cancelled = false;
