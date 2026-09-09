@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { CheckCircle2, CloudOff, Loader2, RefreshCw, WifiOff } from 'lucide-react';
 import { tenant } from '@/config/tenant';
 import {
-  HOME_TO_SELL_OPTIONS, INTENT_OPTIONS, LENDER_OPTIONS, TIMELINE_OPTIONS, YES_NO_OPTIONS,
+  INTENT_OPTIONS, YES_NO_OPTIONS,
   digits, formatPhone, isValidEmail, isValidPhone,
 } from '@/lib/openHouse/options';
 import { countQueued, enqueueSignIn, flushQueue, newQueueId } from '@/lib/openHouse/queue';
