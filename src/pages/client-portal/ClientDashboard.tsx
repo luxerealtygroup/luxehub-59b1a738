@@ -8,7 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
-import { FileText, Download, FolderOpen, Home, Calendar, CheckSquare, MessageCircle, ShoppingCart, Tag, ImageIcon, Upload, Users, FolderHeart } from 'lucide-react';
+import { FileText, Download, FolderOpen, Home, Calendar, CheckSquare, MessageCircle, ShoppingCart, Tag, ImageIcon, Upload, Users, FolderHeart, UserRound } from 'lucide-react';
+import { AgentContactCard } from './components/AgentContactCard';
+
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { TransactionTimeline } from './components/TransactionTimeline';

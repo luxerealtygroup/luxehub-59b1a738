@@ -130,6 +130,9 @@ const App = () => (
             
             {/* Client Portal Routes */}
             <Route path="/client-portal" element={<ClientDashboard />} />
+            <Route path="/client-portal/documents" element={<ClientDashboard section="documents" />} />
+            <Route path="/client-portal/photos" element={<ClientDashboard section="photos" />} />
+            <Route path="/client-portal/agent" element={<ClientDashboard section="agent" />} />
             <Route path="/client-portal/preview/:portalId" element={
               <ProtectedRoute>
                 <ClientPortalPreview />
