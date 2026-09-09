@@ -462,7 +462,7 @@ const ClientDashboard = ({ previewPortalId, section }: ClientDashboardProps = {}
               <li key={p.id}>
                 <button
                   type="button"
-                  onClick={() => { setScope(p.id); setActiveTab('overview'); }}
+                  onClick={() => { setScope(p.id); changeTab('overview'); }}
                   className="flex w-full items-center gap-3 rounded-xl border border-border/60 bg-background/60 p-3 text-left transition-colors hover:border-primary/40"
                 >
                 {p.cover_photo_url ? (
@@ -499,7 +499,7 @@ const ClientDashboard = ({ previewPortalId, section }: ClientDashboardProps = {}
     <div className="grid gap-4 sm:grid-cols-2">
       <button
         type="button"
-        onClick={() => setActiveTab('library')}
+        onClick={() => changeTab('library')}
         className="luxe-card flex items-center gap-4 p-5 text-left transition-all hover:-translate-y-0.5 hover:shadow-luxe-hover"
       >
         <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
@@ -512,7 +512,7 @@ const ClientDashboard = ({ previewPortalId, section }: ClientDashboardProps = {}
       </button>
       <button
         type="button"
-        onClick={() => setActiveTab('contacts')}
+        onClick={() => changeTab('contacts')}
         className="luxe-card flex items-center gap-4 p-5 text-left transition-all hover:-translate-y-0.5 hover:shadow-luxe-hover"
       >
         <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
@@ -562,8 +562,8 @@ const ClientDashboard = ({ previewPortalId, section }: ClientDashboardProps = {}
           {clientAccount && (
             <ImportantContactsCard
               portalId={clientAccount.id}
-              onMessage={() => setActiveTab('messages')}
-              onViewAll={() => setActiveTab('contacts')}
+              onMessage={() => changeTab('messages')}
+              onViewAll={() => changeTab('contacts')}
             />
           )}
           <div className="luxe-card p-6">
@@ -571,7 +571,7 @@ const ClientDashboard = ({ previewPortalId, section }: ClientDashboardProps = {}
             <div className="mt-4 space-y-2">
               <button
                 type="button"
-                onClick={() => setActiveTab('documents')}
+                onClick={() => changeTab('documents')}
                 className="flex w-full items-center gap-3 rounded-xl border border-border/60 bg-background/60 p-3 text-left transition-colors hover:border-primary/40"
               >
                 <FileText className="h-4 w-4 text-primary shrink-0" />
@@ -579,7 +579,7 @@ const ClientDashboard = ({ previewPortalId, section }: ClientDashboardProps = {}
               </button>
               <button
                 type="button"
-                onClick={() => setActiveTab('photos')}
+                onClick={() => changeTab('photos')}
                 className="flex w-full items-center gap-3 rounded-xl border border-border/60 bg-background/60 p-3 text-left transition-colors hover:border-primary/40"
               >
                 <ImageIcon className="h-4 w-4 text-primary shrink-0" />
@@ -587,7 +587,7 @@ const ClientDashboard = ({ previewPortalId, section }: ClientDashboardProps = {}
               </button>
               <button
                 type="button"
-                onClick={() => setActiveTab('library')}
+                onClick={() => changeTab('library')}
                 className="flex w-full items-center gap-3 rounded-xl border border-border/60 bg-background/60 p-3 text-left transition-colors hover:border-primary/40"
               >
                 <FolderHeart className="h-4 w-4 text-primary shrink-0" />
@@ -617,8 +617,8 @@ const ClientDashboard = ({ previewPortalId, section }: ClientDashboardProps = {}
               {clientAccount && (
                 <ImportantContactsCard
                   portalId={clientAccount.id}
-                  onMessage={() => setActiveTab('messages')}
-                  onViewAll={() => setActiveTab('contacts')}
+                  onMessage={() => changeTab('messages')}
+                  onViewAll={() => changeTab('contacts')}
                 />
               )}
               <KeyDatesCard
@@ -841,7 +841,7 @@ const ClientDashboard = ({ previewPortalId, section }: ClientDashboardProps = {}
       <div className="min-h-screen flex w-full">
         <ClientSidebar 
           activeTab={activeTab}
-          onTabChange={setActiveTab}
+          onTabChange={changeTab}
           clientName={clientAccount?.full_name || null}
           clientEmail={clientAccount?.email || ''}
           onSignOut={handleSignOut}
@@ -877,9 +877,9 @@ const ClientDashboard = ({ previewPortalId, section }: ClientDashboardProps = {}
                     properties={properties}
                     value={scope}
                     onChange={setScope}
-                    onDashboard={() => { setScope('all'); setActiveTab('overview'); }}
+                    onDashboard={() => { setScope('all'); changeTab('overview'); }}
                   />
-                  <ClientNotificationsBell onOpenTab={(tab) => setActiveTab(tab)} />
+                  <ClientNotificationsBell onOpenTab={(tab) => changeTab(tab)} />
                 </div>
               ) : transactions.length > 1 && activeTab !== 'messages' ? (
                 <div className="ml-auto flex items-center gap-2 min-w-0">
@@ -902,11 +902,11 @@ const ClientDashboard = ({ previewPortalId, section }: ClientDashboardProps = {}
                       ))}
                     </SelectContent>
                   </Select>
-                  <ClientNotificationsBell onOpenTab={(tab) => setActiveTab(tab)} />
+                  <ClientNotificationsBell onOpenTab={(tab) => changeTab(tab)} />
                 </div>
               ) : (
                 <div className="ml-auto">
-                  <ClientNotificationsBell onOpenTab={(tab) => setActiveTab(tab)} />
+                  <ClientNotificationsBell onOpenTab={(tab) => changeTab(tab)} />
                 </div>
               )}
             </div>
