@@ -41,6 +41,8 @@ export function GuestList({
   const [mode, setMode] = useState<Mode>('live');
   const [showAdd, setShowAdd] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showFub, setShowFub] = useState(false);
+  const [sendingAll, setSendingAll] = useState(false);
   const [templates, setTemplates] = useState<FollowUpTemplates>({
     sms: DEFAULT_SMS_TEMPLATE,
     emailSubject: DEFAULT_EMAIL_SUBJECT,
