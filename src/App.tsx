@@ -63,7 +63,7 @@ import AdminTenantPreview from "./pages/AdminTenantPreview";
 import { OrgPreviewRouteGuard } from "@/components/OrgPreviewRouteGuard";
 import TeamSeats from "./pages/TeamSeats";
 import JoinOrg from "./pages/JoinOrg";
-import OpenHouses from "./pages/OpenHouses";
+
 import OpenHouseSignIn from "./pages/openhouse/OpenHouseSignIn";
 import AgentOpenHouseRedirect from "./pages/openhouse/AgentOpenHouseRedirect";
 
@@ -166,7 +166,7 @@ const App = () => (
               <Route path="resources/open-house-tracker" element={<RoleGuard><MyOpenHouse /></RoleGuard>} />
               <Route path="resources/myopenhouse" element={<Navigate to="/dashboard/resources/open-house-tracker" replace />} />
               <Route path="my-open-house" element={<RoleGuard><MyOpenHouse /></RoleGuard>} />
-              <Route path="open-houses" element={<RoleGuard><OpenHouses /></RoleGuard>} />
+              <Route path="open-houses" element={<Navigate to="/dashboard/resources/open-house-tracker" replace />} />
               <Route path="cma-boss" element={<RoleGuard><CMABoss /></RoleGuard>} />
               <Route path="business-planning" element={<BusinessPlanning />} />
               <Route path="launchpad" element={<Launchpad />} />
