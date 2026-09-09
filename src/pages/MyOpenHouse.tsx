@@ -39,7 +39,37 @@ type OpenHouse = {
   client_email: string | null;
   created_at: string;
   updated_at: string;
+  // Visitor sign-in fields (merged from the standalone Open Houses page)
+  slug: string | null;
+  city: string | null;
+  mls_number: string | null;
+  list_price: number | null;
+  cover_photo_url: string | null;
+  hosting_agent_id: string | null;
+  starts_at: string | null;
+  ends_at: string | null;
+  disclosure_text: string | null;
+  require_phone: boolean | null;
+  custom_question_1: string | null;
+  custom_question_2: string | null;
+  custom_question_3: string | null;
+  is_active: boolean | null;
 };
+
+type Visitor = {
+  id: string;
+  first_name: string;
+  last_name: string | null;
+  email: string | null;
+  phone: string | null;
+  intent: string | null;
+  timeline: string | null;
+  working_with_agent: boolean | null;
+  notes: string | null;
+  signed_in_at: string | null;
+  client_captured_at: string | null;
+};
+
 
 type InterestLevel = 'high' | 'medium' | 'low';
 type PriceFeedback = 'priced_right' | 'slightly_high' | 'too_high' | 'below_market';
