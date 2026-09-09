@@ -92,7 +92,7 @@ export default function MyOpenHouse() {
   const { user } = useAuth();
   const [houses, setHouses] = useState<OpenHouse[]>([]);
   const [attendeeCounts, setAttendeeCounts] = useState<Record<string, {
-    total: number; complete: number; preApproved: number; fubLinked: number;
+    total: number; signedIn: number; hot: number; awaiting: number;
   }>>({});
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -114,19 +114,20 @@ export default function MyOpenHouse() {
     setHouses(list);
 
     if (list.length > 0) {
-      const { data: atts } = await supabase
-        .from('open_house_attendees')
-        .select('open_house_id, interest_level, price_feedback, condition_feedback, pre_approved, fub_linked')
+      // One list, one count — everyone lives in the guest table now.
+      const { data: guests } = await supabase
+        .from('open_house_visitors')
+        .select('open_house_id, temperature, source, follow_up_sent_at')
         .in('open_house_id', list.map(h => h.id));
-      const counts: Record<string, { total: number; complete: number; preApproved: number; fubLinked: number }> = {};
-      for (const h of list) counts[h.id] = { total: 0, complete: 0, preApproved: 0, fubLinked: 0 };
-      for (const a of atts || []) {
-        const c = counts[a.open_house_id as string];
+      const counts: Record<string, { total: number; signedIn: number; hot: number; awaiting: number }> = {};
+      for (const h of list) counts[h.id] = { total: 0, signedIn: 0, hot: 0, awaiting: 0 };
+      for (const g of guests || []) {
+        const c = counts[g.open_house_id as string];
         if (!c) continue;
         c.total++;
-        if (a.interest_level && a.price_feedback && a.condition_feedback) c.complete++;
-        if (a.pre_approved) c.preApproved++;
-        if (a.fub_linked) c.fubLinked++;
+        if (g.source === 'visitor') c.signedIn++;
+        if (g.temperature === 'hot') c.hot++;
+        if (!g.follow_up_sent_at) c.awaiting++;
       }
       setAttendeeCounts(counts);
     } else {
