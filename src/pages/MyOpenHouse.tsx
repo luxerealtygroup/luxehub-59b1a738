@@ -1346,21 +1346,25 @@ function ImportFromFubDialog({
     setImporting(true);
     const rows = results
       .filter(r => selected[r.id])
-      .map(r => ({
-        open_house_id: openHouse.id,
-        full_name: r.name,
-        initials: initialsFrom(r.name),
-        fub_contact_id: r.id,
-        fub_linked: true,
-        source: 'curb_hero' as const,
-      }));
-    const { error } = await supabase.from('open_house_attendees').insert(rows);
+      .map(r => {
+        const parts = (r.name || '').trim().split(/\s+/);
+        return {
+          open_house_id: openHouse.id,
+          first_name: parts[0] || r.name || 'Unknown',
+          last_name: parts.slice(1).join(' ') || null,
+          fub_contact_id: r.id,
+          fub_linked: true,
+          source: 'agent' as const,
+        };
+      });
+    const { error } = await supabase.from('open_house_visitors').insert(rows);
     setImporting(false);
     if (error) {
       toast.error('Import failed', { description: error.message });
       return;
     }
-    toast.success(`${rows.length} attendees imported from Follow Up Boss`);
+    toast.success(`${rows.length} guests imported from Follow Up Boss`);
+
     onImported();
   };
 
