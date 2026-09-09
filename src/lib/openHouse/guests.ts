@@ -36,7 +36,7 @@ export interface Guest {
   fub_contact_id: string | null;
   fub_linked: boolean;
   report_token: string | null;
-  featured_listings: unknown;
+  featured_listings: { address: string; price: number | null; photo_url: string | null; link: string | null }[] | null;
   follow_up_sent_at: string | null;
   follow_up_channel: string | null;
   signed_in_at: string | null;
