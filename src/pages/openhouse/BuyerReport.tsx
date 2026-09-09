@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Printer, Search } from 'lucide-react';
 import { tenant } from '@/config/tenant';
 import {
-  BuyerReport as Report, SEARCH_TEMPLATE_KEY, asListings, fillSearchTemplate,
+  BuyerReport as Report, asListings, fillSearchTemplate,
   isHttpsUrlTemplate, money, priceBand,
 } from '@/lib/openHouse/reports';
 
