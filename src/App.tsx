@@ -63,6 +63,9 @@ import AdminTenantPreview from "./pages/AdminTenantPreview";
 import { OrgPreviewRouteGuard } from "@/components/OrgPreviewRouteGuard";
 import TeamSeats from "./pages/TeamSeats";
 import JoinOrg from "./pages/JoinOrg";
+import OpenHouses from "./pages/OpenHouses";
+import OpenHouseSignIn from "./pages/openhouse/OpenHouseSignIn";
+import AgentOpenHouseRedirect from "./pages/openhouse/AgentOpenHouseRedirect";
 
 const queryClient = new QueryClient();
 
@@ -120,6 +123,9 @@ const App = () => (
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/unsubscribe" element={<Unsubscribe />} />
             <Route path="/nominate" element={<Nominate />} />
+            {/* Public open house sign-in */}
+            <Route path="/oh/agent/:agentSlug" element={<AgentOpenHouseRedirect />} />
+            <Route path="/oh/:slug" element={<OpenHouseSignIn />} />
             <Route path="/agent/google-drive/callback" element={<GoogleDriveCallback />} />
             
             {/* Client Portal Routes */}
@@ -157,6 +163,7 @@ const App = () => (
               <Route path="resources/open-house-tracker" element={<RoleGuard><MyOpenHouse /></RoleGuard>} />
               <Route path="resources/myopenhouse" element={<Navigate to="/dashboard/resources/open-house-tracker" replace />} />
               <Route path="my-open-house" element={<RoleGuard><MyOpenHouse /></RoleGuard>} />
+              <Route path="open-houses" element={<RoleGuard><OpenHouses /></RoleGuard>} />
               <Route path="cma-boss" element={<RoleGuard><CMABoss /></RoleGuard>} />
               <Route path="business-planning" element={<BusinessPlanning />} />
               <Route path="launchpad" element={<Launchpad />} />
