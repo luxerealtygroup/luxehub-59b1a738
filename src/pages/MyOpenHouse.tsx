@@ -257,6 +257,9 @@ export default function MyOpenHouse() {
         </DialogContent>
       </Dialog>
 
+      <AgentQrCard />
+
+
       {loading ? (
         <div className="flex items-center justify-center py-20 text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading…
