@@ -2578,64 +2578,100 @@ export type Database = {
         Row: {
           agent_name: string | null
           client_captured_at: string | null
+          condition_feedback: string | null
           created_at: string
           custom_answers: Json
           disclosure_accepted: boolean
           email: string | null
           first_name: string
+          follow_up_channel: string | null
+          follow_up_sent_at: string | null
+          fub_contact_id: string | null
+          fub_linked: boolean
           has_home_to_sell: string | null
           id: string
           intent: string | null
+          interest_level: string | null
           last_name: string | null
+          legacy_attendee_id: string | null
           lender_status: string | null
+          logged_by: string | null
           notes: string | null
           open_house_id: string
           org_id: string | null
           phone: string | null
+          price_feedback: string | null
           signed_in_at: string
+          source: string
+          temperature: string | null
           timeline: string | null
+          updated_at: string
           working_with_agent: boolean | null
         }
         Insert: {
           agent_name?: string | null
           client_captured_at?: string | null
+          condition_feedback?: string | null
           created_at?: string
           custom_answers?: Json
           disclosure_accepted?: boolean
           email?: string | null
           first_name: string
+          follow_up_channel?: string | null
+          follow_up_sent_at?: string | null
+          fub_contact_id?: string | null
+          fub_linked?: boolean
           has_home_to_sell?: string | null
           id?: string
           intent?: string | null
+          interest_level?: string | null
           last_name?: string | null
+          legacy_attendee_id?: string | null
           lender_status?: string | null
+          logged_by?: string | null
           notes?: string | null
           open_house_id: string
           org_id?: string | null
           phone?: string | null
+          price_feedback?: string | null
           signed_in_at?: string
+          source?: string
+          temperature?: string | null
           timeline?: string | null
+          updated_at?: string
           working_with_agent?: boolean | null
         }
         Update: {
           agent_name?: string | null
           client_captured_at?: string | null
+          condition_feedback?: string | null
           created_at?: string
           custom_answers?: Json
           disclosure_accepted?: boolean
           email?: string | null
           first_name?: string
+          follow_up_channel?: string | null
+          follow_up_sent_at?: string | null
+          fub_contact_id?: string | null
+          fub_linked?: boolean
           has_home_to_sell?: string | null
           id?: string
           intent?: string | null
+          interest_level?: string | null
           last_name?: string | null
+          legacy_attendee_id?: string | null
           lender_status?: string | null
+          logged_by?: string | null
           notes?: string | null
           open_house_id?: string
           org_id?: string | null
           phone?: string | null
+          price_feedback?: string | null
           signed_in_at?: string
+          source?: string
+          temperature?: string | null
           timeline?: string | null
+          updated_at?: string
           working_with_agent?: boolean | null
         }
         Relationships: [
@@ -2671,6 +2707,11 @@ export type Database = {
           mls_number: string | null
           open_house_date: string
           org_id: string | null
+          prep_doors_knocked: number | null
+          prep_kiosk_loaded: boolean
+          prep_qr_printed: boolean
+          prep_signs_out: boolean
+          prep_tablet_charged: boolean
           property_address: string
           require_phone: boolean
           slug: string | null
@@ -2700,6 +2741,11 @@ export type Database = {
           mls_number?: string | null
           open_house_date: string
           org_id?: string | null
+          prep_doors_knocked?: number | null
+          prep_kiosk_loaded?: boolean
+          prep_qr_printed?: boolean
+          prep_signs_out?: boolean
+          prep_tablet_charged?: boolean
           property_address: string
           require_phone?: boolean
           slug?: string | null
@@ -2729,6 +2775,11 @@ export type Database = {
           mls_number?: string | null
           open_house_date?: string
           org_id?: string | null
+          prep_doors_knocked?: number | null
+          prep_kiosk_loaded?: boolean
+          prep_qr_printed?: boolean
+          prep_signs_out?: boolean
+          prep_tablet_charged?: boolean
           property_address?: string
           require_phone?: boolean
           slug?: string | null

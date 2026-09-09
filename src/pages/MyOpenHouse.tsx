@@ -32,6 +32,11 @@ import { tenant } from '@/config/tenant';
 import { QrCode } from '@/components/openhouse/QrCode';
 import { PrintQrButton } from '@/components/openhouse/PrintableQrCard';
 import { agentUrl, kioskUrl, makeSlug, signInUrl } from '@/lib/openHouse/options';
+import { GuestList } from '@/components/openhouse/GuestList';
+import { PrepChecklist } from '@/components/openhouse/PrepChecklist';
+import {
+  CONDITION_LABEL, GUEST_COLUMNS, Guest, INTEREST_LABEL, PRICE_LABEL, guestName,
+} from '@/lib/openHouse/guests';
 
 
 type OpenHouse = {
@@ -60,61 +65,16 @@ type OpenHouse = {
   custom_question_2: string | null;
   custom_question_3: string | null;
   is_active: boolean | null;
+  prep_kiosk_loaded: boolean | null;
+  prep_signs_out: boolean | null;
+  prep_qr_printed: boolean | null;
+  prep_tablet_charged: boolean | null;
+  prep_doors_knocked: number | null;
 };
-
-type Visitor = {
-  id: string;
-  first_name: string;
-  last_name: string | null;
-  email: string | null;
-  phone: string | null;
-  intent: string | null;
-  timeline: string | null;
-  working_with_agent: boolean | null;
-  notes: string | null;
-  signed_in_at: string | null;
-  client_captured_at: string | null;
-};
-
 
 type InterestLevel = 'high' | 'medium' | 'low';
 type PriceFeedback = 'priced_right' | 'slightly_high' | 'too_high' | 'below_market';
 type ConditionFeedback = 'excellent' | 'good' | 'fair' | 'needs_work';
-type Source = 'curb_hero' | 'manual';
-
-type Attendee = {
-  id: string;
-  open_house_id: string;
-  initials: string;
-  full_name: string | null;
-  fub_contact_id: string | null;
-  fub_linked: boolean;
-  source: Source;
-  interest_level: InterestLevel | null;
-  price_feedback: PriceFeedback | null;
-  condition_feedback: ConditionFeedback | null;
-  pre_approved: boolean;
-  working_with_realtor: boolean;
-  home_to_sell: boolean;
-  notes: string | null;
-  created_at: string;
-};
-
-const PRICE_LABEL: Record<PriceFeedback, string> = {
-  priced_right: 'Priced Right',
-  slightly_high: 'Slightly High',
-  too_high: 'Too High',
-  below_market: 'Below Market',
-};
-const CONDITION_LABEL: Record<ConditionFeedback, string> = {
-  excellent: 'Excellent',
-  good: 'Good',
-  fair: 'Fair',
-  needs_work: 'Needs Work',
-};
-const INTEREST_LABEL: Record<InterestLevel, string> = {
-  high: 'High', medium: 'Medium', low: 'Low',
-};
 
 function formatDate(d: string) {
   try {
@@ -132,7 +92,7 @@ export default function MyOpenHouse() {
   const { user } = useAuth();
   const [houses, setHouses] = useState<OpenHouse[]>([]);
   const [attendeeCounts, setAttendeeCounts] = useState<Record<string, {
-    total: number; complete: number; preApproved: number; fubLinked: number;
+    total: number; signedIn: number; hot: number; awaiting: number;
   }>>({});
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -154,19 +114,20 @@ export default function MyOpenHouse() {
     setHouses(list);
 
     if (list.length > 0) {
-      const { data: atts } = await supabase
-        .from('open_house_attendees')
-        .select('open_house_id, interest_level, price_feedback, condition_feedback, pre_approved, fub_linked')
+      // One list, one count — everyone lives in the guest table now.
+      const { data: guests } = await supabase
+        .from('open_house_visitors')
+        .select('open_house_id, temperature, source, follow_up_sent_at')
         .in('open_house_id', list.map(h => h.id));
-      const counts: Record<string, { total: number; complete: number; preApproved: number; fubLinked: number }> = {};
-      for (const h of list) counts[h.id] = { total: 0, complete: 0, preApproved: 0, fubLinked: 0 };
-      for (const a of atts || []) {
-        const c = counts[a.open_house_id as string];
+      const counts: Record<string, { total: number; signedIn: number; hot: number; awaiting: number }> = {};
+      for (const h of list) counts[h.id] = { total: 0, signedIn: 0, hot: 0, awaiting: 0 };
+      for (const g of guests || []) {
+        const c = counts[g.open_house_id as string];
         if (!c) continue;
         c.total++;
-        if (a.interest_level && a.price_feedback && a.condition_feedback) c.complete++;
-        if (a.pre_approved) c.preApproved++;
-        if (a.fub_linked) c.fubLinked++;
+        if (g.source === 'visitor') c.signedIn++;
+        if (g.temperature === 'hot') c.hot++;
+        if (!g.follow_up_sent_at) c.awaiting++;
       }
       setAttendeeCounts(counts);
     } else {
@@ -276,18 +237,19 @@ export default function MyOpenHouse() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {houses.map(h => {
-            const c = attendeeCounts[h.id] || { total: 0, complete: 0, preApproved: 0, fubLinked: 0 };
+            const c = attendeeCounts[h.id] || { total: 0, signedIn: 0, hot: 0, awaiting: 0 };
             return (
               <button key={h.id} type="button" onClick={() => setSelectedId(h.id)} className="text-left">
                 <Card className="p-4 hover:border-gold/60 hover:shadow-md transition-all h-full">
                   <p className="font-semibold leading-tight truncate">{h.property_address}</p>
                   <p className="text-xs text-muted-foreground mt-1">{formatDate(h.open_house_date)}</p>
                   <div className="grid grid-cols-2 gap-2 mt-4 text-xs">
-                    <Stat label="Attendees" value={c.total} />
-                    <Stat label="Feedback" value={`${c.complete}/${c.total}`} />
-                    <Stat label="Pre-approved" value={c.preApproved} />
-                    <Stat label="FUB linked" value={`${c.fubLinked}/${c.total}`} />
+                    <Stat label="Guests" value={c.total} />
+                    <Stat label="Signed themselves in" value={c.signedIn} />
+                    <Stat label="Hot" value={c.hot} />
+                    <Stat label="No follow-up yet" value={c.awaiting} />
                   </div>
+
                 </Card>
               </button>
             );
@@ -830,76 +792,9 @@ function SignInLinksCard({ openHouse, onChanged }: { openHouse: OpenHouse; onCha
   );
 }
 
-/** Everyone who signed themselves in at the door. */
-function VisitorsSection({ openHouseId }: { openHouseId: string }) {
-  const [visitors, setVisitors] = useState<Visitor[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let alive = true;
-    setLoading(true);
-    supabase
-      .from('open_house_visitors')
-      .select('id, first_name, last_name, email, phone, intent, timeline, working_with_agent, notes, signed_in_at, client_captured_at')
-      .eq('open_house_id', openHouseId)
-      .order('signed_in_at', { ascending: false })
-      .then(({ data }) => {
-        if (!alive) return;
-        setVisitors((data || []) as Visitor[]);
-        setLoading(false);
-      });
-    return () => { alive = false; };
-  }, [openHouseId]);
-
-  return (
-    <div className="space-y-3">
-      <h2 className="font-display text-lg font-semibold flex items-center gap-2">
-        <Users className="h-5 w-5 text-gold" /> Sign-ins{' '}
-        <span className="font-normal text-muted-foreground">({visitors.length})</span>
-      </h2>
-      {loading ? (
-        <div className="flex items-center justify-center py-8 text-muted-foreground">
-          <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading…
-        </div>
-      ) : visitors.length === 0 ? (
-        <Card className="border-dashed p-8 text-center text-sm text-muted-foreground">
-          No one has signed in on the tablet or by QR yet.
-        </Card>
-      ) : (
-        <div className="grid gap-3 md:grid-cols-2">
-          {visitors.map(v => (
-            <Card key={v.id} className="p-4">
-              <div className="flex items-start justify-between gap-3">
-                <p className="font-medium">{[v.first_name, v.last_name].filter(Boolean).join(' ')}</p>
-                <span className="text-xs text-muted-foreground">
-                  {v.client_captured_at || v.signed_in_at
-                    ? new Date((v.client_captured_at || v.signed_in_at) as string).toLocaleString()
-                    : ''}
-                </span>
-              </div>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {[v.phone, v.email].filter(Boolean).join(' · ') || 'No contact details'}
-              </p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {v.intent && <Badge variant="secondary">{v.intent.replace(/_/g, ' ')}</Badge>}
-                {v.timeline && <Badge variant="outline">{v.timeline.replace(/_/g, ' ')}</Badge>}
-                {v.working_with_agent && <Badge variant="outline">Has an agent</Badge>}
-              </div>
-              {v.notes && <p className="mt-2 text-sm text-muted-foreground">{v.notes}</p>}
-            </Card>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ============================================================================
 // Open house detail view
 // ============================================================================
-
-
-
 
 function OpenHouseDetail({
   openHouse, onBack, onChanged,
@@ -908,29 +803,40 @@ function OpenHouseDetail({
   onBack: () => void;
   onChanged: () => void;
 }) {
-  const [attendees, setAttendees] = useState<Attendee[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showAdd, setShowAdd] = useState(false);
+  const { user } = useAuth();
+  const [guests, setGuests] = useState<Guest[]>([]);
+  const [hostName, setHostName] = useState<string>(openHouse.listing_agent_name || 'your agent');
   const [showEdit, setShowEdit] = useState(false);
   const [showFubImport, setShowFubImport] = useState(false);
   const [showCsvImport, setShowCsvImport] = useState(false);
 
-  const loadAttendees = async () => {
-    setLoading(true);
+  const loadGuests = async () => {
     const { data, error } = await supabase
-      .from('open_house_attendees')
-      .select('*')
+      .from('open_house_visitors')
+      .select(GUEST_COLUMNS)
       .eq('open_house_id', openHouse.id)
-      .order('created_at', { ascending: true });
+      .order('signed_in_at', { ascending: true });
     if (error) {
-      toast.error('Failed to load attendees', { description: error.message });
+      toast.error('Failed to load the guest list', { description: error.message });
     } else {
-      setAttendees((data || []) as Attendee[]);
+      setGuests((data || []) as unknown as Guest[]);
     }
-    setLoading(false);
   };
 
-  useEffect(() => { loadAttendees(); }, [openHouse.id]);
+  useEffect(() => { loadGuests(); }, [openHouse.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const id = openHouse.hosting_agent_id || user?.id;
+    if (!id) return;
+    let alive = true;
+    supabase.from('profiles').select('full_name').eq('id', id).maybeSingle().then(({ data }) => {
+      if (alive && data?.full_name) setHostName(data.full_name);
+    });
+    return () => { alive = false; };
+  }, [openHouse.hosting_agent_id, user?.id]);
+
+  // The tracker keeps a date; the sign-in model keeps precise times.
+  const endsAt = openHouse.ends_at || `${openHouse.open_house_date}T23:59:59`;
 
   return (
     <div className="p-6 space-y-6 max-w-6xl">
@@ -956,6 +862,20 @@ function OpenHouseDetail({
         </div>
       </div>
 
+      <PrepChecklist
+        openHouseId={openHouse.id}
+        prep={{
+          prep_kiosk_loaded: openHouse.prep_kiosk_loaded,
+          prep_signs_out: openHouse.prep_signs_out,
+          prep_qr_printed: openHouse.prep_qr_printed,
+          prep_tablet_charged: openHouse.prep_tablet_charged,
+          prep_doors_knocked: openHouse.prep_doors_knocked,
+        }}
+        onChanged={onChanged}
+      />
+
+      <SignInLinksCard openHouse={openHouse} onChanged={onChanged} />
+
       <div className="flex flex-wrap gap-2">
         <Dialog open={showFubImport} onOpenChange={setShowFubImport}>
           <DialogTrigger asChild>
@@ -967,7 +887,7 @@ function OpenHouseDetail({
             <ImportFromFubDialog
               openHouse={openHouse}
               onClose={() => setShowFubImport(false)}
-              onImported={() => { setShowFubImport(false); loadAttendees(); }}
+              onImported={() => { setShowFubImport(false); loadGuests(); }}
             />
           )}
         </Dialog>
@@ -981,573 +901,39 @@ function OpenHouseDetail({
             <UploadCurbHeroCsvDialog
               openHouse={openHouse}
               onClose={() => setShowCsvImport(false)}
-              onImported={() => { setShowCsvImport(false); loadAttendees(); }}
+              onImported={() => { setShowCsvImport(false); loadGuests(); }}
             />
           )}
         </Dialog>
-        <Dialog open={showAdd} onOpenChange={setShowAdd}>
-          <DialogTrigger asChild>
-            <Button size="sm"><Plus className="h-4 w-4 mr-1" /> Add Attendee</Button>
-          </DialogTrigger>
-          <AddAttendeeDialog
-            openHouseId={openHouse.id}
-            onClose={() => setShowAdd(false)}
-            onSaved={() => { setShowAdd(false); loadAttendees(); }}
-          />
-        </Dialog>
       </div>
 
-      <div className="space-y-3">
-        <h2 className="font-display text-lg font-semibold flex items-center gap-2">
-          <Users className="h-5 w-5 text-gold" /> Attendees <span className="text-muted-foreground font-normal">({attendees.length})</span>
-        </h2>
-        {loading ? (
-          <div className="flex items-center justify-center py-10 text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading…
-          </div>
-        ) : attendees.length === 0 ? (
-          <Card className="p-8 text-center border-dashed">
-            <p className="text-sm text-muted-foreground">No attendees yet. Click "Add Attendee" to log one.</p>
-          </Card>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {attendees.map(a => (
-              <AttendeeCard
-                key={a.id}
-                openHouse={openHouse}
-                attendee={a}
-                onChanged={loadAttendees}
-              />
-            ))}
-          </div>
-        )}
-      </div>
+      <GuestList
+        openHouseId={openHouse.id}
+        address={openHouse.property_address}
+        hostName={hostName}
+        endsAt={endsAt}
+      />
 
-      <SignInLinksCard openHouse={openHouse} onChanged={onChanged} />
-
-      <VisitorsSection openHouseId={openHouse.id} />
-
-
-
-      <ReportSection openHouse={openHouse} attendees={attendees} />
+      <ReportSection openHouse={openHouse} guests={guests} />
     </div>
   );
 }
 
-// ============================================================================
-// Add attendee dialog (simple — feedback captured later on the card)
-// ============================================================================
 
-function AddAttendeeDialog({
-  openHouseId, onClose, onSaved,
-}: {
-  openHouseId: string;
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
-    initials: '',
-    full_name: '',
-    source: 'manual' as Source,
-    fub_contact_id: null as string | null,
-    fub_linked: false,
-  });
-
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState<FubResult[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const q = query.trim();
-    if (q.length < 2) {
-      setResults([]);
-      setDropdownOpen(false);
-      setHasSearched(false);
-      return;
-    }
-    let cancelled = false;
-    setSearching(true);
-    const t = setTimeout(async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke('fub-search-contacts', {
-          body: { query: q },
-        });
-        if (cancelled) return;
-        if (error) {
-          setResults([]);
-        } else {
-          const arr: FubResult[] = (data as any)?.results || [];
-          setResults(arr);
-          setDropdownOpen(true);
-          setHasSearched(true);
-        }
-      } finally {
-        if (!cancelled) setSearching(false);
-      }
-    }, 400);
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
-  }, [query]);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  const selectContact = (contact: FubResult) => {
-    setForm(f => ({
-      ...f,
-      full_name: contact.name,
-      initials: initialsFrom(contact.name),
-      fub_contact_id: contact.id,
-      fub_linked: true,
-    }));
-    setQuery('');
-    setResults([]);
-    setDropdownOpen(false);
-  };
-
-  const clearContact = () => {
-    setForm(f => ({
-      ...f,
-      full_name: '',
-      initials: '',
-      fub_contact_id: null,
-      fub_linked: false,
-    }));
-    setQuery('');
-    setResults([]);
-    setDropdownOpen(false);
-  };
-
-  const save = async () => {
-    if (!form.initials.trim()) {
-      toast.error('Initials are required');
-      return;
-    }
-    setSaving(true);
-    const { error } = await supabase.from('open_house_attendees').insert({
-      open_house_id: openHouseId,
-      initials: form.initials.trim().slice(0, 3).toUpperCase(),
-      full_name: form.full_name.trim() || null,
-      source: form.source,
-      fub_contact_id: form.fub_contact_id,
-      fub_linked: form.fub_linked,
-    });
-    setSaving(false);
-    if (error) {
-      toast.error('Save failed', { description: error.message });
-      return;
-    }
-    onSaved();
-  };
-
-  return (
-    <DialogContent className="max-w-md">
-      <DialogHeader><DialogTitle>Add attendee</DialogTitle></DialogHeader>
-      <div className="space-y-3">
-        <Field label="Initials * (max 3)">
-          <Input
-            value={form.initials}
-            onChange={e => setForm({ ...form, initials: e.target.value.slice(0, 3) })}
-            maxLength={3}
-            placeholder="JD"
-            className="uppercase"
-          />
-        </Field>
-        <Field label="Full name">
-          {form.fub_linked && form.full_name ? (
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="flex items-center gap-2 w-fit px-3 py-1.5">
-                <span>{form.full_name}</span>
-                <button
-                  type="button"
-                  onClick={clearContact}
-                  className="opacity-70 hover:opacity-100"
-                  aria-label="Clear contact"
-                >
-                  ×
-                </button>
-              </Badge>
-            </div>
-          ) : (
-            <div ref={containerRef} className="relative">
-              <Input
-                placeholder="Search FUB contacts or type a name…"
-                value={query || form.full_name}
-                onChange={e => {
-                  const v = e.target.value;
-                  setQuery(v);
-                  setForm(f => ({ ...f, full_name: v, fub_contact_id: null, fub_linked: false }));
-                  setDropdownOpen(true);
-                }}
-                onFocus={() => results.length > 0 && setDropdownOpen(true)}
-              />
-              {searching && (
-                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
-              )}
-              {dropdownOpen && results.length > 0 && (
-                <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md max-h-64 overflow-auto">
-                  {results.map(r => (
-                    <button
-                      key={r.id}
-                      type="button"
-                      onClick={() => selectContact(r)}
-                      className="w-full text-left px-3 py-2 hover:bg-accent text-sm border-b border-border last:border-0"
-                    >
-                      <div className="font-medium">{r.name}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {r.email && <span>{r.email}</span>}
-                        {r.email && r.phone && <span> · </span>}
-                        {r.phone && <span>{r.phone}</span>}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-              {dropdownOpen && results.length === 0 && !searching && query.trim().length >= 2 && hasSearched && (
-                <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md p-4 text-center">
-                  <p className="text-sm font-medium">No matching contact in Follow Up Boss</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Please add or update the contact in Follow Up Boss, then return here to select them.
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-        </Field>
-        <Field label="Source">
-          <Select value={form.source} onValueChange={v => setForm({ ...form, source: v as Source })}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="manual">Manual</SelectItem>
-              <SelectItem value="curb_hero">Curb Hero</SelectItem>
-            </SelectContent>
-          </Select>
-        </Field>
-      </div>
-      <DialogFooter>
-        <Button variant="outline" onClick={onClose}>Cancel</Button>
-        <Button onClick={save} disabled={saving}>
-          {saving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-          Add
-        </Button>
-      </DialogFooter>
-    </DialogContent>
-  );
-}
-
-// ============================================================================
-// Attendee card — FUB link + 6 feedback fields + save
-// ============================================================================
-
-function AttendeeCard({
-  openHouse, attendee, onChanged,
-}: {
-  openHouse: OpenHouse;
-  attendee: Attendee;
-  onChanged: () => void;
-}) {
-  const { user } = useAuth();
-  const [form, setForm] = useState<Attendee>(attendee);
-  const [saving, setSaving] = useState(false);
-  const [fubQuery, setFubQuery] = useState('');
-  const [fubResults, setFubResults] = useState<Array<{ id: string; name: string; email: string | null; phone: string | null }>>([]);
-  const [fubSearching, setFubSearching] = useState(false);
-  const [fubSearched, setFubSearched] = useState(false);
-
-  useEffect(() => { setForm(attendee); }, [attendee.id]);
-
-  const remove = async () => {
-    if (!confirm(`Remove ${attendee.initials}?`)) return;
-    const { error } = await supabase.from('open_house_attendees').delete().eq('id', attendee.id);
-    if (error) { toast.error('Delete failed', { description: error.message }); return; }
-    onChanged();
-  };
-
-  const searchFub = async () => {
-    if (fubQuery.trim().length < 2) return;
-    setFubSearching(true); setFubSearched(true);
-    const { data, error } = await supabase.functions.invoke('fub-search-contacts', {
-      body: { query: fubQuery.trim() },
-    });
-    setFubSearching(false);
-    if (error) { toast.error('FUB search failed', { description: error.message }); return; }
-    setFubResults((data as any)?.results || []);
-  };
-
-  const linkFub = async (contact: { id: string; name: string }) => {
-    const { error } = await supabase.from('open_house_attendees').update({
-      fub_contact_id: contact.id,
-      fub_linked: true,
-      full_name: form.full_name || contact.name,
-    }).eq('id', attendee.id);
-    if (error) { toast.error('Link failed', { description: error.message }); return; }
-    toast.success(`Linked to ${contact.name}`);
-    setFubResults([]); setFubQuery(''); setFubSearched(false);
-    onChanged();
-  };
-
-  const createInFub = async () => {
-    const parts = (form.full_name || fubQuery).trim().split(/\s+/);
-    if (!parts[0]) { toast.error('Enter a full name or search query first'); return; }
-    const { data, error } = await supabase.functions.invoke('fub-create-contact', {
-      body: { firstName: parts[0], lastName: parts.slice(1).join(' ') || '' },
-    });
-    if (error) { toast.error('Create failed', { description: error.message }); return; }
-    const created = data as { id: string; name: string };
-    await linkFub(created);
-  };
-
-  const save = async () => {
-    setSaving(true);
-    const { error } = await supabase.from('open_house_attendees').update({
-      full_name: form.full_name?.trim() || null,
-      interest_level: form.interest_level,
-      price_feedback: form.price_feedback,
-      condition_feedback: form.condition_feedback,
-      pre_approved: form.pre_approved,
-      working_with_realtor: form.working_with_realtor,
-      home_to_sell: form.home_to_sell,
-      notes: form.notes?.trim() || null,
-    }).eq('id', attendee.id);
-    if (error) { setSaving(false); toast.error('Save failed', { description: error.message }); return; }
-
-    // Post FUB note if linked
-    if (form.fub_linked && form.fub_contact_id) {
-      const yn = (b: boolean) => b ? 'Yes' : 'No';
-      const noteBody = [
-        `Open House Feedback — ${openHouse.property_address} on ${formatDate(openHouse.open_house_date)}:`,
-        `Interest: ${form.interest_level ? INTEREST_LABEL[form.interest_level] : '—'}`,
-        `Price: ${form.price_feedback ? PRICE_LABEL[form.price_feedback] : '—'}`,
-        `Condition: ${form.condition_feedback ? CONDITION_LABEL[form.condition_feedback] : '—'}`,
-        `Pre-approved: ${yn(form.pre_approved)}`,
-        `Working with Realtor: ${yn(form.working_with_realtor)}`,
-        `Home to sell: ${yn(form.home_to_sell)}`,
-        `Notes: ${form.notes?.trim() || '—'}`,
-      ].join(' | ');
-      const { error: noteErr } = await supabase.functions.invoke('fub-post-note', {
-        body: { personId: form.fub_contact_id, noteBody },
-      });
-      if (noteErr) {
-        toast.warning('Saved, but FUB note failed', { description: noteErr.message });
-      } else {
-        toast.success('Saved and posted to FUB');
-      }
-    } else {
-      toast.success('Attendee saved');
-    }
-
-    // Email feedback to the brokerage inbox (and listing agent if present)
-    const yn = (b: boolean) => b ? 'Yes' : 'No';
-    const emailRows = [
-      { label: 'Interest Level', value: form.interest_level ? INTEREST_LABEL[form.interest_level] : '—' },
-      { label: 'Price Feedback', value: form.price_feedback ? PRICE_LABEL[form.price_feedback] : '—' },
-      { label: 'Condition', value: form.condition_feedback ? CONDITION_LABEL[form.condition_feedback] : '—' },
-      { label: 'Pre-approved', value: yn(form.pre_approved) },
-      { label: 'Working with Realtor', value: yn(form.working_with_realtor) },
-      { label: 'Home to Sell', value: yn(form.home_to_sell) },
-    ];
-    const templateData = {
-      propertyAddress: openHouse.property_address,
-      openHouseDate: formatDate(openHouse.open_house_date),
-      attendeeName: form.full_name?.trim() || attendee.initials,
-      listingAgentName: openHouse.listing_agent_name || '',
-      submittedBy: user?.email || '',
-      rows: emailRows,
-      notes: form.notes?.trim() || '',
-    };
-    const recipients = [tenant.supportEmail];
-    if (openHouse.listing_agent_email) recipients.push(openHouse.listing_agent_email);
-    for (const recipient of recipients) {
-      void supabase.functions.invoke('send-transactional-email', {
-        body: {
-          templateName: 'open-house-feedback',
-          recipientEmail: recipient,
-          idempotencyKey: `oh-feedback-${attendee.id}-${recipient}`,
-          templateData,
-        },
-      }).then(({ error: mailErr }) => {
-        if (mailErr) console.warn('Feedback email failed', recipient, mailErr);
-      });
-    }
-
-    setSaving(false);
-    onChanged();
-  };
-
-  const interestColor = (lvl: InterestLevel) =>
-    lvl === 'high' ? 'bg-success text-success-foreground'
-    : lvl === 'medium' ? 'bg-yellow-500 text-white'
-    : 'bg-destructive text-destructive-foreground';
-
-  return (
-    <Card className="p-4 space-y-4">
-      <div className="flex items-start gap-3">
-        <div className="h-10 w-10 rounded-full bg-gold/20 text-gold flex items-center justify-center font-semibold shrink-0">
-          {attendee.initials}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="font-medium truncate">{form.full_name || attendee.initials}</p>
-            <Badge variant="outline" className="text-[10px]">
-              {attendee.source === 'curb_hero' ? 'Curb Hero' : 'Manual'}
-            </Badge>
-          </div>
-          {form.fub_linked ? (
-            <Badge className="mt-1 bg-success/20 text-success border-success/30 gap-1">
-              <CheckCircle2 className="h-3 w-3" /> Linked to FUB
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="mt-1 border-yellow-500/50 text-yellow-700 dark:text-yellow-400 gap-1">
-              <AlertTriangle className="h-3 w-3" /> Not linked to FUB
-            </Badge>
-          )}
-        </div>
-        <Button size="icon" variant="ghost" onClick={remove}><Trash2 className="h-4 w-4" /></Button>
-      </div>
-
-      {/* FUB link section */}
-      <div className="space-y-2">
-        <Label className="text-xs uppercase tracking-wide text-muted-foreground">Link to FUB</Label>
-        <div className="flex gap-2">
-          <Input
-            placeholder="Search FUB contacts..."
-            value={fubQuery}
-            onChange={e => setFubQuery(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); searchFub(); } }}
-          />
-          <Button size="icon" variant="outline" onClick={searchFub} disabled={fubSearching || fubQuery.trim().length < 2}>
-            {fubSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-          </Button>
-        </div>
-        {fubResults.length > 0 && (
-          <div className="border border-border rounded-md max-h-44 overflow-y-auto divide-y divide-border">
-            {fubResults.map(r => (
-              <button
-                key={r.id}
-                type="button"
-                onClick={() => linkFub(r)}
-                className="w-full text-left px-3 py-2 hover:bg-accent text-sm"
-              >
-                <div className="font-medium">{r.name}</div>
-                <div className="text-xs text-muted-foreground">{r.email || r.phone || `FUB #${r.id}`}</div>
-              </button>
-            ))}
-          </div>
-        )}
-        {fubSearched && !fubSearching && fubResults.length === 0 && (
-          <div className="border border-dashed border-border rounded-md px-3 py-2 text-sm flex items-center justify-between gap-2">
-            <span className="text-muted-foreground">No matches</span>
-            <Button size="sm" variant="outline" onClick={createInFub}>
-              <Plus className="h-3 w-3 mr-1" /> Create in Follow Up Boss
-            </Button>
-          </div>
-        )}
-      </div>
-
-      <Separator />
-
-      {/* Feedback fields */}
-      <Field label="Full name">
-        <Input value={form.full_name || ''} onChange={e => setForm({ ...form, full_name: e.target.value })} />
-      </Field>
-
-      <div>
-        <Label className="text-xs">Interest level</Label>
-        <div className="grid grid-cols-3 gap-1 mt-1">
-          {(['high', 'medium', 'low'] as InterestLevel[]).map(lvl => (
-            <button
-              key={lvl}
-              type="button"
-              onClick={() => setForm({ ...form, interest_level: lvl })}
-              className={`text-xs py-1.5 rounded border transition-colors ${
-                form.interest_level === lvl
-                  ? interestColor(lvl) + ' border-transparent'
-                  : 'bg-background border-border text-muted-foreground hover:bg-muted'
-              }`}
-            >
-              {INTEREST_LABEL[lvl]}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Price feedback">
-          <Select value={form.price_feedback || '__none__'} onValueChange={v => setForm({ ...form, price_feedback: v === '__none__' ? null : v as PriceFeedback })}>
-            <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none__">—</SelectItem>
-              {(Object.keys(PRICE_LABEL) as PriceFeedback[]).map(k => (
-                <SelectItem key={k} value={k}>{PRICE_LABEL[k]}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-        <Field label="Condition">
-          <Select value={form.condition_feedback || '__none__'} onValueChange={v => setForm({ ...form, condition_feedback: v === '__none__' ? null : v as ConditionFeedback })}>
-            <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none__">—</SelectItem>
-              {(Object.keys(CONDITION_LABEL) as ConditionFeedback[]).map(k => (
-                <SelectItem key={k} value={k}>{CONDITION_LABEL[k]}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-      </div>
-
-      <div className="grid grid-cols-1 gap-2">
-        <ToggleRow label="Pre-approved" value={form.pre_approved} onChange={v => setForm({ ...form, pre_approved: v })} />
-        <ToggleRow label="Working with realtor" value={form.working_with_realtor} onChange={v => setForm({ ...form, working_with_realtor: v })} />
-        <ToggleRow label="Home to sell" value={form.home_to_sell} onChange={v => setForm({ ...form, home_to_sell: v })} />
-      </div>
-
-      <Field label="Notes">
-        <Textarea rows={2} value={form.notes || ''} onChange={e => setForm({ ...form, notes: e.target.value })} />
-      </Field>
-
-      <Button onClick={save} disabled={saving} className="w-full">
-        {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
-        Save attendee
-      </Button>
-    </Card>
-  );
-}
-
-function ToggleRow({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <div className="flex items-center justify-between text-sm">
-      <span>{label}</span>
-      <Switch checked={value} onCheckedChange={onChange} />
-    </div>
-  );
-}
 
 // ============================================================================
 // Report section
 // ============================================================================
 
-function ReportSection({ openHouse, attendees }: { openHouse: OpenHouse; attendees: Attendee[] }) {
-  const total = attendees.length;
-  const preApproved = attendees.filter(a => a.pre_approved).length;
-  const fubLinked = attendees.filter(a => a.fub_linked).length;
-  const withInterest = attendees.filter(a => a.interest_level);
+function ReportSection({ openHouse, guests }: { openHouse: OpenHouse; guests: Guest[] }) {
+  const total = guests.length;
+  const signedIn = guests.filter(g => g.source === 'visitor').length;
+  const preApproved = guests.filter(g => g.lender_status === 'pre_approved').length;
+  const hot = guests.filter(g => g.temperature === 'hot').length;
+  const withInterest = guests.filter(g => g.interest_level);
   const interestScore = (lvl: InterestLevel | null) => lvl === 'high' ? 3 : lvl === 'medium' ? 2 : lvl === 'low' ? 1 : 0;
   const avgInterestRaw = withInterest.length
-    ? withInterest.reduce((s, a) => s + interestScore(a.interest_level), 0) / withInterest.length
+    ? withInterest.reduce((s, g) => s + interestScore(g.interest_level), 0) / withInterest.length
     : 0;
   const avgInterestLabel = !withInterest.length ? '—'
     : avgInterestRaw >= 2.5 ? 'High' : avgInterestRaw >= 1.5 ? 'Medium' : 'Low';
@@ -1555,19 +941,19 @@ function ReportSection({ openHouse, attendees }: { openHouse: OpenHouse; attende
   const sendToListingAgent = async () => {
     if (!openHouse.listing_agent_email) return;
     const rows = [
-      { label: 'Total Attendees', value: String(total) },
+      { label: 'Total guests', value: String(total) },
+      { label: 'Signed themselves in', value: String(signedIn) },
       { label: 'Pre-approved', value: String(preApproved) },
-      { label: 'In Follow Up Boss', value: `${fubLinked}/${total}` },
-      { label: 'Avg Interest', value: avgInterestLabel },
+      { label: 'Avg interest', value: avgInterestLabel },
     ];
-    const notesLines = attendees.map(a => {
+    const notesLines = guests.map(g => {
       const parts = [
-        a.initials,
-        a.interest_level ? `Interest: ${INTEREST_LABEL[a.interest_level]}` : null,
-        a.price_feedback ? `Price: ${PRICE_LABEL[a.price_feedback]}` : null,
-        a.condition_feedback ? `Condition: ${CONDITION_LABEL[a.condition_feedback]}` : null,
-        a.pre_approved ? 'Pre-approved' : null,
-        a.notes ? `"${a.notes}"` : null,
+        guestName(g),
+        g.temperature ? g.temperature.toUpperCase() : null,
+        g.interest_level ? `Interest: ${INTEREST_LABEL[g.interest_level]}` : null,
+        g.price_feedback ? `Price: ${PRICE_LABEL[g.price_feedback]}` : null,
+        g.condition_feedback ? `Condition: ${CONDITION_LABEL[g.condition_feedback]}` : null,
+        g.notes ? `"${g.notes}"` : null,
       ].filter(Boolean);
       return `• ${parts.join(' · ')}`;
     }).join('\n');
@@ -1580,10 +966,10 @@ function ReportSection({ openHouse, attendees }: { openHouse: OpenHouse; attende
         templateData: {
           propertyAddress: openHouse.property_address,
           openHouseDate: formatDate(openHouse.open_house_date),
-          attendeeName: `${total} attendee${total === 1 ? '' : 's'}`,
+          attendeeName: `${total} guest${total === 1 ? '' : 's'}`,
           listingAgentName: openHouse.listing_agent_name || '',
           rows,
-          notes: notesLines || 'No attendees recorded.',
+          notes: notesLines || 'No guests recorded.',
         },
       },
     });
@@ -1600,67 +986,65 @@ function ReportSection({ openHouse, attendees }: { openHouse: OpenHouse; attende
   };
 
   const buildPdf = () => {
-    {
-      const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+    const doc = new jsPDF({ unit: 'pt', format: 'letter' });
 
-      const margin = 40;
-      let y = margin;
+    const margin = 40;
+    let y = margin;
 
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text('Open House Report', margin, y);
+    y += 22;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.text(openHouse.property_address, margin, y);
+    y += 14;
+    doc.setTextColor(120);
+    doc.text(formatDate(openHouse.open_house_date), margin, y);
+    doc.setTextColor(0);
+    y += 20;
+
+    const meta: [string, string][] = [
+      ['Listing Agent', `${openHouse.listing_agent_name || '—'}${openHouse.listing_agent_email ? ` (${openHouse.listing_agent_email})` : ''}`],
+      ['Client', `${openHouse.client_name || '—'}${openHouse.client_email ? ` (${openHouse.client_email})` : ''}`],
+      ['Guests', `${total} (${signedIn} signed themselves in)`],
+      ['Avg Interest', `${avgInterestLabel} — ${hot} hot`],
+    ];
+    meta.forEach(([k, v]) => {
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(18);
-      doc.text('Open House Report', margin, y);
-      y += 22;
-
+      doc.text(`${k}:`, margin, y);
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(11);
-      doc.text(openHouse.property_address, margin, y);
+      doc.text(v, margin + 90, y);
       y += 14;
-      doc.setTextColor(120);
-      doc.text(formatDate(openHouse.open_house_date), margin, y);
-      doc.setTextColor(0);
-      y += 20;
+    });
+    y += 6;
 
-      const meta: [string, string][] = [
-        ['Listing Agent', `${openHouse.listing_agent_name || '—'}${openHouse.listing_agent_email ? ` (${openHouse.listing_agent_email})` : ''}`],
-        ['Client', `${openHouse.client_name || '—'}${openHouse.client_email ? ` (${openHouse.client_email})` : ''}`],
-        ['Attendees', `${total} (${preApproved} pre-approved)`],
-        ['Avg Interest', `${avgInterestLabel} — ${fubLinked}/${total} in FUB`],
-      ];
-      meta.forEach(([k, v]) => {
-        doc.setFont('helvetica', 'bold');
-        doc.text(`${k}:`, margin, y);
-        doc.setFont('helvetica', 'normal');
-        doc.text(v, margin + 90, y);
-        y += 14;
+    if (guests.length > 0) {
+      autoTable(doc, {
+        startY: y,
+        head: [['Guest', 'How', 'Temp', 'Interest', 'Price', 'Condition', 'Timeline', 'Notes']],
+        body: guests.map(g => [
+          guestName(g),
+          g.source === 'visitor' ? 'Signed in' : 'Agent',
+          g.temperature ? g.temperature : '—',
+          g.interest_level ? INTEREST_LABEL[g.interest_level] : '—',
+          g.price_feedback ? PRICE_LABEL[g.price_feedback] : '—',
+          g.condition_feedback ? CONDITION_LABEL[g.condition_feedback] : '—',
+          g.timeline ? g.timeline.replace(/_/g, ' ') : '—',
+          g.notes || '—',
+        ]),
+        styles: { fontSize: 9, cellPadding: 4 },
+        headStyles: { fillColor: [30, 41, 59] },
+        columnStyles: { 7: { cellWidth: 120 } },
+        margin: { left: margin, right: margin },
       });
-      y += 6;
-
-      if (attendees.length > 0) {
-        autoTable(doc, {
-          startY: y,
-          head: [['Initials', 'Interest', 'Price', 'Condition', 'Pre-Appr', 'Realtor', 'To Sell', 'Notes']],
-          body: attendees.map(a => [
-            a.initials,
-            a.interest_level ? INTEREST_LABEL[a.interest_level] : '—',
-            a.price_feedback ? PRICE_LABEL[a.price_feedback] : '—',
-            a.condition_feedback ? CONDITION_LABEL[a.condition_feedback] : '—',
-            a.pre_approved ? 'Yes' : '—',
-            a.working_with_realtor ? 'Yes' : '—',
-            a.home_to_sell ? 'Yes' : '—',
-            a.notes || '—',
-          ]),
-          styles: { fontSize: 9, cellPadding: 4 },
-          headStyles: { fillColor: [30, 41, 59] },
-          columnStyles: { 7: { cellWidth: 140 } },
-          margin: { left: margin, right: margin },
-        });
-      } else {
-        doc.setTextColor(120);
-        doc.text('No attendees recorded.', margin, y);
-      }
-
-      return doc;
+    } else {
+      doc.setTextColor(120);
+      doc.text('No guests recorded.', margin, y);
     }
+
+    return doc;
   };
 
   const downloadPdf = () => {
@@ -1708,40 +1092,37 @@ function ReportSection({ openHouse, attendees }: { openHouse: OpenHouse; attende
         />
       )}
 
-
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
         <ReportField label="Listing agent" value={openHouse.listing_agent_name || '—'} sub={openHouse.listing_agent_email || ''} />
         <ReportField label="Client" value={openHouse.client_name || '—'} sub={openHouse.client_email || ''} />
-        <ReportField label="Attendees" value={String(total)} sub={`${preApproved} pre-approved`} />
-        <ReportField label="Avg interest" value={avgInterestLabel} sub={`${fubLinked}/${total} in FUB`} />
+        <ReportField label="Guests" value={String(total)} sub={`${signedIn} signed themselves in`} />
+        <ReportField label="Avg interest" value={avgInterestLabel} sub={`${hot} hot · ${preApproved} pre-approved`} />
       </div>
 
-      {attendees.length > 0 && (
+      {guests.length > 0 && (
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Initials</TableHead>
+                <TableHead>Guest</TableHead>
+                <TableHead>How</TableHead>
+                <TableHead>Temp</TableHead>
                 <TableHead>Interest</TableHead>
                 <TableHead>Price</TableHead>
                 <TableHead>Condition</TableHead>
-                <TableHead className="text-center">Pre-Appr</TableHead>
-                <TableHead className="text-center">Realtor</TableHead>
-                <TableHead className="text-center">To Sell</TableHead>
                 <TableHead>Notes</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {attendees.map(a => (
-                <TableRow key={a.id}>
-                  <TableCell className="font-medium">{a.initials}</TableCell>
-                  <TableCell>{a.interest_level ? INTEREST_LABEL[a.interest_level] : '—'}</TableCell>
-                  <TableCell>{a.price_feedback ? PRICE_LABEL[a.price_feedback] : '—'}</TableCell>
-                  <TableCell>{a.condition_feedback ? CONDITION_LABEL[a.condition_feedback] : '—'}</TableCell>
-                  <TableCell className="text-center">{a.pre_approved ? '✓' : '—'}</TableCell>
-                  <TableCell className="text-center">{a.working_with_realtor ? '✓' : '—'}</TableCell>
-                  <TableCell className="text-center">{a.home_to_sell ? '✓' : '—'}</TableCell>
-                  <TableCell className="max-w-[200px] truncate text-xs text-muted-foreground">{a.notes || '—'}</TableCell>
+              {guests.map(g => (
+                <TableRow key={g.id}>
+                  <TableCell className="font-medium">{guestName(g)}</TableCell>
+                  <TableCell className="text-xs">{g.source === 'visitor' ? 'Signed in' : 'Agent logged'}</TableCell>
+                  <TableCell className="text-xs capitalize">{g.temperature || '—'}</TableCell>
+                  <TableCell>{g.interest_level ? INTEREST_LABEL[g.interest_level] : '—'}</TableCell>
+                  <TableCell>{g.price_feedback ? PRICE_LABEL[g.price_feedback] : '—'}</TableCell>
+                  <TableCell>{g.condition_feedback ? CONDITION_LABEL[g.condition_feedback] : '—'}</TableCell>
+                  <TableCell className="max-w-[200px] truncate text-xs text-muted-foreground">{g.notes || '—'}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -1751,6 +1132,7 @@ function ReportSection({ openHouse, attendees }: { openHouse: OpenHouse; attende
     </Card>
   );
 }
+
 
 function ReportField({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
@@ -1964,21 +1346,25 @@ function ImportFromFubDialog({
     setImporting(true);
     const rows = results
       .filter(r => selected[r.id])
-      .map(r => ({
-        open_house_id: openHouse.id,
-        full_name: r.name,
-        initials: initialsFrom(r.name),
-        fub_contact_id: r.id,
-        fub_linked: true,
-        source: 'curb_hero' as const,
-      }));
-    const { error } = await supabase.from('open_house_attendees').insert(rows);
+      .map(r => {
+        const parts = (r.name || '').trim().split(/\s+/);
+        return {
+          open_house_id: openHouse.id,
+          first_name: parts[0] || r.name || 'Unknown',
+          last_name: parts.slice(1).join(' ') || null,
+          fub_contact_id: r.id,
+          fub_linked: true,
+          source: 'agent' as const,
+        };
+      });
+    const { error } = await supabase.from('open_house_visitors').insert(rows);
     setImporting(false);
     if (error) {
       toast.error('Import failed', { description: error.message });
       return;
     }
-    toast.success(`${rows.length} attendees imported from Follow Up Boss`);
+    toast.success(`${rows.length} guests imported from Follow Up Boss`);
+
     onImported();
   };
 
@@ -2107,21 +1493,19 @@ function UploadCurbHeroCsvDialog({
   const handleImport = async () => {
     if (contacts.length === 0) return;
     setImporting(true);
-    const rows = contacts.map(c => {
-      const full = [c.firstName, c.lastName].filter(Boolean).join(' ').trim();
-      const initials = ((c.firstName?.[0] || '') + (c.lastName?.[0] || '')).toUpperCase() || '?';
-      return {
-        open_house_id: openHouse.id,
-        full_name: full || c.email || 'Unknown',
-        initials,
-        source: 'curb_hero' as const,
-        fub_linked: false,
-      };
-    });
+    const rows = contacts.map(c => ({
+      open_house_id: openHouse.id,
+      first_name: (c.firstName || c.email || 'Unknown').trim(),
+      last_name: c.lastName?.trim() || null,
+      email: c.email || null,
+      phone: c.phone || null,
+      source: 'agent' as const,
+      fub_linked: false,
+    }));
     const { data: inserted, error } = await supabase
-      .from('open_house_attendees')
+      .from('open_house_visitors')
       .insert(rows)
-      .select('id, full_name');
+      .select('id, first_name, last_name');
     if (error) {
       setImporting(false);
       toast.error('Import failed', { description: error.message });
@@ -2131,16 +1515,17 @@ function UploadCurbHeroCsvDialog({
     // Auto-link via FUB search
     let linked = 0;
     await Promise.all((inserted || []).map(async (att: any) => {
-      if (!att.full_name) return;
+      const fullName = [att.first_name, att.last_name].filter(Boolean).join(' ').trim();
+      if (!fullName) return;
       try {
         const { data, error: searchErr } = await supabase.functions.invoke('fub-search-contacts', {
-          body: { query: att.full_name },
+          body: { query: fullName },
         });
         if (searchErr) return;
         const results = (data?.results || []) as FubResult[];
         if (results.length === 1) {
           const { error: updErr } = await supabase
-            .from('open_house_attendees')
+            .from('open_house_visitors')
             .update({ fub_contact_id: results[0].id, fub_linked: true })
             .eq('id', att.id);
           if (!updErr) linked++;
@@ -2151,9 +1536,11 @@ function UploadCurbHeroCsvDialog({
     }));
 
     setImporting(false);
-    toast.success(`${rows.length} attendees imported. ${linked} linked to FUB automatically.`);
+    toast.success(`${rows.length} guests imported. ${linked} linked to FUB automatically.`);
     onImported();
   };
+
+
 
   return (
     <DialogContent className="max-w-2xl">
