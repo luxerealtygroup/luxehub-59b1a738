@@ -7,7 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-import { Loader2, Plus, Radio, Settings2, Users } from 'lucide-react';
+import { Loader2, Plug, Plus, Radio, Send, Settings2, Users } from 'lucide-react';
+import { FubConnectionDialog } from '@/components/openhouse/FubConnectionDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -141,6 +142,21 @@ export function GuestList({
           {(isAdmin || isOwner) && (
             <Button variant="outline" size="sm" onClick={() => setShowSettings(true)}>
               <Settings2 className="mr-1.5 h-4 w-4" /> Message wording
+            </Button>
+          )}
+          {(isAdmin || isOwner) && (
+            <Button variant="outline" size="sm" onClick={() => setShowFub(true)}>
+              <Plug className="mr-1.5 h-4 w-4" /> Follow Up Boss
+            </Button>
+          )}
+          {unsent > 0 && (
+            <Button variant="outline" size="sm" onClick={sendAll} disabled={sendingAll}>
+              {sendingAll ? (
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="mr-1.5 h-4 w-4" />
+              )}
+              Send {unsent} to Follow Up Boss
             </Button>
           )}
           <Button size="sm" onClick={() => setShowAdd(true)}>
