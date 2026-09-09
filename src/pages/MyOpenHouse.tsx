@@ -237,18 +237,19 @@ export default function MyOpenHouse() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {houses.map(h => {
-            const c = attendeeCounts[h.id] || { total: 0, complete: 0, preApproved: 0, fubLinked: 0 };
+            const c = attendeeCounts[h.id] || { total: 0, signedIn: 0, hot: 0, awaiting: 0 };
             return (
               <button key={h.id} type="button" onClick={() => setSelectedId(h.id)} className="text-left">
                 <Card className="p-4 hover:border-gold/60 hover:shadow-md transition-all h-full">
                   <p className="font-semibold leading-tight truncate">{h.property_address}</p>
                   <p className="text-xs text-muted-foreground mt-1">{formatDate(h.open_house_date)}</p>
                   <div className="grid grid-cols-2 gap-2 mt-4 text-xs">
-                    <Stat label="Attendees" value={c.total} />
-                    <Stat label="Feedback" value={`${c.complete}/${c.total}`} />
-                    <Stat label="Pre-approved" value={c.preApproved} />
-                    <Stat label="FUB linked" value={`${c.fubLinked}/${c.total}`} />
+                    <Stat label="Guests" value={c.total} />
+                    <Stat label="Signed themselves in" value={c.signedIn} />
+                    <Stat label="Hot" value={c.hot} />
+                    <Stat label="No follow-up yet" value={c.awaiting} />
                   </div>
+
                 </Card>
               </button>
             );
