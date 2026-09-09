@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import {
   ChevronDown, Loader2, Mail, MessageSquare, Trash2, UserCheck, Tablet, CheckCircle2,
-  Building2, ExternalLink,
+  Building2, ExternalLink, Send,
 } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
@@ -131,6 +131,25 @@ export function GuestCard({
     onChanged();
   };
 
+  const [sending, setSending] = useState(false);
+  const sendToFub = async () => {
+    setSending(true);
+    const { data, error } = await supabase.functions.invoke('openhouse-fub', {
+      body: { action: 'push', visitorId: guest.id },
+    });
+    setSending(false);
+    const detail = (data as { error?: string } | null)?.error;
+    if (error || detail) {
+      toast.error('Follow Up Boss did not accept this guest', {
+        description: detail || (error as Error)?.message,
+      });
+      onChanged();
+      return;
+    }
+    toast.success(`${guestName(guest)} sent to Follow Up Boss`);
+    onChanged();
+  };
+
   const prompt = missingPrompt(guest);
   const missingSet = new Set(
     (['intent', 'timeline', 'lender_status', 'has_home_to_sell', 'working_with_agent'] as const).filter(
@@ -158,6 +177,21 @@ export function GuestCard({
             </a>
           </Button>
         )}
+        {guest.fub_sent_at ? (
+          <Badge className="gap-1 border-success/30 bg-success/15 text-success text-[10px]">
+            <CheckCircle2 className="h-3 w-3" /> In Follow Up Boss ·{' '}
+            {new Date(guest.fub_sent_at).toLocaleDateString()}
+          </Badge>
+        ) : (
+          <Button size="sm" variant="outline" onClick={sendToFub} disabled={sending}>
+            {sending ? (
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="mr-1.5 h-4 w-4" />
+            )}
+            Send to Follow Up Boss
+          </Button>
+        )}
         <Button size="sm" variant="outline" onClick={() => setShowFeatured(true)}>
           <Building2 className="mr-1.5 h-4 w-4" /> Feature listings
         </Button>
@@ -170,6 +204,11 @@ export function GuestCard({
           <p className="mt-0.5 text-sm text-muted-foreground">
             {[guest.phone, guest.email].filter(Boolean).join(' · ') || 'No contact details yet'}
           </p>
+          {!guest.fub_sent_at && guest.fub_sync_error && (
+            <p className="mt-1 text-xs text-destructive">
+              Not sent — {guest.fub_sync_error}
+            </p>
+          )}
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <span className="text-xs text-muted-foreground">{guestTime(guest)}</span>

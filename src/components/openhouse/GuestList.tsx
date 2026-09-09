@@ -7,7 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-import { Loader2, Plus, Radio, Settings2, Users } from 'lucide-react';
+import { Loader2, Plug, Plus, Radio, Send, Settings2, Users } from 'lucide-react';
+import { FubConnectionDialog } from '@/components/openhouse/FubConnectionDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -40,6 +41,8 @@ export function GuestList({
   const [mode, setMode] = useState<Mode>('live');
   const [showAdd, setShowAdd] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showFub, setShowFub] = useState(false);
+  const [sendingAll, setSendingAll] = useState(false);
   const [templates, setTemplates] = useState<FollowUpTemplates>({
     sms: DEFAULT_SMS_TEMPLATE,
     emailSubject: DEFAULT_EMAIL_SUBJECT,
@@ -114,6 +117,28 @@ export function GuestList({
   }, [guests, mode, ended]);
 
   const awaitingFollowUp = guests.filter((g) => !g.follow_up_sent_at).length;
+  const unsent = guests.filter((g) => !g.fub_sent_at).length;
+
+  const sendAll = async () => {
+    setSendingAll(true);
+    const { data, error } = await supabase.functions.invoke('openhouse-fub', {
+      body: { action: 'push_all', openHouseId },
+    });
+    setSendingAll(false);
+    const result = data as { sent?: number; failed?: number; error?: string } | null;
+    if (error || result?.error) {
+      toast.error('Could not send to Follow Up Boss', {
+        description: result?.error || (error as Error)?.message,
+      });
+    } else if ((result?.failed ?? 0) > 0) {
+      toast.warning(`${result?.sent ?? 0} sent, ${result?.failed} could not be sent`, {
+        description: 'The ones that failed show the reason on their row and can be retried.',
+      });
+    } else {
+      toast.success(`${result?.sent ?? 0} sent to Follow Up Boss`);
+    }
+    load();
+  };
 
   return (
     <div className="space-y-4">
@@ -141,6 +166,21 @@ export function GuestList({
           {(isAdmin || isOwner) && (
             <Button variant="outline" size="sm" onClick={() => setShowSettings(true)}>
               <Settings2 className="mr-1.5 h-4 w-4" /> Message wording
+            </Button>
+          )}
+          {(isAdmin || isOwner) && (
+            <Button variant="outline" size="sm" onClick={() => setShowFub(true)}>
+              <Plug className="mr-1.5 h-4 w-4" /> Follow Up Boss
+            </Button>
+          )}
+          {unsent > 0 && (
+            <Button variant="outline" size="sm" onClick={sendAll} disabled={sendingAll}>
+              {sendingAll ? (
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="mr-1.5 h-4 w-4" />
+              )}
+              Send {unsent} to Follow Up Boss
             </Button>
           )}
           <Button size="sm" onClick={() => setShowAdd(true)}>
@@ -196,6 +236,8 @@ export function GuestList({
           onSaved={() => { setShowSettings(false); loadTemplates(); }}
         />
       )}
+
+      {showFub && <FubConnectionDialog onClose={() => setShowFub(false)} />}
     </div>
   );
 }

@@ -35,6 +35,8 @@ export interface Guest {
   condition_feedback: ConditionFeedback | null;
   fub_contact_id: string | null;
   fub_linked: boolean;
+  fub_sent_at: string | null;
+  fub_sync_error: string | null;
   report_token: string | null;
   featured_listings: { address: string; price: number | null; photo_url: string | null; link: string | null }[] | null;
   follow_up_sent_at: string | null;
@@ -48,6 +50,7 @@ export const GUEST_COLUMNS =
   'id, open_house_id, first_name, last_name, email, phone, working_with_agent, agent_name, ' +
   'intent, has_home_to_sell, timeline, lender_status, custom_answers, notes, source, temperature, ' +
   'interest_level, price_feedback, condition_feedback, fub_contact_id, fub_linked, ' +
+  'fub_sent_at, fub_sync_error, ' +
   'report_token, featured_listings, follow_up_sent_at, follow_up_channel, signed_in_at, client_captured_at, created_at';
 
 export const PRICE_LABEL: Record<PriceFeedback, string> = {

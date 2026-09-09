@@ -2589,6 +2589,8 @@ export type Database = {
           follow_up_sent_at: string | null
           fub_contact_id: string | null
           fub_linked: boolean
+          fub_sent_at: string | null
+          fub_sync_error: string | null
           has_home_to_sell: string | null
           id: string
           intent: string | null
@@ -2624,6 +2626,8 @@ export type Database = {
           follow_up_sent_at?: string | null
           fub_contact_id?: string | null
           fub_linked?: boolean
+          fub_sent_at?: string | null
+          fub_sync_error?: string | null
           has_home_to_sell?: string | null
           id?: string
           intent?: string | null
@@ -2659,6 +2663,8 @@ export type Database = {
           follow_up_sent_at?: string | null
           fub_contact_id?: string | null
           fub_linked?: boolean
+          fub_sent_at?: string | null
+          fub_sync_error?: string | null
           has_home_to_sell?: string | null
           id?: string
           intent?: string | null
