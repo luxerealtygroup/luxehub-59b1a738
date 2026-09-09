@@ -21,15 +21,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true;
 
+    // A failed auth read is only proof of a dead session when the server says
+    // so. Network blips (coming back from a document view, a sleeping tab)
+    // must never sign anyone out, so we retry first and keep the session on
+    // anything that isn't an explicit rejection.
+    const isDefinitelyInvalid = (error: unknown) => {
+      const e = error as { status?: number; message?: string } | null;
+      if (!e) return false;
+      const msg = (e.message || '').toLowerCase();
+      const authRejected =
+        msg.includes('session_not_found') ||
+        msg.includes('session from session_id claim in jwt does not exist') ||
+        msg.includes('invalid claim') ||
+        msg.includes('invalid refresh token') ||
+        msg.includes('jwt expired') ||
+        msg.includes('user not found');
+      return (e.status === 401 || e.status === 403) && authRejected;
+    };
+
+    const verifySession = async () => {
+      let lastError: unknown = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const { error } = await supabase.auth.getUser();
+        if (!error) return { ok: true as const };
+        lastError = error;
+        if (isDefinitelyInvalid(error)) return { ok: false as const };
+        // Transient: back off and try again before doubting the session.
+        await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+      }
+      // Ran out of retries without a definite rejection — keep the session.
+      console.warn('Auth check kept session after transient failures', lastError);
+      return { ok: true as const };
+    };
+
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
 
       if (session) {
-        // The stored token can reference a session the server has already
-        // dropped. Verify it once, and clear it locally if it is dead so we
-        // don't fire authenticated requests that come back 401.
-        const { error } = await supabase.auth.getUser();
-        if (error) {
+        const { ok } = await verifySession();
+        if (!ok) {
           await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
           if (!active) return;
           setSession(null);
@@ -44,6 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       setLoading(false);
     })();
+
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'TOKEN_REFRESHED' && !session) {

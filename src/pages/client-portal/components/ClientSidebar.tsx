@@ -9,6 +9,7 @@ import {
   ImageIcon,
   Users,
   FolderHeart,
+  UserRound,
 } from 'lucide-react';
 import luxeLogo from '@/assets/luxe-logo.png.asset.json';
 import { Button } from '@/components/ui/button';
@@ -44,6 +45,7 @@ const mainMenuItems = [
   { id: 'library', title: 'My Documents', icon: FolderHeart },
   { id: 'contacts', title: 'Important Contacts', icon: Users },
   { id: 'photos', title: 'Photos', icon: ImageIcon },
+  { id: 'agent', title: 'Your Agent', icon: UserRound },
   { id: 'messages', title: 'Messages', icon: MessageCircle },
 ];
 

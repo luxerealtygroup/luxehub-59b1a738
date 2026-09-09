@@ -8,7 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
-import { FileText, Download, FolderOpen, Home, Calendar, CheckSquare, MessageCircle, ShoppingCart, Tag, ImageIcon, Upload, Users, FolderHeart } from 'lucide-react';
+import { FileText, Download, FolderOpen, Home, Calendar, CheckSquare, MessageCircle, ShoppingCart, Tag, ImageIcon, Upload, Users, FolderHeart, UserRound } from 'lucide-react';
+import { AgentContactCard } from './components/AgentContactCard';
+
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { TransactionTimeline } from './components/TransactionTimeline';
@@ -80,9 +82,16 @@ interface ClientDashboardProps {
    * preview wrapper; every write path is blocked by PortalPreviewProvider).
    */
   previewPortalId?: string;
+  /**
+   * Which section this route renders. The portal is split into real routes
+   * (/client-portal, /client-portal/documents, /photos, /agent) that all
+   * render this same layout, so the page is never unmounted between them.
+   */
+  section?: string;
 }
 
-const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
+const ClientDashboard = ({ previewPortalId, section }: ClientDashboardProps = {}) => {
+
   const [documents, setDocuments] = useState<ClientDocument[]>([]);
   // Count of the documents the Documents tab actually shows (portal_documents,
   // client-visible only) so the Overview stat can't disagree with the tab.
@@ -91,7 +100,7 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [clientAccount, setClientAccount] = useState<ClientAccount | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(section ?? 'overview');
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
   const [scope, setScope] = useState<PortalScope>('all');
   const navigate = useNavigate();
@@ -105,6 +114,27 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
     transactions: portalTransactions,
     transactionsByProperty,
   } = usePortalProperties(portalId);
+
+  // Sections that have their own URL. Everything else stays on the overview URL.
+  const ROUTED_SECTIONS: Record<string, string> = {
+    documents: '/client-portal/documents',
+    photos: '/client-portal/photos',
+    agent: '/client-portal/agent',
+  };
+
+  // Keep the visible section in step with the route (Back/Forward included).
+  useEffect(() => {
+    if (isPreview) return;
+    setActiveTab(section ?? 'overview');
+  }, [section, isPreview]);
+
+  const changeTab = (tab: string) => {
+    setActiveTab(tab);
+    if (isPreview) return;
+    const target = ROUTED_SECTIONS[tab] ?? '/client-portal';
+    if (window.location.pathname !== target) navigate(target);
+  };
+
 
   useEffect(() => {
     let cancelled = false;
@@ -434,7 +464,7 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
               <li key={p.id}>
                 <button
                   type="button"
-                  onClick={() => { setScope(p.id); setActiveTab('overview'); }}
+                  onClick={() => { setScope(p.id); changeTab('overview'); }}
                   className="flex w-full items-center gap-3 rounded-xl border border-border/60 bg-background/60 p-3 text-left transition-colors hover:border-primary/40"
                 >
                 {p.cover_photo_url ? (
@@ -471,7 +501,7 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
     <div className="grid gap-4 sm:grid-cols-2">
       <button
         type="button"
-        onClick={() => setActiveTab('library')}
+        onClick={() => changeTab('library')}
         className="luxe-card flex items-center gap-4 p-5 text-left transition-all hover:-translate-y-0.5 hover:shadow-luxe-hover"
       >
         <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
@@ -484,7 +514,7 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
       </button>
       <button
         type="button"
-        onClick={() => setActiveTab('contacts')}
+        onClick={() => changeTab('contacts')}
         className="luxe-card flex items-center gap-4 p-5 text-left transition-all hover:-translate-y-0.5 hover:shadow-luxe-hover"
       >
         <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
@@ -534,8 +564,8 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
           {clientAccount && (
             <ImportantContactsCard
               portalId={clientAccount.id}
-              onMessage={() => setActiveTab('messages')}
-              onViewAll={() => setActiveTab('contacts')}
+              onMessage={() => changeTab('messages')}
+              onViewAll={() => changeTab('contacts')}
             />
           )}
           <div className="luxe-card p-6">
@@ -543,7 +573,7 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
             <div className="mt-4 space-y-2">
               <button
                 type="button"
-                onClick={() => setActiveTab('documents')}
+                onClick={() => changeTab('documents')}
                 className="flex w-full items-center gap-3 rounded-xl border border-border/60 bg-background/60 p-3 text-left transition-colors hover:border-primary/40"
               >
                 <FileText className="h-4 w-4 text-primary shrink-0" />
@@ -551,7 +581,7 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
               </button>
               <button
                 type="button"
-                onClick={() => setActiveTab('photos')}
+                onClick={() => changeTab('photos')}
                 className="flex w-full items-center gap-3 rounded-xl border border-border/60 bg-background/60 p-3 text-left transition-colors hover:border-primary/40"
               >
                 <ImageIcon className="h-4 w-4 text-primary shrink-0" />
@@ -559,7 +589,7 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
               </button>
               <button
                 type="button"
-                onClick={() => setActiveTab('library')}
+                onClick={() => changeTab('library')}
                 className="flex w-full items-center gap-3 rounded-xl border border-border/60 bg-background/60 p-3 text-left transition-colors hover:border-primary/40"
               >
                 <FolderHeart className="h-4 w-4 text-primary shrink-0" />
@@ -589,8 +619,8 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
               {clientAccount && (
                 <ImportantContactsCard
                   portalId={clientAccount.id}
-                  onMessage={() => setActiveTab('messages')}
-                  onViewAll={() => setActiveTab('contacts')}
+                  onMessage={() => changeTab('messages')}
+                  onViewAll={() => changeTab('contacts')}
                 />
               )}
               <KeyDatesCard
@@ -768,6 +798,12 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
           <PortalPhotosPanel portalId={clientAccount.id} canManage={false} scope={scope} />
         ) : null;
 
+      case 'agent':
+        return clientAccount ? (
+          <AgentContactCard portalId={clientAccount.id} onMessage={() => changeTab('messages')} />
+        ) : null;
+
+
       case 'messages':
         return clientAccount && (
           <PortalChatPanel portalId={clientAccount.id} viewerRole="client" />
@@ -788,6 +824,8 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
       case 'library': return 'My Documents';
       case 'contacts': return 'Important Contacts';
       case 'photos': return 'Photos';
+      case 'agent': return 'Your Agent';
+
       case 'messages': return 'Messages';
       default: return 'Dashboard';
     }
@@ -803,6 +841,8 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
       case 'library': return <FolderHeart className="h-5 w-5" />;
       case 'contacts': return <Users className="h-5 w-5" />;
       case 'photos': return <ImageIcon className="h-5 w-5" />;
+      case 'agent': return <UserRound className="h-5 w-5" />;
+
       case 'messages': return <MessageCircle className="h-5 w-5" />;
       default: return <Home className="h-5 w-5" />;
     }
@@ -813,7 +853,7 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
       <div className="min-h-screen flex w-full">
         <ClientSidebar 
           activeTab={activeTab}
-          onTabChange={setActiveTab}
+          onTabChange={changeTab}
           clientName={clientAccount?.full_name || null}
           clientEmail={clientAccount?.email || ''}
           onSignOut={handleSignOut}
@@ -849,9 +889,9 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
                     properties={properties}
                     value={scope}
                     onChange={setScope}
-                    onDashboard={() => { setScope('all'); setActiveTab('overview'); }}
+                    onDashboard={() => { setScope('all'); changeTab('overview'); }}
                   />
-                  <ClientNotificationsBell onOpenTab={(tab) => setActiveTab(tab)} />
+                  <ClientNotificationsBell onOpenTab={(tab) => changeTab(tab)} />
                 </div>
               ) : transactions.length > 1 && activeTab !== 'messages' ? (
                 <div className="ml-auto flex items-center gap-2 min-w-0">
@@ -874,11 +914,11 @@ const ClientDashboard = ({ previewPortalId }: ClientDashboardProps = {}) => {
                       ))}
                     </SelectContent>
                   </Select>
-                  <ClientNotificationsBell onOpenTab={(tab) => setActiveTab(tab)} />
+                  <ClientNotificationsBell onOpenTab={(tab) => changeTab(tab)} />
                 </div>
               ) : (
                 <div className="ml-auto">
-                  <ClientNotificationsBell onOpenTab={(tab) => setActiveTab(tab)} />
+                  <ClientNotificationsBell onOpenTab={(tab) => changeTab(tab)} />
                 </div>
               )}
             </div>
