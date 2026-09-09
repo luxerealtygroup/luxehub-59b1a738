@@ -2574,43 +2574,165 @@ export type Database = {
           },
         ]
       }
+      open_house_visitors: {
+        Row: {
+          agent_name: string | null
+          client_captured_at: string | null
+          created_at: string
+          custom_answers: Json
+          disclosure_accepted: boolean
+          email: string | null
+          first_name: string
+          has_home_to_sell: string | null
+          id: string
+          intent: string | null
+          last_name: string | null
+          lender_status: string | null
+          notes: string | null
+          open_house_id: string
+          org_id: string | null
+          phone: string | null
+          signed_in_at: string
+          timeline: string | null
+          working_with_agent: boolean | null
+        }
+        Insert: {
+          agent_name?: string | null
+          client_captured_at?: string | null
+          created_at?: string
+          custom_answers?: Json
+          disclosure_accepted?: boolean
+          email?: string | null
+          first_name: string
+          has_home_to_sell?: string | null
+          id?: string
+          intent?: string | null
+          last_name?: string | null
+          lender_status?: string | null
+          notes?: string | null
+          open_house_id: string
+          org_id?: string | null
+          phone?: string | null
+          signed_in_at?: string
+          timeline?: string | null
+          working_with_agent?: boolean | null
+        }
+        Update: {
+          agent_name?: string | null
+          client_captured_at?: string | null
+          created_at?: string
+          custom_answers?: Json
+          disclosure_accepted?: boolean
+          email?: string | null
+          first_name?: string
+          has_home_to_sell?: string | null
+          id?: string
+          intent?: string | null
+          last_name?: string | null
+          lender_status?: string | null
+          notes?: string | null
+          open_house_id?: string
+          org_id?: string | null
+          phone?: string | null
+          signed_in_at?: string
+          timeline?: string | null
+          working_with_agent?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "open_house_visitors_open_house_id_fkey"
+            columns: ["open_house_id"]
+            isOneToOne: false
+            referencedRelation: "open_houses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       open_houses: {
         Row: {
+          city: string | null
           client_email: string | null
           client_name: string | null
+          cover_photo_url: string | null
           created_at: string
+          created_by: string | null
+          custom_question_1: string | null
+          custom_question_2: string | null
+          custom_question_3: string | null
+          disclosure_text: string | null
+          ends_at: string | null
+          hosting_agent_id: string | null
           id: string
+          is_active: boolean
+          list_price: number | null
           listing_agent_email: string | null
+          listing_agent_id: string | null
           listing_agent_name: string | null
+          mls_number: string | null
           open_house_date: string
           org_id: string | null
           property_address: string
+          require_phone: boolean
+          slug: string | null
+          starts_at: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          city?: string | null
           client_email?: string | null
           client_name?: string | null
+          cover_photo_url?: string | null
           created_at?: string
+          created_by?: string | null
+          custom_question_1?: string | null
+          custom_question_2?: string | null
+          custom_question_3?: string | null
+          disclosure_text?: string | null
+          ends_at?: string | null
+          hosting_agent_id?: string | null
           id?: string
+          is_active?: boolean
+          list_price?: number | null
           listing_agent_email?: string | null
+          listing_agent_id?: string | null
           listing_agent_name?: string | null
+          mls_number?: string | null
           open_house_date: string
           org_id?: string | null
           property_address: string
+          require_phone?: boolean
+          slug?: string | null
+          starts_at?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          city?: string | null
           client_email?: string | null
           client_name?: string | null
+          cover_photo_url?: string | null
           created_at?: string
+          created_by?: string | null
+          custom_question_1?: string | null
+          custom_question_2?: string | null
+          custom_question_3?: string | null
+          disclosure_text?: string | null
+          ends_at?: string | null
+          hosting_agent_id?: string | null
           id?: string
+          is_active?: boolean
+          list_price?: number | null
           listing_agent_email?: string | null
+          listing_agent_id?: string | null
           listing_agent_name?: string | null
+          mls_number?: string | null
           open_house_date?: string
           org_id?: string | null
           property_address?: string
+          require_phone?: boolean
+          slug?: string | null
+          starts_at?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -4129,6 +4251,7 @@ export type Database = {
       profiles: {
         Row: {
           access_expires_at: string | null
+          agent_slug: string | null
           avatar_url: string | null
           coaching_history_seed: string | null
           created_at: string
@@ -4147,6 +4270,7 @@ export type Database = {
         }
         Insert: {
           access_expires_at?: string | null
+          agent_slug?: string | null
           avatar_url?: string | null
           coaching_history_seed?: string | null
           created_at?: string
@@ -4165,6 +4289,7 @@ export type Database = {
         }
         Update: {
           access_expires_at?: string | null
+          agent_slug?: string | null
           avatar_url?: string | null
           coaching_history_seed?: string | null
           created_at?: string
@@ -5194,6 +5319,37 @@ export type Database = {
         }
         Returns: string
       }
+      public_agent_open_house: {
+        Args: { _agent_slug: string }
+        Returns: {
+          active_slug: string
+          agent_avatar_url: string
+          agent_email: string
+          agent_name: string
+        }[]
+      }
+      public_open_house: {
+        Args: { _slug: string }
+        Returns: {
+          address: string
+          city: string
+          cover_photo_url: string
+          custom_question_1: string
+          custom_question_2: string
+          custom_question_3: string
+          disclosure_text: string
+          ends_at: string
+          hosting_agent_avatar_url: string
+          hosting_agent_email: string
+          hosting_agent_name: string
+          id: string
+          list_price: number
+          mls_number: string
+          require_phone: boolean
+          slug: string
+          starts_at: string
+        }[]
+      }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
@@ -5237,6 +5393,26 @@ export type Database = {
       }
       set_org_secret: {
         Args: { _actor: string; _key: string; _org_id: string; _value: string }
+        Returns: undefined
+      }
+      submit_open_house_visitor: {
+        Args: {
+          _agent_name: string
+          _client_captured_at: string
+          _custom_answers: Json
+          _disclosure_accepted: boolean
+          _email: string
+          _first_name: string
+          _has_home_to_sell: string
+          _intent: string
+          _last_name: string
+          _lender_status: string
+          _notes: string
+          _phone: string
+          _slug: string
+          _timeline: string
+          _working_with_agent: boolean
+        }
         Returns: undefined
       }
       topic_in_my_org: { Args: { _topic: string }; Returns: boolean }
