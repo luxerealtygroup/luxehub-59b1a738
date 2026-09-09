@@ -35,6 +35,8 @@ export interface Guest {
   condition_feedback: ConditionFeedback | null;
   fub_contact_id: string | null;
   fub_linked: boolean;
+  report_token: string | null;
+  featured_listings: unknown;
   follow_up_sent_at: string | null;
   follow_up_channel: string | null;
   signed_in_at: string | null;
@@ -46,7 +48,7 @@ export const GUEST_COLUMNS =
   'id, open_house_id, first_name, last_name, email, phone, working_with_agent, agent_name, ' +
   'intent, has_home_to_sell, timeline, lender_status, custom_answers, notes, source, temperature, ' +
   'interest_level, price_feedback, condition_feedback, fub_contact_id, fub_linked, ' +
-  'follow_up_sent_at, follow_up_channel, signed_in_at, client_captured_at, created_at';
+  'report_token, featured_listings, follow_up_sent_at, follow_up_channel, signed_in_at, client_captured_at, created_at';
 
 export const PRICE_LABEL: Record<PriceFeedback, string> = {
   priced_right: 'Priced right',
@@ -134,21 +136,22 @@ export const FOLLOWUP_EMAIL_SUBJECT_KEY = 'open_house_followup_email_subject';
 export const FOLLOWUP_EMAIL_BODY_KEY = 'open_house_followup_email_body';
 
 export const DEFAULT_SMS_TEMPLATE =
-  'Hi {first_name}, it was great meeting you at {address} today. If any questions come up about the home, just text me back. — {agent_name}';
+  'Hi {first_name}, it was great meeting you at {address} today. Here are homes like it: {report_link} — any questions, just text me back. — {agent_name}';
 
 export const DEFAULT_EMAIL_SUBJECT = 'Great meeting you at {address}';
 
 export const DEFAULT_EMAIL_BODY =
-  'Hi {first_name},\n\nThank you for coming through {address} today — it was a pleasure meeting you.\n\nIf you would like the full listing details, comparable sales nearby, or a look at anything else on the market, just reply to this email and I will send it over.\n\nBest,\n{agent_name}';
+  'Hi {first_name},\n\nThank you for coming through {address} today — it was a pleasure meeting you.\n\nIf you would like the full listing details, comparable sales nearby, or a look at anything else on the market, just reply to this email and I will send it over.\n\nIn the meantime, here are homes like this one:\n{report_link}\n\nBest,\n{agent_name}';
 
 export function fillTemplate(
   template: string,
-  values: { first_name: string; address: string; agent_name: string },
+  values: { first_name: string; address: string; agent_name: string; report_link?: string },
 ): string {
   return template
     .replace(/\{first_name\}/g, values.first_name)
     .replace(/\{address\}/g, values.address)
-    .replace(/\{agent_name\}/g, values.agent_name);
+    .replace(/\{agent_name\}/g, values.agent_name)
+    .replace(/\s*\{report_link\}/g, values.report_link ? ` ${values.report_link}` : '');
 }
 
 /** iOS wants `&body=`, Android wants `?body=`; `?` works on both modern platforms. */
