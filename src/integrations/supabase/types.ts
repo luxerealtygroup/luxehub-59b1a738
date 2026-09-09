@@ -5425,6 +5425,7 @@ export type Database = {
           hosting_agent_name: string
           intent: string
           list_price: number
+          search_url_template: string
           timeline: string
         }[]
       }
