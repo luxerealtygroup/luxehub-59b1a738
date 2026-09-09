@@ -1493,21 +1493,19 @@ function UploadCurbHeroCsvDialog({
   const handleImport = async () => {
     if (contacts.length === 0) return;
     setImporting(true);
-    const rows = contacts.map(c => {
-      const full = [c.firstName, c.lastName].filter(Boolean).join(' ').trim();
-      const initials = ((c.firstName?.[0] || '') + (c.lastName?.[0] || '')).toUpperCase() || '?';
-      return {
-        open_house_id: openHouse.id,
-        full_name: full || c.email || 'Unknown',
-        initials,
-        source: 'curb_hero' as const,
-        fub_linked: false,
-      };
-    });
+    const rows = contacts.map(c => ({
+      open_house_id: openHouse.id,
+      first_name: (c.firstName || c.email || 'Unknown').trim(),
+      last_name: c.lastName?.trim() || null,
+      email: c.email || null,
+      phone: c.phone || null,
+      source: 'agent' as const,
+      fub_linked: false,
+    }));
     const { data: inserted, error } = await supabase
-      .from('open_house_attendees')
+      .from('open_house_visitors')
       .insert(rows)
-      .select('id, full_name');
+      .select('id, first_name, last_name');
     if (error) {
       setImporting(false);
       toast.error('Import failed', { description: error.message });
@@ -1517,16 +1515,17 @@ function UploadCurbHeroCsvDialog({
     // Auto-link via FUB search
     let linked = 0;
     await Promise.all((inserted || []).map(async (att: any) => {
-      if (!att.full_name) return;
+      const fullName = [att.first_name, att.last_name].filter(Boolean).join(' ').trim();
+      if (!fullName) return;
       try {
         const { data, error: searchErr } = await supabase.functions.invoke('fub-search-contacts', {
-          body: { query: att.full_name },
+          body: { query: fullName },
         });
         if (searchErr) return;
         const results = (data?.results || []) as FubResult[];
         if (results.length === 1) {
           const { error: updErr } = await supabase
-            .from('open_house_attendees')
+            .from('open_house_visitors')
             .update({ fub_contact_id: results[0].id, fub_linked: true })
             .eq('id', att.id);
           if (!updErr) linked++;
@@ -1537,9 +1536,11 @@ function UploadCurbHeroCsvDialog({
     }));
 
     setImporting(false);
-    toast.success(`${rows.length} attendees imported. ${linked} linked to FUB automatically.`);
+    toast.success(`${rows.length} guests imported. ${linked} linked to FUB automatically.`);
     onImported();
   };
+
+
 
   return (
     <DialogContent className="max-w-2xl">
