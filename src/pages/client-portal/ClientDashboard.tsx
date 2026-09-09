@@ -796,6 +796,12 @@ const ClientDashboard = ({ previewPortalId, section }: ClientDashboardProps = {}
           <PortalPhotosPanel portalId={clientAccount.id} canManage={false} scope={scope} />
         ) : null;
 
+      case 'agent':
+        return clientAccount ? (
+          <AgentContactCard portalId={clientAccount.id} onMessage={() => changeTab('messages')} />
+        ) : null;
+
+
       case 'messages':
         return clientAccount && (
           <PortalChatPanel portalId={clientAccount.id} viewerRole="client" />
