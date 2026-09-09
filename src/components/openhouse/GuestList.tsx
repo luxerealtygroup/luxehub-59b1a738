@@ -115,6 +115,28 @@ export function GuestList({
   }, [guests, mode, ended]);
 
   const awaitingFollowUp = guests.filter((g) => !g.follow_up_sent_at).length;
+  const unsent = guests.filter((g) => !g.fub_sent_at).length;
+
+  const sendAll = async () => {
+    setSendingAll(true);
+    const { data, error } = await supabase.functions.invoke('openhouse-fub', {
+      body: { action: 'push_all', openHouseId },
+    });
+    setSendingAll(false);
+    const result = data as { sent?: number; failed?: number; error?: string } | null;
+    if (error || result?.error) {
+      toast.error('Could not send to Follow Up Boss', {
+        description: result?.error || (error as Error)?.message,
+      });
+    } else if ((result?.failed ?? 0) > 0) {
+      toast.warning(`${result?.sent ?? 0} sent, ${result?.failed} could not be sent`, {
+        description: 'The ones that failed show the reason on their row and can be retried.',
+      });
+    } else {
+      toast.success(`${result?.sent ?? 0} sent to Follow Up Boss`);
+    }
+    load();
+  };
 
   return (
     <div className="space-y-4">
