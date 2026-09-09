@@ -18,14 +18,11 @@ export default function BuyerReport() {
   useEffect(() => {
     let alive = true;
     (async () => {
-      const [{ data }, { data: setting }] = await Promise.all([
-        supabase.rpc('public_open_house_buyer_report', { _token: token }),
-        supabase.from('app_settings').select('value').eq('key', SEARCH_TEMPLATE_KEY).maybeSingle(),
-      ]);
+      const { data } = await supabase.rpc('public_open_house_buyer_report', { _token: token });
       if (!alive) return;
       const row = Array.isArray(data) ? (data[0] as any) : null;
       setReport(row ? { ...row, featured_listings: asListings(row.featured_listings) } : null);
-      setSearchTemplate(((setting?.value as string) || '').trim());
+      setSearchTemplate(((row?.search_url_template as string) || '').trim());
       setLoading(false);
     })();
     return () => { alive = false; };
