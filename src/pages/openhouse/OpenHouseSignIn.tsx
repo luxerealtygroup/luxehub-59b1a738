@@ -481,27 +481,9 @@ export default function OpenHouseSignIn() {
 
           <ChoiceRow
             label="What brings you in today?"
-            options={INTENT_OPTIONS}
+            options={INTENT_OPTIONS.filter((o) => o.value !== 'both' && o.value !== 'neighbour')}
             value={form.intent}
             onChange={(v) => set('intent', v)}
-          />
-          <ChoiceRow
-            label="Do you have a home to sell?"
-            options={HOME_TO_SELL_OPTIONS}
-            value={form.has_home_to_sell}
-            onChange={(v) => set('has_home_to_sell', v)}
-          />
-          <ChoiceRow
-            label="When are you hoping to move?"
-            options={TIMELINE_OPTIONS}
-            value={form.timeline}
-            onChange={(v) => set('timeline', v)}
-          />
-          <ChoiceRow
-            label="Have you spoken with a lender?"
-            options={LENDER_OPTIONS}
-            value={form.lender_status}
-            onChange={(v) => set('lender_status', v)}
           />
 
           {customQuestions.map((q) => (
@@ -517,16 +499,6 @@ export default function OpenHouseSignIn() {
             </div>
           ))}
 
-          <div className="space-y-2">
-            <label className="text-lg font-medium" htmlFor="notes">Anything you'd like us to know?</label>
-            <Textarea
-              id="notes"
-              rows={3}
-              className="text-lg"
-              value={form.notes}
-              onChange={(e) => set('notes', e.target.value)}
-            />
-          </div>
 
           {house.disclosure_text && (
             <div className="rounded-xl border border-border bg-card p-4">
