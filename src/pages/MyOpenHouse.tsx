@@ -705,8 +705,195 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 // ============================================================================
-// Open house detail view
+// Visitor sign-in: links, QR, kiosk (merged in from the old Operations page)
 // ============================================================================
+
+function CopyField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="space-y-1">
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+      <div className="flex items-center gap-2">
+        <Input readOnly value={value} className="h-9 text-sm" onFocus={(e) => e.currentTarget.select()} />
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => { navigator.clipboard.writeText(value); toast.success('Link copied'); }}
+        >
+          <Copy className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** One permanent QR per agent — printed signs stay usable forever. */
+function AgentQrCard() {
+  const { user } = useAuth();
+  const [slug, setSlug] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    let alive = true;
+    (async () => {
+      const { data } = await supabase.from('profiles').select('agent_slug').eq('id', user.id).maybeSingle();
+      if (!alive) return;
+      const existing = (data as { agent_slug?: string | null } | null)?.agent_slug;
+      if (existing) { setSlug(existing); return; }
+      const fresh = makeSlug(6);
+      const { error } = await supabase.from('profiles').update({ agent_slug: fresh } as never).eq('id', user.id);
+      if (!error && alive) setSlug(fresh);
+    })();
+    return () => { alive = false; };
+  }, [user]);
+
+  if (!slug) return null;
+  return (
+    <Card className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
+      <QrCode value={agentUrl(slug)} size={110} className="rounded-lg bg-white p-1" />
+      <div className="flex-1 space-y-2">
+        <p className="font-medium text-foreground">Your permanent QR</p>
+        <p className="text-sm text-muted-foreground">
+          Print it once. It always opens whichever of your open houses is running right now.
+        </p>
+        <CopyField label="Permanent link" value={agentUrl(slug)} />
+      </div>
+      <PrintQrButton url={agentUrl(slug)} heading="Open House" subheading="Scan to sign in" />
+    </Card>
+  );
+}
+
+/** Sign-in link, QR and kiosk link for one open house. Older rows get a slug on demand. */
+function SignInLinksCard({ openHouse, onChanged }: { openHouse: OpenHouse; onChanged: () => void }) {
+  const [slug, setSlug] = useState<string | null>(openHouse.slug);
+  const [creating, setCreating] = useState(false);
+
+  useEffect(() => { setSlug(openHouse.slug); }, [openHouse.id, openHouse.slug]);
+
+  const createLink = async () => {
+    setCreating(true);
+    const fresh = makeSlug();
+    const { error } = await supabase
+      .from('open_houses')
+      .update({ slug: fresh, is_active: true } as never)
+      .eq('id', openHouse.id);
+    setCreating(false);
+    if (error) { toast.error('Could not create the sign-in link', { description: error.message }); return; }
+    setSlug(fresh);
+    onChanged();
+  };
+
+  if (!slug) {
+    return (
+      <Card className="p-5 space-y-3">
+        <p className="font-medium">Visitor sign-in</p>
+        <p className="text-sm text-muted-foreground">
+          This open house doesn't have a sign-in link yet.
+        </p>
+        <Button size="sm" onClick={createLink} disabled={creating}>
+          {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create sign-in link
+        </Button>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="p-5">
+      <p className="mb-4 font-medium">Visitor sign-in</p>
+      <div className="grid gap-5 sm:grid-cols-[auto,1fr]">
+        <QrCode value={signInUrl(slug)} size={140} className="rounded-lg bg-white p-1" />
+        <div className="space-y-3">
+          <CopyField label="Sign-in link" value={signInUrl(slug)} />
+          <CopyField label="Kiosk link (tablet)" value={kioskUrl(slug)} />
+          <div className="flex flex-wrap gap-2 pt-1">
+            <PrintQrButton
+              url={signInUrl(slug)}
+              heading={openHouse.property_address}
+              subheading={openHouse.city || undefined}
+            />
+            <Button size="sm" variant="outline" asChild>
+              <a href={signInUrl(slug)} target="_blank" rel="noopener noreferrer">
+                <QrIcon className="mr-1.5 h-4 w-4" /> Open sign-in page
+              </a>
+            </Button>
+            <Button size="sm" variant="outline" asChild>
+              <a href={kioskUrl(slug)} target="_blank" rel="noopener noreferrer">
+                <Tablet className="mr-1.5 h-4 w-4" /> Open kiosk
+              </a>
+            </Button>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+/** Everyone who signed themselves in at the door. */
+function VisitorsSection({ openHouseId }: { openHouseId: string }) {
+  const [visitors, setVisitors] = useState<Visitor[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    supabase
+      .from('open_house_visitors')
+      .select('id, first_name, last_name, email, phone, intent, timeline, working_with_agent, notes, signed_in_at, client_captured_at')
+      .eq('open_house_id', openHouseId)
+      .order('signed_in_at', { ascending: false })
+      .then(({ data }) => {
+        if (!alive) return;
+        setVisitors((data || []) as Visitor[]);
+        setLoading(false);
+      });
+    return () => { alive = false; };
+  }, [openHouseId]);
+
+  return (
+    <div className="space-y-3">
+      <h2 className="font-display text-lg font-semibold flex items-center gap-2">
+        <Users className="h-5 w-5 text-gold" /> Sign-ins{' '}
+        <span className="font-normal text-muted-foreground">({visitors.length})</span>
+      </h2>
+      {loading ? (
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
+          <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading…
+        </div>
+      ) : visitors.length === 0 ? (
+        <Card className="border-dashed p-8 text-center text-sm text-muted-foreground">
+          No one has signed in on the tablet or by QR yet.
+        </Card>
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2">
+          {visitors.map(v => (
+            <Card key={v.id} className="p-4">
+              <div className="flex items-start justify-between gap-3">
+                <p className="font-medium">{[v.first_name, v.last_name].filter(Boolean).join(' ')}</p>
+                <span className="text-xs text-muted-foreground">
+                  {v.client_captured_at || v.signed_in_at
+                    ? new Date((v.client_captured_at || v.signed_in_at) as string).toLocaleString()
+                    : ''}
+                </span>
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {[v.phone, v.email].filter(Boolean).join(' · ') || 'No contact details'}
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {v.intent && <Badge variant="secondary">{v.intent.replace(/_/g, ' ')}</Badge>}
+                {v.timeline && <Badge variant="outline">{v.timeline.replace(/_/g, ' ')}</Badge>}
+                {v.working_with_agent && <Badge variant="outline">Has an agent</Badge>}
+              </div>
+              {v.notes && <p className="mt-2 text-sm text-muted-foreground">{v.notes}</p>}
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// Open house detail view
+
 
 function OpenHouseDetail({
   openHouse, onBack, onChanged,
