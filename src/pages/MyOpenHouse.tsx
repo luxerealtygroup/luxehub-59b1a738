@@ -1020,6 +1020,12 @@ function OpenHouseDetail({
         )}
       </div>
 
+      <SignInLinksCard openHouse={openHouse} onChanged={onChanged} />
+
+      <VisitorsSection openHouseId={openHouse.id} />
+
+
+
       <ReportSection openHouse={openHouse} attendees={attendees} />
     </div>
   );
