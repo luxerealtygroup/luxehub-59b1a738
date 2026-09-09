@@ -318,7 +318,20 @@ function OpenHouseFormDialog({
     listing_agent_email: initial?.listing_agent_email || '',
     client_name: initial?.client_name || '',
     client_email: initial?.client_email || '',
+    city: initial?.city || '',
+    mls_number: initial?.mls_number || '',
+    list_price: initial?.list_price != null ? String(initial.list_price) : '',
+    cover_photo_url: initial?.cover_photo_url || '',
+    start_time: initial?.starts_at ? new Date(initial.starts_at).toTimeString().slice(0, 5) : '',
+    end_time: initial?.ends_at ? new Date(initial.ends_at).toTimeString().slice(0, 5) : '',
+    disclosure_text: initial?.disclosure_text || '',
+    q1: initial?.custom_question_1 || '',
+    q2: initial?.custom_question_2 || '',
+    q3: initial?.custom_question_3 || '',
+    require_phone: initial?.require_phone ?? true,
+    is_active: initial?.is_active ?? true,
   });
+
 
   // Team agents for the listing-agent dropdown
   type AgentOption = { id: string; full_name: string; email: string };
