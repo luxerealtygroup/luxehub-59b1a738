@@ -6,7 +6,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import {
   ChevronDown, Loader2, Mail, MessageSquare, Trash2, UserCheck, Tablet, CheckCircle2,
+  Building2, ExternalLink,
 } from 'lucide-react';
+import {
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
+import { ListingPicker } from '@/components/openhouse/ListingPicker';
+import { ReportListing, asListings, buyerReportUrl } from '@/lib/openHouse/reports';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
@@ -79,6 +85,7 @@ export function GuestCard({
   const [notes, setNotes] = useState(guest.notes || '');
   const [openDetail, setOpenDetail] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [showFeatured, setShowFeatured] = useState(false);
 
   useEffect(() => setNotes(guest.notes || ''), [guest.id]);
 
@@ -103,13 +110,26 @@ export function GuestCard({
     onChanged();
   };
 
-  const values = { first_name: guest.first_name, address, agent_name: hostName };
+  const reportLink = guest.report_token ? buyerReportUrl(guest.report_token) : '';
+  const values = { first_name: guest.first_name, address, agent_name: hostName, report_link: reportLink };
   const smsBody = fillTemplate(templates.sms, values);
   const emailSubject = fillTemplate(templates.emailSubject, values);
   const emailBody = fillTemplate(templates.emailBody, values);
 
   const markFollowedUp = (channel: 'sms' | 'email') =>
     patch({ follow_up_sent_at: new Date().toISOString(), follow_up_channel: channel } as Partial<Guest>);
+
+  const saveFeatured = async (next: ReportListing[]) => {
+    const { error } = await supabase
+      .from('open_house_visitors')
+      .update({ featured_listings: next as never } as never)
+      .eq('id', guest.id);
+    if (error) {
+      toast.error('Could not save the listings', { description: error.message });
+      return;
+    }
+    onChanged();
+  };
 
   const prompt = missingPrompt(guest);
   const missingSet = new Set(
@@ -131,7 +151,17 @@ export function GuestCard({
                 <><UserCheck className="h-3 w-3" /> Agent logged</>
               )}
             </Badge>
-            {guest.follow_up_sent_at && (
+            {reportLink && (
+          <Button size="sm" variant="outline" asChild>
+            <a href={reportLink} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="mr-1.5 h-4 w-4" /> Homes like this
+            </a>
+          </Button>
+        )}
+        <Button size="sm" variant="outline" onClick={() => setShowFeatured(true)}>
+          <Building2 className="mr-1.5 h-4 w-4" /> Feature listings
+        </Button>
+        {guest.follow_up_sent_at && (
               <Badge className="gap-1 border-success/30 bg-success/15 text-success text-[10px]">
                 <CheckCircle2 className="h-3 w-3" /> Followed up
               </Badge>
@@ -264,6 +294,16 @@ export function GuestCard({
             <span><Mail className="mr-1.5 inline h-4 w-4" /> Email</span>
           )}
         </Button>
+        {reportLink && (
+          <Button size="sm" variant="outline" asChild>
+            <a href={reportLink} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="mr-1.5 h-4 w-4" /> Homes like this
+            </a>
+          </Button>
+        )}
+        <Button size="sm" variant="outline" onClick={() => setShowFeatured(true)}>
+          <Building2 className="mr-1.5 h-4 w-4" /> Feature listings
+        </Button>
         {guest.follow_up_sent_at && (
           <span className="self-center text-xs text-muted-foreground">
             {guest.follow_up_channel === 'sms' ? 'Texted' : 'Emailed'}{' '}
@@ -271,6 +311,20 @@ export function GuestCard({
           </span>
         )}
       </div>
+
+      {showFeatured && (
+        <Dialog open onOpenChange={(o) => { if (!o) setShowFeatured(false); }}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Homes to feature for {guestName(guest)}</DialogTitle>
+            </DialogHeader>
+            <ListingPicker value={asListings(guest.featured_listings)} onChange={saveFeatured} max={3} />
+            <DialogFooter>
+              <Button onClick={() => setShowFeatured(false)}>Done</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
 
       <button
         type="button"

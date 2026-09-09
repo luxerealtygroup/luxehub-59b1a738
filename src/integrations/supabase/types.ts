@@ -2583,6 +2583,7 @@ export type Database = {
           custom_answers: Json
           disclosure_accepted: boolean
           email: string | null
+          featured_listings: Json
           first_name: string
           follow_up_channel: string | null
           follow_up_sent_at: string | null
@@ -2601,6 +2602,7 @@ export type Database = {
           org_id: string | null
           phone: string | null
           price_feedback: string | null
+          report_token: string | null
           signed_in_at: string
           source: string
           temperature: string | null
@@ -2616,6 +2618,7 @@ export type Database = {
           custom_answers?: Json
           disclosure_accepted?: boolean
           email?: string | null
+          featured_listings?: Json
           first_name: string
           follow_up_channel?: string | null
           follow_up_sent_at?: string | null
@@ -2634,6 +2637,7 @@ export type Database = {
           org_id?: string | null
           phone?: string | null
           price_feedback?: string | null
+          report_token?: string | null
           signed_in_at?: string
           source?: string
           temperature?: string | null
@@ -2649,6 +2653,7 @@ export type Database = {
           custom_answers?: Json
           disclosure_accepted?: boolean
           email?: string | null
+          featured_listings?: Json
           first_name?: string
           follow_up_channel?: string | null
           follow_up_sent_at?: string | null
@@ -2667,6 +2672,7 @@ export type Database = {
           org_id?: string | null
           phone?: string | null
           price_feedback?: string | null
+          report_token?: string | null
           signed_in_at?: string
           source?: string
           temperature?: string | null
@@ -2689,6 +2695,7 @@ export type Database = {
           city: string | null
           client_email: string | null
           client_name: string | null
+          competing_listings: Json
           cover_photo_url: string | null
           created_at: string
           created_by: string | null
@@ -2714,6 +2721,7 @@ export type Database = {
           prep_tablet_charged: boolean
           property_address: string
           require_phone: boolean
+          seller_notes: string | null
           slug: string | null
           starts_at: string | null
           updated_at: string
@@ -2723,6 +2731,7 @@ export type Database = {
           city?: string | null
           client_email?: string | null
           client_name?: string | null
+          competing_listings?: Json
           cover_photo_url?: string | null
           created_at?: string
           created_by?: string | null
@@ -2748,6 +2757,7 @@ export type Database = {
           prep_tablet_charged?: boolean
           property_address: string
           require_phone?: boolean
+          seller_notes?: string | null
           slug?: string | null
           starts_at?: string | null
           updated_at?: string
@@ -2757,6 +2767,7 @@ export type Database = {
           city?: string | null
           client_email?: string | null
           client_name?: string | null
+          competing_listings?: Json
           cover_photo_url?: string | null
           created_at?: string
           created_by?: string | null
@@ -2782,6 +2793,7 @@ export type Database = {
           prep_tablet_charged?: boolean
           property_address?: string
           require_phone?: boolean
+          seller_notes?: string | null
           slug?: string | null
           starts_at?: string | null
           updated_at?: string
@@ -5399,6 +5411,47 @@ export type Database = {
           require_phone: boolean
           slug: string
           starts_at: string
+        }[]
+      }
+      public_open_house_buyer_report: {
+        Args: { _token: string }
+        Returns: {
+          address: string
+          city: string
+          cover_photo_url: string
+          featured_listings: Json
+          first_name: string
+          hosting_agent_email: string
+          hosting_agent_name: string
+          intent: string
+          list_price: number
+          search_url_template: string
+          timeline: string
+        }[]
+      }
+      public_open_house_seller_report: {
+        Args: { _slug: string }
+        Returns: {
+          address: string
+          city: string
+          cold: number
+          competing_listings: Json
+          condition_feedback: Json
+          cover_photo_url: string
+          doors_knocked: number
+          ends_at: string
+          home_to_sell: number
+          hosting_agent_email: string
+          hosting_agent_name: string
+          hot: number
+          list_price: number
+          notes: string
+          price_feedback: Json
+          spoken_to_lender: number
+          starts_at: string
+          visitors: number
+          warm: number
+          with_agent: number
         }[]
       }
       read_email_batch: {

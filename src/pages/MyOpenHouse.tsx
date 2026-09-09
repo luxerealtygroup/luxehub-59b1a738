@@ -34,6 +34,7 @@ import { PrintQrButton } from '@/components/openhouse/PrintableQrCard';
 import { agentUrl, kioskUrl, makeSlug, signInUrl } from '@/lib/openHouse/options';
 import { GuestList } from '@/components/openhouse/GuestList';
 import { PrepChecklist } from '@/components/openhouse/PrepChecklist';
+import { SellerReportSection } from '@/components/openhouse/SellerReportSection';
 import {
   CONDITION_LABEL, GUEST_COLUMNS, Guest, INTEREST_LABEL, PRICE_LABEL, guestName,
 } from '@/lib/openHouse/guests';
@@ -70,6 +71,8 @@ type OpenHouse = {
   prep_qr_printed: boolean | null;
   prep_tablet_charged: boolean | null;
   prep_doors_knocked: number | null;
+  seller_notes: string | null;
+  competing_listings: unknown;
 };
 
 type InterestLevel = 'high' | 'medium' | 'low';
@@ -912,6 +915,20 @@ function OpenHouseDetail({
         address={openHouse.property_address}
         hostName={hostName}
         endsAt={endsAt}
+      />
+
+      <SellerReportSection
+        openHouse={{
+          id: openHouse.id,
+          slug: openHouse.slug,
+          property_address: openHouse.property_address,
+          ends_at: endsAt,
+          seller_notes: openHouse.seller_notes,
+          competing_listings: openHouse.competing_listings,
+          client_email: openHouse.client_email,
+          client_name: openHouse.client_name,
+        }}
+        onChanged={onChanged}
       />
 
       <ReportSection openHouse={openHouse} guests={guests} />
