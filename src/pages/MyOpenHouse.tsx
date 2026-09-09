@@ -893,6 +893,9 @@ function VisitorsSection({ openHouseId }: { openHouseId: string }) {
 
 // ============================================================================
 // Open house detail view
+// ============================================================================
+
+
 
 
 function OpenHouseDetail({
