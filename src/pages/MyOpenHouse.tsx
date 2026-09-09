@@ -32,6 +32,11 @@ import { tenant } from '@/config/tenant';
 import { QrCode } from '@/components/openhouse/QrCode';
 import { PrintQrButton } from '@/components/openhouse/PrintableQrCard';
 import { agentUrl, kioskUrl, makeSlug, signInUrl } from '@/lib/openHouse/options';
+import { GuestList } from '@/components/openhouse/GuestList';
+import { PrepChecklist } from '@/components/openhouse/PrepChecklist';
+import {
+  CONDITION_LABEL, GUEST_COLUMNS, Guest, INTEREST_LABEL, PRICE_LABEL, guestName,
+} from '@/lib/openHouse/guests';
 
 
 type OpenHouse = {
@@ -60,61 +65,16 @@ type OpenHouse = {
   custom_question_2: string | null;
   custom_question_3: string | null;
   is_active: boolean | null;
+  prep_kiosk_loaded: boolean | null;
+  prep_signs_out: boolean | null;
+  prep_qr_printed: boolean | null;
+  prep_tablet_charged: boolean | null;
+  prep_doors_knocked: number | null;
 };
-
-type Visitor = {
-  id: string;
-  first_name: string;
-  last_name: string | null;
-  email: string | null;
-  phone: string | null;
-  intent: string | null;
-  timeline: string | null;
-  working_with_agent: boolean | null;
-  notes: string | null;
-  signed_in_at: string | null;
-  client_captured_at: string | null;
-};
-
 
 type InterestLevel = 'high' | 'medium' | 'low';
 type PriceFeedback = 'priced_right' | 'slightly_high' | 'too_high' | 'below_market';
 type ConditionFeedback = 'excellent' | 'good' | 'fair' | 'needs_work';
-type Source = 'curb_hero' | 'manual';
-
-type Attendee = {
-  id: string;
-  open_house_id: string;
-  initials: string;
-  full_name: string | null;
-  fub_contact_id: string | null;
-  fub_linked: boolean;
-  source: Source;
-  interest_level: InterestLevel | null;
-  price_feedback: PriceFeedback | null;
-  condition_feedback: ConditionFeedback | null;
-  pre_approved: boolean;
-  working_with_realtor: boolean;
-  home_to_sell: boolean;
-  notes: string | null;
-  created_at: string;
-};
-
-const PRICE_LABEL: Record<PriceFeedback, string> = {
-  priced_right: 'Priced Right',
-  slightly_high: 'Slightly High',
-  too_high: 'Too High',
-  below_market: 'Below Market',
-};
-const CONDITION_LABEL: Record<ConditionFeedback, string> = {
-  excellent: 'Excellent',
-  good: 'Good',
-  fair: 'Fair',
-  needs_work: 'Needs Work',
-};
-const INTEREST_LABEL: Record<InterestLevel, string> = {
-  high: 'High', medium: 'Medium', low: 'Low',
-};
 
 function formatDate(d: string) {
   try {
