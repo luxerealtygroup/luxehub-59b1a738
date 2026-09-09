@@ -204,6 +204,11 @@ export function GuestCard({
           <p className="mt-0.5 text-sm text-muted-foreground">
             {[guest.phone, guest.email].filter(Boolean).join(' · ') || 'No contact details yet'}
           </p>
+          {!guest.fub_sent_at && guest.fub_sync_error && (
+            <p className="mt-1 text-xs text-destructive">
+              Not sent — {guest.fub_sync_error}
+            </p>
+          )}
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <span className="text-xs text-muted-foreground">{guestTime(guest)}</span>
