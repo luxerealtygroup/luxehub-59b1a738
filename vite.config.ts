@@ -51,7 +51,45 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     mcpPlugin(),
     mode !== "development" && isolationGate(),
+    // Offline open house sign-in. Registration is guarded in
+    // src/pwa/registerSignInSW.ts — never in dev or Lovable preview.
+    VitePWA({
+      registerType: "autoUpdate",
+      injectRegister: null,
+      filename: "sw.js",
+      devOptions: { enabled: false },
+      manifest: {
+        name: "Open House Sign-In",
+        short_name: "Sign-In",
+        start_url: "/",
+        scope: "/",
+        display: "standalone",
+        background_color: "#0a0a0a",
+        theme_color: "#c9a227",
+        icons: [
+          { src: "/favicon.ico", sizes: "48x48", type: "image/x-icon" },
+        ],
+      },
+      workbox: {
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        navigateFallback: "/index.html",
+        navigateFallbackDenylist: [/^\/~oauth/, /^\/\.lovable/],
+        runtimeCaching: [
+          {
+            urlPattern: ({ request }) => request.mode === "navigate",
+            handler: "NetworkFirst",
+            options: { cacheName: "html-navigations", networkTimeoutSeconds: 5 },
+          },
+          {
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && /\/assets\//.test(url.pathname),
+            handler: "CacheFirst",
+            options: { cacheName: "static-assets", expiration: { maxEntries: 200 } },
+          },
+        ],
+      },
+    }),
   ].filter(Boolean),
+
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
