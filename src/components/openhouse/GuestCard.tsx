@@ -131,6 +131,25 @@ export function GuestCard({
     onChanged();
   };
 
+  const [sending, setSending] = useState(false);
+  const sendToFub = async () => {
+    setSending(true);
+    const { data, error } = await supabase.functions.invoke('openhouse-fub', {
+      body: { action: 'push', visitorId: guest.id },
+    });
+    setSending(false);
+    const detail = (data as { error?: string } | null)?.error;
+    if (error || detail) {
+      toast.error('Follow Up Boss did not accept this guest', {
+        description: detail || (error as Error)?.message,
+      });
+      onChanged();
+      return;
+    }
+    toast.success(`${guestName(guest)} sent to Follow Up Boss`);
+    onChanged();
+  };
+
   const prompt = missingPrompt(guest);
   const missingSet = new Set(
     (['intent', 'timeline', 'lender_status', 'has_home_to_sell', 'working_with_agent'] as const).filter(
