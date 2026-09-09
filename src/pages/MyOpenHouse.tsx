@@ -463,7 +463,9 @@ function OpenHouseFormDialog({
     }
     if (!user) return;
     setSaving(true);
-    const payload = {
+    const startsAt = form.start_time ? new Date(`${form.open_house_date}T${form.start_time}`).toISOString() : null;
+    const endsAt = form.end_time ? new Date(`${form.open_house_date}T${form.end_time}`).toISOString() : null;
+    const payload: Record<string, unknown> = {
       user_id: user.id,
       property_address: form.property_address.trim(),
       open_house_date: form.open_house_date,
@@ -471,10 +473,29 @@ function OpenHouseFormDialog({
       listing_agent_email: form.listing_agent_email.trim() || null,
       client_name: form.client_name.trim() || null,
       client_email: form.client_email.trim() || null,
+      city: form.city.trim() || null,
+      mls_number: form.mls_number.trim() || null,
+      list_price: form.list_price ? Number(form.list_price.replace(/[^\d.]/g, '')) : null,
+      cover_photo_url: form.cover_photo_url.trim() || null,
+      starts_at: startsAt,
+      ends_at: endsAt,
+      disclosure_text: form.disclosure_text.trim() || null,
+      custom_question_1: form.q1.trim() || null,
+      custom_question_2: form.q2.trim() || null,
+      custom_question_3: form.q3.trim() || null,
+      require_phone: form.require_phone,
+      is_active: form.is_active,
     };
+    if (!initial) {
+      // Every open house gets its own visitor sign-in link the moment it exists.
+      payload.slug = makeSlug();
+      payload.created_by = user.id;
+      payload.hosting_agent_id = user.id;
+    }
     const { error } = initial
-      ? await supabase.from('open_houses').update(payload).eq('id', initial.id)
-      : await supabase.from('open_houses').insert(payload);
+      ? await supabase.from('open_houses').update(payload as never).eq('id', initial.id)
+      : await supabase.from('open_houses').insert(payload as never);
+
     setSaving(false);
     if (error) {
       toast.error('Save failed', { description: error.message });
