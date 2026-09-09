@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -165,7 +165,7 @@ function SearchTemplateDialog({ onClose }: { onClose: () => void }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  useState(() => {
+  useEffect(() => {
     supabase
       .from('app_settings')
       .select('value')
@@ -175,8 +175,7 @@ function SearchTemplateDialog({ onClose }: { onClose: () => void }) {
         setValue(((data?.value as string) || '').trim());
         setLoading(false);
       });
-    return undefined;
-  });
+  }, []);
 
   const save = async () => {
     const v = value.trim();
