@@ -236,6 +236,8 @@ export function GuestList({
           onSaved={() => { setShowSettings(false); loadTemplates(); }}
         />
       )}
+
+      {showFub && <FubConnectionDialog onClose={() => setShowFub(false)} />}
     </div>
   );
 }
