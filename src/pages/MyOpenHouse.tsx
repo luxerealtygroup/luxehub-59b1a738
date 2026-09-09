@@ -792,76 +792,9 @@ function SignInLinksCard({ openHouse, onChanged }: { openHouse: OpenHouse; onCha
   );
 }
 
-/** Everyone who signed themselves in at the door. */
-function VisitorsSection({ openHouseId }: { openHouseId: string }) {
-  const [visitors, setVisitors] = useState<Visitor[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let alive = true;
-    setLoading(true);
-    supabase
-      .from('open_house_visitors')
-      .select('id, first_name, last_name, email, phone, intent, timeline, working_with_agent, notes, signed_in_at, client_captured_at')
-      .eq('open_house_id', openHouseId)
-      .order('signed_in_at', { ascending: false })
-      .then(({ data }) => {
-        if (!alive) return;
-        setVisitors((data || []) as Visitor[]);
-        setLoading(false);
-      });
-    return () => { alive = false; };
-  }, [openHouseId]);
-
-  return (
-    <div className="space-y-3">
-      <h2 className="font-display text-lg font-semibold flex items-center gap-2">
-        <Users className="h-5 w-5 text-gold" /> Sign-ins{' '}
-        <span className="font-normal text-muted-foreground">({visitors.length})</span>
-      </h2>
-      {loading ? (
-        <div className="flex items-center justify-center py-8 text-muted-foreground">
-          <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading…
-        </div>
-      ) : visitors.length === 0 ? (
-        <Card className="border-dashed p-8 text-center text-sm text-muted-foreground">
-          No one has signed in on the tablet or by QR yet.
-        </Card>
-      ) : (
-        <div className="grid gap-3 md:grid-cols-2">
-          {visitors.map(v => (
-            <Card key={v.id} className="p-4">
-              <div className="flex items-start justify-between gap-3">
-                <p className="font-medium">{[v.first_name, v.last_name].filter(Boolean).join(' ')}</p>
-                <span className="text-xs text-muted-foreground">
-                  {v.client_captured_at || v.signed_in_at
-                    ? new Date((v.client_captured_at || v.signed_in_at) as string).toLocaleString()
-                    : ''}
-                </span>
-              </div>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {[v.phone, v.email].filter(Boolean).join(' · ') || 'No contact details'}
-              </p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {v.intent && <Badge variant="secondary">{v.intent.replace(/_/g, ' ')}</Badge>}
-                {v.timeline && <Badge variant="outline">{v.timeline.replace(/_/g, ' ')}</Badge>}
-                {v.working_with_agent && <Badge variant="outline">Has an agent</Badge>}
-              </div>
-              {v.notes && <p className="mt-2 text-sm text-muted-foreground">{v.notes}</p>}
-            </Card>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ============================================================================
 // Open house detail view
 // ============================================================================
-
-
-
 
 function OpenHouseDetail({
   openHouse, onBack, onChanged,
@@ -870,29 +803,40 @@ function OpenHouseDetail({
   onBack: () => void;
   onChanged: () => void;
 }) {
-  const [attendees, setAttendees] = useState<Attendee[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showAdd, setShowAdd] = useState(false);
+  const { user } = useAuth();
+  const [guests, setGuests] = useState<Guest[]>([]);
+  const [hostName, setHostName] = useState<string>(openHouse.listing_agent_name || 'your agent');
   const [showEdit, setShowEdit] = useState(false);
   const [showFubImport, setShowFubImport] = useState(false);
   const [showCsvImport, setShowCsvImport] = useState(false);
 
-  const loadAttendees = async () => {
-    setLoading(true);
+  const loadGuests = async () => {
     const { data, error } = await supabase
-      .from('open_house_attendees')
-      .select('*')
+      .from('open_house_visitors')
+      .select(GUEST_COLUMNS)
       .eq('open_house_id', openHouse.id)
-      .order('created_at', { ascending: true });
+      .order('signed_in_at', { ascending: true });
     if (error) {
-      toast.error('Failed to load attendees', { description: error.message });
+      toast.error('Failed to load the guest list', { description: error.message });
     } else {
-      setAttendees((data || []) as Attendee[]);
+      setGuests((data || []) as unknown as Guest[]);
     }
-    setLoading(false);
   };
 
-  useEffect(() => { loadAttendees(); }, [openHouse.id]);
+  useEffect(() => { loadGuests(); }, [openHouse.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const id = openHouse.hosting_agent_id || user?.id;
+    if (!id) return;
+    let alive = true;
+    supabase.from('profiles').select('full_name').eq('id', id).maybeSingle().then(({ data }) => {
+      if (alive && data?.full_name) setHostName(data.full_name);
+    });
+    return () => { alive = false; };
+  }, [openHouse.hosting_agent_id, user?.id]);
+
+  // The tracker keeps a date; the sign-in model keeps precise times.
+  const endsAt = openHouse.ends_at || `${openHouse.open_house_date}T23:59:59`;
 
   return (
     <div className="p-6 space-y-6 max-w-6xl">
@@ -918,6 +862,20 @@ function OpenHouseDetail({
         </div>
       </div>
 
+      <PrepChecklist
+        openHouseId={openHouse.id}
+        prep={{
+          prep_kiosk_loaded: openHouse.prep_kiosk_loaded,
+          prep_signs_out: openHouse.prep_signs_out,
+          prep_qr_printed: openHouse.prep_qr_printed,
+          prep_tablet_charged: openHouse.prep_tablet_charged,
+          prep_doors_knocked: openHouse.prep_doors_knocked,
+        }}
+        onChanged={onChanged}
+      />
+
+      <SignInLinksCard openHouse={openHouse} onChanged={onChanged} />
+
       <div className="flex flex-wrap gap-2">
         <Dialog open={showFubImport} onOpenChange={setShowFubImport}>
           <DialogTrigger asChild>
@@ -929,7 +887,7 @@ function OpenHouseDetail({
             <ImportFromFubDialog
               openHouse={openHouse}
               onClose={() => setShowFubImport(false)}
-              onImported={() => { setShowFubImport(false); loadAttendees(); }}
+              onImported={() => { setShowFubImport(false); loadGuests(); }}
             />
           )}
         </Dialog>
@@ -943,58 +901,24 @@ function OpenHouseDetail({
             <UploadCurbHeroCsvDialog
               openHouse={openHouse}
               onClose={() => setShowCsvImport(false)}
-              onImported={() => { setShowCsvImport(false); loadAttendees(); }}
+              onImported={() => { setShowCsvImport(false); loadGuests(); }}
             />
           )}
         </Dialog>
-        <Dialog open={showAdd} onOpenChange={setShowAdd}>
-          <DialogTrigger asChild>
-            <Button size="sm"><Plus className="h-4 w-4 mr-1" /> Add Attendee</Button>
-          </DialogTrigger>
-          <AddAttendeeDialog
-            openHouseId={openHouse.id}
-            onClose={() => setShowAdd(false)}
-            onSaved={() => { setShowAdd(false); loadAttendees(); }}
-          />
-        </Dialog>
       </div>
 
-      <div className="space-y-3">
-        <h2 className="font-display text-lg font-semibold flex items-center gap-2">
-          <Users className="h-5 w-5 text-gold" /> Attendees <span className="text-muted-foreground font-normal">({attendees.length})</span>
-        </h2>
-        {loading ? (
-          <div className="flex items-center justify-center py-10 text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading…
-          </div>
-        ) : attendees.length === 0 ? (
-          <Card className="p-8 text-center border-dashed">
-            <p className="text-sm text-muted-foreground">No attendees yet. Click "Add Attendee" to log one.</p>
-          </Card>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {attendees.map(a => (
-              <AttendeeCard
-                key={a.id}
-                openHouse={openHouse}
-                attendee={a}
-                onChanged={loadAttendees}
-              />
-            ))}
-          </div>
-        )}
-      </div>
+      <GuestList
+        openHouseId={openHouse.id}
+        address={openHouse.property_address}
+        hostName={hostName}
+        endsAt={endsAt}
+      />
 
-      <SignInLinksCard openHouse={openHouse} onChanged={onChanged} />
-
-      <VisitorsSection openHouseId={openHouse.id} />
-
-
-
-      <ReportSection openHouse={openHouse} attendees={attendees} />
+      <ReportSection openHouse={openHouse} guests={guests} />
     </div>
   );
 }
+
 
 // ============================================================================
 // Add attendee dialog (simple — feedback captured later on the card)
