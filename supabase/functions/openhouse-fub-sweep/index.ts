@@ -160,7 +160,9 @@ Deno.serve(async (req) => {
       const orgId = house?.org_id;
       if (!orgId) continue;
 
-      const timing = timingByOrg.get(orgId) ?? 'end';
+      // Speed is the point: unless the team asked for end-of-open-house,
+      // a guest goes over as soon as they sign in.
+      const timing = timingByOrg.get(orgId) ?? 'signin';
       if (timing !== 'signin' && !hasEnded(house, now)) continue;
 
       const key = await keyFor(orgId);
