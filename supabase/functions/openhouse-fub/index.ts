@@ -379,8 +379,7 @@ Deno.serve(async (req) => {
     if (!house) return json({ error: 'Open house not found' }, 404);
 
     // Never cross an organization boundary.
-    const { orgId } = await getUserOrgContext(caller.userId!);
-    if (caller.userId && house.org_id && house.org_id !== orgId) {
+    if (caller.userId && house.org_id && house.org_id !== callerOrgId) {
       return json({ error: 'FORBIDDEN' }, 403);
     }
 
