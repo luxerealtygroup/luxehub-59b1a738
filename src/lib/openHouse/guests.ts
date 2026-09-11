@@ -8,6 +8,7 @@
  */
 
 export type GuestSource = 'visitor' | 'agent';
+export type GuestAttendance = 'during' | 'early' | 'late';
 export type Temperature = 'hot' | 'warm' | 'cold';
 export type InterestLevel = 'high' | 'medium' | 'low';
 export type PriceFeedback = 'priced_right' | 'slightly_high' | 'too_high' | 'below_market';
@@ -44,14 +45,21 @@ export interface Guest {
   signed_in_at: string | null;
   client_captured_at: string | null;
   created_at: string;
+  /** Did they sign in inside the open house window? Early/late still count as leads, not attendance. */
+  attendance: GuestAttendance;
 }
 
 export const GUEST_COLUMNS =
   'id, open_house_id, first_name, last_name, email, phone, working_with_agent, agent_name, ' +
   'intent, has_home_to_sell, timeline, lender_status, custom_answers, notes, source, temperature, ' +
   'interest_level, price_feedback, condition_feedback, fub_contact_id, fub_linked, ' +
-  'fub_sent_at, fub_sync_error, ' +
+  'fub_sent_at, fub_sync_error, attendance, ' +
   'report_token, featured_listings, follow_up_sent_at, follow_up_channel, signed_in_at, client_captured_at, created_at';
+
+export const ATTENDANCE_LABEL: Record<Exclude<GuestAttendance, 'during'>, string> = {
+  early: 'Early registration',
+  late: 'Late registration',
+};
 
 export const PRICE_LABEL: Record<PriceFeedback, string> = {
   priced_right: 'Priced right',

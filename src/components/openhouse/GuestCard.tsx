@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import {
-  ChevronDown, Loader2, Mail, MessageSquare, Trash2, UserCheck, Tablet, CheckCircle2,
+  ChevronDown, Clock, Loader2, Mail, MessageSquare, Trash2, UserCheck, Tablet, CheckCircle2,
   Building2, ExternalLink, Send,
 } from 'lucide-react';
 import {
@@ -19,6 +19,7 @@ import {
   HOME_TO_SELL_OPTIONS, INTENT_OPTIONS, LENDER_OPTIONS, TIMELINE_OPTIONS, YES_NO_OPTIONS,
 } from '@/lib/openHouse/options';
 import {
+  ATTENDANCE_LABEL,
   CONDITION_LABEL, Guest, INTEREST_LABEL, PRICE_LABEL, TEMPERATURE_OPTIONS, Temperature,
   ConditionFeedback, InterestLevel, PriceFeedback,
   fillTemplate, guestName, guestTime, mailtoHref, missingPrompt, smsHref,
@@ -170,6 +171,11 @@ export function GuestCard({
                 <><UserCheck className="h-3 w-3" /> Agent logged</>
               )}
             </Badge>
+            {guest.attendance && guest.attendance !== 'during' && (
+              <Badge variant="outline" className="gap-1 border-gold/40 text-gold text-[10px]">
+                <Clock className="h-3 w-3" /> {ATTENDANCE_LABEL[guest.attendance]} · not counted as attendance
+              </Badge>
+            )}
             {reportLink && (
           <Button size="sm" variant="outline" asChild>
             <a href={reportLink} target="_blank" rel="noopener noreferrer">

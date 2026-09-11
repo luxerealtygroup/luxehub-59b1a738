@@ -322,6 +322,56 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_qr_leads: {
+        Row: {
+          agent_id: string
+          created_at: string
+          email: string | null
+          first_name: string
+          id: string
+          intent: string | null
+          last_name: string | null
+          org_id: string | null
+          phone: string | null
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          email?: string | null
+          first_name: string
+          id?: string
+          intent?: string | null
+          last_name?: string | null
+          org_id?: string | null
+          phone?: string | null
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          email?: string | null
+          first_name?: string
+          id?: string
+          intent?: string | null
+          last_name?: string | null
+          org_id?: string | null
+          phone?: string | null
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_qr_leads_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_settings: {
         Row: {
           created_at: string
@@ -2577,6 +2627,7 @@ export type Database = {
       open_house_visitors: {
         Row: {
           agent_name: string | null
+          attendance: string
           client_captured_at: string | null
           condition_feedback: string | null
           created_at: string
@@ -2614,6 +2665,7 @@ export type Database = {
         }
         Insert: {
           agent_name?: string | null
+          attendance?: string
           client_captured_at?: string | null
           condition_feedback?: string | null
           created_at?: string
@@ -2651,6 +2703,7 @@ export type Database = {
         }
         Update: {
           agent_name?: string | null
+          attendance?: string
           client_captured_at?: string | null
           condition_feedback?: string | null
           created_at?: string
@@ -5395,6 +5448,10 @@ export type Database = {
           agent_avatar_url: string
           agent_email: string
           agent_name: string
+          house_address: string
+          house_ends_at: string
+          house_starts_at: string
+          status: string
         }[]
       }
       public_open_house: {
@@ -5503,6 +5560,17 @@ export type Database = {
       }
       set_org_secret: {
         Args: { _actor: string; _key: string; _org_id: string; _value: string }
+        Returns: undefined
+      }
+      submit_agent_qr_lead: {
+        Args: {
+          _agent_slug: string
+          _email: string
+          _first_name: string
+          _intent: string
+          _last_name: string
+          _phone: string
+        }
         Returns: undefined
       }
       submit_open_house_visitor: {
