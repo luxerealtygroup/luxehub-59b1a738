@@ -295,12 +295,14 @@ export default function OpenHouseSignIn() {
     setDone(true);
   };
 
-  // Thank-you screen resets itself for the next person.
+  // Only the shared kiosk tablet clears itself for the next person. On a
+  // visitor's own phone the thank-you stays put — a form blanking itself in
+  // their hand would be unsettling.
   useEffect(() => {
-    if (!done) return;
+    if (!done || !kiosk) return;
     const t = window.setTimeout(() => setDone(false), 10000);
     return () => window.clearTimeout(t);
-  }, [done]);
+  }, [done, kiosk]);
 
   const agentName = house?.hosting_agent_name || null;
 
