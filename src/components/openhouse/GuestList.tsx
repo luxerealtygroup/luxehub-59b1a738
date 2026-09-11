@@ -185,7 +185,7 @@ export function GuestList({
               <Plug className="mr-1.5 h-4 w-4" /> Follow Up Boss
             </Button>
           )}
-          {unsent > 0 && (
+          {canManage && unsent > 0 && (
             <Button variant="outline" size="sm" onClick={() => setShowSendAll(true)} disabled={sendingAll}>
               {sendingAll ? (
                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
@@ -195,9 +195,11 @@ export function GuestList({
               Send {unsent} now
             </Button>
           )}
-          <Button size="sm" onClick={() => setShowAdd(true)}>
-            <Plus className="mr-1.5 h-4 w-4" /> Add guest
-          </Button>
+          {canManage && (
+            <Button size="sm" onClick={() => setShowAdd(true)}>
+              <Plus className="mr-1.5 h-4 w-4" /> Add guest
+            </Button>
+          )}
         </div>
       </div>
 
@@ -241,6 +243,7 @@ export function GuestList({
               hostName={hostName}
               templates={templates}
               onChanged={load}
+              canManage={canManage}
             />
           ))}
         </div>
