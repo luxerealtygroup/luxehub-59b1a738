@@ -14,6 +14,7 @@ import {
 import { ListingPicker } from '@/components/openhouse/ListingPicker';
 import { ReportListing, asListings, buyerReportUrl } from '@/lib/openHouse/reports';
 import { supabase } from '@/integrations/supabase/client';
+import { FubStageSelect, lastStage, rememberStage } from '@/components/openhouse/FubStageSelect';
 import { toast } from 'sonner';
 import {
   HOME_TO_SELL_OPTIONS, INTENT_OPTIONS, LENDER_OPTIONS, TIMELINE_OPTIONS, YES_NO_OPTIONS,
@@ -206,14 +207,17 @@ export function GuestCard({
             {new Date(guest.fub_sent_at).toLocaleDateString()}
           </Badge>
         ) : (
-          <Button size="sm" variant="outline" onClick={sendToFub} disabled={sending}>
-            {sending ? (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="mr-1.5 h-4 w-4" />
-            )}
-            Send to Follow Up Boss
-          </Button>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <FubStageSelect value={stage} onChange={pickStage} className="h-8 w-[150px] text-xs" />
+            <Button size="sm" variant="outline" onClick={sendToFub} disabled={sending || !stage}>
+              {sending ? (
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="mr-1.5 h-4 w-4" />
+              )}
+              Send to Follow Up Boss
+            </Button>
+          </div>
         )}
         <Button size="sm" variant="outline" onClick={() => setShowFeatured(true)}>
           <Building2 className="mr-1.5 h-4 w-4" /> Feature listings
@@ -227,6 +231,9 @@ export function GuestCard({
           <p className="mt-0.5 text-sm text-muted-foreground">
             {[guest.phone, guest.email].filter(Boolean).join(' · ') || 'No contact details yet'}
           </p>
+          {guest.fub_sent_at && guest.fub_stage_result && (
+            <p className="mt-1 text-xs text-muted-foreground">{guest.fub_stage_result}</p>
+          )}
           {!guest.fub_sent_at && guest.fub_sync_error && (
             <p className="mt-1 text-xs text-destructive">
               Not sent — {guest.fub_sync_error}
