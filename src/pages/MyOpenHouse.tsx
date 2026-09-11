@@ -985,17 +985,27 @@ function OpenHouseDetail({
             <h1 className="font-display text-2xl font-semibold truncate">{openHouse.property_address}</h1>
             <p className="text-sm text-muted-foreground mt-1">{formatDate(openHouse.open_house_date)}</p>
           </div>
-          <Dialog open={showEdit} onOpenChange={setShowEdit}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm"><Pencil className="h-4 w-4 mr-1" /> Edit</Button>
-            </DialogTrigger>
-            <OpenHouseFormDialog
-              initial={openHouse}
-              onClose={() => setShowEdit(false)}
-              onSaved={() => { setShowEdit(false); onChanged(); }}
-            />
-          </Dialog>
+          {canManage ? (
+            <Dialog open={showEdit} onOpenChange={setShowEdit}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm"><Pencil className="h-4 w-4 mr-1" /> Edit</Button>
+              </DialogTrigger>
+              <OpenHouseFormDialog
+                initial={openHouse}
+                onClose={() => setShowEdit(false)}
+                onSaved={() => { setShowEdit(false); onChanged(); }}
+              />
+            </Dialog>
+          ) : (
+            <Badge variant="outline" className="shrink-0">View only</Badge>
+          )}
         </div>
+        {!canManage && (
+          <p className="mt-2 text-sm text-muted-foreground">
+            You can look through this open house. Only the hosting agent, the listing agent and an
+            admin or owner can change it.
+          </p>
+        )}
       </div>
 
       <PrepChecklist
@@ -1008,10 +1018,12 @@ function OpenHouseDetail({
           prep_doors_knocked: openHouse.prep_doors_knocked,
         }}
         onChanged={onChanged}
+        canManage={canManage}
       />
 
-      <SignInLinksCard openHouse={openHouse} onChanged={onChanged} />
+      <SignInLinksCard openHouse={openHouse} onChanged={onChanged} canManage={canManage} />
 
+      {canManage && (
       <div className="flex flex-wrap gap-2">
         <Dialog open={showFubImport} onOpenChange={setShowFubImport}>
           <DialogTrigger asChild>
