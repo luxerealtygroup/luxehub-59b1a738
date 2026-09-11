@@ -862,7 +862,9 @@ function AgentQrCard() {
 
 
 /** Sign-in link, QR and kiosk link for one open house. Older rows get a slug on demand. */
-function SignInLinksCard({ openHouse, onChanged }: { openHouse: OpenHouse; onChanged: () => void }) {
+function SignInLinksCard({
+  openHouse, onChanged, canManage = true,
+}: { openHouse: OpenHouse; onChanged: () => void; canManage?: boolean }) {
   const [slug, setSlug] = useState<string | null>(openHouse.slug);
   const [creating, setCreating] = useState(false);
 
