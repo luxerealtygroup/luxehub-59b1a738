@@ -260,7 +260,7 @@ async function sendOne(
     return { ok: false, error: scrub(`Note failed (${note.status}): ${note.text}`, key).slice(0, 500) };
   }
 
-  return { ok: true, personId: personId! };
+  return { ok: true, personId: personId!, stageResult };
 }
 
 // ---------------------------------------------------------------------------
