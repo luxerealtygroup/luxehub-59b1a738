@@ -890,9 +890,11 @@ function SignInLinksCard({
         <p className="text-sm text-muted-foreground">
           This open house doesn't have a sign-in link yet.
         </p>
-        <Button size="sm" onClick={createLink} disabled={creating}>
-          {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create sign-in link
-        </Button>
+        {canManage && (
+          <Button size="sm" onClick={createLink} disabled={creating}>
+            {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create sign-in link
+          </Button>
+        )}
       </Card>
     );
   }
