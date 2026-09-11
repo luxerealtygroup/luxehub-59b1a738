@@ -12,6 +12,7 @@ import {
   digits, formatPhone, isValidEmail, isValidPhone,
 } from '@/lib/openHouse/options';
 import { countQueued, enqueueSignIn, flushQueue, newQueueId } from '@/lib/openHouse/queue';
+import { fillSearchTemplate, isHttpsUrlTemplate, priceBand } from '@/lib/openHouse/reports';
 
 interface PublicOpenHouse {
   id: string;
