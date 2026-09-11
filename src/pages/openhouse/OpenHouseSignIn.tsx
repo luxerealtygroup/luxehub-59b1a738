@@ -31,6 +31,7 @@ interface PublicOpenHouse {
   hosting_agent_name: string | null;
   hosting_agent_email: string | null;
   hosting_agent_avatar_url: string | null;
+  search_url_template: string | null;
 }
 
 const cacheKey = (slug: string) => `${tenant.storagePrefix}.oh.${slug}`;
