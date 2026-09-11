@@ -77,12 +77,15 @@ export function GuestCard({
   hostName,
   templates,
   onChanged,
+  canManage = true,
 }: {
   guest: Guest;
   address: string;
   hostName: string;
   templates: FollowUpTemplates;
   onChanged: () => void;
+  /** False for teammates who may look at this open house but not change it. */
+  canManage?: boolean;
 }) {
   const [notes, setNotes] = useState(guest.notes || '');
   const [openDetail, setOpenDetail] = useState(false);
@@ -218,7 +221,7 @@ export function GuestCard({
             <CheckCircle2 className="h-3 w-3" /> In Follow Up Boss ·{' '}
             {new Date(guest.fub_sent_at).toLocaleDateString()}
           </Badge>
-        ) : (
+        ) : canManage ? (
           <div className="flex flex-wrap items-center gap-1.5">
             <FubStageSelect value={stage} onChange={pickStage} className="h-8 w-[150px] text-xs" />
             <Button size="sm" variant="outline" onClick={sendToFub} disabled={sending || !stage}>
@@ -230,6 +233,8 @@ export function GuestCard({
               Send to Follow Up Boss
             </Button>
           </div>
+        ) : (
+          <Badge variant="outline" className="text-[10px]">Not in Follow Up Boss yet</Badge>
         )}
             {guest.follow_up_sent_at && (
               <Badge className="gap-1 border-success/30 bg-success/15 text-success text-[10px]">
@@ -252,6 +257,7 @@ export function GuestCard({
                   <AlertCircle className="h-3.5 w-3.5" /> Newer information here than in Follow Up Boss
                 </span>
               )}
+              {canManage && (
               <Button size="sm" variant="outline" onClick={updateNote} disabled={updatingNote}>
                 {updatingNote ? (
                   <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
@@ -260,6 +266,7 @@ export function GuestCard({
                 )}
                 Update note in Follow Up Boss
               </Button>
+              )}
             </div>
           )}
           {guest.fub_sent_at && guest.fub_sync_error && (
@@ -276,9 +283,11 @@ export function GuestCard({
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <span className="text-xs text-muted-foreground">{guestTime(guest)}</span>
-          <Button size="icon" variant="ghost" onClick={remove} aria-label="Remove guest">
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          {canManage && (
+            <Button size="icon" variant="ghost" onClick={remove} aria-label="Remove guest">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
 
@@ -295,8 +304,8 @@ export function GuestCard({
               key={t.value}
               type="button"
               aria-pressed={on}
-              disabled={busy}
-              onClick={() => patch({ temperature: (on ? null : t.value) as Temperature | null })}
+              disabled={busy || !canManage}
+              onClick={() => canManage && patch({ temperature: (on ? null : t.value) as Temperature | null })}
               className={`min-h-[44px] flex-1 rounded-lg border text-sm font-semibold transition-colors ${
                 on ? `${tone} border-transparent` : 'border-border bg-background text-muted-foreground hover:border-gold/60'
               }`}
@@ -307,14 +316,14 @@ export function GuestCard({
         })}
       </div>
 
-      {prompt && (
+      {canManage && prompt && (
         <p className="rounded-lg border border-gold/40 bg-gold/10 px-3 py-2 text-sm text-foreground">
           {prompt}
         </p>
       )}
 
       {/* Two-tap fills for whatever is still unknown */}
-      <div className="space-y-3">
+      <div className={canManage ? 'space-y-3' : 'hidden'}>
         {missingSet.has('intent') && (
           <Chips label="Buying or selling?" options={INTENT_OPTIONS} value={guest.intent}
             onPick={(v) => patch({ intent: v })} />
@@ -366,6 +375,7 @@ export function GuestCard({
       </div>
 
       {/* Follow-up: the device's own apps, nothing to pay for */}
+      {canManage && (
       <div className="flex flex-wrap gap-2">
         <Button
           size="sm"
@@ -430,8 +440,9 @@ export function GuestCard({
           </span>
         )}
       </div>
+      )}
 
-      {reportLink && (
+      {canManage && reportLink && (
         <p className="-mt-1 text-xs text-muted-foreground">
           Text and Email already include this link. Preview is your own look at the page{' '}
           {guest.first_name} receives — copy the link to send it another way.
@@ -439,7 +450,7 @@ export function GuestCard({
       )}
 
 
-      {showFeatured && (
+      {canManage && showFeatured && (
         <Dialog open onOpenChange={(o) => { if (!o) setShowFeatured(false); }}>
           <DialogContent className="flex max-h-[90vh] max-w-lg flex-col overflow-hidden">
             <DialogHeader>
@@ -467,24 +478,28 @@ export function GuestCard({
 
       {openDetail && (
         <div className="space-y-3 border-t border-border pt-3">
-          <Chips
-            label="Interest level"
-            options={(Object.keys(INTEREST_LABEL) as InterestLevel[]).map((k) => ({ value: k, label: INTEREST_LABEL[k] }))}
-            value={guest.interest_level}
-            onPick={(v) => patch({ interest_level: v as InterestLevel })}
-          />
-          <Chips
-            label="Price feedback"
-            options={(Object.keys(PRICE_LABEL) as PriceFeedback[]).map((k) => ({ value: k, label: PRICE_LABEL[k] }))}
-            value={guest.price_feedback}
-            onPick={(v) => patch({ price_feedback: v as PriceFeedback })}
-          />
-          <Chips
-            label="Condition feedback"
-            options={(Object.keys(CONDITION_LABEL) as ConditionFeedback[]).map((k) => ({ value: k, label: CONDITION_LABEL[k] }))}
-            value={guest.condition_feedback}
-            onPick={(v) => patch({ condition_feedback: v as ConditionFeedback })}
-          />
+          {canManage && (
+            <>
+              <Chips
+                label="Interest level"
+                options={(Object.keys(INTEREST_LABEL) as InterestLevel[]).map((k) => ({ value: k, label: INTEREST_LABEL[k] }))}
+                value={guest.interest_level}
+                onPick={(v) => patch({ interest_level: v as InterestLevel })}
+              />
+              <Chips
+                label="Price feedback"
+                options={(Object.keys(PRICE_LABEL) as PriceFeedback[]).map((k) => ({ value: k, label: PRICE_LABEL[k] }))}
+                value={guest.price_feedback}
+                onPick={(v) => patch({ price_feedback: v as PriceFeedback })}
+              />
+              <Chips
+                label="Condition feedback"
+                options={(Object.keys(CONDITION_LABEL) as ConditionFeedback[]).map((k) => ({ value: k, label: CONDITION_LABEL[k] }))}
+                value={guest.condition_feedback}
+                onPick={(v) => patch({ condition_feedback: v as ConditionFeedback })}
+              />
+            </>
+          )}
           {guest.custom_answers && Object.keys(guest.custom_answers).length > 0 && (
             <div className="space-y-1 text-sm">
               {Object.entries(guest.custom_answers).map(([q, a]) => (
@@ -494,14 +509,20 @@ export function GuestCard({
           )}
           <div className="space-y-1.5">
             <Label className="text-xs uppercase tracking-wide text-muted-foreground">Notes</Label>
-            <Textarea
-              rows={2}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              onBlur={() => {
-                if ((notes.trim() || null) !== (guest.notes || null)) patch({ notes: notes.trim() || null });
-              }}
-            />
+            {canManage ? (
+              <Textarea
+                rows={2}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                onBlur={() => {
+                  if ((notes.trim() || null) !== (guest.notes || null)) patch({ notes: notes.trim() || null });
+                }}
+              />
+            ) : (
+              <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+                {(guest.notes || '').trim() || 'No notes yet.'}
+              </p>
+            )}
           </div>
           {busy && <p className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> Saving…</p>}
         </div>

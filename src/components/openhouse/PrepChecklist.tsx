@@ -31,10 +31,12 @@ export function PrepChecklist({
   openHouseId,
   prep,
   onChanged,
+  canManage = true,
 }: {
   openHouseId: string;
   prep: PrepState;
   onChanged: () => void;
+  canManage?: boolean;
 }) {
   const [local, setLocal] = useState<PrepState>(prep);
   const [doors, setDoors] = useState(prep.prep_doors_knocked?.toString() ?? '');
@@ -72,8 +74,9 @@ export function PrepChecklist({
             <Checkbox
               id={`prep-${item.key}`}
               className="mt-0.5"
+              disabled={!canManage}
               checked={local[item.key] === true}
-              onCheckedChange={(v) => save({ [item.key]: !!v } as Partial<PrepState>)}
+              onCheckedChange={(v) => canManage && save({ [item.key]: !!v } as Partial<PrepState>)}
             />
             <div className="min-w-0">
               <Label htmlFor={`prep-${item.key}`} className="cursor-pointer text-sm font-medium">
@@ -100,8 +103,10 @@ export function PrepChecklist({
             min={0}
             className="h-9 w-24"
             value={doors}
+            disabled={!canManage}
             onChange={(e) => setDoors(e.target.value)}
             onBlur={() => {
+              if (!canManage) return;
               const n = doors.trim() === '' ? null : Math.max(0, Math.round(Number(doors)));
               if (Number.isNaN(n as number)) return;
               if (n !== (local.prep_doors_knocked ?? null)) save({ prep_doors_knocked: n });

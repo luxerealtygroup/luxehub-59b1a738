@@ -20,6 +20,7 @@ import { SEARCH_TEMPLATE_KEY, isHttpsUrlTemplate, sellerReportUrl } from '@/lib/
 export function SellerReportSection({
   openHouse,
   onChanged,
+  canManage = true,
 }: {
   openHouse: {
     id: string;
@@ -31,6 +32,7 @@ export function SellerReportSection({
     client_name: string | null;
   };
   onChanged: () => void;
+  canManage?: boolean;
 }) {
   const { isAdmin, isOwner } = useUserRole();
   const [showSearchSetting, setShowSearchSetting] = useState(false);
@@ -103,10 +105,18 @@ export function SellerReportSection({
 
       <div className="space-y-2">
         <Label>Notes from the day</Label>
-        <Textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="What you'd want the seller to know." />
-        <Button size="sm" variant="outline" onClick={saveNotes} disabled={savingNotes}>
-          {savingNotes && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />} Save notes
-        </Button>
+        {canManage ? (
+          <>
+            <Textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="What you'd want the seller to know." />
+            <Button size="sm" variant="outline" onClick={saveNotes} disabled={savingNotes}>
+              {savingNotes && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />} Save notes
+            </Button>
+          </>
+        ) : (
+          <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+            {notes.trim() || 'No notes yet.'}
+          </p>
+        )}
       </div>
 
       {showSearchSetting && (

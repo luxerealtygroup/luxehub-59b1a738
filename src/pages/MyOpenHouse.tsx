@@ -33,6 +33,8 @@ import { QrCode } from '@/components/openhouse/QrCode';
 import { PrintQrButton } from '@/components/openhouse/PrintableQrCard';
 import { agentUrl, kioskUrl, makeSlug, signInUrl } from '@/lib/openHouse/options';
 import { GuestList } from '@/components/openhouse/GuestList';
+import { useUserRole } from '@/hooks/useUserRole';
+import { canManageOpenHouse } from '@/lib/openHouse/permissions';
 import { PrepChecklist } from '@/components/openhouse/PrepChecklist';
 import { SellerReportSection } from '@/components/openhouse/SellerReportSection';
 import {
@@ -860,7 +862,9 @@ function AgentQrCard() {
 
 
 /** Sign-in link, QR and kiosk link for one open house. Older rows get a slug on demand. */
-function SignInLinksCard({ openHouse, onChanged }: { openHouse: OpenHouse; onChanged: () => void }) {
+function SignInLinksCard({
+  openHouse, onChanged, canManage = true,
+}: { openHouse: OpenHouse; onChanged: () => void; canManage?: boolean }) {
   const [slug, setSlug] = useState<string | null>(openHouse.slug);
   const [creating, setCreating] = useState(false);
 
@@ -886,9 +890,11 @@ function SignInLinksCard({ openHouse, onChanged }: { openHouse: OpenHouse; onCha
         <p className="text-sm text-muted-foreground">
           This open house doesn't have a sign-in link yet.
         </p>
-        <Button size="sm" onClick={createLink} disabled={creating}>
-          {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create sign-in link
-        </Button>
+        {canManage && (
+          <Button size="sm" onClick={createLink} disabled={creating}>
+            {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create sign-in link
+          </Button>
+        )}
       </Card>
     );
   }
@@ -936,6 +942,8 @@ function OpenHouseDetail({
   onChanged: () => void;
 }) {
   const { user } = useAuth();
+  const { isAdmin, isOwner } = useUserRole();
+  const canManage = canManageOpenHouse(openHouse, user?.id, isAdmin || isOwner);
   const [guests, setGuests] = useState<Guest[]>([]);
   const [hostName, setHostName] = useState<string>(openHouse.listing_agent_name || 'your agent');
   const [showEdit, setShowEdit] = useState(false);
@@ -981,17 +989,27 @@ function OpenHouseDetail({
             <h1 className="font-display text-2xl font-semibold truncate">{openHouse.property_address}</h1>
             <p className="text-sm text-muted-foreground mt-1">{formatDate(openHouse.open_house_date)}</p>
           </div>
-          <Dialog open={showEdit} onOpenChange={setShowEdit}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm"><Pencil className="h-4 w-4 mr-1" /> Edit</Button>
-            </DialogTrigger>
-            <OpenHouseFormDialog
-              initial={openHouse}
-              onClose={() => setShowEdit(false)}
-              onSaved={() => { setShowEdit(false); onChanged(); }}
-            />
-          </Dialog>
+          {canManage ? (
+            <Dialog open={showEdit} onOpenChange={setShowEdit}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm"><Pencil className="h-4 w-4 mr-1" /> Edit</Button>
+              </DialogTrigger>
+              <OpenHouseFormDialog
+                initial={openHouse}
+                onClose={() => setShowEdit(false)}
+                onSaved={() => { setShowEdit(false); onChanged(); }}
+              />
+            </Dialog>
+          ) : (
+            <Badge variant="outline" className="shrink-0">View only</Badge>
+          )}
         </div>
+        {!canManage && (
+          <p className="mt-2 text-sm text-muted-foreground">
+            You can look through this open house. Only the hosting agent, the listing agent and an
+            admin or owner can change it.
+          </p>
+        )}
       </div>
 
       <PrepChecklist
@@ -1004,10 +1022,12 @@ function OpenHouseDetail({
           prep_doors_knocked: openHouse.prep_doors_knocked,
         }}
         onChanged={onChanged}
+        canManage={canManage}
       />
 
-      <SignInLinksCard openHouse={openHouse} onChanged={onChanged} />
+      <SignInLinksCard openHouse={openHouse} onChanged={onChanged} canManage={canManage} />
 
+      {canManage && (
       <div className="flex flex-wrap gap-2">
         <Dialog open={showFubImport} onOpenChange={setShowFubImport}>
           <DialogTrigger asChild>
@@ -1038,12 +1058,14 @@ function OpenHouseDetail({
           )}
         </Dialog>
       </div>
+      )}
 
       <GuestList
         openHouseId={openHouse.id}
         address={openHouse.property_address}
         hostName={hostName}
         endsAt={endsAt}
+        canManage={canManage}
       />
 
       <SellerReportSection
@@ -1057,6 +1079,7 @@ function OpenHouseDetail({
           client_name: openHouse.client_name,
         }}
         onChanged={onChanged}
+        canManage={canManage}
       />
 
       <ReportSection openHouse={openHouse} guests={guests} />
