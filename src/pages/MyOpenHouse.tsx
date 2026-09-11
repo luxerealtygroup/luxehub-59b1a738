@@ -74,7 +74,6 @@ type OpenHouse = {
   prep_tablet_charged: boolean | null;
   prep_doors_knocked: number | null;
   seller_notes: string | null;
-  competing_listings: unknown;
 };
 
 type InterestLevel = 'high' | 'medium' | 'low';
@@ -1054,7 +1053,6 @@ function OpenHouseDetail({
           property_address: openHouse.property_address,
           ends_at: endsAt,
           seller_notes: openHouse.seller_notes,
-          competing_listings: openHouse.competing_listings,
           client_email: openHouse.client_email,
           client_name: openHouse.client_name,
         }}

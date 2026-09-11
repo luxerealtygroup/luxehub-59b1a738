@@ -21,7 +21,7 @@ export default function SellerReport() {
     supabase.rpc('public_open_house_seller_report', { _slug: slug }).then(({ data }) => {
       if (!alive) return;
       const row = Array.isArray(data) ? (data[0] as any) : null;
-      setReport(row ? { ...row, competing_listings: asListings(row.competing_listings) } : null);
+      setReport(row ?? null);
       setLoading(false);
     });
     return () => { alive = false; };
@@ -115,17 +115,6 @@ export default function SellerReport() {
           <section className="rounded-xl border border-border p-5">
             <h2 className="font-display text-lg font-semibold">Notes from the day</h2>
             <p className="mt-2 whitespace-pre-wrap text-foreground">{report.notes}</p>
-          </section>
-        )}
-
-        {report.competing_listings.length > 0 && (
-          <section className="rounded-xl border border-border p-5">
-            <h2 className="font-display text-lg font-semibold">What you're competing with</h2>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              {report.competing_listings.map((l, i) => (
-                <ListingCard key={`${l.address}-${i}`} listing={l} />
-              ))}
-            </div>
           </section>
         )}
 
