@@ -20,6 +20,7 @@ import {
   GUEST_COLUMNS, Guest,
 } from '@/lib/openHouse/guests';
 import { FollowUpTemplates, GuestCard } from '@/components/openhouse/GuestCard';
+import { FubStageSelect, lastStage, rememberStage } from '@/components/openhouse/FubStageSelect';
 
 type Mode = 'live' | 'all';
 
@@ -43,6 +44,8 @@ export function GuestList({
   const [showSettings, setShowSettings] = useState(false);
   const [showFub, setShowFub] = useState(false);
   const [sendingAll, setSendingAll] = useState(false);
+  const [showSendAll, setShowSendAll] = useState(false);
+  const [batchStage, setBatchStage] = useState<string | null>(lastStage());
   const [templates, setTemplates] = useState<FollowUpTemplates>({
     sms: DEFAULT_SMS_TEMPLATE,
     emailSubject: DEFAULT_EMAIL_SUBJECT,
@@ -120,9 +123,11 @@ export function GuestList({
   const unsent = guests.filter((g) => !g.fub_sent_at).length;
 
   const sendAll = async () => {
+    if (!batchStage) return;
+    rememberStage(batchStage);
     setSendingAll(true);
     const { data, error } = await supabase.functions.invoke('openhouse-fub', {
-      body: { action: 'push_all', openHouseId },
+      body: { action: 'push_all', openHouseId, stage: batchStage },
     });
     setSendingAll(false);
     const result = data as { sent?: number; failed?: number; error?: string } | null;
@@ -137,6 +142,7 @@ export function GuestList({
     } else {
       toast.success(`${result?.sent ?? 0} sent to Follow Up Boss`);
     }
+    setShowSendAll(false);
     load();
   };
 
@@ -174,7 +180,7 @@ export function GuestList({
             </Button>
           )}
           {unsent > 0 && (
-            <Button variant="outline" size="sm" onClick={sendAll} disabled={sendingAll}>
+            <Button variant="outline" size="sm" onClick={() => setShowSendAll(true)} disabled={sendingAll}>
               {sendingAll ? (
                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
               ) : (
@@ -238,6 +244,29 @@ export function GuestList({
       )}
 
       {showFub && <FubConnectionDialog onClose={() => setShowFub(false)} />}
+
+      <Dialog open={showSendAll} onOpenChange={(o) => !o && setShowSendAll(false)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Send {unsent} to Follow Up Boss</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label>Stage for this batch</Label>
+            <FubStageSelect value={batchStage} onChange={setBatchStage} className="h-10 w-full" />
+            <p className="text-xs text-muted-foreground">
+              Anyone with their own stage picked on their row keeps that choice. Someone already in
+              Follow Up Boss and being worked keeps the stage they are in.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSendAll(false)}>Cancel</Button>
+            <Button onClick={sendAll} disabled={sendingAll || !batchStage}>
+              {sendingAll && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+              Send {unsent}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

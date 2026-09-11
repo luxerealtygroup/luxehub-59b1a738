@@ -2641,6 +2641,8 @@ export type Database = {
           fub_contact_id: string | null
           fub_linked: boolean
           fub_sent_at: string | null
+          fub_stage: string | null
+          fub_stage_result: string | null
           fub_sync_error: string | null
           has_home_to_sell: string | null
           id: string
@@ -2679,6 +2681,8 @@ export type Database = {
           fub_contact_id?: string | null
           fub_linked?: boolean
           fub_sent_at?: string | null
+          fub_stage?: string | null
+          fub_stage_result?: string | null
           fub_sync_error?: string | null
           has_home_to_sell?: string | null
           id?: string
@@ -2717,6 +2721,8 @@ export type Database = {
           fub_contact_id?: string | null
           fub_linked?: boolean
           fub_sent_at?: string | null
+          fub_stage?: string | null
+          fub_stage_result?: string | null
           fub_sync_error?: string | null
           has_home_to_sell?: string | null
           id?: string

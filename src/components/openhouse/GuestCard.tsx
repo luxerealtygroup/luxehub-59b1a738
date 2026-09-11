@@ -14,6 +14,7 @@ import {
 import { ListingPicker } from '@/components/openhouse/ListingPicker';
 import { ReportListing, asListings, buyerReportUrl } from '@/lib/openHouse/reports';
 import { supabase } from '@/integrations/supabase/client';
+import { FubStageSelect, lastStage, rememberStage } from '@/components/openhouse/FubStageSelect';
 import { toast } from 'sonner';
 import {
   HOME_TO_SELL_OPTIONS, INTENT_OPTIONS, LENDER_OPTIONS, TIMELINE_OPTIONS, YES_NO_OPTIONS,
@@ -133,10 +134,27 @@ export function GuestCard({
   };
 
   const [sending, setSending] = useState(false);
+  const [stage, setStage] = useState<string | null>(guest.fub_stage ?? lastStage());
+
+  useEffect(() => setStage(guest.fub_stage ?? lastStage()), [guest.id]);
+
+  const pickStage = async (next: string) => {
+    setStage(next);
+    rememberStage(next);
+    // Persisted so a row's own choice beats the batch choice in Send all.
+    await supabase.from('open_house_visitors').update({ fub_stage: next }).eq('id', guest.id);
+  };
+
   const sendToFub = async () => {
+    if (!stage) {
+      toast.error('Pick a stage first', {
+        description: 'Follow Up Boss needs a stage before this guest can be sent.',
+      });
+      return;
+    }
     setSending(true);
     const { data, error } = await supabase.functions.invoke('openhouse-fub', {
-      body: { action: 'push', visitorId: guest.id },
+      body: { action: 'push', visitorId: guest.id, stage },
     });
     setSending(false);
     const detail = (data as { error?: string } | null)?.error;
@@ -189,14 +207,17 @@ export function GuestCard({
             {new Date(guest.fub_sent_at).toLocaleDateString()}
           </Badge>
         ) : (
-          <Button size="sm" variant="outline" onClick={sendToFub} disabled={sending}>
-            {sending ? (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="mr-1.5 h-4 w-4" />
-            )}
-            Send to Follow Up Boss
-          </Button>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <FubStageSelect value={stage} onChange={pickStage} className="h-8 w-[150px] text-xs" />
+            <Button size="sm" variant="outline" onClick={sendToFub} disabled={sending || !stage}>
+              {sending ? (
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="mr-1.5 h-4 w-4" />
+              )}
+              Send to Follow Up Boss
+            </Button>
+          </div>
         )}
         <Button size="sm" variant="outline" onClick={() => setShowFeatured(true)}>
           <Building2 className="mr-1.5 h-4 w-4" /> Feature listings
@@ -210,6 +231,9 @@ export function GuestCard({
           <p className="mt-0.5 text-sm text-muted-foreground">
             {[guest.phone, guest.email].filter(Boolean).join(' · ') || 'No contact details yet'}
           </p>
+          {guest.fub_sent_at && guest.fub_stage_result && (
+            <p className="mt-1 text-xs text-muted-foreground">{guest.fub_stage_result}</p>
+          )}
           {!guest.fub_sent_at && guest.fub_sync_error && (
             <p className="mt-1 text-xs text-destructive">
               Not sent — {guest.fub_sync_error}

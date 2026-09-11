@@ -76,6 +76,7 @@ interface Visitor {
   temperature: string | null;
   fub_contact_id: string | null;
   fub_sent_at: string | null;
+  fub_stage: string | null;
   signed_in_at: string | null;
   client_captured_at: string | null;
   created_at: string;
@@ -84,7 +85,7 @@ interface Visitor {
 const VISITOR_COLUMNS =
   'id, first_name, last_name, email, phone, working_with_agent, agent_name, intent, ' +
   'has_home_to_sell, timeline, lender_status, custom_answers, notes, temperature, ' +
-  'fub_contact_id, fub_sent_at, signed_in_at, client_captured_at, created_at';
+  'fub_contact_id, fub_stage, fub_sent_at, signed_in_at, client_captured_at, created_at';
 
 function buildNote(v: Visitor, address: string) {
   const when = v.client_captured_at || v.signed_in_at || v.created_at;
@@ -117,12 +118,47 @@ function buildNote(v: Visitor, address: string) {
   return lines.join('\n');
 }
 
-function buildTags(v: Visitor) {
+/**
+ * One source for everyone ('Open House'); the property lives in a tag so the
+ * account does not grow a source label per listing.
+ */
+function buildTags(v: Visitor, address: string) {
   const tags = ['Open House'];
+  if (address) tags.push(`Open House - ${address}`);
   if (v.temperature) tags.push(`Open House ${v.temperature[0].toUpperCase()}${v.temperature.slice(1)}`);
   if (v.has_home_to_sell === 'yes') tags.push('Has Home To Sell');
   else if (v.has_home_to_sell === 'no') tags.push('No Home To Sell');
   return tags;
+}
+
+// ---- stages ---------------------------------------------------------------
+
+interface Stage { id: number; name: string }
+
+const stageCache = new Map<string, { at: number; stages: Stage[] }>();
+const STAGE_CACHE_MS = 5 * 60 * 1000;
+
+async function getStages(key: string, cacheKey: string): Promise<Stage[]> {
+  const hit = stageCache.get(cacheKey);
+  if (hit && Date.now() - hit.at < STAGE_CACHE_MS) return hit.stages;
+  const res = await fub(key, '/stages?limit=100');
+  if (!res.ok) throw new Error(`Could not load the Follow Up Boss stage list (${res.status}).`);
+  const stages: Stage[] = (res.body?.stages ?? [])
+    .filter((s: any) => s?.name)
+    .map((s: any) => ({ id: Number(s.id), name: String(s.name) }));
+  stageCache.set(cacheKey, { at: Date.now(), stages });
+  return stages;
+}
+
+/** Entry stages we are allowed to move someone out of. Anything else is real work. */
+const UNWORKED = /^(lead|new lead|new leads?|contact|contacted|inquiry|unworked|new|prospect)$/i;
+
+function isUnworked(current: string | null | undefined, stages: Stage[]) {
+  const name = (current || '').trim();
+  if (!name) return true;
+  if (UNWORKED.test(name)) return true;
+  const first = stages[0]?.name;
+  return Boolean(first && first.toLowerCase() === name.toLowerCase());
 }
 
 /** Find a Follow Up Boss user whose email matches the hosting agent. */
@@ -154,7 +190,9 @@ async function sendOne(
   key: string,
   v: Visitor,
   house: { property_address: string; hosting_email: string | null },
-): Promise<{ ok: boolean; personId?: string; error?: string }> {
+  stage: string,
+  stages: Stage[],
+): Promise<{ ok: boolean; personId?: string; error?: string; stageResult?: string }> {
   if (v.fub_sent_at && v.fub_contact_id) {
     return { ok: true, personId: v.fub_contact_id };
   }
@@ -164,24 +202,34 @@ async function sendOne(
 
   const address = house.property_address || 'Open House';
   const agent = await findAgent(key, house.hosting_email);
-  const tags = buildTags(v);
+  const tags = buildTags(v, address);
 
   let personId: string | null = null;
+  let stageResult = `Stage set to ${stage}`;
   const existing = await findPerson(key, v);
 
   if (existing) {
     personId = String(existing.id);
     const merged = Array.from(new Set([...(existing.tags ?? []), ...tags]));
+    const currentStage = existing.stage ? String(existing.stage) : null;
+    const payload: Record<string, unknown> = { tags: merged };
+    // Never knock an already-worked contact backwards.
+    if (isUnworked(currentStage, stages)) {
+      payload.stage = stage;
+    } else {
+      stageResult = `Stage left as ${currentStage} — already being worked`;
+    }
     const upd = await fub(key, `/people/${personId}`, {
       method: 'PUT',
-      body: JSON.stringify({ tags: merged }),
+      body: JSON.stringify(payload),
     });
     if (!upd.ok) return { ok: false, error: scrub(`Follow Up Boss ${upd.status}: ${upd.text}`, key).slice(0, 500) };
   } else {
     const body: Record<string, unknown> = {
       firstName: v.first_name,
       lastName: v.last_name || '',
-      source: `Open House - ${address}`,
+      source: 'Open House',
+      stage,
       tags,
     };
     if (v.email) body.emails = [{ value: v.email }];
@@ -213,7 +261,7 @@ async function sendOne(
     return { ok: false, error: scrub(`Note failed (${note.status}): ${note.text}`, key).slice(0, 500) };
   }
 
-  return { ok: true, personId: personId! };
+  return { ok: true, personId: personId!, stageResult };
 }
 
 // ---------------------------------------------------------------------------
@@ -225,7 +273,13 @@ Deno.serve(async (req) => {
   if (!guard.ok) return guard.response;
   const caller = guard.caller;
 
-  let body: { action?: string; value?: string; visitorId?: string; openHouseId?: string };
+  let body: {
+    action?: string;
+    value?: string;
+    visitorId?: string;
+    openHouseId?: string;
+    stage?: string;
+  };
   try {
     body = await req.json();
   } catch {
@@ -272,11 +326,26 @@ Deno.serve(async (req) => {
     }
 
     // ---- sending ----------------------------------------------------------
-    if (action !== 'push' && action !== 'push_all') return json({ error: 'Unknown action' }, 400);
+    if (action !== 'push' && action !== 'push_all' && action !== 'stages') {
+      return json({ error: 'Unknown action' }, 400);
+    }
 
     const key = await getFubApiKeyForUser(caller.userId).catch(() => null);
     if (!key) {
       return json({ error: 'Follow Up Boss is not connected for this team yet.' }, 400);
+    }
+
+    const { orgId: callerOrgId } = await getUserOrgContext(caller.userId!);
+    const stages = await getStages(key, callerOrgId ?? 'instance');
+
+    if (action === 'stages') return json({ stages: stages.map((s) => s.name) });
+
+    const matchStage = (name: string | null | undefined) =>
+      stages.find((s) => s.name.toLowerCase() === (name ?? '').trim().toLowerCase())?.name ?? null;
+
+    const batchStage = matchStage(body.stage);
+    if (!batchStage && action === 'push') {
+      return json({ error: 'Pick a stage before sending this guest to Follow Up Boss.' }, 400);
     }
 
     let openHouseId = body.openHouseId ?? null;
@@ -311,8 +380,7 @@ Deno.serve(async (req) => {
     if (!house) return json({ error: 'Open house not found' }, 404);
 
     // Never cross an organization boundary.
-    const { orgId } = await getUserOrgContext(caller.userId!);
-    if (caller.userId && house.org_id && house.org_id !== orgId) {
+    if (caller.userId && house.org_id && house.org_id !== callerOrgId) {
       return json({ error: 'FORBIDDEN' }, 403);
     }
 
@@ -325,10 +393,18 @@ Deno.serve(async (req) => {
 
     const results: { id: string; ok: boolean; error?: string }[] = [];
     for (const v of visitors) {
+      // A stage chosen on the guest's own row always wins over the batch choice.
+      const stage = matchStage((v as any).fub_stage) ?? batchStage;
+      if (!stage) {
+        const error = 'No stage picked for this guest.';
+        await db.from('open_house_visitors').update({ fub_sync_error: error }).eq('id', v.id);
+        results.push({ id: v.id, ok: false, error });
+        continue;
+      }
       const out = await sendOne(key, v, {
         property_address: (house as any).property_address,
         hosting_email: hostingEmail,
-      });
+      }, stage, stages);
       if (out.ok) {
         await db
           .from('open_house_visitors')
@@ -337,6 +413,8 @@ Deno.serve(async (req) => {
             fub_linked: true,
             fub_sent_at: new Date().toISOString(),
             fub_sync_error: null,
+            fub_stage: stage,
+            fub_stage_result: out.stageResult ?? null,
           })
           .eq('id', v.id);
       } else {
