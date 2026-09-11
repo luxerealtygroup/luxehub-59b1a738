@@ -38,6 +38,8 @@ export interface Guest {
   fub_linked: boolean;
   fub_sent_at: string | null;
   fub_sync_error: string | null;
+  fub_stage: string | null;
+  fub_stage_result: string | null;
   report_token: string | null;
   featured_listings: { address: string; price: number | null; photo_url: string | null; link: string | null }[] | null;
   follow_up_sent_at: string | null;
