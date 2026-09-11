@@ -244,6 +244,29 @@ export function GuestList({
       )}
 
       {showFub && <FubConnectionDialog onClose={() => setShowFub(false)} />}
+
+      <Dialog open={showSendAll} onOpenChange={(o) => !o && setShowSendAll(false)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Send {unsent} to Follow Up Boss</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label>Stage for this batch</Label>
+            <FubStageSelect value={batchStage} onChange={setBatchStage} className="h-10 w-full" />
+            <p className="text-xs text-muted-foreground">
+              Anyone with their own stage picked on their row keeps that choice. Someone already in
+              Follow Up Boss and being worked keeps the stage they are in.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSendAll(false)}>Cancel</Button>
+            <Button onClick={sendAll} disabled={sendingAll || !batchStage}>
+              {sendingAll && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+              Send {unsent}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
