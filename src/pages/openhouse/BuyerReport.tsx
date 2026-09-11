@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Printer, Search } from 'lucide-react';
 import { tenant } from '@/config/tenant';
+import { ListingCard } from '@/components/openhouse/ListingCard';
 import {
   BuyerReport as Report, asListings, fillSearchTemplate,
   isHttpsUrlTemplate, money, priceBand,

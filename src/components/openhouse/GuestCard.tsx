@@ -383,11 +383,13 @@ export function GuestCard({
 
       {showFeatured && (
         <Dialog open onOpenChange={(o) => { if (!o) setShowFeatured(false); }}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="flex max-h-[90vh] max-w-lg flex-col overflow-hidden">
             <DialogHeader>
               <DialogTitle>Homes to feature for {guestName(guest)}</DialogTitle>
             </DialogHeader>
-            <ListingPicker value={asListings(guest.featured_listings)} onChange={saveFeatured} max={3} />
+            <div className="-mx-6 flex-1 overflow-y-auto px-6 py-1">
+              <ListingPicker value={asListings(guest.featured_listings)} onChange={saveFeatured} max={3} />
+            </div>
             <DialogFooter>
               <Button onClick={() => setShowFeatured(false)}>Done</Button>
             </DialogFooter>
