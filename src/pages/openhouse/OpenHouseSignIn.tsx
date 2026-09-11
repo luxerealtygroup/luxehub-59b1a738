@@ -306,6 +306,19 @@ export default function OpenHouseSignIn() {
 
   const agentName = house?.hosting_agent_name || null;
 
+  // "See more homes like this" — only when an admin has set the search link.
+  const searchLink = useMemo(() => {
+    const template = (house?.search_url_template || '').trim();
+    if (!template || !isHttpsUrlTemplate(template)) return null;
+    const band = priceBand(house?.list_price ?? null);
+    return fillSearchTemplate(template, {
+      minPrice: band?.min ?? null,
+      maxPrice: band?.max ?? null,
+      beds: null,
+      city: house?.city ?? null,
+    });
+  }, [house]);
+
   const queueBadge =
     pending > 0 ? (
       <div className="flex items-center justify-between gap-3 rounded-xl border border-gold/40 bg-gold/10 px-4 py-3 text-sm">
