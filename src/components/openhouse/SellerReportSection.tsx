@@ -142,9 +142,11 @@ export function SellerReportSection({
 
       {showCompeting && (
         <Dialog open onOpenChange={(o) => { if (!o) setShowCompeting(false); }}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="flex max-h-[90vh] max-w-lg flex-col overflow-hidden">
             <DialogHeader><DialogTitle>What you're competing with</DialogTitle></DialogHeader>
-            <ListingPicker value={competing} onChange={saveCompeting} max={4} />
+            <div className="-mx-6 flex-1 overflow-y-auto px-6 py-1">
+              <ListingPicker value={competing} onChange={saveCompeting} max={4} />
+            </div>
             <DialogFooter>
               <Button onClick={() => setShowCompeting(false)}>Done</Button>
             </DialogFooter>
@@ -198,9 +200,9 @@ function SearchTemplateDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="flex max-h-[90vh] max-w-lg flex-col overflow-hidden">
         <DialogHeader><DialogTitle>Home search link</DialogTitle></DialogHeader>
-        <div className="space-y-3">
+        <div className="-mx-6 flex-1 space-y-3 overflow-y-auto px-6 py-1">
           <p className="text-sm text-muted-foreground">
             The visitor's "See more homes like this" button uses this. Paste your search page address and use{' '}
             <code>{'{minPrice}'}</code>, <code>{'{maxPrice}'}</code>, <code>{'{beds}'}</code> and <code>{'{city}'}</code>{' '}
