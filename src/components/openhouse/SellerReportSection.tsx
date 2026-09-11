@@ -20,6 +20,7 @@ import { SEARCH_TEMPLATE_KEY, isHttpsUrlTemplate, sellerReportUrl } from '@/lib/
 export function SellerReportSection({
   openHouse,
   onChanged,
+  canManage = true,
 }: {
   openHouse: {
     id: string;
@@ -31,6 +32,7 @@ export function SellerReportSection({
     client_name: string | null;
   };
   onChanged: () => void;
+  canManage?: boolean;
 }) {
   const { isAdmin, isOwner } = useUserRole();
   const [showSearchSetting, setShowSearchSetting] = useState(false);
