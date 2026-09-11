@@ -301,3 +301,34 @@ export async function sendOne(
 
   return { ok: true, personId: personId!, stageResult };
 }
+
+/**
+ * Apply a stage the agent chose after the guest was already in Follow Up Boss.
+ * Same guard as the first send: someone already being worked is left alone.
+ */
+export async function applyStage(
+  key: string,
+  personId: string,
+  stage: string,
+  stages: Stage[],
+): Promise<{ ok: boolean; error?: string; stageResult?: string }> {
+  const person = await fub(key, `/people/${personId}?fields=id,stage`);
+  if (!person.ok) {
+    return { ok: false, error: scrub(`Follow Up Boss ${person.status}: ${person.text}`, key).slice(0, 500) };
+  }
+  const currentStage = person.body?.stage ? String(person.body.stage) : null;
+  if (currentStage && currentStage.toLowerCase() === stage.toLowerCase()) {
+    return { ok: true, stageResult: `Stage set to ${stage}` };
+  }
+  if (!isUnworked(currentStage, stages)) {
+    return { ok: true, stageResult: `Stage left as ${currentStage} — already being worked` };
+  }
+  const upd = await fub(key, `/people/${personId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ stage }),
+  });
+  if (!upd.ok) {
+    return { ok: false, error: scrub(`Follow Up Boss ${upd.status}: ${upd.text}`, key).slice(0, 500) };
+  }
+  return { ok: true, stageResult: `Stage set to ${stage}` };
+}
