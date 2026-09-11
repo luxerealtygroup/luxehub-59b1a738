@@ -58,6 +58,8 @@ type OpenHouse = {
   list_price: number | null;
   cover_photo_url: string | null;
   hosting_agent_id: string | null;
+  listing_agent_id: string | null;
+
   starts_at: string | null;
   ends_at: string | null;
   disclosure_text: string | null;
@@ -307,11 +309,16 @@ function OpenHouseFormDialog({
   });
 
 
-  // Team agents for the listing-agent dropdown
+  // Team members power both agent pickers
   type AgentOption = { id: string; full_name: string; email: string };
   const [agents, setAgents] = useState<AgentOption[]>([]);
   const [myProfile, setMyProfile] = useState<AgentOption | null>(null);
-  const [listingAgentChoice, setListingAgentChoice] = useState<string>('__custom__');
+  const [listingAgentChoice, setListingAgentChoice] = useState<string>(
+    initial?.listing_agent_id || (initial ? '__custom__' : '__none__')
+  );
+  const [hostingAgentId, setHostingAgentId] = useState<string>(
+    initial?.hosting_agent_id || initial?.user_id || user?.id || ''
+  );
 
   useEffect(() => {
     (async () => {
@@ -324,7 +331,6 @@ function OpenHouseFormDialog({
         full_name: p.full_name ?? '',
         email: p.email ?? '',
       }));
-      setAgents(list);
       if (user) {
         const mine = list.find((a) => a.id === user.id);
         const me: AgentOption = mine ?? {
@@ -332,16 +338,19 @@ function OpenHouseFormDialog({
           full_name: (user.user_metadata as any)?.full_name || user.email || 'Me',
           email: user.email || '',
         };
-        // Prefer auth email when profile email is missing
         if (!me.email && user.email) me.email = user.email;
+        if (!mine) list.unshift(me);
         setMyProfile(me);
+        if (!initial) setHostingAgentId((h) => h || me.id);
       }
-      // Pre-select existing on edit
-      if (initial?.listing_agent_name) {
+      list.sort((a, b) => a.full_name.localeCompare(b.full_name));
+      setAgents(list);
+      // Older rows only stored a typed listing agent name — match it back to a person if we can.
+      if (!initial?.listing_agent_id && initial?.listing_agent_name) {
         const match = list.find(
           (a) => a.full_name.trim().toLowerCase() === (initial.listing_agent_name || '').trim().toLowerCase()
         );
-        if (match) setListingAgentChoice(match.id);
+        setListingAgentChoice(match ? match.id : '__custom__');
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -349,29 +358,23 @@ function OpenHouseFormDialog({
 
   const onListingAgentSelect = (value: string) => {
     setListingAgentChoice(value);
-    if (value === '__me__' && myProfile) {
-      setForm((f) => ({
-        ...f,
-        listing_agent_name: myProfile.full_name,
-        listing_agent_email: myProfile.email,
-      }));
+    if (value === '__none__') {
+      setForm((f) => ({ ...f, listing_agent_name: '', listing_agent_email: '' }));
     } else if (value === '__custom__') {
       // leave fields as-is for manual editing
     } else {
       const a = agents.find((x) => x.id === value);
       if (a) {
-        setForm((f) => ({
-          ...f,
-          listing_agent_name: a.full_name,
-          listing_agent_email: a.email,
-        }));
+        setForm((f) => ({ ...f, listing_agent_name: a.full_name, listing_agent_email: a.email }));
       }
     }
   };
 
-  // FUB client typeahead
+  // Client picker — searches our own records: pipeline_clients and client_accounts
+  // (client portal accounts, with their property address from portal_properties).
+  type ClientHit = { key: string; name: string; email: string; address: string; source: 'Pipeline' | 'Portal' };
   const [clientQuery, setClientQuery] = useState('');
-  const [clientResults, setClientResults] = useState<Array<{ id: any; name: string; email: string }>>([]);
+  const [clientResults, setClientResults] = useState<ClientHit[]>([]);
   const [clientSearching, setClientSearching] = useState(false);
   const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
   const [clientLocked, setClientLocked] = useState<boolean>(!!initial?.client_name);
@@ -387,37 +390,73 @@ function OpenHouseFormDialog({
     setClientSearching(true);
     const t = setTimeout(async () => {
       try {
-        const { data, error } = await supabase.functions.invoke('fub-search-contacts', {
-          body: { query: q },
-        });
+        const like = `%${q.replace(/[%_]/g, '')}%`;
+        const [pipeline, accounts] = await Promise.all([
+          supabase
+            .from('pipeline_clients')
+            .select('id, client_name, email, property_address')
+            .or(`client_name.ilike.${like},email.ilike.${like},property_address.ilike.${like}`)
+            .limit(8),
+          supabase
+            .from('client_accounts')
+            .select('id, full_name, email')
+            .or(`full_name.ilike.${like},email.ilike.${like}`)
+            .limit(8),
+        ]);
         if (cancelled) return;
-        if (error) {
-          setClientResults([]);
-        } else {
-          const arr: any[] = (data as any)?.contacts || (data as any)?.people || (data as any) || [];
-          const mapped = (Array.isArray(arr) ? arr : []).map((c: any) => ({
-            id: c.id,
-            name: c.name || [c.firstName, c.lastName].filter(Boolean).join(' ') || '(no name)',
-            email:
-              c.email ||
-              (Array.isArray(c.emails) && c.emails[0]?.value) ||
-              '',
-          }));
-          setClientResults(mapped);
-          setClientDropdownOpen(true);
+
+        const accountRows = (accounts.data as any[]) || [];
+        let addresses: Record<string, string> = {};
+        if (accountRows.length > 0) {
+          const { data: props } = await supabase
+            .from('portal_properties')
+            .select('portal_id, address')
+            .in('portal_id', accountRows.map((a) => a.id));
+          for (const p of (props as any[]) || []) {
+            if (p.address && !addresses[p.portal_id]) addresses[p.portal_id] = p.address;
+          }
         }
+        if (cancelled) return;
+
+        const hits: ClientHit[] = [
+          ...((pipeline.data as any[]) || []).map((c) => ({
+            key: `pipeline-${c.id}`,
+            name: c.client_name || '(no name)',
+            email: c.email || '',
+            address: c.property_address || '',
+            source: 'Pipeline' as const,
+          })),
+          ...accountRows.map((c) => ({
+            key: `portal-${c.id}`,
+            name: c.full_name || '(no name)',
+            email: c.email || '',
+            address: addresses[c.id] || '',
+            source: 'Portal' as const,
+          })),
+        ];
+        // Same person in both places: keep one row.
+        const seen = new Set<string>();
+        setClientResults(
+          hits.filter((h) => {
+            const k = `${h.name.toLowerCase()}|${h.email.toLowerCase()}`;
+            if (seen.has(k)) return false;
+            seen.add(k);
+            return true;
+          })
+        );
+        setClientDropdownOpen(true);
       } finally {
         if (!cancelled) setClientSearching(false);
       }
-    }, 400);
+    }, 300);
     return () => {
       cancelled = true;
       clearTimeout(t);
     };
   }, [clientQuery, clientLocked]);
 
-  const selectClient = (c: { name: string; email: string }) => {
-    setForm((f) => ({ ...f, client_name: c.name, client_email: c.email }));
+  const selectClient = (c: ClientHit) => {
+    setForm((f) => ({ ...f, client_name: c.name, client_email: c.email || f.client_email }));
     setClientLocked(true);
     setClientDropdownOpen(false);
     setClientQuery('');
@@ -429,6 +468,7 @@ function OpenHouseFormDialog({
     setClientQuery('');
     setClientResults([]);
   };
+
 
   const save = async () => {
     if (!form.property_address.trim() || !form.open_house_date) {
@@ -459,13 +499,17 @@ function OpenHouseFormDialog({
       custom_question_3: form.q3.trim() || null,
       require_phone: form.require_phone,
       is_active: form.is_active,
+      // The hosting agent is who actually runs the door — everything downstream keys off it.
+      hosting_agent_id: hostingAgentId || user.id,
+      listing_agent_id:
+        listingAgentChoice && !listingAgentChoice.startsWith('__') ? listingAgentChoice : null,
     };
     if (!initial) {
       // Every open house gets its own visitor sign-in link the moment it exists.
       payload.slug = makeSlug();
       payload.created_by = user.id;
-      payload.hosting_agent_id = user.id;
     }
+
     const { error } = initial
       ? await supabase.from('open_houses').update(payload as never).eq('id', initial.id)
       : await supabase.from('open_houses').insert(payload as never);
@@ -498,7 +542,7 @@ function OpenHouseFormDialog({
               <SelectValue placeholder="Select listing agent" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__me__">I am the listing agent</SelectItem>
+              <SelectItem value="__none__">Not set</SelectItem>
               <SelectItem value="__custom__">Enter manually…</SelectItem>
               {agents.map((a) => (
                 <SelectItem key={a.id} value={a.id}>
@@ -529,6 +573,25 @@ function OpenHouseFormDialog({
             </div>
           )}
         </Field>
+        <Field label="Hosting agent (who is running it) *">
+          <Select value={hostingAgentId} onValueChange={setHostingAgentId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select hosting agent" />
+            </SelectTrigger>
+            <SelectContent>
+              {agents.map((a) => (
+                <SelectItem key={a.id} value={a.id}>
+                  {a.full_name}
+                  {myProfile && a.id === myProfile.id ? ' (me)' : ''}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground mt-1">
+            The hosting agent owns this open house: their permanent QR points here, they get the live
+            sign-in view, sign-ins go to them in Follow Up Boss, and visitors see their name on the thank-you screen.
+          </p>
+        </Field>
         <Field label="Client">
           {clientLocked && form.client_name ? (
             <Badge variant="secondary" className="flex items-center gap-2 w-fit px-3 py-1.5">
@@ -548,7 +611,7 @@ function OpenHouseFormDialog({
           ) : (
             <div className="relative">
               <Input
-                placeholder="Search FUB contacts or type a name…"
+                placeholder="Search your clients and pipeline, or type a name…"
                 value={clientQuery || form.client_name}
                 onChange={(e) => {
                   const v = e.target.value;
@@ -558,7 +621,7 @@ function OpenHouseFormDialog({
                 }}
                 onFocus={() => clientResults.length > 0 && setClientDropdownOpen(true)}
               />
-              {clientDropdownOpen && (clientSearching || clientResults.length > 0) && (
+              {clientDropdownOpen && (clientSearching || clientResults.length > 0 || clientQuery.trim().length >= 2) && (
                 <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md max-h-64 overflow-auto">
                   {clientSearching && (
                     <div className="px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
@@ -566,17 +629,24 @@ function OpenHouseFormDialog({
                     </div>
                   )}
                   {!clientSearching && clientResults.length === 0 && (
-                    <div className="px-3 py-2 text-xs text-muted-foreground">No matches</div>
+                    <div className="px-3 py-2 text-xs text-muted-foreground">
+                      No matches — keep typing to add them as free text
+                    </div>
                   )}
-                  {clientResults.map((c, i) => (
+                  {clientResults.map((c) => (
                     <button
                       type="button"
-                      key={`${c.id}-${i}`}
+                      key={c.key}
                       onClick={() => selectClient(c)}
                       className="w-full text-left px-3 py-2 hover:bg-accent text-sm"
                     >
-                      <div className="font-medium">{c.name}</div>
-                      {c.email && <div className="text-xs text-muted-foreground">{c.email}</div>}
+                      <div className="font-medium flex items-center gap-2">
+                        {c.name}
+                        <Badge variant="outline" className="text-[10px] px-1 py-0">{c.source}</Badge>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {[c.address, c.email].filter(Boolean).join(' · ') || 'No address on file'}
+                      </div>
                     </button>
                   ))}
                   <div className="border-t px-3 py-1.5 text-right">
@@ -597,9 +667,16 @@ function OpenHouseFormDialog({
                 value={form.client_email}
                 onChange={(e) => setForm({ ...form, client_email: e.target.value })}
               />
+              {!clientLocked && form.client_name.trim() && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Typed by hand — pick a match above to link an existing record.
+                </p>
+              )}
             </div>
           )}
         </Field>
+
+
 
         <Separator className="my-2" />
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
