@@ -76,6 +76,7 @@ interface Visitor {
   temperature: string | null;
   fub_contact_id: string | null;
   fub_sent_at: string | null;
+  fub_stage: string | null;
   signed_in_at: string | null;
   client_captured_at: string | null;
   created_at: string;
@@ -84,7 +85,7 @@ interface Visitor {
 const VISITOR_COLUMNS =
   'id, first_name, last_name, email, phone, working_with_agent, agent_name, intent, ' +
   'has_home_to_sell, timeline, lender_status, custom_answers, notes, temperature, ' +
-  'fub_contact_id, fub_sent_at, signed_in_at, client_captured_at, created_at';
+  'fub_contact_id, fub_stage, fub_sent_at, signed_in_at, client_captured_at, created_at';
 
 function buildNote(v: Visitor, address: string) {
   const when = v.client_captured_at || v.signed_in_at || v.created_at;
