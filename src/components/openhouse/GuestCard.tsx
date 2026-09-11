@@ -450,7 +450,7 @@ export function GuestCard({
       )}
 
 
-      {showFeatured && (
+      {canManage && showFeatured && (
         <Dialog open onOpenChange={(o) => { if (!o) setShowFeatured(false); }}>
           <DialogContent className="flex max-h-[90vh] max-w-lg flex-col overflow-hidden">
             <DialogHeader>
@@ -509,14 +509,20 @@ export function GuestCard({
           )}
           <div className="space-y-1.5">
             <Label className="text-xs uppercase tracking-wide text-muted-foreground">Notes</Label>
-            <Textarea
-              rows={2}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              onBlur={() => {
-                if ((notes.trim() || null) !== (guest.notes || null)) patch({ notes: notes.trim() || null });
-              }}
-            />
+            {canManage ? (
+              <Textarea
+                rows={2}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                onBlur={() => {
+                  if ((notes.trim() || null) !== (guest.notes || null)) patch({ notes: notes.trim() || null });
+                }}
+              />
+            ) : (
+              <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+                {(guest.notes || '').trim() || 'No notes yet.'}
+              </p>
+            )}
           </div>
           {busy && <p className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> Saving…</p>}
         </div>
