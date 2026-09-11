@@ -133,10 +133,27 @@ export function GuestCard({
   };
 
   const [sending, setSending] = useState(false);
+  const [stage, setStage] = useState<string | null>(guest.fub_stage ?? lastStage());
+
+  useEffect(() => setStage(guest.fub_stage ?? lastStage()), [guest.id]);
+
+  const pickStage = async (next: string) => {
+    setStage(next);
+    rememberStage(next);
+    // Persisted so a row's own choice beats the batch choice in Send all.
+    await supabase.from('open_house_visitors').update({ fub_stage: next }).eq('id', guest.id);
+  };
+
   const sendToFub = async () => {
+    if (!stage) {
+      toast.error('Pick a stage first', {
+        description: 'Follow Up Boss needs a stage before this guest can be sent.',
+      });
+      return;
+    }
     setSending(true);
     const { data, error } = await supabase.functions.invoke('openhouse-fub', {
-      body: { action: 'push', visitorId: guest.id },
+      body: { action: 'push', visitorId: guest.id, stage },
     });
     setSending(false);
     const detail = (data as { error?: string } | null)?.error;
