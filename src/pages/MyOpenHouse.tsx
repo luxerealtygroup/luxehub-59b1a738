@@ -775,6 +775,7 @@ function CopyField({ label, value }: { label: string; value: string }) {
 function AgentQrCard() {
   const { user } = useAuth();
   const [slug, setSlug] = useState<string | null>(null);
+  const [rightNow, setRightNow] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -791,6 +792,33 @@ function AgentQrCard() {
     return () => { alive = false; };
   }, [user]);
 
+  // Ask the same function the QR uses, so what we print here is exactly what a visitor gets.
+  useEffect(() => {
+    if (!slug) return;
+    let alive = true;
+    const check = async () => {
+      const { data } = await supabase.rpc('public_agent_open_house', { _agent_slug: slug });
+      const activeSlug = (data as { active_slug?: string | null }[] | null)?.[0]?.active_slug;
+      if (!alive) return;
+      if (!activeSlug) {
+        setRightNow(null);
+        return;
+      }
+      const { data: house } = await supabase.rpc('public_open_house', { _slug: activeSlug });
+      const h = (house as { address?: string; starts_at?: string | null; ends_at?: string | null }[] | null)?.[0];
+      if (!alive || !h) { setRightNow(null); return; }
+      const time = (v?: string | null) =>
+        v ? new Date(v).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).toLowerCase().replace(':00', '') : null;
+      const from = time(h.starts_at);
+      const to = time(h.ends_at);
+      const when = from && to ? `today ${from}–${to}` : 'today';
+      setRightNow(`${h.address}, ${when}`);
+    };
+    check();
+    const timer = setInterval(check, 60000);
+    return () => { alive = false; clearInterval(timer); };
+  }, [slug]);
+
   if (!slug) return null;
   return (
     <Card className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
@@ -800,12 +828,25 @@ function AgentQrCard() {
         <p className="text-sm text-muted-foreground">
           Print it once. It always opens whichever of your open houses is running right now.
         </p>
+        <p className="text-sm">
+          {rightNow ? (
+            <>
+              <span className="text-muted-foreground">Right now this opens: </span>
+              <span className="font-medium text-foreground">{rightNow}</span>
+            </>
+          ) : (
+            <span className="text-muted-foreground">
+              No open house running — this shows your contact card.
+            </span>
+          )}
+        </p>
         <CopyField label="Permanent link" value={agentUrl(slug)} />
       </div>
       <PrintQrButton url={agentUrl(slug)} heading="Open House" subheading="Scan to sign in" />
     </Card>
   );
 }
+
 
 /** Sign-in link, QR and kiosk link for one open house. Older rows get a slug on demand. */
 function SignInLinksCard({ openHouse, onChanged }: { openHouse: OpenHouse; onChanged: () => void }) {
