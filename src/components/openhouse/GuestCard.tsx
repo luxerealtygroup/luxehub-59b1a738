@@ -304,8 +304,8 @@ export function GuestCard({
               key={t.value}
               type="button"
               aria-pressed={on}
-              disabled={busy}
-              onClick={() => patch({ temperature: (on ? null : t.value) as Temperature | null })}
+              disabled={busy || !canManage}
+              onClick={() => canManage && patch({ temperature: (on ? null : t.value) as Temperature | null })}
               className={`min-h-[44px] flex-1 rounded-lg border text-sm font-semibold transition-colors ${
                 on ? `${tone} border-transparent` : 'border-border bg-background text-muted-foreground hover:border-gold/60'
               }`}
@@ -316,14 +316,14 @@ export function GuestCard({
         })}
       </div>
 
-      {prompt && (
+      {canManage && prompt && (
         <p className="rounded-lg border border-gold/40 bg-gold/10 px-3 py-2 text-sm text-foreground">
           {prompt}
         </p>
       )}
 
       {/* Two-tap fills for whatever is still unknown */}
-      <div className="space-y-3">
+      <div className={canManage ? 'space-y-3' : 'hidden'}>
         {missingSet.has('intent') && (
           <Chips label="Buying or selling?" options={INTENT_OPTIONS} value={guest.intent}
             onPick={(v) => patch({ intent: v })} />
@@ -375,6 +375,7 @@ export function GuestCard({
       </div>
 
       {/* Follow-up: the device's own apps, nothing to pay for */}
+      {canManage && (
       <div className="flex flex-wrap gap-2">
         <Button
           size="sm"
@@ -439,8 +440,9 @@ export function GuestCard({
           </span>
         )}
       </div>
+      )}
 
-      {reportLink && (
+      {canManage && reportLink && (
         <p className="-mt-1 text-xs text-muted-foreground">
           Text and Email already include this link. Preview is your own look at the page{' '}
           {guest.first_name} receives — copy the link to send it another way.
