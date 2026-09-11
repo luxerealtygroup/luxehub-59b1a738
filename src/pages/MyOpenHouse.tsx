@@ -542,7 +542,7 @@ function OpenHouseFormDialog({
               <SelectValue placeholder="Select listing agent" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__me__">I am the listing agent</SelectItem>
+              <SelectItem value="__none__">Not set</SelectItem>
               <SelectItem value="__custom__">Enter manually…</SelectItem>
               {agents.map((a) => (
                 <SelectItem key={a.id} value={a.id}>
@@ -573,6 +573,25 @@ function OpenHouseFormDialog({
             </div>
           )}
         </Field>
+        <Field label="Hosting agent (who is running it) *">
+          <Select value={hostingAgentId} onValueChange={setHostingAgentId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select hosting agent" />
+            </SelectTrigger>
+            <SelectContent>
+              {agents.map((a) => (
+                <SelectItem key={a.id} value={a.id}>
+                  {a.full_name}
+                  {myProfile && a.id === myProfile.id ? ' (me)' : ''}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground mt-1">
+            The hosting agent owns this open house: their permanent QR points here, they get the live
+            sign-in view, sign-ins go to them in Follow Up Boss, and visitors see their name on the thank-you screen.
+          </p>
+        </Field>
         <Field label="Client">
           {clientLocked && form.client_name ? (
             <Badge variant="secondary" className="flex items-center gap-2 w-fit px-3 py-1.5">
@@ -592,7 +611,7 @@ function OpenHouseFormDialog({
           ) : (
             <div className="relative">
               <Input
-                placeholder="Search FUB contacts or type a name…"
+                placeholder="Search your clients and pipeline, or type a name…"
                 value={clientQuery || form.client_name}
                 onChange={(e) => {
                   const v = e.target.value;
@@ -602,7 +621,7 @@ function OpenHouseFormDialog({
                 }}
                 onFocus={() => clientResults.length > 0 && setClientDropdownOpen(true)}
               />
-              {clientDropdownOpen && (clientSearching || clientResults.length > 0) && (
+              {clientDropdownOpen && (clientSearching || clientResults.length > 0 || clientQuery.trim().length >= 2) && (
                 <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md max-h-64 overflow-auto">
                   {clientSearching && (
                     <div className="px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
@@ -610,17 +629,24 @@ function OpenHouseFormDialog({
                     </div>
                   )}
                   {!clientSearching && clientResults.length === 0 && (
-                    <div className="px-3 py-2 text-xs text-muted-foreground">No matches</div>
+                    <div className="px-3 py-2 text-xs text-muted-foreground">
+                      No matches — keep typing to add them as free text
+                    </div>
                   )}
-                  {clientResults.map((c, i) => (
+                  {clientResults.map((c) => (
                     <button
                       type="button"
-                      key={`${c.id}-${i}`}
+                      key={c.key}
                       onClick={() => selectClient(c)}
                       className="w-full text-left px-3 py-2 hover:bg-accent text-sm"
                     >
-                      <div className="font-medium">{c.name}</div>
-                      {c.email && <div className="text-xs text-muted-foreground">{c.email}</div>}
+                      <div className="font-medium flex items-center gap-2">
+                        {c.name}
+                        <Badge variant="outline" className="text-[10px] px-1 py-0">{c.source}</Badge>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {[c.address, c.email].filter(Boolean).join(' · ') || 'No address on file'}
+                      </div>
                     </button>
                   ))}
                   <div className="border-t px-3 py-1.5 text-right">
@@ -641,9 +667,16 @@ function OpenHouseFormDialog({
                 value={form.client_email}
                 onChange={(e) => setForm({ ...form, client_email: e.target.value })}
               />
+              {!clientLocked && form.client_name.trim() && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Typed by hand — pick a match above to link an existing record.
+                </p>
+              )}
             </div>
           )}
         </Field>
+
+
 
         <Separator className="my-2" />
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
