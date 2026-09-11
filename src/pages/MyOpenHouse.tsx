@@ -33,6 +33,8 @@ import { QrCode } from '@/components/openhouse/QrCode';
 import { PrintQrButton } from '@/components/openhouse/PrintableQrCard';
 import { agentUrl, kioskUrl, makeSlug, signInUrl } from '@/lib/openHouse/options';
 import { GuestList } from '@/components/openhouse/GuestList';
+import { useUserRole } from '@/hooks/useUserRole';
+import { canManageOpenHouse } from '@/lib/openHouse/permissions';
 import { PrepChecklist } from '@/components/openhouse/PrepChecklist';
 import { SellerReportSection } from '@/components/openhouse/SellerReportSection';
 import {
@@ -936,6 +938,8 @@ function OpenHouseDetail({
   onChanged: () => void;
 }) {
   const { user } = useAuth();
+  const { isAdmin, isOwner } = useUserRole();
+  const canManage = canManageOpenHouse(openHouse, user?.id, isAdmin || isOwner);
   const [guests, setGuests] = useState<Guest[]>([]);
   const [hostName, setHostName] = useState<string>(openHouse.listing_agent_name || 'your agent');
   const [showEdit, setShowEdit] = useState(false);
