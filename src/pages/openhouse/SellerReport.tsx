@@ -3,9 +3,8 @@ import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Printer } from 'lucide-react';
 import { tenant } from '@/config/tenant';
-import { ListingCard } from '@/components/openhouse/ListingCard';
 import { CONDITION_LABEL, PRICE_LABEL } from '@/lib/openHouse/guests';
-import { SellerReport as Report, asListings, money } from '@/lib/openHouse/reports';
+import { SellerReport as Report, money } from '@/lib/openHouse/reports';
 
 /**
  * The seller's recap of their own open house. Aggregate only — the function
