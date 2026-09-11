@@ -29,11 +29,14 @@ export function GuestList({
   address,
   hostName,
   endsAt,
+  canManage = true,
 }: {
   openHouseId: string;
   address: string;
   hostName: string;
   endsAt: string | null;
+  /** False for teammates who may look at this open house but not change it. */
+  canManage?: boolean;
 }) {
   const { user } = useAuth();
   const { isAdmin, isOwner } = useUserRole();
