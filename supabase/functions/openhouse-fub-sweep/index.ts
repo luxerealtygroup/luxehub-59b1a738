@@ -240,6 +240,52 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ---- stage changes made after the guest went over -----------------------
+    // The agent picked a different stage on the row. Move the same person in
+    // Follow Up Boss, unless they are already in a real working stage.
+    const { data: dueStages } = await db
+      .from('open_house_visitors')
+      .select('id, fub_contact_id, fub_stage, open_houses!inner(org_id)')
+      .not('fub_contact_id', 'is', null)
+      .not('fub_stage', 'is', null)
+      .not('fub_stage_due_at', 'is', null)
+      .lte('fub_stage_due_at', now.toISOString())
+      .limit(NOTE_BATCH);
+
+    for (const row of (dueStages ?? []) as any[]) {
+      const orgId = row.open_houses?.org_id as string | undefined;
+      if (!orgId) continue;
+      const key = await keyFor(orgId);
+      if (!key) continue;
+      let stages: Stage[];
+      try {
+        stages = await stagesFor(orgId, key);
+      } catch {
+        continue;
+      }
+      const out = await applyStage(key, String(row.fub_contact_id), String(row.fub_stage), stages);
+      if (out.ok) {
+        await db
+          .from('open_house_visitors')
+          .update({
+            fub_stage_due_at: null,
+            fub_stage_result: out.stageResult ?? null,
+            fub_sync_error: null,
+          })
+          .eq('id', row.id);
+        summary.stages += 1;
+      } else {
+        await db
+          .from('open_house_visitors')
+          .update({
+            fub_stage_due_at: new Date(Date.now() + 10 * 60_000).toISOString(),
+            fub_sync_error: out.error ?? 'Unknown error',
+          })
+          .eq('id', row.id);
+        summary.failed += 1;
+      }
+    }
+
     // ---- fresh notes for guests already in Follow Up Boss -------------------
     const { data: dueNotes } = await db
       .from('open_house_visitors')
