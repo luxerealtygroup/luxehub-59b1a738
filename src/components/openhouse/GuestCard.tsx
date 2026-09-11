@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import {
   ChevronDown, Clock, Loader2, Mail, MessageSquare, Trash2, UserCheck, Tablet, CheckCircle2,
-  Building2, ExternalLink, Send,
+  Building2, Copy, ExternalLink, Send,
 } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
@@ -194,14 +194,7 @@ export function GuestCard({
                 <Clock className="h-3 w-3" /> {ATTENDANCE_LABEL[guest.attendance]} · not counted as attendance
               </Badge>
             )}
-            {reportLink && (
-          <Button size="sm" variant="outline" asChild>
-            <a href={reportLink} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="mr-1.5 h-4 w-4" /> Homes like this
-            </a>
-          </Button>
-        )}
-        {guest.fub_sent_at ? (
+            {guest.fub_sent_at ? (
           <Badge className="gap-1 border-success/30 bg-success/15 text-success text-[10px]">
             <CheckCircle2 className="h-3 w-3" /> In Follow Up Boss ·{' '}
             {new Date(guest.fub_sent_at).toLocaleDateString()}
@@ -219,10 +212,7 @@ export function GuestCard({
             </Button>
           </div>
         )}
-        <Button size="sm" variant="outline" onClick={() => setShowFeatured(true)}>
-          <Building2 className="mr-1.5 h-4 w-4" /> Feature listings
-        </Button>
-        {guest.follow_up_sent_at && (
+            {guest.follow_up_sent_at && (
               <Badge className="gap-1 border-success/30 bg-success/15 text-success text-[10px]">
                 <CheckCircle2 className="h-3 w-3" /> Followed up
               </Badge>
@@ -364,11 +354,27 @@ export function GuestCard({
           )}
         </Button>
         {reportLink && (
-          <Button size="sm" variant="outline" asChild>
-            <a href={reportLink} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="mr-1.5 h-4 w-4" /> Homes like this
-            </a>
-          </Button>
+          <>
+            <Button size="sm" variant="outline" asChild>
+              <a href={reportLink} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="mr-1.5 h-4 w-4" /> Preview their page
+              </a>
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(reportLink);
+                  toast.success('Link copied');
+                } catch {
+                  toast.error('Could not copy — open the preview and copy from the address bar');
+                }
+              }}
+            >
+              <Copy className="mr-1.5 h-4 w-4" /> Copy link
+            </Button>
+          </>
         )}
         <Button size="sm" variant="outline" onClick={() => setShowFeatured(true)}>
           <Building2 className="mr-1.5 h-4 w-4" /> Feature listings
@@ -381,13 +387,23 @@ export function GuestCard({
         )}
       </div>
 
+      {reportLink && (
+        <p className="-mt-1 text-xs text-muted-foreground">
+          Text and Email already include this link. Preview is your own look at the page{' '}
+          {guest.first_name} receives — copy the link to send it another way.
+        </p>
+      )}
+
+
       {showFeatured && (
         <Dialog open onOpenChange={(o) => { if (!o) setShowFeatured(false); }}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="flex max-h-[90vh] max-w-lg flex-col overflow-hidden">
             <DialogHeader>
               <DialogTitle>Homes to feature for {guestName(guest)}</DialogTitle>
             </DialogHeader>
-            <ListingPicker value={asListings(guest.featured_listings)} onChange={saveFeatured} max={3} />
+            <div className="-mx-6 flex-1 overflow-y-auto px-6 py-1">
+              <ListingPicker value={asListings(guest.featured_listings)} onChange={saveFeatured} max={3} />
+            </div>
             <DialogFooter>
               <Button onClick={() => setShowFeatured(false)}>Done</Button>
             </DialogFooter>

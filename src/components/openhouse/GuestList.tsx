@@ -313,9 +313,9 @@ function AddGuestDialog({
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="flex max-h-[90vh] max-w-md flex-col overflow-hidden">
         <DialogHeader><DialogTitle>Add a guest</DialogTitle></DialogHeader>
-        <div className="space-y-3">
+        <div className="-mx-6 flex-1 space-y-3 overflow-y-auto px-6 py-1">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>First name</Label>
@@ -387,9 +387,9 @@ function TemplateDialog({
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="flex max-h-[90vh] max-w-lg flex-col overflow-hidden">
         <DialogHeader><DialogTitle>Follow-up wording</DialogTitle></DialogHeader>
-        <div className="space-y-4">
+        <div className="-mx-6 flex-1 space-y-4 overflow-y-auto px-6 py-1">
           <p className="text-sm text-muted-foreground">
             Use <code>{'{first_name}'}</code>, <code>{'{address}'}</code> and <code>{'{agent_name}'}</code> —
             they are filled in for each guest.

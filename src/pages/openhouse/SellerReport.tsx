@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Printer } from 'lucide-react';
 import { tenant } from '@/config/tenant';
+import { ListingCard } from '@/components/openhouse/ListingCard';
 import { CONDITION_LABEL, PRICE_LABEL } from '@/lib/openHouse/guests';
 import { SellerReport as Report, asListings, money } from '@/lib/openHouse/reports';
 
@@ -122,25 +123,7 @@ export default function SellerReport() {
             <h2 className="font-display text-lg font-semibold">What you're competing with</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               {report.competing_listings.map((l, i) => (
-                <div key={`${l.address}-${i}`} className="overflow-hidden rounded-lg border border-border">
-                  {l.photo_url && (
-                    <img src={l.photo_url} alt={l.address} className="h-40 w-full object-cover" />
-                  )}
-                  <div className="p-3">
-                    <p className="font-medium">{l.address}</p>
-                    <p className="text-sm text-muted-foreground">{money(l.price)}</p>
-                    {l.link && (
-                      <a
-                        href={l.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-1 inline-block text-sm text-gold underline"
-                      >
-                        View listing
-                      </a>
-                    )}
-                  </div>
-                </div>
+                <ListingCard key={`${l.address}-${i}`} listing={l} />
               ))}
             </div>
           </section>
