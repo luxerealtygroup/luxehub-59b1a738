@@ -1,8 +1,8 @@
 // Automatic open house -> Follow Up Boss sweep.
 //
 // Runs on a schedule. Nobody presses anything:
-//   - guests are pushed once their open house has ended (or as they sign in,
-//     if the team chose that), using the stage on their row, then the hosting
+//   - guests are pushed as they sign in by default (or at the end of the open
+//     house if the team chose that), using the stage on their row, then the hosting
 //     agent's default stage, then the team default, then the first FUB stage
 //   - a guest already sent is never sent again, and a person is never created
 //     twice (send is idempotent on fub_sent_at + fub_contact_id)
@@ -16,6 +16,7 @@ import {
   VISITOR_COLUMNS,
   type Stage,
   type Visitor,
+  applyStage,
   getStages,
   postNote,
   sendOne,
@@ -91,7 +92,7 @@ Deno.serve(async (req) => {
     .select('id');
   if (!lease || lease.length === 0) return json({ skipped: 'another sweep is running' });
 
-  const summary = { sent: 0, failed: 0, held: 0, notes: 0 };
+  const summary = { sent: 0, failed: 0, held: 0, notes: 0, stages: 0 };
 
   try {
     const now = new Date();
