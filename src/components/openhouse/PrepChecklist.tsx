@@ -31,10 +31,12 @@ export function PrepChecklist({
   openHouseId,
   prep,
   onChanged,
+  canManage = true,
 }: {
   openHouseId: string;
   prep: PrepState;
   onChanged: () => void;
+  canManage?: boolean;
 }) {
   const [local, setLocal] = useState<PrepState>(prep);
   const [doors, setDoors] = useState(prep.prep_doors_knocked?.toString() ?? '');

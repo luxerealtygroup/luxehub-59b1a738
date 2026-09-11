@@ -77,12 +77,15 @@ export function GuestCard({
   hostName,
   templates,
   onChanged,
+  canManage = true,
 }: {
   guest: Guest;
   address: string;
   hostName: string;
   templates: FollowUpTemplates;
   onChanged: () => void;
+  /** False for teammates who may look at this open house but not change it. */
+  canManage?: boolean;
 }) {
   const [notes, setNotes] = useState(guest.notes || '');
   const [openDetail, setOpenDetail] = useState(false);
