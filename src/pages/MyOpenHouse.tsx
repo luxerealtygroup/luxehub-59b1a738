@@ -499,13 +499,17 @@ function OpenHouseFormDialog({
       custom_question_3: form.q3.trim() || null,
       require_phone: form.require_phone,
       is_active: form.is_active,
+      // The hosting agent is who actually runs the door — everything downstream keys off it.
+      hosting_agent_id: hostingAgentId || user.id,
+      listing_agent_id:
+        listingAgentChoice && !listingAgentChoice.startsWith('__') ? listingAgentChoice : null,
     };
     if (!initial) {
       // Every open house gets its own visitor sign-in link the moment it exists.
       payload.slug = makeSlug();
       payload.created_by = user.id;
-      payload.hosting_agent_id = user.id;
     }
+
     const { error } = initial
       ? await supabase.from('open_houses').update(payload as never).eq('id', initial.id)
       : await supabase.from('open_houses').insert(payload as never);
