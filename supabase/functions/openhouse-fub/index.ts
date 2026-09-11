@@ -189,7 +189,9 @@ async function sendOne(
   key: string,
   v: Visitor,
   house: { property_address: string; hosting_email: string | null },
-): Promise<{ ok: boolean; personId?: string; error?: string }> {
+  stage: string,
+  stages: Stage[],
+): Promise<{ ok: boolean; personId?: string; error?: string; stageResult?: string }> {
   if (v.fub_sent_at && v.fub_contact_id) {
     return { ok: true, personId: v.fub_contact_id };
   }
@@ -199,24 +201,34 @@ async function sendOne(
 
   const address = house.property_address || 'Open House';
   const agent = await findAgent(key, house.hosting_email);
-  const tags = buildTags(v);
+  const tags = buildTags(v, address);
 
   let personId: string | null = null;
+  let stageResult = `Stage set to ${stage}`;
   const existing = await findPerson(key, v);
 
   if (existing) {
     personId = String(existing.id);
     const merged = Array.from(new Set([...(existing.tags ?? []), ...tags]));
+    const currentStage = existing.stage ? String(existing.stage) : null;
+    const payload: Record<string, unknown> = { tags: merged };
+    // Never knock an already-worked contact backwards.
+    if (isUnworked(currentStage, stages)) {
+      payload.stage = stage;
+    } else {
+      stageResult = `Stage left as ${currentStage} — already being worked`;
+    }
     const upd = await fub(key, `/people/${personId}`, {
       method: 'PUT',
-      body: JSON.stringify({ tags: merged }),
+      body: JSON.stringify(payload),
     });
     if (!upd.ok) return { ok: false, error: scrub(`Follow Up Boss ${upd.status}: ${upd.text}`, key).slice(0, 500) };
   } else {
     const body: Record<string, unknown> = {
       firstName: v.first_name,
       lastName: v.last_name || '',
-      source: `Open House - ${address}`,
+      source: 'Open House',
+      stage,
       tags,
     };
     if (v.email) body.emails = [{ value: v.email }];
