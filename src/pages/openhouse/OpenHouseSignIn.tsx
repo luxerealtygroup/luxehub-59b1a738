@@ -12,6 +12,7 @@ import {
   digits, formatPhone, isValidEmail, isValidPhone,
 } from '@/lib/openHouse/options';
 import { countQueued, enqueueSignIn, flushQueue, newQueueId } from '@/lib/openHouse/queue';
+import { fillSearchTemplate, isHttpsUrlTemplate, priceBand } from '@/lib/openHouse/reports';
 
 interface PublicOpenHouse {
   id: string;
@@ -31,6 +32,7 @@ interface PublicOpenHouse {
   hosting_agent_name: string | null;
   hosting_agent_email: string | null;
   hosting_agent_avatar_url: string | null;
+  search_url_template: string | null;
 }
 
 const cacheKey = (slug: string) => `${tenant.storagePrefix}.oh.${slug}`;
@@ -294,14 +296,29 @@ export default function OpenHouseSignIn() {
     setDone(true);
   };
 
-  // Thank-you screen resets itself for the next person.
+  // Only the shared kiosk tablet clears itself for the next person. On a
+  // visitor's own phone the thank-you stays put — a form blanking itself in
+  // their hand would be unsettling.
   useEffect(() => {
-    if (!done) return;
+    if (!done || !kiosk) return;
     const t = window.setTimeout(() => setDone(false), 10000);
     return () => window.clearTimeout(t);
-  }, [done]);
+  }, [done, kiosk]);
 
   const agentName = house?.hosting_agent_name || null;
+
+  // "See more homes like this" — only when an admin has set the search link.
+  const searchLink = useMemo(() => {
+    const template = (house?.search_url_template || '').trim();
+    if (!template || !isHttpsUrlTemplate(template)) return null;
+    const band = priceBand(house?.list_price ?? null);
+    return fillSearchTemplate(template, {
+      minPrice: band?.min ?? null,
+      maxPrice: band?.max ?? null,
+      beds: null,
+      city: house?.city ?? null,
+    });
+  }, [house]);
 
   const queueBadge =
     pending > 0 ? (
@@ -354,9 +371,19 @@ export default function OpenHouseSignIn() {
               Saved on this device — {pending} sign-in{pending === 1 ? '' : 's'} will send when the signal returns.
             </p>
           )}
-          <Button variant="outline" className="mt-8" onClick={() => setDone(false)}>
-            Sign in the next visitor
-          </Button>
+          {/* The visitor's own phone: leave them with somewhere to go next. */}
+          {!kiosk && searchLink && (
+            <Button asChild className="mt-8 h-14 w-full text-base">
+              <a href={searchLink} target="_blank" rel="noopener noreferrer">
+                See more homes like this
+              </a>
+            </Button>
+          )}
+          {kiosk && (
+            <Button variant="outline" className="mt-8" onClick={() => setDone(false)}>
+              Sign in the next visitor
+            </Button>
+          )}
         </div>
       </div>
     );
