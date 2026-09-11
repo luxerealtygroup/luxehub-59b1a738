@@ -325,11 +325,26 @@ Deno.serve(async (req) => {
     }
 
     // ---- sending ----------------------------------------------------------
-    if (action !== 'push' && action !== 'push_all') return json({ error: 'Unknown action' }, 400);
+    if (action !== 'push' && action !== 'push_all' && action !== 'stages') {
+      return json({ error: 'Unknown action' }, 400);
+    }
 
     const key = await getFubApiKeyForUser(caller.userId).catch(() => null);
     if (!key) {
       return json({ error: 'Follow Up Boss is not connected for this team yet.' }, 400);
+    }
+
+    const { orgId: callerOrgId } = await getUserOrgContext(caller.userId!);
+    const stages = await getStages(key, callerOrgId ?? 'instance');
+
+    if (action === 'stages') return json({ stages: stages.map((s) => s.name) });
+
+    const matchStage = (name: string | null | undefined) =>
+      stages.find((s) => s.name.toLowerCase() === (name ?? '').trim().toLowerCase())?.name ?? null;
+
+    const batchStage = matchStage(body.stage);
+    if (!batchStage && action === 'push') {
+      return json({ error: 'Pick a stage before sending this guest to Follow Up Boss.' }, 400);
     }
 
     let openHouseId = body.openHouseId ?? null;
