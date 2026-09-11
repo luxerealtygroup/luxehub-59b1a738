@@ -258,6 +258,12 @@ export function GuestCard({
                 </span>
               )}
               {canManage && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-muted-foreground">Stage</span>
+                  <FubStageSelect value={stage} onChange={pickStage} className="h-8 w-[150px] text-xs" />
+                </div>
+              )}
+              {canManage && (
               <Button size="sm" variant="outline" onClick={updateNote} disabled={updatingNote}>
                 {updatingNote ? (
                   <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
