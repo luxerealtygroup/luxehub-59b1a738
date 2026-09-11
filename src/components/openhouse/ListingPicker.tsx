@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card } from '@/components/ui/card';
-import { Home, Loader2, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { ListingCard, ListingPhoto } from '@/components/openhouse/ListingCard';
 import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
 import { isActiveListingDeal } from '@/hooks/useFubDealMetrics';
 import { ReportListing, money } from '@/lib/openHouse/reports';
@@ -26,6 +27,29 @@ export function ListingPicker({
   const [active, setActive] = useState<FUBDeal[]>([]);
   const [loading, setLoading] = useState(true);
   const [manual, setManual] = useState({ address: '', price: '', photo_url: '', link: '' });
+  /** Address (lowercased) -> the cover photo we already store for that property. */
+  const [photos, setPhotos] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('open_houses')
+        .select('property_address, cover_photo_url')
+        .not('cover_photo_url', 'is', null);
+      if (cancelled || !data) return;
+      const map: Record<string, string> = {};
+      for (const row of data as { property_address: string | null; cover_photo_url: string | null }[]) {
+        if (row.property_address && row.cover_photo_url) {
+          map[row.property_address.trim().toLowerCase()] = row.cover_photo_url;
+        }
+      }
+      setPhotos(map);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const photoFor = (address: string) => photos[address.trim().toLowerCase()] ?? null;
 
   useEffect(() => {
     let cancelled = false;
@@ -54,17 +78,17 @@ export function ListingPicker({
   return (
     <div className="space-y-4">
       {value.length > 0 && (
-        <div className="space-y-2">
+        <div className="grid gap-3 sm:grid-cols-2">
           {value.map((l, i) => (
-            <Card key={`${l.address}-${i}`} className="flex items-center justify-between gap-3 p-3">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium">{l.address}</p>
-                <p className="text-xs text-muted-foreground">{money(l.price)}</p>
-              </div>
-              <Button size="icon" variant="ghost" onClick={() => remove(i)} aria-label="Remove listing">
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </Card>
+            <ListingCard
+              key={`${l.address}-${i}`}
+              listing={l}
+              action={
+                <Button size="icon" variant="ghost" onClick={() => remove(i)} aria-label="Remove listing">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              }
+            />
           ))}
         </div>
       )}
@@ -80,24 +104,30 @@ export function ListingPicker({
         ) : active.length === 0 ? (
           <p className="text-sm text-muted-foreground">No active listings found — add one by hand below.</p>
         ) : (
-          <div className="flex flex-wrap gap-2">
-            {active.slice(0, 20).map((d) => (
-              <button
-                key={d.id}
-                type="button"
-                disabled={value.length >= max}
-                onClick={() => add({
-                  address: d.name || 'Listing',
-                  price: typeof d.price === 'number' ? d.price : null,
-                  photo_url: null,
-                  link: null,
-                })}
-                className="flex min-h-[40px] items-center gap-1.5 rounded-lg border border-border px-3 text-sm hover:border-gold/60 disabled:opacity-50"
-              >
-                <Home className="h-3.5 w-3.5 text-gold" />
-                <span className="max-w-[220px] truncate">{d.name}</span>
-              </button>
-            ))}
+          <div className="grid gap-3 sm:grid-cols-3">
+            {active.slice(0, 20).map((d) => {
+              const address = d.name || 'Listing';
+              return (
+                <button
+                  key={d.id}
+                  type="button"
+                  disabled={value.length >= max}
+                  onClick={() => add({
+                    address,
+                    price: typeof d.price === 'number' ? d.price : null,
+                    photo_url: photoFor(address),
+                    link: null,
+                  })}
+                  className="overflow-hidden rounded-lg border border-border text-left transition-colors hover:border-gold/60 disabled:opacity-50"
+                >
+                  <ListingPhoto url={photoFor(address)} alt={address} className="aspect-[4/3] w-full" />
+                  <div className="p-2">
+                    <p className="truncate text-sm font-medium">{address}</p>
+                    <p className="text-xs text-muted-foreground">{money(typeof d.price === 'number' ? d.price : null)}</p>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
@@ -115,7 +145,7 @@ export function ListingPicker({
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Photo link</Label>
-            <Input value={manual.photo_url} onChange={(e) => setManual({ ...manual, photo_url: e.target.value })} />
+            <Input placeholder="https://…" value={manual.photo_url} onChange={(e) => setManual({ ...manual, photo_url: e.target.value })} />
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Listing link</Label>
