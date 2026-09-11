@@ -221,7 +221,7 @@ export function GuestCard({
             <CheckCircle2 className="h-3 w-3" /> In Follow Up Boss ·{' '}
             {new Date(guest.fub_sent_at).toLocaleDateString()}
           </Badge>
-        ) : (
+        ) : canManage ? (
           <div className="flex flex-wrap items-center gap-1.5">
             <FubStageSelect value={stage} onChange={pickStage} className="h-8 w-[150px] text-xs" />
             <Button size="sm" variant="outline" onClick={sendToFub} disabled={sending || !stage}>
@@ -233,6 +233,8 @@ export function GuestCard({
               Send to Follow Up Boss
             </Button>
           </div>
+        ) : (
+          <Badge variant="outline" className="text-[10px]">Not in Follow Up Boss yet</Badge>
         )}
             {guest.follow_up_sent_at && (
               <Badge className="gap-1 border-success/30 bg-success/15 text-success text-[10px]">
@@ -255,6 +257,7 @@ export function GuestCard({
                   <AlertCircle className="h-3.5 w-3.5" /> Newer information here than in Follow Up Boss
                 </span>
               )}
+              {canManage && (
               <Button size="sm" variant="outline" onClick={updateNote} disabled={updatingNote}>
                 {updatingNote ? (
                   <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
@@ -263,6 +266,7 @@ export function GuestCard({
                 )}
                 Update note in Follow Up Boss
               </Button>
+              )}
             </div>
           )}
           {guest.fub_sent_at && guest.fub_sync_error && (
@@ -279,9 +283,11 @@ export function GuestCard({
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <span className="text-xs text-muted-foreground">{guestTime(guest)}</span>
-          <Button size="icon" variant="ghost" onClick={remove} aria-label="Remove guest">
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          {canManage && (
+            <Button size="icon" variant="ghost" onClick={remove} aria-label="Remove guest">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
 
