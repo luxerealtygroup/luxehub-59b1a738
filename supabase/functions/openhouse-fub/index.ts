@@ -392,10 +392,18 @@ Deno.serve(async (req) => {
 
     const results: { id: string; ok: boolean; error?: string }[] = [];
     for (const v of visitors) {
+      // A stage chosen on the guest's own row always wins over the batch choice.
+      const stage = matchStage((v as any).fub_stage) ?? batchStage;
+      if (!stage) {
+        const error = 'No stage picked for this guest.';
+        await db.from('open_house_visitors').update({ fub_sync_error: error }).eq('id', v.id);
+        results.push({ id: v.id, ok: false, error });
+        continue;
+      }
       const out = await sendOne(key, v, {
         property_address: (house as any).property_address,
         hosting_email: hostingEmail,
-      });
+      }, stage, stages);
       if (out.ok) {
         await db
           .from('open_house_visitors')
@@ -404,6 +412,8 @@ Deno.serve(async (req) => {
             fub_linked: true,
             fub_sent_at: new Date().toISOString(),
             fub_sync_error: null,
+            fub_stage: stage,
+            fub_stage_result: out.stageResult ?? null,
           })
           .eq('id', v.id);
       } else {
