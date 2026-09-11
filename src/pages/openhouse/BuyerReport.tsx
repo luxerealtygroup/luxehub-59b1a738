@@ -96,18 +96,7 @@ export default function BuyerReport() {
             <h2 className="font-display text-lg font-semibold">Hand-picked for you</h2>
             <div className="grid gap-4 sm:grid-cols-2">
               {report.featured_listings.map((l, i) => (
-                <div key={`${l.address}-${i}`} className="overflow-hidden rounded-lg border border-border">
-                  {l.photo_url && <img src={l.photo_url} alt={l.address} className="h-40 w-full object-cover" />}
-                  <div className="p-3">
-                    <p className="font-medium">{l.address}</p>
-                    <p className="text-sm text-muted-foreground">{money(l.price)}</p>
-                    {l.link && (
-                      <a href={l.link} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-sm text-gold underline">
-                        View listing
-                      </a>
-                    )}
-                  </div>
-                </div>
+                <ListingCard key={`${l.address}-${i}`} listing={l} />
               ))}
             </div>
           </section>
