@@ -798,21 +798,32 @@ function AgentQrCard() {
     let alive = true;
     const check = async () => {
       const { data } = await supabase.rpc('public_agent_open_house', { _agent_slug: slug });
-      const activeSlug = (data as { active_slug?: string | null }[] | null)?.[0]?.active_slug;
+      const row = (data as {
+        active_slug?: string | null;
+        status?: string | null;
+        house_address?: string | null;
+        house_starts_at?: string | null;
+        house_ends_at?: string | null;
+      }[] | null)?.[0];
       if (!alive) return;
-      if (!activeSlug) {
+      if (!row?.active_slug || !row.house_address) {
         setRightNow(null);
         return;
       }
-      const { data: house } = await supabase.rpc('public_open_house', { _slug: activeSlug });
-      const h = (house as { address?: string; starts_at?: string | null; ends_at?: string | null }[] | null)?.[0];
-      if (!alive || !h) { setRightNow(null); return; }
       const time = (v?: string | null) =>
         v ? new Date(v).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).toLowerCase().replace(':00', '') : null;
-      const from = time(h.starts_at);
-      const to = time(h.ends_at);
-      const when = from && to ? `today ${from}–${to}` : 'today';
-      setRightNow(`${h.address}, ${when}`);
+      const from = time(row.house_starts_at);
+      const to = time(row.house_ends_at);
+      const start = row.house_starts_at ? new Date(row.house_starts_at) : null;
+      const today = start ? start.toDateString() === new Date().toDateString() : true;
+      const day = today
+        ? 'today'
+        : start
+          ? start.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+          : '';
+      const when = from && to ? `${day} ${from}–${to}`.trim() : day;
+      const prefix = row.status === 'running' ? 'Running now: ' : 'Next up: ';
+      setRightNow(`${prefix}${row.house_address}, ${when}`);
     };
     check();
     const timer = setInterval(check, 60000);
@@ -826,7 +837,8 @@ function AgentQrCard() {
       <div className="flex-1 space-y-2">
         <p className="font-medium text-foreground">Your permanent QR</p>
         <p className="text-sm text-muted-foreground">
-          Print it once. It always opens whichever of your open houses is running right now.
+          Print it once. It opens the open house you're running now, otherwise your next one, otherwise
+          your contact card with a short form.
         </p>
         <p className="text-sm">
           {rightNow ? (
@@ -836,7 +848,7 @@ function AgentQrCard() {
             </>
           ) : (
             <span className="text-muted-foreground">
-              No open house running — this shows your contact card.
+              No open house running or upcoming — this shows your contact card and lead form.
             </span>
           )}
         </p>
