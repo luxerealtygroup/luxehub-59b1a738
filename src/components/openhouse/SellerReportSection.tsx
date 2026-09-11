@@ -7,19 +7,15 @@ import { Label } from '@/components/ui/label';
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-import { Copy, ExternalLink, Loader2, Lock, Mail, Building2, Settings2 } from 'lucide-react';
+import { Copy, ExternalLink, Loader2, Lock, Mail, Settings2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
-import { ListingPicker } from '@/components/openhouse/ListingPicker';
-import {
-  ReportListing, SEARCH_TEMPLATE_KEY, asListings, isHttpsUrlTemplate, sellerReportUrl,
-} from '@/lib/openHouse/reports';
+import { SEARCH_TEMPLATE_KEY, isHttpsUrlTemplate, sellerReportUrl } from '@/lib/openHouse/reports';
 
 /**
  * Everything the agent needs around the seller's recap: the shareable link once
- * the open house has ended, the competing listings shown on it, and the note
- * that goes out with it.
+ * the open house has ended and the note that goes out with it.
  */
 export function SellerReportSection({
   openHouse,
@@ -31,21 +27,18 @@ export function SellerReportSection({
     property_address: string;
     ends_at: string | null;
     seller_notes: string | null;
-    competing_listings: unknown;
     client_email: string | null;
     client_name: string | null;
   };
   onChanged: () => void;
 }) {
   const { isAdmin, isOwner } = useUserRole();
-  const [showCompeting, setShowCompeting] = useState(false);
   const [showSearchSetting, setShowSearchSetting] = useState(false);
   const [notes, setNotes] = useState(openHouse.seller_notes || '');
   const [savingNotes, setSavingNotes] = useState(false);
 
   const ended = !!openHouse.ends_at && new Date(openHouse.ends_at).getTime() < Date.now();
   const url = openHouse.slug ? sellerReportUrl(openHouse.slug) : '';
-  const competing = asListings(openHouse.competing_listings);
 
   const saveNotes = async () => {
     setSavingNotes(true);
@@ -62,24 +55,12 @@ export function SellerReportSection({
     onChanged();
   };
 
-  const saveCompeting = async (next: ReportListing[]) => {
-    const { error } = await supabase
-      .from('open_houses')
-      .update({ competing_listings: next as never } as never)
-      .eq('id', openHouse.id);
-    if (error) {
-      toast.error('Could not save the listings', { description: error.message });
-      return;
-    }
-    onChanged();
-  };
-
   const sendToSeller = () => {
     const subject = `Your open house report — ${openHouse.property_address}`;
     const body =
       `Hi ${openHouse.client_name || 'there'},\n\n` +
       `Here is the full report from the open house at ${openHouse.property_address}, including who came through, ` +
-      `what they said about the price and condition, and what we are competing with:\n\n${url}\n\n` +
+      `what they said about the price and condition:\n\n${url}\n\n` +
       `Happy to walk you through it whenever suits.\n\nBest regards`;
     window.location.href =
       `mailto:${openHouse.client_email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
@@ -127,32 +108,6 @@ export function SellerReportSection({
           {savingNotes && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />} Save notes
         </Button>
       </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
-        <div>
-          <p className="text-sm font-medium">What you're competing with</p>
-          <p className="text-xs text-muted-foreground">
-            {competing.length === 0 ? 'No listings chosen yet.' : `${competing.length} listing${competing.length === 1 ? '' : 's'} on the report.`}
-          </p>
-        </div>
-        <Button size="sm" variant="outline" onClick={() => setShowCompeting(true)}>
-          <Building2 className="mr-1.5 h-4 w-4" /> Choose listings
-        </Button>
-      </div>
-
-      {showCompeting && (
-        <Dialog open onOpenChange={(o) => { if (!o) setShowCompeting(false); }}>
-          <DialogContent className="flex max-h-[90vh] max-w-lg flex-col overflow-hidden">
-            <DialogHeader><DialogTitle>What you're competing with</DialogTitle></DialogHeader>
-            <div className="-mx-6 flex-1 overflow-y-auto px-6 py-1">
-              <ListingPicker value={competing} onChange={saveCompeting} max={4} />
-            </div>
-            <DialogFooter>
-              <Button onClick={() => setShowCompeting(false)}>Done</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
 
       {showSearchSetting && (
         <SearchTemplateDialog onClose={() => setShowSearchSetting(false)} />

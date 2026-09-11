@@ -27,7 +27,6 @@ export interface SellerReport {
   hosting_agent_email: string | null;
   doors_knocked: number | null;
   notes: string | null;
-  competing_listings: ReportListing[];
   visitors: number;
   with_agent: number;
   home_to_sell: number;
