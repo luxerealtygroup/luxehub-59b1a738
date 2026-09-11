@@ -357,9 +357,19 @@ export default function OpenHouseSignIn() {
               Saved on this device — {pending} sign-in{pending === 1 ? '' : 's'} will send when the signal returns.
             </p>
           )}
-          <Button variant="outline" className="mt-8" onClick={() => setDone(false)}>
-            Sign in the next visitor
-          </Button>
+          {/* The visitor's own phone: leave them with somewhere to go next. */}
+          {!kiosk && searchLink && (
+            <Button asChild className="mt-8 h-14 w-full text-base">
+              <a href={searchLink} target="_blank" rel="noopener noreferrer">
+                See more homes like this
+              </a>
+            </Button>
+          )}
+          {kiosk && (
+            <Button variant="outline" className="mt-8" onClick={() => setDone(false)}>
+              Sign in the next visitor
+            </Button>
+          )}
         </div>
       </div>
     );
