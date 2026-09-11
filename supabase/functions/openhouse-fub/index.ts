@@ -117,12 +117,47 @@ function buildNote(v: Visitor, address: string) {
   return lines.join('\n');
 }
 
-function buildTags(v: Visitor) {
+/**
+ * One source for everyone ('Open House'); the property lives in a tag so the
+ * account does not grow a source label per listing.
+ */
+function buildTags(v: Visitor, address: string) {
   const tags = ['Open House'];
+  if (address) tags.push(`Open House - ${address}`);
   if (v.temperature) tags.push(`Open House ${v.temperature[0].toUpperCase()}${v.temperature.slice(1)}`);
   if (v.has_home_to_sell === 'yes') tags.push('Has Home To Sell');
   else if (v.has_home_to_sell === 'no') tags.push('No Home To Sell');
   return tags;
+}
+
+// ---- stages ---------------------------------------------------------------
+
+interface Stage { id: number; name: string }
+
+const stageCache = new Map<string, { at: number; stages: Stage[] }>();
+const STAGE_CACHE_MS = 5 * 60 * 1000;
+
+async function getStages(key: string, cacheKey: string): Promise<Stage[]> {
+  const hit = stageCache.get(cacheKey);
+  if (hit && Date.now() - hit.at < STAGE_CACHE_MS) return hit.stages;
+  const res = await fub(key, '/stages?limit=100');
+  if (!res.ok) throw new Error(`Could not load the Follow Up Boss stage list (${res.status}).`);
+  const stages: Stage[] = (res.body?.stages ?? [])
+    .filter((s: any) => s?.name)
+    .map((s: any) => ({ id: Number(s.id), name: String(s.name) }));
+  stageCache.set(cacheKey, { at: Date.now(), stages });
+  return stages;
+}
+
+/** Entry stages we are allowed to move someone out of. Anything else is real work. */
+const UNWORKED = /^(lead|new lead|new leads?|contact|contacted|inquiry|unworked|new|prospect)$/i;
+
+function isUnworked(current: string | null | undefined, stages: Stage[]) {
+  const name = (current || '').trim();
+  if (!name) return true;
+  if (UNWORKED.test(name)) return true;
+  const first = stages[0]?.name;
+  return Boolean(first && first.toLowerCase() === name.toLowerCase());
 }
 
 /** Find a Follow Up Boss user whose email matches the hosting agent. */
