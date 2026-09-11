@@ -172,7 +172,7 @@ export function GuestCard({
               )}
             </Badge>
             {guest.attendance && guest.attendance !== 'during' && (
-              <Badge variant="outline" className="gap-1 border-warning/40 text-warning text-[10px]">
+              <Badge variant="outline" className="gap-1 border-gold/40 text-gold text-[10px]">
                 <Clock className="h-3 w-3" /> {ATTENDANCE_LABEL[guest.attendance]} · not counted as attendance
               </Badge>
             )}
