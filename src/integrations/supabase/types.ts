@@ -2640,6 +2640,7 @@ export type Database = {
           follow_up_sent_at: string | null
           fub_contact_id: string | null
           fub_linked: boolean
+          fub_note_updated_at: string | null
           fub_sent_at: string | null
           fub_stage: string | null
           fub_stage_result: string | null
@@ -2680,6 +2681,7 @@ export type Database = {
           follow_up_sent_at?: string | null
           fub_contact_id?: string | null
           fub_linked?: boolean
+          fub_note_updated_at?: string | null
           fub_sent_at?: string | null
           fub_stage?: string | null
           fub_stage_result?: string | null
@@ -2720,6 +2722,7 @@ export type Database = {
           follow_up_sent_at?: string | null
           fub_contact_id?: string | null
           fub_linked?: boolean
+          fub_note_updated_at?: string | null
           fub_sent_at?: string | null
           fub_stage?: string | null
           fub_stage_result?: string | null
@@ -2760,7 +2763,6 @@ export type Database = {
           city: string | null
           client_email: string | null
           client_name: string | null
-          competing_listings: Json
           cover_photo_url: string | null
           created_at: string
           created_by: string | null
@@ -2796,7 +2798,6 @@ export type Database = {
           city?: string | null
           client_email?: string | null
           client_name?: string | null
-          competing_listings?: Json
           cover_photo_url?: string | null
           created_at?: string
           created_by?: string | null
@@ -2832,7 +2833,6 @@ export type Database = {
           city?: string | null
           client_email?: string | null
           client_name?: string | null
-          competing_listings?: Json
           cover_photo_url?: string | null
           created_at?: string
           created_by?: string | null
@@ -5504,7 +5504,6 @@ export type Database = {
           address: string
           city: string
           cold: number
-          competing_listings: Json
           condition_feedback: Json
           cover_photo_url: string
           doors_knocked: number

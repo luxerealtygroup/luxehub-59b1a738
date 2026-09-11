@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import {
   ChevronDown, Clock, Loader2, Mail, MessageSquare, Trash2, UserCheck, Tablet, CheckCircle2,
-  Building2, Copy, ExternalLink, Send,
+  Building2, Copy, ExternalLink, Send, RefreshCw, AlertCircle,
 } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
@@ -23,7 +23,7 @@ import {
   ATTENDANCE_LABEL,
   CONDITION_LABEL, Guest, INTEREST_LABEL, PRICE_LABEL, TEMPERATURE_OPTIONS, Temperature,
   ConditionFeedback, InterestLevel, PriceFeedback,
-  fillTemplate, guestName, guestTime, mailtoHref, missingPrompt, smsHref,
+  fillTemplate, fubNoteStale, guestName, guestTime, mailtoHref, missingPrompt, smsHref,
 } from '@/lib/openHouse/guests';
 
 export interface FollowUpTemplates {
@@ -169,6 +169,25 @@ export function GuestCard({
     onChanged();
   };
 
+  const [updatingNote, setUpdatingNote] = useState(false);
+  const noteStale = fubNoteStale(guest);
+
+  const updateNote = async () => {
+    setUpdatingNote(true);
+    const { data, error } = await supabase.functions.invoke('openhouse-fub', {
+      body: { action: 'update_note', visitorId: guest.id },
+    });
+    setUpdatingNote(false);
+    const detail = (data as { error?: string } | null)?.error;
+    if (error || detail) {
+      toast.error('Could not update the note', { description: detail || (error as Error)?.message });
+      onChanged();
+      return;
+    }
+    toast.success('Note updated in Follow Up Boss');
+    onChanged();
+  };
+
   const prompt = missingPrompt(guest);
   const missingSet = new Set(
     (['intent', 'timeline', 'lender_status', 'has_home_to_sell', 'working_with_agent'] as const).filter(
@@ -221,6 +240,31 @@ export function GuestCard({
           <p className="mt-0.5 text-sm text-muted-foreground">
             {[guest.phone, guest.email].filter(Boolean).join(' · ') || 'No contact details yet'}
           </p>
+          {guest.fub_sent_at && (
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <p className="text-xs text-muted-foreground">
+                {guest.fub_note_updated_at
+                  ? `Note last updated ${new Date(guest.fub_note_updated_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}`
+                  : 'No note update sent yet'}
+              </p>
+              {noteStale && (
+                <span className="inline-flex items-center gap-1 text-xs text-gold">
+                  <AlertCircle className="h-3.5 w-3.5" /> Newer information here than in Follow Up Boss
+                </span>
+              )}
+              <Button size="sm" variant="outline" onClick={updateNote} disabled={updatingNote}>
+                {updatingNote ? (
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-1.5 h-4 w-4" />
+                )}
+                Update note in Follow Up Boss
+              </Button>
+            </div>
+          )}
+          {guest.fub_sent_at && guest.fub_sync_error && (
+            <p className="mt-1 text-xs text-destructive">{guest.fub_sync_error}</p>
+          )}
           {guest.fub_sent_at && guest.fub_stage_result && (
             <p className="mt-1 text-xs text-muted-foreground">{guest.fub_stage_result}</p>
           )}
