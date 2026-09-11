@@ -27,7 +27,7 @@ export function FubConnectionDialog({ onClose }: { onClose: () => void }) {
   const [value, setValue] = useState('');
   const [busy, setBusy] = useState(false);
   const [live, setLive] = useState<{ ok: boolean; message: string } | null>(null);
-  const [timing, setTiming] = useState<'end' | 'signin'>('end');
+  const [timing, setTiming] = useState<'end' | 'signin'>('signin');
   const [teamStage, setTeamStage] = useState<string | null>(null);
   const [savingPrefs, setSavingPrefs] = useState(false);
 
@@ -54,7 +54,7 @@ export function FubConnectionDialog({ onClose }: { onClose: () => void }) {
         .select('key, value')
         .in('key', [SEND_TIMING_KEY, TEAM_STAGE_KEY]);
       for (const r of rows || []) {
-        if (r.key === SEND_TIMING_KEY && r.value === 'signin') setTiming('signin');
+        if (r.key === SEND_TIMING_KEY) setTiming(r.value === 'end' ? 'end' : 'signin');
         if (r.key === TEAM_STAGE_KEY && r.value) setTeamStage(r.value as string);
       }
       setLoading(false);
@@ -158,7 +158,7 @@ export function FubConnectionDialog({ onClose }: { onClose: () => void }) {
                   <Label htmlFor="fub-timing-end" className="font-normal">
                     When the open house ends
                     <span className="block text-xs text-muted-foreground">
-                      Recommended — one tidy note per guest, with everything you learned in it.
+                      Slower, but one tidy note per guest with everything you learned in it.
                     </span>
                   </Label>
                 </div>
@@ -167,8 +167,9 @@ export function FubConnectionDialog({ onClose }: { onClose: () => void }) {
                   <Label htmlFor="fub-timing-signin" className="font-normal">
                     As they sign in
                     <span className="block text-xs text-muted-foreground">
-                      Faster, but the first note only has what they typed; anything you add later
-                      goes over as a second note.
+                      Recommended — your Follow Up Boss automation starts straight away. The first
+                      note has their five answers; anything you add later follows as an update to
+                      the same person.
                     </span>
                   </Label>
                 </div>
@@ -188,8 +189,9 @@ export function FubConnectionDialog({ onClose }: { onClose: () => void }) {
                 className="h-10 w-full"
               />
               <p className="text-xs text-muted-foreground">
-                A guest's own stage comes first, then the hosting agent's usual stage, then this one.
-                Nobody is ever held back waiting for a choice.
+Automatic sends use the hosting agent's usual stage, since nobody has chosen one yet at
+                sign-in; this stage is the backstop when they haven't set one. Change a guest's stage
+                later and it moves in Follow Up Boss too — unless they're already being worked.
               </p>
             </div>
           </div>

@@ -2706,6 +2706,7 @@ export type Database = {
           fub_note_updated_at: string | null
           fub_sent_at: string | null
           fub_stage: string | null
+          fub_stage_due_at: string | null
           fub_stage_result: string | null
           fub_sync_error: string | null
           has_home_to_sell: string | null
@@ -2750,6 +2751,7 @@ export type Database = {
           fub_note_updated_at?: string | null
           fub_sent_at?: string | null
           fub_stage?: string | null
+          fub_stage_due_at?: string | null
           fub_stage_result?: string | null
           fub_sync_error?: string | null
           has_home_to_sell?: string | null
@@ -2794,6 +2796,7 @@ export type Database = {
           fub_note_updated_at?: string | null
           fub_sent_at?: string | null
           fub_stage?: string | null
+          fub_stage_due_at?: string | null
           fub_stage_result?: string | null
           fub_sync_error?: string | null
           has_home_to_sell?: string | null

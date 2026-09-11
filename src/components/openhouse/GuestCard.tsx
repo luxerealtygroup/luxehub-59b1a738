@@ -145,7 +145,15 @@ export function GuestCard({
     setStage(next);
     rememberStage(next);
     // Persisted so a row's own choice beats the batch choice in Send all.
+    // If the guest is already in Follow Up Boss, this also queues the move
+    // over there — unless they are already in a real working stage.
     await supabase.from('open_house_visitors').update({ fub_stage: next }).eq('id', guest.id);
+    if (guest.fub_sent_at) {
+      toast.success('Stage saved', {
+        description: 'It moves in Follow Up Boss shortly, unless they are already being worked.',
+      });
+      onChanged();
+    }
   };
 
   const sendToFub = async () => {
@@ -256,6 +264,12 @@ export function GuestCard({
                 <span className="inline-flex items-center gap-1 text-xs text-gold">
                   <AlertCircle className="h-3.5 w-3.5" /> Newer information here than in Follow Up Boss
                 </span>
+              )}
+              {canManage && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-muted-foreground">Stage</span>
+                  <FubStageSelect value={stage} onChange={pickStage} className="h-8 w-[150px] text-xs" />
+                </div>
               )}
               {canManage && (
               <Button size="sm" variant="outline" onClick={updateNote} disabled={updatingNote}>

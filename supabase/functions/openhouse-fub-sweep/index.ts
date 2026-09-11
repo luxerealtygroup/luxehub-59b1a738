@@ -1,8 +1,8 @@
 // Automatic open house -> Follow Up Boss sweep.
 //
 // Runs on a schedule. Nobody presses anything:
-//   - guests are pushed once their open house has ended (or as they sign in,
-//     if the team chose that), using the stage on their row, then the hosting
+//   - guests are pushed as they sign in by default (or at the end of the open
+//     house if the team chose that), using the stage on their row, then the hosting
 //     agent's default stage, then the team default, then the first FUB stage
 //   - a guest already sent is never sent again, and a person is never created
 //     twice (send is idempotent on fub_sent_at + fub_contact_id)
@@ -16,6 +16,7 @@ import {
   VISITOR_COLUMNS,
   type Stage,
   type Visitor,
+  applyStage,
   getStages,
   postNote,
   sendOne,
@@ -91,7 +92,7 @@ Deno.serve(async (req) => {
     .select('id');
   if (!lease || lease.length === 0) return json({ skipped: 'another sweep is running' });
 
-  const summary = { sent: 0, failed: 0, held: 0, notes: 0 };
+  const summary = { sent: 0, failed: 0, held: 0, notes: 0, stages: 0 };
 
   try {
     const now = new Date();
@@ -160,7 +161,9 @@ Deno.serve(async (req) => {
       const orgId = house?.org_id;
       if (!orgId) continue;
 
-      const timing = timingByOrg.get(orgId) ?? 'end';
+      // Speed is the point: unless the team asked for end-of-open-house,
+      // a guest goes over as soon as they sign in.
+      const timing = timingByOrg.get(orgId) ?? 'signin';
       if (timing !== 'signin' && !hasEnded(house, now)) continue;
 
       const key = await keyFor(orgId);
@@ -181,7 +184,9 @@ Deno.serve(async (req) => {
       const hostId = house.hosting_agent_id || house.user_id;
       const match = (name: string | null | undefined) =>
         stages.find((s) => s.name.toLowerCase() === (name ?? '').trim().toLowerCase())?.name ?? null;
-      // Never blocked waiting for a human to pick something.
+      // Automatic sends never wait for a human: at sign-in nobody has had the
+      // chance to choose, so the hosting agent's usual stage is what we use.
+      // A stage already sitting on the row (an agent did choose) still wins.
       const stage =
         match(row.fub_stage) ??
         match(hostId ? stageByAgent.get(hostId) : null) ??
@@ -232,6 +237,52 @@ Deno.serve(async (req) => {
             fub_sync_error: out.error ?? 'Unknown error',
           })
           .eq('id', visitor.id);
+        summary.failed += 1;
+      }
+    }
+
+    // ---- stage changes made after the guest went over -----------------------
+    // The agent picked a different stage on the row. Move the same person in
+    // Follow Up Boss, unless they are already in a real working stage.
+    const { data: dueStages } = await db
+      .from('open_house_visitors')
+      .select('id, fub_contact_id, fub_stage, open_houses!inner(org_id)')
+      .not('fub_contact_id', 'is', null)
+      .not('fub_stage', 'is', null)
+      .not('fub_stage_due_at', 'is', null)
+      .lte('fub_stage_due_at', now.toISOString())
+      .limit(NOTE_BATCH);
+
+    for (const row of (dueStages ?? []) as any[]) {
+      const orgId = row.open_houses?.org_id as string | undefined;
+      if (!orgId) continue;
+      const key = await keyFor(orgId);
+      if (!key) continue;
+      let stages: Stage[];
+      try {
+        stages = await stagesFor(orgId, key);
+      } catch {
+        continue;
+      }
+      const out = await applyStage(key, String(row.fub_contact_id), String(row.fub_stage), stages);
+      if (out.ok) {
+        await db
+          .from('open_house_visitors')
+          .update({
+            fub_stage_due_at: null,
+            fub_stage_result: out.stageResult ?? null,
+            fub_sync_error: null,
+          })
+          .eq('id', row.id);
+        summary.stages += 1;
+      } else {
+        await db
+          .from('open_house_visitors')
+          .update({
+            fub_stage_due_at: new Date(Date.now() + 10 * 60_000).toISOString(),
+            fub_sync_error: out.error ?? 'Unknown error',
+          })
+          .eq('id', row.id);
         summary.failed += 1;
       }
     }
