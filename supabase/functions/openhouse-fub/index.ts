@@ -272,7 +272,13 @@ Deno.serve(async (req) => {
   if (!guard.ok) return guard.response;
   const caller = guard.caller;
 
-  let body: { action?: string; value?: string; visitorId?: string; openHouseId?: string };
+  let body: {
+    action?: string;
+    value?: string;
+    visitorId?: string;
+    openHouseId?: string;
+    stage?: string;
+  };
   try {
     body = await req.json();
   } catch {
