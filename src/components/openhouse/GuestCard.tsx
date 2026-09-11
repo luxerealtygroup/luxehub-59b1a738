@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import {
   ChevronDown, Clock, Loader2, Mail, MessageSquare, Trash2, UserCheck, Tablet, CheckCircle2,
-  Building2, ExternalLink, Send,
+  Building2, Copy, ExternalLink, Send,
 } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
