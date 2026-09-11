@@ -1054,12 +1054,14 @@ function OpenHouseDetail({
           )}
         </Dialog>
       </div>
+      )}
 
       <GuestList
         openHouseId={openHouse.id}
         address={openHouse.property_address}
         hostName={hostName}
         endsAt={endsAt}
+        canManage={canManage}
       />
 
       <SellerReportSection
@@ -1073,6 +1075,7 @@ function OpenHouseDetail({
           client_name: openHouse.client_name,
         }}
         onChanged={onChanged}
+        canManage={canManage}
       />
 
       <ReportSection openHouse={openHouse} guests={guests} />
