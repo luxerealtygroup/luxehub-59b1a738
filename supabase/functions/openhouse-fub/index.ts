@@ -74,6 +74,9 @@ interface Visitor {
   custom_answers: Record<string, string> | null;
   notes: string | null;
   temperature: string | null;
+  price_feedback: string | null;
+  condition_feedback: string | null;
+  interest_level: string | null;
   fub_contact_id: string | null;
   fub_sent_at: string | null;
   fub_stage: string | null;
@@ -85,37 +88,76 @@ interface Visitor {
 const VISITOR_COLUMNS =
   'id, first_name, last_name, email, phone, working_with_agent, agent_name, intent, ' +
   'has_home_to_sell, timeline, lender_status, custom_answers, notes, temperature, ' +
+  'price_feedback, condition_feedback, interest_level, ' +
   'fub_contact_id, fub_stage, fub_sent_at, signed_in_at, client_captured_at, created_at';
 
-function buildNote(v: Visitor, address: string) {
+const PRICE_LABEL: Record<string, string> = {
+  priced_right: 'Priced right',
+  slightly_high: 'Slightly high',
+  too_high: 'Too high',
+  below_market: 'Below market',
+};
+
+const CONDITION_LABEL: Record<string, string> = {
+  excellent: 'Excellent',
+  good: 'Good',
+  fair: 'Fair',
+  needs_work: 'Needs work',
+};
+
+const INTEREST_LABEL: Record<string, string> = { high: 'High', medium: 'Medium', low: 'Low' };
+
+/**
+ * Readable at a glance in Follow Up Boss: where and when, then their answers,
+ * then their feedback, then the agent's own notes. Blank things are left out
+ * entirely rather than printed as empty labels.
+ */
+function buildNote(v: Visitor, address: string, update = false) {
   const when = v.client_captured_at || v.signed_in_at || v.created_at;
   const date = new Date(when).toLocaleString('en-CA', { dateStyle: 'medium', timeStyle: 'short' });
-  const lines = [
-    `Open house sign-in — ${address}`,
-    `Signed in: ${date}`,
-    '',
-    `Buying or selling: ${v.intent ?? 'not asked'}`,
-    `Timeline: ${v.timeline ?? 'not asked'}`,
-    `Lender: ${v.lender_status ?? 'not asked'}`,
-    `Home to sell: ${v.has_home_to_sell ?? 'not asked'}`,
-    `Working with an agent: ${
-      v.working_with_agent === true
-        ? `yes${v.agent_name ? ` (${v.agent_name})` : ''}`
-        : v.working_with_agent === false
-          ? 'no'
-          : 'not asked'
-    }`,
-  ];
-  if (v.temperature) lines.push(`Temperature: ${v.temperature}`);
-  const custom = Object.entries(v.custom_answers ?? {});
-  if (custom.length) {
-    lines.push('');
-    for (const [q, a] of custom) lines.push(`${q}: ${a}`);
+
+  const out: string[] = [];
+  out.push(update ? `Open house update — ${address}` : `Open house sign-in — ${address}`);
+  out.push(`Signed in: ${date}`);
+
+  const answers: string[] = [];
+  const add = (label: string, value: string | null | undefined) => {
+    if (value) answers.push(`• ${label}: ${value}`);
+  };
+  add('Buying or selling', v.intent);
+  add('Timeline', v.timeline);
+  add('Lender', v.lender_status);
+  add('Home to sell', v.has_home_to_sell);
+  if (v.working_with_agent === true) {
+    answers.push(`• Working with an agent: yes${v.agent_name ? ` (${v.agent_name})` : ''}`);
+  } else if (v.working_with_agent === false) {
+    answers.push('• Working with an agent: no');
   }
-  if (v.notes) {
-    lines.push('', `Agent notes: ${v.notes}`);
+  add('Temperature', v.temperature);
+  add('Interest level', v.interest_level ? INTEREST_LABEL[v.interest_level] ?? v.interest_level : null);
+  for (const [q, a] of Object.entries(v.custom_answers ?? {})) {
+    if (a) answers.push(`• ${q}: ${a}`);
   }
-  return lines.join('\n');
+  if (answers.length) {
+    out.push('', 'THEIR ANSWERS', ...answers);
+  }
+
+  const feedback: string[] = [];
+  if (v.price_feedback) {
+    feedback.push(`• Price: ${PRICE_LABEL[v.price_feedback] ?? v.price_feedback}`);
+  }
+  if (v.condition_feedback) {
+    feedback.push(`• Condition: ${CONDITION_LABEL[v.condition_feedback] ?? v.condition_feedback}`);
+  }
+  if (feedback.length) {
+    out.push('', 'FEEDBACK ON THE HOME', ...feedback);
+  }
+
+  if (v.notes && v.notes.trim()) {
+    out.push('', "AGENT'S NOTES", v.notes.trim());
+  }
+
+  return out.join('\n');
 }
 
 /**
@@ -186,6 +228,29 @@ async function findPerson(key: string, v: Visitor) {
   return null;
 }
 
+/** Appends a fresh note. Never touches the person's stage, source or assignment. */
+async function postNote(
+  key: string,
+  personId: string,
+  v: Visitor,
+  address: string,
+  update: boolean,
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await fub(key, '/notes', {
+    method: 'POST',
+    body: JSON.stringify({
+      personId: Number(personId),
+      subject: update ? `Open House update — ${address}` : `Open House — ${address}`,
+      body: buildNote(v, address, update),
+      isHtml: false,
+    }),
+  });
+  if (!res.ok) {
+    return { ok: false, error: scrub(`Note failed (${res.status}): ${res.text}`, key).slice(0, 500) };
+  }
+  return { ok: true };
+}
+
 async function sendOne(
   key: string,
   v: Visitor,
@@ -248,18 +313,8 @@ async function sendOne(
     personId = String(created.body.id);
   }
 
-  const note = await fub(key, '/notes', {
-    method: 'POST',
-    body: JSON.stringify({
-      personId: Number(personId),
-      subject: `Open House — ${address}`,
-      body: buildNote(v, address),
-      isHtml: false,
-    }),
-  });
-  if (!note.ok) {
-    return { ok: false, error: scrub(`Note failed (${note.status}): ${note.text}`, key).slice(0, 500) };
-  }
+  const note = await postNote(key, personId!, v, address, false);
+  if (!note.ok) return { ok: false, error: note.error };
 
   return { ok: true, personId: personId!, stageResult };
 }
@@ -326,7 +381,7 @@ Deno.serve(async (req) => {
     }
 
     // ---- sending ----------------------------------------------------------
-    if (action !== 'push' && action !== 'push_all' && action !== 'stages') {
+    if (action !== 'push' && action !== 'push_all' && action !== 'stages' && action !== 'update_note') {
       return json({ error: 'Unknown action' }, 400);
     }
 
@@ -342,6 +397,40 @@ Deno.serve(async (req) => {
 
     const matchStage = (name: string | null | undefined) =>
       stages.find((s) => s.name.toLowerCase() === (name ?? '').trim().toLowerCase())?.name ?? null;
+
+    // ---- refresh a note on someone already in Follow Up Boss ---------------
+    if (action === 'update_note') {
+      if (!body.visitorId) return json({ error: 'visitorId is required' }, 400);
+      const { data, error } = await db
+        .from('open_house_visitors')
+        .select(`${VISITOR_COLUMNS}, open_house_id`)
+        .eq('id', body.visitorId)
+        .maybeSingle();
+      if (error || !data) return json({ error: 'Guest not found' }, 404);
+      const v = data as unknown as Visitor;
+      if (!v.fub_contact_id) {
+        return json({ error: 'This guest has not been sent to Follow Up Boss yet.' }, 400);
+      }
+      const { data: oh } = await db
+        .from('open_houses')
+        .select('property_address, org_id')
+        .eq('id', (data as any).open_house_id)
+        .maybeSingle();
+      if (!oh) return json({ error: 'Open house not found' }, 404);
+      if (caller.userId && (oh as any).org_id && (oh as any).org_id !== callerOrgId) {
+        return json({ error: 'FORBIDDEN' }, 403);
+      }
+      const out = await postNote(key, v.fub_contact_id, v, (oh as any).property_address || 'Open House', true);
+      if (!out.ok) {
+        await db.from('open_house_visitors').update({ fub_sync_error: out.error ?? 'Unknown error' }).eq('id', v.id);
+        return json({ error: out.error }, 400);
+      }
+      await db
+        .from('open_house_visitors')
+        .update({ fub_note_updated_at: new Date().toISOString(), fub_sync_error: null })
+        .eq('id', v.id);
+      return json({ ok: true });
+    }
 
     const batchStage = matchStage(body.stage);
     if (!batchStage && action === 'push') {
@@ -412,6 +501,7 @@ Deno.serve(async (req) => {
             fub_contact_id: out.personId ?? null,
             fub_linked: true,
             fub_sent_at: new Date().toISOString(),
+            fub_note_updated_at: new Date().toISOString(),
             fub_sync_error: null,
             fub_stage: stage,
             fub_stage_result: out.stageResult ?? null,
