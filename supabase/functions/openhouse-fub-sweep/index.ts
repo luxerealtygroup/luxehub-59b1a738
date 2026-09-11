@@ -183,7 +183,9 @@ Deno.serve(async (req) => {
       const hostId = house.hosting_agent_id || house.user_id;
       const match = (name: string | null | undefined) =>
         stages.find((s) => s.name.toLowerCase() === (name ?? '').trim().toLowerCase())?.name ?? null;
-      // Never blocked waiting for a human to pick something.
+      // Automatic sends never wait for a human: at sign-in nobody has had the
+      // chance to choose, so the hosting agent's usual stage is what we use.
+      // A stage already sitting on the row (an agent did choose) still wins.
       const stage =
         match(row.fub_stage) ??
         match(hostId ? stageByAgent.get(hostId) : null) ??
