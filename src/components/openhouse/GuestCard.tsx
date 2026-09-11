@@ -354,11 +354,27 @@ export function GuestCard({
           )}
         </Button>
         {reportLink && (
-          <Button size="sm" variant="outline" asChild>
-            <a href={reportLink} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="mr-1.5 h-4 w-4" /> Homes like this
-            </a>
-          </Button>
+          <>
+            <Button size="sm" variant="outline" asChild>
+              <a href={reportLink} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="mr-1.5 h-4 w-4" /> Preview their page
+              </a>
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(reportLink);
+                  toast.success('Link copied');
+                } catch {
+                  toast.error('Could not copy — open the preview and copy from the address bar');
+                }
+              }}
+            >
+              <Copy className="mr-1.5 h-4 w-4" /> Copy link
+            </Button>
+          </>
         )}
         <Button size="sm" variant="outline" onClick={() => setShowFeatured(true)}>
           <Building2 className="mr-1.5 h-4 w-4" /> Feature listings
@@ -370,6 +386,14 @@ export function GuestCard({
           </span>
         )}
       </div>
+
+      {reportLink && (
+        <p className="-mt-1 text-xs text-muted-foreground">
+          Text and Email already include this link. Preview is your own look at the page{' '}
+          {guest.first_name} receives — copy the link to send it another way.
+        </p>
+      )}
+
 
       {showFeatured && (
         <Dialog open onOpenChange={(o) => { if (!o) setShowFeatured(false); }}>
