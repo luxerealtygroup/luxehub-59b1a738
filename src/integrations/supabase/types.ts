@@ -5478,6 +5478,7 @@ export type Database = {
           list_price: number
           mls_number: string
           require_phone: boolean
+          search_url_template: string
           slug: string
           starts_at: string
         }[]
