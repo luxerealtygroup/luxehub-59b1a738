@@ -194,14 +194,7 @@ export function GuestCard({
                 <Clock className="h-3 w-3" /> {ATTENDANCE_LABEL[guest.attendance]} · not counted as attendance
               </Badge>
             )}
-            {reportLink && (
-          <Button size="sm" variant="outline" asChild>
-            <a href={reportLink} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="mr-1.5 h-4 w-4" /> Homes like this
-            </a>
-          </Button>
-        )}
-        {guest.fub_sent_at ? (
+            {guest.fub_sent_at ? (
           <Badge className="gap-1 border-success/30 bg-success/15 text-success text-[10px]">
             <CheckCircle2 className="h-3 w-3" /> In Follow Up Boss ·{' '}
             {new Date(guest.fub_sent_at).toLocaleDateString()}
