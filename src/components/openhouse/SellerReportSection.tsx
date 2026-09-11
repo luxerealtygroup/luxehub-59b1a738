@@ -105,10 +105,18 @@ export function SellerReportSection({
 
       <div className="space-y-2">
         <Label>Notes from the day</Label>
-        <Textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="What you'd want the seller to know." />
-        <Button size="sm" variant="outline" onClick={saveNotes} disabled={savingNotes}>
-          {savingNotes && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />} Save notes
-        </Button>
+        {canManage ? (
+          <>
+            <Textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="What you'd want the seller to know." />
+            <Button size="sm" variant="outline" onClick={saveNotes} disabled={savingNotes}>
+              {savingNotes && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />} Save notes
+            </Button>
+          </>
+        ) : (
+          <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+            {notes.trim() || 'No notes yet.'}
+          </p>
+        )}
       </div>
 
       {showSearchSetting && (
