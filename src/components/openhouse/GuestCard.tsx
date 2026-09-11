@@ -478,24 +478,28 @@ export function GuestCard({
 
       {openDetail && (
         <div className="space-y-3 border-t border-border pt-3">
-          <Chips
-            label="Interest level"
-            options={(Object.keys(INTEREST_LABEL) as InterestLevel[]).map((k) => ({ value: k, label: INTEREST_LABEL[k] }))}
-            value={guest.interest_level}
-            onPick={(v) => patch({ interest_level: v as InterestLevel })}
-          />
-          <Chips
-            label="Price feedback"
-            options={(Object.keys(PRICE_LABEL) as PriceFeedback[]).map((k) => ({ value: k, label: PRICE_LABEL[k] }))}
-            value={guest.price_feedback}
-            onPick={(v) => patch({ price_feedback: v as PriceFeedback })}
-          />
-          <Chips
-            label="Condition feedback"
-            options={(Object.keys(CONDITION_LABEL) as ConditionFeedback[]).map((k) => ({ value: k, label: CONDITION_LABEL[k] }))}
-            value={guest.condition_feedback}
-            onPick={(v) => patch({ condition_feedback: v as ConditionFeedback })}
-          />
+          {canManage && (
+            <>
+              <Chips
+                label="Interest level"
+                options={(Object.keys(INTEREST_LABEL) as InterestLevel[]).map((k) => ({ value: k, label: INTEREST_LABEL[k] }))}
+                value={guest.interest_level}
+                onPick={(v) => patch({ interest_level: v as InterestLevel })}
+              />
+              <Chips
+                label="Price feedback"
+                options={(Object.keys(PRICE_LABEL) as PriceFeedback[]).map((k) => ({ value: k, label: PRICE_LABEL[k] }))}
+                value={guest.price_feedback}
+                onPick={(v) => patch({ price_feedback: v as PriceFeedback })}
+              />
+              <Chips
+                label="Condition feedback"
+                options={(Object.keys(CONDITION_LABEL) as ConditionFeedback[]).map((k) => ({ value: k, label: CONDITION_LABEL[k] }))}
+                value={guest.condition_feedback}
+                onPick={(v) => patch({ condition_feedback: v as ConditionFeedback })}
+              />
+            </>
+          )}
           {guest.custom_answers && Object.keys(guest.custom_answers).length > 0 && (
             <div className="space-y-1 text-sm">
               {Object.entries(guest.custom_answers).map(([q, a]) => (
