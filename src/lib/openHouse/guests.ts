@@ -41,6 +41,9 @@ export interface Guest {
   fub_stage: string | null;
   fub_stage_result: string | null;
   fub_note_updated_at: string | null;
+  fub_attempts: number | null;
+  fub_next_attempt_at: string | null;
+  fub_note_due_at: string | null;
   updated_at: string | null;
   report_token: string | null;
   featured_listings: { address: string; price: number | null; photo_url: string | null; link: string | null }[] | null;
@@ -57,7 +60,8 @@ export const GUEST_COLUMNS =
   'id, open_house_id, first_name, last_name, email, phone, working_with_agent, agent_name, ' +
   'intent, has_home_to_sell, timeline, lender_status, custom_answers, notes, source, temperature, ' +
   'interest_level, price_feedback, condition_feedback, fub_contact_id, fub_linked, ' +
-  'fub_sent_at, fub_sync_error, fub_stage, fub_stage_result, fub_note_updated_at, updated_at, attendance, ' +
+  'fub_sent_at, fub_sync_error, fub_stage, fub_stage_result, fub_note_updated_at, ' +
+  'fub_attempts, fub_next_attempt_at, fub_note_due_at, updated_at, attendance, ' +
   'report_token, featured_listings, follow_up_sent_at, follow_up_channel, signed_in_at, client_captured_at, created_at';
 
 export const ATTENDANCE_LABEL: Record<Exclude<GuestAttendance, 'during'>, string> = {
@@ -99,6 +103,20 @@ export function fubNoteStale(g: Pick<Guest, 'fub_sent_at' | 'fub_note_updated_at
   if (!g.fub_sent_at || !g.updated_at) return false;
   const synced = g.fub_note_updated_at || g.fub_sent_at;
   return new Date(g.updated_at).getTime() > new Date(synced).getTime() + 1000;
+}
+
+/** Give up quietly after this many tries and show the agent the reason. */
+export const FUB_MAX_ATTEMPTS = 8;
+
+export type FubState = 'sent' | 'waiting' | 'retrying' | 'stuck';
+
+/** What is happening with this guest and Follow Up Boss, in one word. */
+export function fubState(g: Pick<Guest, 'fub_sent_at' | 'fub_sync_error' | 'fub_attempts'>): FubState {
+  if (g.fub_sent_at) return 'sent';
+  const attempts = g.fub_attempts ?? 0;
+  if (attempts >= FUB_MAX_ATTEMPTS) return 'stuck';
+  if (g.fub_sync_error) return 'retrying';
+  return 'waiting';
 }
 
 export function guestName(g: Pick<Guest, 'first_name' | 'last_name'>): string {

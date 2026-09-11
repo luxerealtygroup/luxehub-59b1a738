@@ -236,6 +236,30 @@ export type Database = {
           },
         ]
       }
+      agent_fub_prefs: {
+        Row: {
+          created_at: string
+          default_stage: string | null
+          org_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          default_stage?: string | null
+          org_id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          default_stage?: string | null
+          org_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       agent_goals: {
         Row: {
           category: string
@@ -2001,6 +2025,24 @@ export type Database = {
           },
         ]
       }
+      fub_sweep_lease: {
+        Row: {
+          id: string
+          locked_until: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          locked_until?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          locked_until?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       fub_webhook_events: {
         Row: {
           event_type: string
@@ -2113,6 +2155,24 @@ export type Database = {
           updated_at?: string
           updated_by?: string | null
           vault_secret_name?: string
+        }
+        Relationships: []
+      }
+      internal_job_secrets: {
+        Row: {
+          created_at: string
+          key: string
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          key: string
+          value: string
+        }
+        Update: {
+          created_at?: string
+          key?: string
+          value?: string
         }
         Relationships: []
       }
@@ -2638,8 +2698,11 @@ export type Database = {
           first_name: string
           follow_up_channel: string | null
           follow_up_sent_at: string | null
+          fub_attempts: number
           fub_contact_id: string | null
           fub_linked: boolean
+          fub_next_attempt_at: string | null
+          fub_note_due_at: string | null
           fub_note_updated_at: string | null
           fub_sent_at: string | null
           fub_stage: string | null
@@ -2679,8 +2742,11 @@ export type Database = {
           first_name: string
           follow_up_channel?: string | null
           follow_up_sent_at?: string | null
+          fub_attempts?: number
           fub_contact_id?: string | null
           fub_linked?: boolean
+          fub_next_attempt_at?: string | null
+          fub_note_due_at?: string | null
           fub_note_updated_at?: string | null
           fub_sent_at?: string | null
           fub_stage?: string | null
@@ -2720,8 +2786,11 @@ export type Database = {
           first_name?: string
           follow_up_channel?: string | null
           follow_up_sent_at?: string | null
+          fub_attempts?: number
           fub_contact_id?: string | null
           fub_linked?: boolean
+          fub_next_attempt_at?: string | null
+          fub_note_due_at?: string | null
           fub_note_updated_at?: string | null
           fub_sent_at?: string | null
           fub_stage?: string | null

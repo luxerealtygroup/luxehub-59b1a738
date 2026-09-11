@@ -19,6 +19,19 @@ export function rememberStage(stage: string) {
   } catch {
     // storage unavailable — the picker still works, it just won't remember
   }
+  // Also kept on the server, so guests sent automatically land in the same
+  // stage this agent always picks.
+  void saveDefaultStage(stage);
+}
+
+/** The agent's usual stage, used by the automatic send when a guest has none. */
+export async function saveDefaultStage(stage: string) {
+  const { data } = await supabase.auth.getUser();
+  const uid = data.user?.id;
+  if (!uid) return;
+  await supabase
+    .from('agent_fub_prefs')
+    .upsert({ user_id: uid, default_stage: stage, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
 }
 
 let cache: string[] | null = null;

@@ -17,7 +17,7 @@ import { formatPhone, digits, isValidEmail } from '@/lib/openHouse/options';
 import {
   DEFAULT_EMAIL_BODY, DEFAULT_EMAIL_SUBJECT, DEFAULT_SMS_TEMPLATE,
   FOLLOWUP_EMAIL_BODY_KEY, FOLLOWUP_EMAIL_SUBJECT_KEY, FOLLOWUP_SMS_KEY,
-  GUEST_COLUMNS, Guest,
+  GUEST_COLUMNS, Guest, fubState,
 } from '@/lib/openHouse/guests';
 import { FollowUpTemplates, GuestCard } from '@/components/openhouse/GuestCard';
 import { FubStageSelect, lastStage, rememberStage } from '@/components/openhouse/FubStageSelect';
@@ -121,6 +121,9 @@ export function GuestList({
 
   const awaitingFollowUp = guests.filter((g) => !g.follow_up_sent_at).length;
   const unsent = guests.filter((g) => !g.fub_sent_at).length;
+  const fubSent = guests.filter((g) => fubState(g) === 'sent').length;
+  const fubWaiting = guests.filter((g) => ['waiting', 'retrying'].includes(fubState(g))).length;
+  const fubStuck = guests.filter((g) => fubState(g) === 'stuck').length;
 
   const sendAll = async () => {
     if (!batchStage) return;
@@ -186,7 +189,7 @@ export function GuestList({
               ) : (
                 <Send className="mr-1.5 h-4 w-4" />
               )}
-              Send {unsent} to Follow Up Boss
+              Send {unsent} now
             </Button>
           )}
           <Button size="sm" onClick={() => setShowAdd(true)}>
@@ -194,6 +197,20 @@ export function GuestList({
           </Button>
         </div>
       </div>
+
+      {guests.length > 0 && (
+        <p className="text-sm text-muted-foreground">
+          Follow Up Boss: {fubSent} sent
+          {fubWaiting > 0 && `, ${fubWaiting} waiting`}
+          {fubStuck > 0 && (
+            <span className="text-destructive">
+              , {fubStuck} could not be sent — open the guest to see why
+            </span>
+          )}
+          .{' '}
+          {fubWaiting > 0 && 'Guests go over on their own; you only need "Send now" if you want them there sooner.'}
+        </p>
+      )}
 
       <p className="text-sm text-muted-foreground">
         {mode === 'live'

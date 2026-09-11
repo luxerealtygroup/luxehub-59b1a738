@@ -7,8 +7,15 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { FubStageSelect } from '@/components/openhouse/FubStageSelect';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+
+/** When guests go over to Follow Up Boss without anybody pressing anything. */
+export const SEND_TIMING_KEY = 'open_house_fub_send_timing';
+/** The stage used when a guest's row and the hosting agent have no preference. */
+export const TEAM_STAGE_KEY = 'open_house_fub_default_stage';
 
 /**
  * Write-only. The key is stored encrypted on the server and is never sent back
@@ -20,6 +27,9 @@ export function FubConnectionDialog({ onClose }: { onClose: () => void }) {
   const [value, setValue] = useState('');
   const [busy, setBusy] = useState(false);
   const [live, setLive] = useState<{ ok: boolean; message: string } | null>(null);
+  const [timing, setTiming] = useState<'end' | 'signin'>('end');
+  const [teamStage, setTeamStage] = useState<string | null>(null);
+  const [savingPrefs, setSavingPrefs] = useState(false);
 
   const call = useCallback(async (body: Record<string, unknown>) => {
     const { data, error } = await supabase.functions.invoke('openhouse-fub', { body });
@@ -38,6 +48,14 @@ export function FubConnectionDialog({ onClose }: { onClose: () => void }) {
         setConfigured(Boolean(data.configured));
       } catch {
         setConfigured(false);
+      }
+      const { data: rows } = await supabase
+        .from('app_settings')
+        .select('key, value')
+        .in('key', [SEND_TIMING_KEY, TEAM_STAGE_KEY]);
+      for (const r of rows || []) {
+        if (r.key === SEND_TIMING_KEY && r.value === 'signin') setTiming('signin');
+        if (r.key === TEAM_STAGE_KEY && r.value) setTeamStage(r.value as string);
       }
       setLoading(false);
     })();
@@ -59,6 +77,17 @@ export function FubConnectionDialog({ onClose }: { onClose: () => void }) {
       toast.error('Could not save that key', { description: (e as Error).message });
     }
     setBusy(false);
+  };
+
+  const savePrefs = async (nextTiming: 'end' | 'signin', nextStage: string | null) => {
+    setTiming(nextTiming);
+    setTeamStage(nextStage);
+    setSavingPrefs(true);
+    const rows: { key: string; value: string }[] = [{ key: SEND_TIMING_KEY, value: nextTiming }];
+    if (nextStage) rows.push({ key: TEAM_STAGE_KEY, value: nextStage });
+    const { error } = await supabase.from('app_settings').upsert(rows, { onConflict: 'org_id,key' });
+    setSavingPrefs(false);
+    if (error) toast.error('Could not save that setting', { description: error.message });
   };
 
   const test = async () => {
@@ -114,6 +143,53 @@ export function FubConnectionDialog({ onClose }: { onClose: () => void }) {
               <p className="text-xs text-muted-foreground">
                 Saved encrypted on the server and never shown again. Sign-ins are sent from the
                 server only — the key never reaches this browser.
+              </p>
+            </div>
+
+            <div className="space-y-2 rounded-lg border border-border p-3">
+              <Label>When guests go over</Label>
+              <RadioGroup
+                value={timing}
+                onValueChange={(v) => savePrefs(v as 'end' | 'signin', teamStage)}
+                className="gap-2"
+              >
+                <div className="flex items-start gap-2">
+                  <RadioGroupItem value="end" id="fub-timing-end" className="mt-1" />
+                  <Label htmlFor="fub-timing-end" className="font-normal">
+                    When the open house ends
+                    <span className="block text-xs text-muted-foreground">
+                      Recommended — one tidy note per guest, with everything you learned in it.
+                    </span>
+                  </Label>
+                </div>
+                <div className="flex items-start gap-2">
+                  <RadioGroupItem value="signin" id="fub-timing-signin" className="mt-1" />
+                  <Label htmlFor="fub-timing-signin" className="font-normal">
+                    As they sign in
+                    <span className="block text-xs text-muted-foreground">
+                      Faster, but the first note only has what they typed; anything you add later
+                      goes over as a second note.
+                    </span>
+                  </Label>
+                </div>
+              </RadioGroup>
+              {savingPrefs && (
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Saving…
+                </span>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Stage to use when nothing else is chosen</Label>
+              <FubStageSelect
+                value={teamStage}
+                onChange={(s) => savePrefs(timing, s)}
+                className="h-10 w-full"
+              />
+              <p className="text-xs text-muted-foreground">
+                A guest's own stage comes first, then the hosting agent's usual stage, then this one.
+                Nobody is ever held back waiting for a choice.
               </p>
             </div>
           </div>
