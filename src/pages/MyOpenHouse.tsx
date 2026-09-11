@@ -58,6 +58,8 @@ type OpenHouse = {
   list_price: number | null;
   cover_photo_url: string | null;
   hosting_agent_id: string | null;
+  listing_agent_id: string | null;
+
   starts_at: string | null;
   ends_at: string | null;
   disclosure_text: string | null;
