@@ -173,11 +173,13 @@ Deno.serve(async (req) => {
       if (older) break;
       offset += 100;
     }
+    const slice = Number((b.params as any)?.slice ?? -1);
+    const work = slice >= 0 ? ids.slice(slice * 100, slice * 100 + 100) : ids;
     const per: Record<string, any> = {};
     let found = 0;
     const chunk = 12;
-    for (let i = 0; i < ids.length; i += chunk) {
-      await Promise.all(ids.slice(i, i + chunk).map(async (pid) => {
+    for (let i = 0; i < work.length; i += chunk) {
+      await Promise.all(work.slice(i, i + chunk).map(async (pid) => {
         const r = await get(key, 'textMessages', { personId: pid, limit: 100, sort: '-created' });
         const rows: any[] = r.body?.textmessages ?? r.body?.textMessages ?? [];
         for (const m of rows) {
@@ -190,7 +192,7 @@ Deno.serve(async (req) => {
         }
       }));
     }
-    return json({ scanned: ids.length, found, per });
+    return json({ candidates: ids.length, scanned: work.length, found, per });
   }
 
   if (b.op === 'texts_week') {
