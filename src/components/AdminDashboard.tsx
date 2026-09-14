@@ -9,6 +9,7 @@ import { fetchDealAttribution, resolveDealShares } from '@/lib/dealAttribution';
 import { sumWeightedDeals, getDealWeight, formatWeightedDeals, inferDealCategory } from '@/lib/utils/dealWeight';
 import { classifyStage, isConditionalStage } from '@/hooks/useFubDealMetrics';
 import { DealTypeDropdown } from '@/components/DealTypeDropdown';
+import { DealSplitDialog } from '@/components/admin/DealSplitDialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { resolveAvatarUrl } from '@/lib/avatar';
 import { Button } from '@/components/ui/button';
@@ -759,7 +760,7 @@ const AdminDashboard = () => {
     }, 3 * 60 * 1000);
 
     return () => clearInterval(refreshInterval);
-  }, [isAdmin, roleLoading, dealMetadata]);
+  }, [isAdmin, roleLoading, dealMetadata, attributionVersion]);
 
   if (roleLoading || loading) {
     return (
@@ -1406,7 +1407,7 @@ const AdminDashboard = () => {
                                         fubDealId={transaction.id}
                                         label={transaction.agentName}
                                         address={transaction.propertyAddress}
-                                        onSaved={fetchCompanyData}
+                                        onSaved={() => setAttributionVersion(v => v + 1)}
                                       />
                                     </TableCell>
                                     <TableCell className="text-muted-foreground">
