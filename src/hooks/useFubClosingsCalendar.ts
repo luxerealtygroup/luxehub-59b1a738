@@ -2,22 +2,27 @@ import { useCallback, useEffect, useState } from 'react';
 import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
 import { classifyStage } from '@/hooks/useFubDealMetrics';
 import { inferDealCategory, DealMetadataMap } from '@/lib/utils/dealWeight';
-import { fetchDealAttribution, resolveProducingAgent, DealAttributionMap } from '@/lib/dealAttribution';
+import { fetchDealAttribution, resolveDealShares, DealAttributionMap } from '@/lib/dealAttribution';
 
 export type ClosingDateSource = 'closedDate' | 'closeDate' | 'projectedCloseDate';
 export type ClosingStatus = 'closed' | 'forecast';
 
 export interface ClosingEntry {
   id: number;
+  /** Unique per credited agent — a split deal produces one entry per agent. */
+  entryKey: string;
   name: string;
   address: string;
   date: string; // YYYY-MM-DD
   dateSource: ClosingDateSource;
   agentFubUserId: number | null;
   agentName: string;
+  /** This agent's share of the deal, 0-100. 100 when it is not split. */
+  sharePercent: number;
   stageName: string;
   pipelineName: string;
   price: number;
+  /** Already prorated to this agent's share. */
   gci: number;
   category: 'sale' | 'lease';
   status: ClosingStatus;
@@ -87,31 +92,36 @@ export function useFubClosingsCalendar({ year, dealMetadataMap, agentNameByFubId
       if (date < start || date > end) continue;
       const stageClass = classifyStage(d.stageName);
       // Include closed (actuals) + forecast stages (pending/offer/listed/other with a date).
-      // Credit the recorded producing agent; only fall back to Follow Up Boss order
+      // Credit the recorded producing agent(s); only fall back to Follow Up Boss order
       // when nobody has been recorded, since FUB may list the operations admin first.
-      const credited = resolveProducingAgent(d, attribution);
-      const fubUserId: number | null = credited.fubUserId;
-      const resolvedName =
-        credited.name ||
-        (fubUserId != null ? agentNameByFubId?.get(fubUserId) : undefined) ||
-        (fubUserId != null ? `Agent #${fubUserId}` : 'Unassigned');
+      // A split deal produces one entry per agent, each holding only their share.
       const category = inferDealCategory(d, dealMetadataMap).category;
-      entries.push({
-        id: d.id,
-        name: d.name || '(unnamed deal)',
-        address: getAddress(d),
-        date,
-        dateSource: source,
-        agentFubUserId: fubUserId,
-        agentName: resolvedName,
-        stageName: d.stageName || '',
-        pipelineName: d.pipelineName || '',
-        price: Number(d.price || 0),
-        gci: getGci(d),
-        category,
-        status: stageClass === 'closed' ? 'closed' : 'forecast',
-        raw: d,
-      });
+      const fullGci = getGci(d);
+      for (const share of resolveDealShares(d, attribution)) {
+        const fubUserId: number | null = share.fubUserId;
+        const resolvedName =
+          share.name ||
+          (fubUserId != null ? agentNameByFubId?.get(fubUserId) : undefined) ||
+          (fubUserId != null ? `Agent #${fubUserId}` : 'Unassigned');
+        entries.push({
+          id: d.id,
+          entryKey: `${d.id}:${fubUserId ?? share.profileId ?? 'none'}`,
+          name: d.name || '(unnamed deal)',
+          address: getAddress(d),
+          date,
+          dateSource: source,
+          agentFubUserId: fubUserId,
+          agentName: resolvedName,
+          sharePercent: share.percent,
+          stageName: d.stageName || '',
+          pipelineName: d.pipelineName || '',
+          price: Number(d.price || 0),
+          gci: (fullGci * share.percent) / 100,
+          category,
+          status: stageClass === 'closed' ? 'closed' : 'forecast',
+          raw: d,
+        });
+      }
     }
     setDeals(entries);
     setLoading(false);

@@ -5,10 +5,11 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { useAuth } from '@/hooks/useAuth';
 import { followUpBossApi, FUBDeal, FUBDealUser } from '@/lib/api/followUpBoss';
 import { useDealMetadata } from '@/hooks/useDealMetadata';
-import { fetchDealAttribution, resolveProducingAgent } from '@/lib/dealAttribution';
+import { fetchDealAttribution, resolveDealShares } from '@/lib/dealAttribution';
 import { sumWeightedDeals, getDealWeight, formatWeightedDeals, inferDealCategory } from '@/lib/utils/dealWeight';
 import { classifyStage, isConditionalStage } from '@/hooks/useFubDealMetrics';
 import { DealTypeDropdown } from '@/components/DealTypeDropdown';
+import { DealSplitDialog } from '@/components/admin/DealSplitDialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { resolveAvatarUrl } from '@/lib/avatar';
 import { Button } from '@/components/ui/button';
@@ -203,6 +204,8 @@ const AdminDashboard = () => {
   const [quarterlyGoals, setQuarterlyGoals] = useState<QuarterlyGoals | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Bumped when an admin changes who earned a deal, so the numbers re-read.
+  const [attributionVersion, setAttributionVersion] = useState(0);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   const [showPipelineReport, setShowPipelineReport] = useState(false);
   const [txFilter, setTxFilter] = useState<'all' | 'needs_review'>('all');
@@ -339,6 +342,15 @@ const AdminDashboard = () => {
           conditionalVolume: conditionalDeals.reduce((s, d) => s + (d.price || 0), 0),
         });
 
+        // Who earned each deal, including any 50/50 style split between two agents.
+        const attribution = await fetchDealAttribution();
+        const creditLabel = (deal: FUBDeal) => {
+          const shares = resolveDealShares(deal, attribution);
+          if (!shares.length) return 'Unknown';
+          if (shares.length === 1) return shares[0].name || (deal as any).users?.[0]?.name || 'Unknown';
+          return shares.map((s) => `${s.name ?? 'Unknown'} ${s.percent}%`).join(' · ');
+        };
+
         // Build company transactions list from all relevant deals
         const allTransactions: CompanyTransaction[] = [
           ...closedDeals.map((deal: FUBDeal) => ({
@@ -350,7 +362,7 @@ const AdminDashboard = () => {
             companyRevenue: deal.teamCommission || 0,
             status: 'closed' as const,
             stageName: deal.stageName || 'Closed',
-            agentName: deal.users?.[0]?.name || 'Unknown',
+            agentName: creditLabel(deal),
             clientFubId: deal.people?.[0]?.id ?? null,
             clientEmail: null,
           })),
@@ -363,7 +375,7 @@ const AdminDashboard = () => {
             companyRevenue: deal.teamCommission || 0,
             status: 'pending' as const,
             stageName: deal.stageName || 'Pending',
-            agentName: deal.users?.[0]?.name || 'Unknown',
+            agentName: creditLabel(deal),
             clientFubId: deal.people?.[0]?.id ?? null,
             clientEmail: null,
           })),
@@ -376,7 +388,7 @@ const AdminDashboard = () => {
             companyRevenue: deal.teamCommission || 0,
             status: 'conditional' as const,
             stageName: deal.stageName || 'Offer',
-            agentName: deal.users?.[0]?.name || 'Unknown',
+            agentName: creditLabel(deal),
             clientFubId: deal.people?.[0]?.id ?? null,
             clientEmail: null,
           })),
@@ -389,18 +401,18 @@ const AdminDashboard = () => {
         
         setCompanyTransactions(allTransactions);
 
-        // Build agent leaderboard from FUB deals, crediting the producing agent only.
-        const attribution = await fetchDealAttribution();
+        // Build agent leaderboard from FUB deals, crediting the producing agent(s).
+        // A split deal gives each agent their percentage, never the whole amount.
         const agentMap = new Map<number, FUBAgentStats>();
         deals.forEach((deal: FUBDeal) => {
-          const credited = resolveProducingAgent(deal, attribution);
           const users: FUBDealUser[] = Array.isArray((deal as any).users) ? (deal as any).users : [];
-          const user = users.find(u => u.id === credited.fubUserId);
-          if (credited.fubUserId == null) return;
-          {
-            const existing = agentMap.get(credited.fubUserId) || {
-              id: credited.fubUserId,
-              name: credited.name || user?.name || 'Unknown Agent',
+          resolveDealShares(deal, attribution).forEach((share) => {
+            if (share.fubUserId == null) return;
+            const user = users.find(u => u.id === share.fubUserId);
+            const fraction = share.percent / 100;
+            const existing = agentMap.get(share.fubUserId) || {
+              id: share.fubUserId,
+              name: share.name || user?.name || 'Unknown Agent',
               picture: user?.picture?.['60x60'] || user?.picture?.original,
               totalGci: 0,
               pendingGci: 0,
@@ -408,30 +420,29 @@ const AdminDashboard = () => {
               teamCommission: 0,
               dealCount: 0,
             };
-            
-            
+
             const isClosedDeal = deal.status?.toLowerCase() === 'won' || 
               deal.stageName?.toLowerCase().includes('closed') ||
               deal.stageName?.toLowerCase().includes('won');
             const isPendingDeal = deal.stageName?.toLowerCase() === 'pending';
             const isConditionalDeal = deal.stageName?.toLowerCase() === 'offer';
-            
+
             if (isClosedDeal) {
-              existing.totalGci += deal.commissionValue || 0;
-              existing.teamCommission += deal.teamCommission || 0;
-              existing.dealCount += getDealWeight(deal, dealMetadata);
+              existing.totalGci += (deal.commissionValue || 0) * fraction;
+              existing.teamCommission += (deal.teamCommission || 0) * fraction;
+              existing.dealCount += getDealWeight(deal, dealMetadata) * fraction;
             } else if (isPendingDeal) {
-              existing.pendingGci += deal.commissionValue || 0;
-              existing.teamCommission += deal.teamCommission || 0;
-              existing.dealCount += getDealWeight(deal, dealMetadata);
+              existing.pendingGci += (deal.commissionValue || 0) * fraction;
+              existing.teamCommission += (deal.teamCommission || 0) * fraction;
+              existing.dealCount += getDealWeight(deal, dealMetadata) * fraction;
             } else if (isConditionalDeal) {
-              existing.conditionalGci += deal.commissionValue || 0;
-              existing.teamCommission += deal.teamCommission || 0;
-              existing.dealCount += getDealWeight(deal, dealMetadata);
+              existing.conditionalGci += (deal.commissionValue || 0) * fraction;
+              existing.teamCommission += (deal.teamCommission || 0) * fraction;
+              existing.dealCount += getDealWeight(deal, dealMetadata) * fraction;
             }
-            
-            agentMap.set(credited.fubUserId, existing);
-          }
+
+            agentMap.set(share.fubUserId, existing);
+          });
         });
         
         // Only people marked as agents belong on the leaderboard.
@@ -749,7 +760,7 @@ const AdminDashboard = () => {
     }, 3 * 60 * 1000);
 
     return () => clearInterval(refreshInterval);
-  }, [isAdmin, roleLoading, dealMetadata]);
+  }, [isAdmin, roleLoading, dealMetadata, attributionVersion]);
 
   if (roleLoading || loading) {
     return (
@@ -1391,7 +1402,14 @@ const AdminDashboard = () => {
                                     <TableCell className="text-muted-foreground max-w-[200px] truncate">
                                       {transaction.propertyAddress || '-'}
                                     </TableCell>
-                                    <TableCell className="text-muted-foreground">{transaction.agentName}</TableCell>
+                                    <TableCell className="text-muted-foreground max-w-[200px]">
+                                      <DealSplitDialog
+                                        fubDealId={transaction.id}
+                                        label={transaction.agentName}
+                                        address={transaction.propertyAddress}
+                                        onSaved={() => setAttributionVersion(v => v + 1)}
+                                      />
+                                    </TableCell>
                                     <TableCell className="text-muted-foreground">
                                       {formatDashboardDate(transaction.closingDate)}
                                     </TableCell>

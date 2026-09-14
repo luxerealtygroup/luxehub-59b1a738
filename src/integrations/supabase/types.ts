@@ -1578,7 +1578,9 @@ export type Database = {
           fub_deal_id: number
           id: string
           org_id: string | null
+          producing_agent_2_id: string | null
           producing_agent_id: string | null
+          producing_split_percent: number
           transaction_admin_id: string | null
           updated_at: string
           updated_by: string | null
@@ -1591,7 +1593,9 @@ export type Database = {
           fub_deal_id: number
           id?: string
           org_id?: string | null
+          producing_agent_2_id?: string | null
           producing_agent_id?: string | null
+          producing_split_percent?: number
           transaction_admin_id?: string | null
           updated_at?: string
           updated_by?: string | null
@@ -1604,7 +1608,9 @@ export type Database = {
           fub_deal_id?: number
           id?: string
           org_id?: string | null
+          producing_agent_2_id?: string | null
           producing_agent_id?: string | null
+          producing_split_percent?: number
           transaction_admin_id?: string | null
           updated_at?: string
           updated_by?: string | null
@@ -1616,6 +1622,13 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_metadata_producing_agent_2_id_fkey"
+            columns: ["producing_agent_2_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -5293,6 +5306,7 @@ export type Database = {
           calls_total: number | null
           challenges: string | null
           connects: number | null
+          contacts_goal: number | null
           contacts_held: number | null
           contacts_made: number | null
           contacts_per_live_deal: number | null
@@ -5359,6 +5373,7 @@ export type Database = {
           calls_total?: number | null
           challenges?: string | null
           connects?: number | null
+          contacts_goal?: number | null
           contacts_held?: number | null
           contacts_made?: number | null
           contacts_per_live_deal?: number | null
@@ -5425,6 +5440,7 @@ export type Database = {
           calls_total?: number | null
           challenges?: string | null
           connects?: number | null
+          contacts_goal?: number | null
           contacts_held?: number | null
           contacts_made?: number | null
           contacts_per_live_deal?: number | null

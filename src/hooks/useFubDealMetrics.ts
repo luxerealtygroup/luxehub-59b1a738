@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
 import { sumWeightedDeals, buildWeightedDebug, WeightedDebugInfo, DealMetadataMap } from '@/lib/utils/dealWeight';
 import { inferDealCategory } from '@/lib/utils/dealWeight';
-import { fetchDealAttribution, isDealCreditedTo } from '@/lib/dealAttribution';
+import { fetchDealAttribution, isDealCreditedTo, dealShareFor } from '@/lib/dealAttribution';
 
 // ── Single source of truth for stage classification ──────────────────────
 export const CLOSED_STAGES = ['closed', 'won', 'sold', 'settled', 'completed'];
@@ -24,10 +24,12 @@ export const isConditionalStage = (stageName: string): boolean => {
 
 // Agent-facing GCI must respect the agent's split. FUB's `commissionValue` is the
 // gross/total commission on the deal; `agentCommission` is the agent's share.
+// `__share` (0-1) is set when a deal is split between two producing agents.
 const getDealGci = (deal: any): number => {
+  const share = typeof deal.__share === 'number' ? deal.__share : 1;
   const agent = Number(deal.agentCommission ?? 0) || 0;
-  if (agent > 0) return agent;
-  return Number(deal.commissionValue ?? 0) || 0;
+  const gross = agent > 0 ? agent : Number(deal.commissionValue ?? 0) || 0;
+  return gross * share;
 };
 
 // ── Deal-side inference ──────────────────────────────────────────────────
@@ -233,10 +235,14 @@ export function useFubDealMetrics({
           collected.push(...response.data.deals);
         }
 
-        // Filter to the deals this agent actually produced (not ones they only administer)
-        const agentDeals = collected.filter((d: any) =>
-          isDealCreditedTo(d, targetFubUserId as number, attribution)
-        );
+        // Filter to the deals this agent actually produced (not ones they only administer).
+        // On a split deal the agent keeps only their share of the money.
+        const agentDeals = collected
+          .filter((d: any) => isDealCreditedTo(d, targetFubUserId as number, attribution))
+          .map((d: any) => ({
+            ...d,
+            __share: dealShareFor(d, targetFubUserId as number, attribution),
+          }));
 
         debug.totalDealsForAgent = agentDeals.length;
 
@@ -321,7 +327,7 @@ export function useFubDealMetrics({
     const weightedClosed = sumWeightedDeals(closedDealsArr, dealMetadataMap);
     const weightedPending = sumWeightedDeals(pendingDealsArr, dealMetadataMap);
     const salesVolumeClosed = closedDealsArr.reduce(
-      (sum, d: any) => sum + Number(d.price || 0),
+      (sum, d: any) => sum + Number(d.price || 0) * (typeof d.__share === 'number' ? d.__share : 1),
       0
     );
     const weightedDebugClosed = buildWeightedDebug(closedDealsArr, dealMetadataMap);

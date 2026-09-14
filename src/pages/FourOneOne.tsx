@@ -35,7 +35,9 @@ interface Weekly411 {
   listings_actual: number;
   contracts_goal: number;
   contracts_actual: number;
+  /** Conversations the agent actually had, anywhere — entered by hand. */
   contacts_made: number;
+  contacts_goal: number;
   dials: number;
   doors_knocked: number;
   appointments_set: number;
@@ -103,7 +105,7 @@ const AUTOMATION_OWNED_FIELDS = [
   'contacts_held',
   'contacts_unstaged',
   'contacts_per_live_deal',
-  'contacts_made',
+  
   'database_size',
   'fub_synced_at',
   'new_leads',
@@ -183,6 +185,7 @@ const emptyWeekly: Weekly411 = {
   contracts_goal: 2,
   contracts_actual: 0,
   contacts_made: 0,
+  contacts_goal: 0,
   dials: 0,
   doors_knocked: 0,
   appointments_set: 0,
@@ -789,6 +792,7 @@ const FourOneOne = () => {
                 </div>
 
                 {[
+                  { label: 'Contacts', key: 'contacts_made', hint: 'Conversations you actually had, anywhere' },
                   { label: 'Doors Knocked', key: 'doors_knocked' },
                   { label: 'Pipeline Additions', key: 'pipeline_additions' },
                   { label: 'Contracts Signed', key: 'contracts_signed' },
@@ -801,12 +805,18 @@ const FourOneOne = () => {
                       value={(weeklyData as any)[field.key] || 0}
                       onChange={(e) => setWeeklyData({ ...weeklyData, [field.key]: parseInt(e.target.value) || 0 })}
                     />
+                    {field.hint && <p className="text-xs text-muted-foreground">{field.hint}</p>}
                   </div>
                 ))}
               </div>
               <p className="text-xs text-muted-foreground">
                 That Happened = actually happened, counted from your appointment records. Booked is on the
                 Scorecard tab.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Contacts is your own count, including conversations Follow Up Boss never sees — an open house,
+                a chat at school pickup. It is separate from Real Conversations on the Scorecard, which only
+                counts what happened inside Follow Up Boss. The two will not match, and that is expected.
               </p>
             </CardContent>
 
@@ -833,6 +843,7 @@ const FourOneOne = () => {
             <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
                 { label: 'Calls', goal: 'calls_goal', actual: 'calls_actual', measured: true },
+                { label: 'Contacts', goal: 'contacts_goal', actual: 'contacts_made', measured: false },
                 { label: 'Appointments', goal: 'appointments_goal', actual: 'appointments_actual', measured: true },
                 { label: 'Listings', goal: 'listings_goal', actual: 'listings_actual', measured: false },
                 { label: 'Contracts', goal: 'contracts_goal', actual: 'contracts_actual', measured: false },

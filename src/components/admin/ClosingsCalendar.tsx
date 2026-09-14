@@ -147,7 +147,7 @@ export function ClosingsCalendar({ year, agentNameByFubId, agentFubUserId, title
                   >
                     <div className="text-xs font-medium text-muted-foreground">{c.day}</div>
                     {visible.map(d => (
-                      <Popover key={d.id}>
+                      <Popover key={d.entryKey}>
                         <PopoverTrigger asChild>
                           <button
                             type="button"
@@ -172,7 +172,15 @@ export function ClosingsCalendar({ year, agentNameByFubId, agentFubUserId, title
                             {d.pipelineName} · {d.stageName}
                             {d.status === 'forecast' && <span className="ml-1 text-primary">· Forecast</span>}
                           </div>
-                          <div className="flex justify-between"><span>Agent</span><span>{d.agentName}</span></div>
+                          <div className="flex justify-between">
+                            <span>Agent</span>
+                            <span>
+                              {d.agentName}
+                              {d.sharePercent < 100 && (
+                                <span className="ml-1 text-xs text-muted-foreground">({d.sharePercent}% split)</span>
+                              )}
+                            </span>
+                          </div>
                           <div className="flex justify-between"><span>Type</span><span className="capitalize">{d.category}</span></div>
                           <div className="flex justify-between"><span>Status</span><span>{d.stageName}</span></div>
                           <div className="flex justify-between"><span>Price</span><span>{formatCurrency(d.price)}</span></div>
@@ -197,8 +205,12 @@ export function ClosingsCalendar({ year, agentNameByFubId, agentFubUserId, title
                         <PopoverContent className="w-72 text-sm space-y-2 max-h-80 overflow-auto">
                           <div className="font-semibold">{c.ymd} — {dayDeals.length} closings</div>
                           {dayDeals.map(d => (
-                            <div key={d.id} className="border-t border-border pt-1.5">
-                              <div className="font-medium">{d.agentName} {d.status === 'forecast' && <span className="text-primary text-[10px]">(forecast)</span>}</div>
+                            <div key={d.entryKey} className="border-t border-border pt-1.5">
+                              <div className="font-medium">
+                                {d.agentName}
+                                {d.sharePercent < 100 && <span className="text-muted-foreground text-[10px]"> ({d.sharePercent}%)</span>}
+                                {d.status === 'forecast' && <span className="text-primary text-[10px]"> (forecast)</span>}
+                              </div>
                               <div className="text-xs text-muted-foreground">{d.address}</div>
                               <div className="text-xs">{formatCurrency(d.gci)} · {d.category} · {d.stageName}</div>
                             </div>
