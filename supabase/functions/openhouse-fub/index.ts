@@ -112,6 +112,50 @@ Deno.serve(async (req) => {
     const matchStage = (name: string | null | undefined) =>
       stages.find((s) => s.name.toLowerCase() === (name ?? '').trim().toLowerCase())?.name ?? null;
 
+    // ---- clean-up: move open house guests to a correct stage ---------------
+    // Only guests we sent (source is the open house) and only if Follow Up Boss
+    // still has them in an entry stage — anyone being worked is left alone.
+    if (action === 'restage') {
+      if (!caller.isAdmin) return json({ error: 'FORBIDDEN' }, 403);
+      const target = matchStage(body.stage ?? 'Lead');
+      if (!target) return json({ error: 'That stage does not exist in Follow Up Boss.' }, 400);
+
+      let q = db
+        .from('open_house_visitors')
+        .select('id, first_name, last_name, fub_contact_id, open_house_id')
+        .not('fub_contact_id', 'is', null);
+      if (body.visitorIds?.length) q = q.in('id', body.visitorIds);
+      const { data: rows, error: rowsErr } = await q;
+      if (rowsErr) return json({ error: 'Could not load the guest list' }, 500);
+
+      const moved: string[] = [];
+      const skipped: { name: string; reason: string }[] = [];
+      for (const r of (rows ?? []) as any[]) {
+        const { data: oh } = await db
+          .from('open_houses')
+          .select('org_id')
+          .eq('id', r.open_house_id)
+          .maybeSingle();
+        if (!oh || ((oh as any).org_id && (oh as any).org_id !== callerOrgId)) continue;
+        const name = `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim();
+        const out = await applyStage(key, String(r.fub_contact_id), target, stages);
+        if (!out.ok) {
+          skipped.push({ name, reason: out.error ?? 'Unknown error' });
+          continue;
+        }
+        if ((out.stageResult ?? '').includes('already being worked')) {
+          skipped.push({ name, reason: out.stageResult! });
+          continue;
+        }
+        await db
+          .from('open_house_visitors')
+          .update({ fub_stage: target, fub_stage_result: out.stageResult ?? null })
+          .eq('id', r.id);
+        moved.push(name);
+      }
+      return json({ moved, skipped, stage: target });
+    }
+
     // ---- refresh a note on someone already in Follow Up Boss ---------------
     if (action === 'update_note') {
       if (!body.visitorId) return json({ error: 'visitorId is required' }, 400);
