@@ -5,6 +5,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { useAuth } from '@/hooks/useAuth';
 import { followUpBossApi, FUBDeal, FUBDealUser } from '@/lib/api/followUpBoss';
 import { useDealMetadata } from '@/hooks/useDealMetadata';
+import { fetchDealAttribution, resolveProducingAgent } from '@/lib/dealAttribution';
 import { sumWeightedDeals, getDealWeight, formatWeightedDeals, inferDealCategory } from '@/lib/utils/dealWeight';
 import { classifyStage, isConditionalStage } from '@/hooks/useFubDealMetrics';
 import { DealTypeDropdown } from '@/components/DealTypeDropdown';
@@ -162,7 +163,6 @@ interface CompanyTransaction {
 const COLORS = ['hsl(43, 74%, 49%)', 'hsl(142, 71%, 45%)', 'hsl(217, 91%, 60%)', 'hsl(280, 67%, 60%)', 'hsl(350, 89%, 60%)'];
 
 // FUB user IDs of admin-only users (not agents) - exclude from leaderboards
-const ADMIN_ONLY_FUB_IDS = [8]; // Marie Zinger
 
 const getValidDate = (value?: string | null): Date | null => {
   if (!value) return null;
@@ -389,20 +389,26 @@ const AdminDashboard = () => {
         
         setCompanyTransactions(allTransactions);
 
-        // Build agent leaderboard from FUB deals
+        // Build agent leaderboard from FUB deals, crediting the producing agent only.
+        const attribution = await fetchDealAttribution();
         const agentMap = new Map<number, FUBAgentStats>();
         deals.forEach((deal: FUBDeal) => {
-          deal.users?.forEach((user: FUBDealUser) => {
-            const existing = agentMap.get(user.id) || {
-              id: user.id,
-              name: user.name,
-              picture: user.picture?.['60x60'] || user.picture?.original,
+          const credited = resolveProducingAgent(deal, attribution);
+          const users: FUBDealUser[] = Array.isArray((deal as any).users) ? (deal as any).users : [];
+          const user = users.find(u => u.id === credited.fubUserId);
+          if (credited.fubUserId == null) return;
+          {
+            const existing = agentMap.get(credited.fubUserId) || {
+              id: credited.fubUserId,
+              name: credited.name || user?.name || 'Unknown Agent',
+              picture: user?.picture?.['60x60'] || user?.picture?.original,
               totalGci: 0,
               pendingGci: 0,
               conditionalGci: 0,
               teamCommission: 0,
               dealCount: 0,
             };
+            
             
             const isClosedDeal = deal.status?.toLowerCase() === 'won' || 
               deal.stageName?.toLowerCase().includes('closed') ||
@@ -424,19 +430,27 @@ const AdminDashboard = () => {
               existing.dealCount += getDealWeight(deal, dealMetadata);
             }
             
-            agentMap.set(user.id, existing);
-          });
+            agentMap.set(credited.fubUserId, existing);
+          }
         });
         
-        // Fetch all profiles with fub_user_id to include agents without deals
+        // Only people marked as agents belong on the leaderboard.
         const { data: allProfiles } = await supabase
           .from('profiles')
-          .select('id, full_name, fub_user_id, avatar_url')
+          .select('id, full_name, fub_user_id, avatar_url, member_type')
+          .eq('member_type', 'agent')
           .not('fub_user_id', 'is', null);
+
+        const agentFubIds = new Set(
+          (allProfiles || []).map(p => p.fub_user_id).filter((v): v is number => v != null),
+        );
+        Array.from(agentMap.keys()).forEach(id => {
+          if (!agentFubIds.has(id)) agentMap.delete(id);
+        });
         
-        // Add any agents from profiles that aren't in the deal data (excluding admin-only users)
+        // Add any agents from profiles that aren't in the deal data
         (allProfiles || []).forEach(profile => {
-          if (profile.fub_user_id && !agentMap.has(profile.fub_user_id) && !ADMIN_ONLY_FUB_IDS.includes(profile.fub_user_id)) {
+          if (profile.fub_user_id && !agentMap.has(profile.fub_user_id)) {
             agentMap.set(profile.fub_user_id, {
               id: profile.fub_user_id,
               name: profile.full_name || 'Unknown Agent',
@@ -463,7 +477,6 @@ const AdminDashboard = () => {
         );
         
         const sortedAgents = Array.from(agentMap.values())
-          .filter(agent => !ADMIN_ONLY_FUB_IDS.includes(agent.id)) // Exclude admin-only users
           .filter(agent => agent.name && agent.name !== 'Unknown Agent') // Exclude unknown agents
           .sort((a, b) => (b.totalGci + b.pendingGci + b.conditionalGci) - (a.totalGci + a.pendingGci + a.conditionalGci));
         setFubAgents(sortedAgents);
@@ -502,22 +515,13 @@ const AdminDashboard = () => {
         setMonthlyRevenue(monthlyRevenueData);
       }
 
-      // Fetch all profiles with fub_user_id (active agents)
+      // Only people marked as agents count towards production.
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('id, full_name, fub_user_id');
+        .select('id, full_name, fub_user_id, member_type')
+        .eq('member_type', 'agent');
 
-      // Fetch user roles to exclude admin-only users
-      const { data: userRoles } = await supabase
-        .from('user_roles')
-        .select('user_id, role');
-
-      // Create a set of admin-only user IDs (admins who are not also owners/agents)
-      const adminOnlyUserIds = new Set(
-        (userRoles || [])
-          .filter(ur => ur.role === 'admin')
-          .map(ur => ur.user_id)
-      );
+      const agentProfileIds = new Set((profiles || []).map(p => p.id));
 
       // Fetch all deals from local DB for agent breakdown
       const { data: deals } = await supabase
@@ -577,15 +581,16 @@ const AdminDashboard = () => {
       const fubIdMap = new Map<string, number | null>((profiles || []).map(p => [p.id, p.fub_user_id ?? null]));
       const goalsMap = new Map((productionGoals || []).map(g => [g.user_id, g]));
       
-      // Include all agents (with or without fub_user_id), excluding admin-only users
-      const agentIds = new Set([
-        ...(profiles || [])
-          .filter(p => !adminOnlyUserIds.has(p.id))
-          .map(p => p.id),
-        ...(deals || []).map(d => d.user_id),
-        ...(commissions || []).map(c => c.user_id),
-        ...(pipelineClients || []).map(p => p.user_id),
-      ]);
+      // Include all agents (with or without fub_user_id); operations, client,
+      // demo and system accounts are excluded by member_type above.
+      const agentIds = new Set(
+        [
+          ...(profiles || []).map(p => p.id),
+          ...(deals || []).map(d => d.user_id),
+          ...(commissions || []).map(c => c.user_id),
+          ...(pipelineClients || []).map(p => p.user_id),
+        ].filter(id => agentProfileIds.has(id)),
+      );
 
       const agentData: AgentData[] = Array.from(agentIds).map(agentId => {
         const agentDeals = (deals || []).filter(d => d.user_id === agentId);

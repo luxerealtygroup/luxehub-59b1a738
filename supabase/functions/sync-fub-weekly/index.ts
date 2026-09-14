@@ -213,10 +213,13 @@ async function syncOrg(
     }
   };
 
+  // Only producing agents get a weekly 4-1-1; operations, client, demo and
+  // system accounts are skipped entirely.
   const { data: profiles } = await supa
     .from('profiles')
     .select('id, full_name, email, fub_user_id, fub_user_email')
-    .eq('org_id', orgId);
+    .eq('org_id', orgId)
+    .eq('member_type', 'agent');
   const team = (profiles ?? []) as {
     id: string; full_name: string | null; email: string | null;
     fub_user_id: number | null; fub_user_email: string | null;
@@ -338,8 +341,17 @@ async function syncOrg(
           seen.add(msgId);
           const t = get(Number(m.userId));
           if (!t) continue;
-          if (m.isIncoming) t.texts_received++;
-          else t.texts_sent++;
+          if (m.isIncoming) { t.texts_received++; continue; }
+          // A text that was cancelled before sending, or that the carrier never
+          // delivered, is not outreach — Follow Up Boss's own texts report
+          // leaves those out too.
+          const status = String(m.status ?? '').toLowerCase();
+          const delivery = String(m.deliveryStatus ?? '').toLowerCase();
+          const notSent = status.includes('cancel') || status.includes('fail') ||
+            status.includes('queued') || status.includes('draft') || status.includes('error');
+          const notDelivered = delivery.includes('undelivered') || delivery.includes('fail');
+          if (notSent || notDelivered) continue;
+          t.texts_sent++;
         }
       }));
     }

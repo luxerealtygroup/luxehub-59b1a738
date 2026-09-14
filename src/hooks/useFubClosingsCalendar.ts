@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
 import { classifyStage } from '@/hooks/useFubDealMetrics';
 import { inferDealCategory, DealMetadataMap } from '@/lib/utils/dealWeight';
+import { fetchDealAttribution, resolveProducingAgent, DealAttributionMap } from '@/lib/dealAttribution';
 
 export type ClosingDateSource = 'closedDate' | 'closeDate' | 'projectedCloseDate';
 export type ClosingStatus = 'closed' | 'forecast';
@@ -63,10 +64,15 @@ export function useFubClosingsCalendar({ year, dealMetadataMap, agentNameByFubId
     const start = `${year}-01-01`;
     const end = `${year}-12-31`;
     const collected: FUBDeal[] = [];
+    let attribution: DealAttributionMap = new Map();
     try {
       // Edge function paginates server-side and returns the full set in one call.
       // Doing additional client-side pagination here causes duplicates.
-      const resp = await followUpBossApi.getDeals(100, 0);
+      const [resp, attr] = await Promise.all([
+        followUpBossApi.getDeals(100, 0),
+        fetchDealAttribution(),
+      ]);
+      attribution = attr;
       if (resp.success && resp.data?.deals) {
         collected.push(...resp.data.deals);
       }
@@ -81,16 +87,12 @@ export function useFubClosingsCalendar({ year, dealMetadataMap, agentNameByFubId
       if (date < start || date > end) continue;
       const stageClass = classifyStage(d.stageName);
       // Include closed (actuals) + forecast stages (pending/offer/listed/other with a date).
-      // Prefer the user whose id matches assignedUserId; fall back to users[0].
-      const assignedId: number | null = d.assignedUserId ?? d.userId ?? null;
-      const usersArr: any[] = Array.isArray(d.users) ? d.users : [];
-      const user =
-        usersArr.find(u => assignedId != null && u?.id === assignedId) ||
-        usersArr[0] ||
-        null;
-      const fubUserId: number | null = user?.id ?? assignedId ?? null;
+      // Credit the recorded producing agent; only fall back to Follow Up Boss order
+      // when nobody has been recorded, since FUB may list the operations admin first.
+      const credited = resolveProducingAgent(d, attribution);
+      const fubUserId: number | null = credited.fubUserId;
       const resolvedName =
-        user?.name ||
+        credited.name ||
         (fubUserId != null ? agentNameByFubId?.get(fubUserId) : undefined) ||
         (fubUserId != null ? `Agent #${fubUserId}` : 'Unassigned');
       const category = inferDealCategory(d, dealMetadataMap).category;

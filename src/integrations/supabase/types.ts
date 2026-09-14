@@ -1572,31 +1572,40 @@ export type Database = {
       }
       deal_metadata: {
         Row: {
+          attribution_note: string | null
           created_at: string
-          deal_category: string
+          deal_category: string | null
           fub_deal_id: number
           id: string
           org_id: string | null
+          producing_agent_id: string | null
+          transaction_admin_id: string | null
           updated_at: string
           updated_by: string | null
           weight_override: number | null
         }
         Insert: {
+          attribution_note?: string | null
           created_at?: string
-          deal_category?: string
+          deal_category?: string | null
           fub_deal_id: number
           id?: string
           org_id?: string | null
+          producing_agent_id?: string | null
+          transaction_admin_id?: string | null
           updated_at?: string
           updated_by?: string | null
           weight_override?: number | null
         }
         Update: {
+          attribution_note?: string | null
           created_at?: string
-          deal_category?: string
+          deal_category?: string | null
           fub_deal_id?: number
           id?: string
           org_id?: string | null
+          producing_agent_id?: string | null
+          transaction_admin_id?: string | null
           updated_at?: string
           updated_by?: string | null
           weight_override?: number | null
@@ -1607,6 +1616,20 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_metadata_producing_agent_id_fkey"
+            columns: ["producing_agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_metadata_transaction_admin_id_fkey"
+            columns: ["transaction_admin_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -4520,6 +4543,7 @@ export type Database = {
           include_in_team_coaching: boolean
           is_demo_account: boolean
           launchpad_track: string | null
+          member_type: string
           mentor_id: string | null
           org_id: string | null
           signature_emoji: string | null
@@ -4540,6 +4564,7 @@ export type Database = {
           include_in_team_coaching?: boolean
           is_demo_account?: boolean
           launchpad_track?: string | null
+          member_type?: string
           mentor_id?: string | null
           org_id?: string | null
           signature_emoji?: string | null
@@ -4560,6 +4585,7 @@ export type Database = {
           include_in_team_coaching?: boolean
           is_demo_account?: boolean
           launchpad_track?: string | null
+          member_type?: string
           mentor_id?: string | null
           org_id?: string | null
           signature_emoji?: string | null
