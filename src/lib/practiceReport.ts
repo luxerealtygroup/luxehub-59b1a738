@@ -93,7 +93,11 @@ function intField(text: string, labels: string[]): number | null {
 export function parsePracticeReport(text: string): ParsedPracticeReport {
   const src = text || '';
 
-  const totalMatch = src.match(/^[\s*_>#-]*total[^0-9\n]*(\d{1,2})\s*(?:\/\s*30)?/im);
+  const totalMatch =
+    src.match(labelRegex('total', `${NUM}\\s*(?:/|out of)\\s*(?:30|thirty)\\b`)) ||
+    src.match(labelRegex('total', `${NUM}\\b`));
+  const total = totalMatch ? toNumber(totalMatch[1]) : null;
+
   const gradeRaw = field(src, ['grade']);
   const gradeMatch = gradeRaw.match(/[A-Fa-f][+-]?/);
 
