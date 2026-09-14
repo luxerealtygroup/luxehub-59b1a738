@@ -98,3 +98,6 @@ verify_jwt = false
 
 [functions.org-preview]
 verify_jwt = true
+
+[functions.sync-fub-weekly]
+verify_jwt = true
