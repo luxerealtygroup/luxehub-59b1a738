@@ -430,19 +430,27 @@ const AdminDashboard = () => {
               existing.dealCount += getDealWeight(deal, dealMetadata);
             }
             
-            agentMap.set(user.id, existing);
-          });
+            agentMap.set(credited.fubUserId, existing);
+          }
         });
         
-        // Fetch all profiles with fub_user_id to include agents without deals
+        // Only people marked as agents belong on the leaderboard.
         const { data: allProfiles } = await supabase
           .from('profiles')
-          .select('id, full_name, fub_user_id, avatar_url')
+          .select('id, full_name, fub_user_id, avatar_url, member_type')
+          .eq('member_type', 'agent')
           .not('fub_user_id', 'is', null);
+
+        const agentFubIds = new Set(
+          (allProfiles || []).map(p => p.fub_user_id).filter((v): v is number => v != null),
+        );
+        Array.from(agentMap.keys()).forEach(id => {
+          if (!agentFubIds.has(id)) agentMap.delete(id);
+        });
         
-        // Add any agents from profiles that aren't in the deal data (excluding admin-only users)
+        // Add any agents from profiles that aren't in the deal data
         (allProfiles || []).forEach(profile => {
-          if (profile.fub_user_id && !agentMap.has(profile.fub_user_id) && !ADMIN_ONLY_FUB_IDS.includes(profile.fub_user_id)) {
+          if (profile.fub_user_id && !agentMap.has(profile.fub_user_id)) {
             agentMap.set(profile.fub_user_id, {
               id: profile.fub_user_id,
               name: profile.full_name || 'Unknown Agent',
