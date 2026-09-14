@@ -13,6 +13,7 @@ import {
   VISITOR_COLUMNS,
   type Visitor,
   getStages,
+  applyStage,
   postNote,
   sendOne,
   testKey,
@@ -45,6 +46,7 @@ Deno.serve(async (req) => {
     visitorId?: string;
     openHouseId?: string;
     stage?: string;
+    visitorIds?: string[];
   };
   try {
     body = await req.json();
