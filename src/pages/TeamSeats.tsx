@@ -67,7 +67,10 @@ const TeamSeats = () => {
         .from('org_invites')
         .select('id, email, full_name, role, expires_at, used_at, revoked_at')
         .order('created_at', { ascending: false }),
-      supabase.from('profiles').select('id, full_name'),
+      supabase
+        .from('profiles')
+        .select('id, full_name, email, member_type, include_in_team_coaching, access_expires_at')
+        .order('full_name', { ascending: true }),
       tenant.orgId
         ? supabase.from('organizations').select('seat_limit').eq('id', tenant.orgId).maybeSingle()
         : Promise.resolve({ data: null } as { data: { seat_limit: number | null } | null }),
