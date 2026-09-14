@@ -1399,7 +1399,14 @@ const AdminDashboard = () => {
                                     <TableCell className="text-muted-foreground max-w-[200px] truncate">
                                       {transaction.propertyAddress || '-'}
                                     </TableCell>
-                                    <TableCell className="text-muted-foreground">{transaction.agentName}</TableCell>
+                                    <TableCell className="text-muted-foreground max-w-[200px]">
+                                      <DealSplitDialog
+                                        fubDealId={transaction.id}
+                                        label={transaction.agentName}
+                                        address={transaction.propertyAddress}
+                                        onSaved={fetchCompanyData}
+                                      />
+                                    </TableCell>
                                     <TableCell className="text-muted-foreground">
                                       {formatDashboardDate(transaction.closingDate)}
                                     </TableCell>
