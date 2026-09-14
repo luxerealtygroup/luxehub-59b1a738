@@ -225,16 +225,17 @@ export function useFubDealMetrics({
         // The edge function paginates server-side and returns the full deal set
         // in a single response. Looping client-side here re-requests overlapping
         // pages and produces duplicate deals (inflating counts and GCI).
-        const response = await followUpBossApi.getDeals(100, 0);
+        const [response, attribution] = await Promise.all([
+          followUpBossApi.getDeals(100, 0),
+          fetchDealAttribution(),
+        ]);
         if (response.success && response.data?.deals) {
           collected.push(...response.data.deals);
         }
 
-        // Filter to this agent's deals
+        // Filter to the deals this agent actually produced (not ones they only administer)
         const agentDeals = collected.filter((d: any) =>
-          d.users?.some((u: any) => u.id === targetFubUserId) ||
-          d.assignedUserId === targetFubUserId ||
-          d.userId === targetFubUserId
+          isDealCreditedTo(d, targetFubUserId as number, attribution)
         );
 
         debug.totalDealsForAgent = agentDeals.length;
