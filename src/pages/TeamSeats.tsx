@@ -76,7 +76,7 @@ const TeamSeats = () => {
         : Promise.resolve({ data: null } as { data: { seat_limit: number | null } | null }),
     ]);
     setInvites((inv.data as Invite[]) ?? []);
-    setMembers(mem.data ?? []);
+    setMembers((mem.data as Member[]) ?? []);
     setSeatLimit(org.data?.seat_limit ?? null);
     setLoading(false);
   }, [tenant.orgId]);
