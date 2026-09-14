@@ -290,18 +290,9 @@ async function syncOrg(
     if (t) t.new_leads++;
   }
 
-  // Pond claims: leads created earlier but assigned during the week.
-  const claimed = await pageBackwards(
-    key, 'people', 'people', week_start, week_end,
-    { includeUnclaimed: true, sort: '-updated' }, 'updated',
-  );
-  for (const p of claimed.rows) {
-    if (looksRental(p, markers)) continue;
-    if (inWeek(p.created as string, week_start, week_end)) continue; // already counted as new
-    const assigned = Number(p.assignedUserId ?? 0);
-    const t = get(assigned);
-    if (t) t.leads_claimed_from_pond++;
-  }
+  // Pond claims: Follow Up Boss does not expose when a person was assigned, so
+  // "claimed from the pond" is not measurable from the API. It stays null rather
+  // than being guessed from the last-updated timestamp.
 
   // ---- 4. per-agent endpoints that do filter properly ---------------------
   for (const p of matched) {
@@ -343,7 +334,7 @@ async function syncOrg(
       week_start_date: week_start,
       fub_user_id: p.fub_user_id,
       new_leads: t.new_leads,
-      leads_claimed_from_pond: t.leads_claimed_from_pond,
+      leads_claimed_from_pond: null,
       calls_total: t.calls_total,
       calls_outbound: t.calls_outbound,
       calls_connected: t.calls_connected,
@@ -363,7 +354,7 @@ async function syncOrg(
       fub_synced_at: now,
       fub_sync_status: 'ok',
       fub_sync_error: null,
-      fub_raw: { ...t, texts_measurable: false, week_start, week_end, pages_capped: calls.capped || people.capped },
+      fub_raw: { ...t, texts_measurable: false, pond_claims_measurable: false, week_start, week_end, pages_capped: calls.capped || people.capped },
     }, { onConflict: 'user_id,week_start_date' });
     if (!error) synced++;
     else console.error('weekly_411 upsert failed', p.id, error.message);
