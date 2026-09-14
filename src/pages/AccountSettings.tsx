@@ -8,10 +8,13 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { Camera, Loader2, Mail, CheckCircle2, Trash2 } from 'lucide-react';
 import { AVATAR_BUCKET, resolveAvatarUrl } from '@/lib/avatar';
+import { useUserRole } from '@/hooks/useUserRole';
+import FubWeeklySyncCard from '@/components/admin/FubWeeklySyncCard';
 
 const AccountSettings = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { isAdmin } = useUserRole();
   const [newEmail, setNewEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -248,6 +251,12 @@ const AccountSettings = () => {
           )}
         </CardContent>
       </Card>
+
+      {isAdmin && (
+        <div className="max-w-3xl">
+          <FubWeeklySyncCard />
+        </div>
+      )}
     </div>
   );
 };

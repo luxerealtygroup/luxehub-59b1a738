@@ -2081,6 +2081,62 @@ export type Database = {
           },
         ]
       }
+      fub_weekly_sync_runs: {
+        Row: {
+          agents_synced: number
+          agents_unmatched: number
+          created_at: string
+          error: string | null
+          finished_at: string | null
+          id: string
+          org_id: string | null
+          started_at: string
+          status: string
+          triggered_by: string | null
+          updated_at: string
+          week_end: string
+          week_start: string
+        }
+        Insert: {
+          agents_synced?: number
+          agents_unmatched?: number
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          org_id?: string | null
+          started_at?: string
+          status?: string
+          triggered_by?: string | null
+          updated_at?: string
+          week_end: string
+          week_start: string
+        }
+        Update: {
+          agents_synced?: number
+          agents_unmatched?: number
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          org_id?: string | null
+          started_at?: string
+          status?: string
+          triggered_by?: string | null
+          updated_at?: string
+          week_end?: string
+          week_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fub_weekly_sync_runs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       important_documents: {
         Row: {
           category: string | null
@@ -4457,6 +4513,7 @@ export type Database = {
           created_at: string
           email: string | null
           fub_account: string
+          fub_user_email: string | null
           fub_user_id: number | null
           full_name: string | null
           id: string
@@ -4476,6 +4533,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           fub_account?: string
+          fub_user_email?: string | null
           fub_user_id?: number | null
           full_name?: string | null
           id: string
@@ -4495,6 +4553,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           fub_account?: string
+          fub_user_email?: string | null
           fub_user_id?: number | null
           full_name?: string | null
           id?: string
@@ -5202,7 +5261,10 @@ export type Database = {
           appointments_held: number | null
           appointments_set: number | null
           calls_actual: number | null
+          calls_connected: number | null
           calls_goal: number | null
+          calls_outbound: number | null
+          calls_total: number | null
           challenges: string | null
           connects: number | null
           contacts_held: number | null
@@ -5215,14 +5277,22 @@ export type Database = {
           conversations: number | null
           created_at: string
           database_size: number | null
+          deals_active: number | null
+          deals_created: number | null
           dials: number | null
           doors_knocked: number | null
           firm_deals: number | null
+          fub_raw: Json | null
+          fub_sync_error: string | null
+          fub_sync_status: string | null
           fub_synced_at: string | null
+          fub_user_id: number | null
           id: string
+          leads_claimed_from_pond: number | null
           leads_received: number | null
           listings_actual: number | null
           listings_goal: number | null
+          new_leads: number | null
           next_steps: string | null
           notes: string | null
           org_id: string | null
@@ -5243,6 +5313,8 @@ export type Database = {
           priority_4_completed: boolean | null
           speed_to_first_touch_minutes: number | null
           talk_time_minutes: number | null
+          talk_time_seconds: number | null
+          texts_received: number | null
           texts_sent: number | null
           updated_at: string
           user_id: string
@@ -5255,7 +5327,10 @@ export type Database = {
           appointments_held?: number | null
           appointments_set?: number | null
           calls_actual?: number | null
+          calls_connected?: number | null
           calls_goal?: number | null
+          calls_outbound?: number | null
+          calls_total?: number | null
           challenges?: string | null
           connects?: number | null
           contacts_held?: number | null
@@ -5268,14 +5343,22 @@ export type Database = {
           conversations?: number | null
           created_at?: string
           database_size?: number | null
+          deals_active?: number | null
+          deals_created?: number | null
           dials?: number | null
           doors_knocked?: number | null
           firm_deals?: number | null
+          fub_raw?: Json | null
+          fub_sync_error?: string | null
+          fub_sync_status?: string | null
           fub_synced_at?: string | null
+          fub_user_id?: number | null
           id?: string
+          leads_claimed_from_pond?: number | null
           leads_received?: number | null
           listings_actual?: number | null
           listings_goal?: number | null
+          new_leads?: number | null
           next_steps?: string | null
           notes?: string | null
           org_id?: string | null
@@ -5296,6 +5379,8 @@ export type Database = {
           priority_4_completed?: boolean | null
           speed_to_first_touch_minutes?: number | null
           talk_time_minutes?: number | null
+          talk_time_seconds?: number | null
+          texts_received?: number | null
           texts_sent?: number | null
           updated_at?: string
           user_id: string
@@ -5308,7 +5393,10 @@ export type Database = {
           appointments_held?: number | null
           appointments_set?: number | null
           calls_actual?: number | null
+          calls_connected?: number | null
           calls_goal?: number | null
+          calls_outbound?: number | null
+          calls_total?: number | null
           challenges?: string | null
           connects?: number | null
           contacts_held?: number | null
@@ -5321,14 +5409,22 @@ export type Database = {
           conversations?: number | null
           created_at?: string
           database_size?: number | null
+          deals_active?: number | null
+          deals_created?: number | null
           dials?: number | null
           doors_knocked?: number | null
           firm_deals?: number | null
+          fub_raw?: Json | null
+          fub_sync_error?: string | null
+          fub_sync_status?: string | null
           fub_synced_at?: string | null
+          fub_user_id?: number | null
           id?: string
+          leads_claimed_from_pond?: number | null
           leads_received?: number | null
           listings_actual?: number | null
           listings_goal?: number | null
+          new_leads?: number | null
           next_steps?: string | null
           notes?: string | null
           org_id?: string | null
@@ -5349,6 +5445,8 @@ export type Database = {
           priority_4_completed?: boolean | null
           speed_to_first_touch_minutes?: number | null
           talk_time_minutes?: number | null
+          talk_time_seconds?: number | null
+          texts_received?: number | null
           texts_sent?: number | null
           updated_at?: string
           user_id?: string
