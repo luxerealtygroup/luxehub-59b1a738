@@ -137,6 +137,20 @@ Deno.serve(async (req) => {
     return json({ rows: out });
   }
 
+  if (b.op === 'stage_audit') {
+    const ids = String((b.params as any)?.ids ?? '').split(',').filter(Boolean);
+    const counts: Record<string, number> = {};
+    const chunk = 10;
+    for (let i = 0; i < ids.length; i += chunk) {
+      await Promise.all(ids.slice(i, i + chunk).map(async (id) => {
+        const r = await get(key, `people/${id}`, { fields: 'id,name,stage' });
+        const st = r.status === 200 ? String(r.body?.stage ?? 'none') : `error ${r.status}`;
+        counts[st] = (counts[st] ?? 0) + 1;
+      }));
+    }
+    return json({ total: ids.length, counts });
+  }
+
   if (b.op === 'active_count') {
     const ws = b.week_start!;
     let offset = 0, n = 0, older = false;
