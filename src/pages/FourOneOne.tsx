@@ -792,6 +792,7 @@ const FourOneOne = () => {
                 </div>
 
                 {[
+                  { label: 'Contacts', key: 'contacts_made', hint: 'Conversations you actually had, anywhere' },
                   { label: 'Doors Knocked', key: 'doors_knocked' },
                   { label: 'Pipeline Additions', key: 'pipeline_additions' },
                   { label: 'Contracts Signed', key: 'contracts_signed' },
@@ -804,12 +805,18 @@ const FourOneOne = () => {
                       value={(weeklyData as any)[field.key] || 0}
                       onChange={(e) => setWeeklyData({ ...weeklyData, [field.key]: parseInt(e.target.value) || 0 })}
                     />
+                    {field.hint && <p className="text-xs text-muted-foreground">{field.hint}</p>}
                   </div>
                 ))}
               </div>
               <p className="text-xs text-muted-foreground">
                 That Happened = actually happened, counted from your appointment records. Booked is on the
                 Scorecard tab.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Contacts is your own count, including conversations Follow Up Boss never sees — an open house,
+                a chat at school pickup. It is separate from Real Conversations on the Scorecard, which only
+                counts what happened inside Follow Up Boss. The two will not match, and that is expected.
               </p>
             </CardContent>
 
