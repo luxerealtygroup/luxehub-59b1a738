@@ -183,6 +183,7 @@ const emptyWeekly: Weekly411 = {
   contracts_goal: 2,
   contracts_actual: 0,
   contacts_made: 0,
+  contacts_goal: 0,
   dials: 0,
   doors_knocked: 0,
   appointments_set: 0,
