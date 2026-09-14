@@ -843,6 +843,7 @@ const FourOneOne = () => {
             <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
                 { label: 'Calls', goal: 'calls_goal', actual: 'calls_actual', measured: true },
+                { label: 'Contacts', goal: 'contacts_goal', actual: 'contacts_made', measured: false },
                 { label: 'Appointments', goal: 'appointments_goal', actual: 'appointments_actual', measured: true },
                 { label: 'Listings', goal: 'listings_goal', actual: 'listings_actual', measured: false },
                 { label: 'Contracts', goal: 'contracts_goal', actual: 'contracts_actual', measured: false },
