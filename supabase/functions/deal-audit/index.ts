@@ -21,8 +21,7 @@ Deno.serve(async (req) => {
   const expected = (sec as { value: string } | null)?.value?.trim();
   if (!expected || body.secret !== expected) return json({ error: 'forbidden' }, 403);
 
-  const { data: org } = await db.from('organizations').select('id').limit(1).maybeSingle();
-  const key = await getFubApiKeyForOrg((org as { id: string } | null)?.id ?? null);
+  const key = await getFubApiKeyForOrg('e4295d7b-c889-459f-81ef-4ee90bc939a7');
   if (!key) return json({ error: 'no key' }, 400);
   const auth = `Basic ${btoa(`${key}:`)}`;
 
