@@ -187,11 +187,14 @@ Deno.serve(async (req) => {
       // Automatic sends never wait for a human: at sign-in nobody has had the
       // chance to choose, so the hosting agent's usual stage is what we use.
       // A stage already sitting on the row (an agent did choose) still wins.
+      // The last resort is the real "Lead" stage, never simply the first stage
+      // in the account's list — that is how guests ended up in "Vendors".
       const stage =
         match(row.fub_stage) ??
         match(hostId ? stageByAgent.get(hostId) : null) ??
         match(orgStageByOrg.get(orgId)) ??
-        stages[0]?.name ??
+        match('Lead') ??
+        match('New Lead') ??
         null;
       if (!stage) {
         summary.held += 1;
