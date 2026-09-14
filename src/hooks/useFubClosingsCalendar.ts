@@ -2,22 +2,27 @@ import { useCallback, useEffect, useState } from 'react';
 import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
 import { classifyStage } from '@/hooks/useFubDealMetrics';
 import { inferDealCategory, DealMetadataMap } from '@/lib/utils/dealWeight';
-import { fetchDealAttribution, resolveProducingAgent, DealAttributionMap } from '@/lib/dealAttribution';
+import { fetchDealAttribution, resolveDealShares, DealAttributionMap } from '@/lib/dealAttribution';
 
 export type ClosingDateSource = 'closedDate' | 'closeDate' | 'projectedCloseDate';
 export type ClosingStatus = 'closed' | 'forecast';
 
 export interface ClosingEntry {
   id: number;
+  /** Unique per credited agent — a split deal produces one entry per agent. */
+  entryKey: string;
   name: string;
   address: string;
   date: string; // YYYY-MM-DD
   dateSource: ClosingDateSource;
   agentFubUserId: number | null;
   agentName: string;
+  /** This agent's share of the deal, 0-100. 100 when it is not split. */
+  sharePercent: number;
   stageName: string;
   pipelineName: string;
   price: number;
+  /** Already prorated to this agent's share. */
   gci: number;
   category: 'sale' | 'lease';
   status: ClosingStatus;
