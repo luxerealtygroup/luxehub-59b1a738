@@ -175,7 +175,7 @@ Deno.serve(async (req) => {
     }
     const per: Record<string, any> = {};
     let found = 0;
-    const chunk = 8;
+    const chunk = 12;
     for (let i = 0; i < ids.length; i += chunk) {
       await Promise.all(ids.slice(i, i + chunk).map(async (pid) => {
         const r = await get(key, 'textMessages', { personId: pid, limit: 100, sort: '-created' });
