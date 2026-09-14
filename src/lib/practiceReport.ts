@@ -55,14 +55,38 @@ function labelRegex(label: string, tail: string, flags = 'im') {
   return new RegExp(`(?:^|[.;!?\\n—-]\\s*)[\\s*_>#-]*${label}[^:\\n]{0,40}?\\s*[:\\-—]?\\s*${tail}`, flags);
 }
 
-/** "Label: value" — captures the rest of the line. */
+/** Every label we know about, so a captured value stops before the next one. */
+const STOP_LABELS = [
+  'scenario', 'mode', 'exchanges', 'earn(?:ed)?(?: the)?(?: first)?\\s*(?:30|thirty)',
+  'motivation discovery', 'talk[- ]?less ratio', 'objection handling', 'the ask',
+  'next step locked', 'total', 'grade', 'strongest moment', 'costliest moment',
+  'structure covered', 'magic words used', 'magic words missed',
+  'one thing to change', 'drill (?:this )?again', "coach'?s? note", 'would this call',
+];
+const STOP_RE = new RegExp(`\\s*\\b(?:${STOP_LABELS.join('|')})\\b[^:\\n]{0,40}?\\s*[:\\-—]\\s`, 'i');
+
+function trimAtNextLabel(value: string): string {
+  const m = value.match(STOP_RE);
+  return (m && m.index !== undefined ? value.slice(0, m.index) : value).replace(/[\s.,;:—-]+$/, '').trim();
+}
+
+/** "Label: value" — captures up to the end of the line or the next known label. */
 function field(text: string, labels: string[]): string {
-  for (const label of labels) {
-    const m = text.match(labelRegex(label, '(.+)$'));
-    if (m && clean(m[1])) return clean(m[1]);
+  // Prefer a real separator so trailing label words ("note to Kristen:") aren't kept.
+  for (const tail of ['[^:\\n]{0,40}?\\s*[:\\-—]\\s*(.+)$', '\\s+(.+)$']) {
+    for (const label of labels) {
+      const m = text.match(
+        new RegExp(`(?:^|[.;!?\\n—]\\s*)[\\s*_>#-]*${label}${tail}`, 'im'),
+      );
+      if (m) {
+        const value = trimAtNextLabel(clean(m[1]));
+        if (value) return value;
+      }
+    }
   }
   return '';
 }
+
 
 /** "The ask 4/5" / "The Ask: 4 / 5" / "The ask: four out of five" */
 function score(text: string, labels: string[]): number | null {
