@@ -97,10 +97,11 @@ Deno.serve(async (req) => {
     // ---- sending ----------------------------------------------------------
     if (
       action !== 'push' && action !== 'push_all' && action !== 'stages' &&
-      action !== 'update_note' && action !== 'restage'
+      action !== 'update_note' && action !== 'restage' && action !== 'texts_dump'
     ) {
       return json({ error: 'Unknown action' }, 400);
     }
+
 
     // Server-to-server callers name the organization; people are resolved from
     // their own profile.
