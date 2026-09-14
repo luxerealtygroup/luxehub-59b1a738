@@ -23,6 +23,8 @@ const db = () =>
 
 const PAGE_LIMIT = 100;
 const MAX_PAGES = 60; // 6,000 records per endpoint per run
+// Texts can only be read one contact at a time, so the scan is bounded.
+const TEXT_PEOPLE_CAP = 800;
 
 // ---------------------------------------------------------------------------
 // Dates (America/Toronto)
@@ -164,6 +166,7 @@ interface Totals {
   calls_total: number;
   calls_outbound: number;
   calls_connected: number;
+  conversations: number;
   talk_time_seconds: number;
   texts_sent: number;
   texts_received: number;
@@ -175,9 +178,18 @@ interface Totals {
 
 const emptyTotals = (): Totals => ({
   new_leads: 0, leads_claimed_from_pond: 0, calls_total: 0, calls_outbound: 0,
-  calls_connected: 0, talk_time_seconds: 0, texts_sent: 0, texts_received: 0,
+  calls_connected: 0, conversations: 0, talk_time_seconds: 0, texts_sent: 0, texts_received: 0,
   appointments_set: 0, appointments_held: 0, deals_active: 0, deals_created: 0,
 });
+
+/**
+ * Follow Up Boss's own call report counts a call as "Connected" once there is a
+ * minute of talk time, and as a "Conversation" at two minutes. Verified against
+ * the account's published weekly numbers. `outcome` is frequently null on real
+ * connected calls, so it is never used as the test.
+ */
+const CONNECTED_SECONDS = 60;
+const CONVERSATION_SECONDS = 120;
 
 async function syncOrg(
   supa: ReturnType<typeof db>,
@@ -272,16 +284,10 @@ async function syncOrg(
     t.calls_total++;
     if (c.isIncoming === false) t.calls_outbound++;
     const duration = Number(c.duration ?? 0);
-    const outcome = String(c.outcome ?? '').trim();
-    if (duration > 0 && outcome && !/no answer|voicemail|busy|failed/i.test(outcome)) {
-      t.calls_connected++;
-      t.talk_time_seconds += duration;
-    }
+    if (duration > 0) t.talk_time_seconds += duration;
+    if (duration >= CONNECTED_SECONDS) t.calls_connected++;
+    if (duration >= CONVERSATION_SECONDS) t.conversations++;
   }
-
-  // GET /v1/textMessages refuses an account-wide query (it demands a person,
-  // thread or number), so weekly text counts are not measurable. They stay null
-  // rather than showing a misleading zero.
 
   for (const p of people.rows) {
     if (looksRental(p, markers)) continue;
@@ -294,25 +300,81 @@ async function syncOrg(
   // "claimed from the pond" is not measurable from the API. It stays null rather
   // than being guessed from the last-updated timestamp.
 
-  // ---- 4. per-agent endpoints that do filter properly ---------------------
-  for (const p of matched) {
-    const t = get(p.fub_user_id!)!;
-    try {
-      const appts = await fubGet(key, 'appointments', {
-        start: `${week_start}T00:00:00Z`,
-        end: `${week_end}T23:59:59Z`,
-        userId: p.fub_user_id!,
-        limit: PAGE_LIMIT,
+  // ---- 4. texts: only queryable one person at a time ----------------------
+  // GET /v1/textMessages refuses an account-wide query. The workable route is
+  // the set of people with activity in (or after) the week, then one query each.
+  let textsMeasured = false;
+  let textError: string | null = null;
+  try {
+    const ids: number[] = [];
+    let offset = 0;
+    let older = false;
+    while (!older && ids.length < TEXT_PEOPLE_CAP) {
+      const data = await fubGet(key, 'people', {
+        limit: PAGE_LIMIT, offset, sort: '-lastActivity', includeUnclaimed: true,
       });
-      for (const a of (appts?.appointments ?? []) as Record<string, unknown>[]) {
-        const outcome = String((a as any).outcome?.name ?? (a as any).outcome ?? (a as any).status ?? '');
-        if (!CANCELLED.test(outcome)) t.appointments_held++;
-        if (inWeek((a as any).created, week_start, week_end)) t.appointments_set++;
+      const rows = (data?.people ?? []) as Record<string, unknown>[];
+      if (!rows.length) break;
+      for (const person of rows) {
+        const act = (person.lastActivity ?? person.updated) as string | undefined;
+        if (!act || beforeWeek(act, week_start)) { older = true; continue; }
+        ids.push(Number(person.id));
       }
-    } catch (e) {
-      console.warn(`appointments failed for user ${p.fub_user_id}:`, (e as Error).message);
+      offset += PAGE_LIMIT;
     }
 
+    const chunk = 10;
+    for (let i = 0; i < ids.length; i += chunk) {
+      await Promise.all(ids.slice(i, i + chunk).map(async (personId) => {
+        const data = await fubGet(key, 'textMessages', { personId, limit: PAGE_LIMIT, sort: '-created' });
+        const rows = (data?.textmessages ?? data?.textMessages ?? []) as Record<string, unknown>[];
+        for (const m of rows) {
+          if (!inWeek(m.created as string, week_start, week_end)) continue;
+          const t = get(Number(m.userId));
+          if (!t) continue;
+          if (m.isIncoming) t.texts_received++;
+          else t.texts_sent++;
+        }
+      }));
+    }
+    textsMeasured = true;
+  } catch (e) {
+    textError = (e as Error).message.slice(0, 300);
+    console.warn('text scan failed:', textError);
+  }
+
+  // ---- 5. appointments: one account-wide sweep, attributed by invitee ------
+  // `start`/`end` filter on when the appointment happens, so a wide window is
+  // pulled and "set" is decided on `created` instead.
+  try {
+    const wide = await fubGet(key, 'appointments', {
+      start: `${addDays(week_start, -365)}T00:00:00Z`,
+      end: `${addDays(week_end, 365)}T00:00:00Z`,
+      limit: PAGE_LIMIT,
+      includeUnclaimed: true,
+    });
+    const appts = (wide?.appointments ?? []) as Record<string, unknown>[];
+    for (const a of appts) {
+      const invitees = (a.invitees ?? []) as { userId: number | null }[];
+      const userIds = invitees.map((i) => Number(i.userId)).filter((n) => n > 0);
+      if (!userIds.length && a.createdById) userIds.push(Number(a.createdById));
+      const outcome = String((a as any).outcome?.name ?? (a as any).outcome ?? (a as any).status ?? '');
+      const setThisWeek = inWeek(a.created as string, week_start, week_end);
+      const heldThisWeek = inWeek(a.start as string, week_start, week_end) && !CANCELLED.test(outcome);
+      for (const uid of new Set(userIds)) {
+        const t = get(uid);
+        if (!t) continue;
+        if (setThisWeek) t.appointments_set++;
+        if (heldThisWeek) t.appointments_held++;
+      }
+    }
+  } catch (e) {
+    console.warn('appointments failed:', (e as Error).message);
+  }
+
+  // ---- 6. deals: per agent, the endpoint does filter by user --------------
+  for (const p of matched) {
+    const t = get(p.fub_user_id!)!;
     try {
       const deals = await fubGet(key, 'deals', { userId: p.fub_user_id!, status: 'Active', limit: PAGE_LIMIT });
       const rows = (deals?.deals ?? []) as Record<string, unknown>[];
@@ -338,10 +400,11 @@ async function syncOrg(
       calls_total: t.calls_total,
       calls_outbound: t.calls_outbound,
       calls_connected: t.calls_connected,
+      conversations: t.conversations,
       talk_time_seconds: t.talk_time_seconds,
       talk_time_minutes: Math.round(t.talk_time_seconds / 60),
-      texts_sent: null,
-      texts_received: null,
+      texts_sent: textsMeasured ? t.texts_sent : null,
+      texts_received: textsMeasured ? t.texts_received : null,
       appointments_set: t.appointments_set,
       appointments_held: t.appointments_held,
       appointments_actual: t.appointments_held,
@@ -354,7 +417,16 @@ async function syncOrg(
       fub_synced_at: now,
       fub_sync_status: 'ok',
       fub_sync_error: null,
-      fub_raw: { ...t, texts_measurable: false, pond_claims_measurable: false, week_start, week_end, pages_capped: calls.capped || people.capped },
+      fub_raw: {
+        ...t,
+        texts_measurable: textsMeasured,
+        texts_error: textError,
+        pond_claims_measurable: false,
+        connected_threshold_seconds: CONNECTED_SECONDS,
+        conversation_threshold_seconds: CONVERSATION_SECONDS,
+        week_start, week_end,
+        pages_capped: calls.capped || people.capped,
+      },
     }, { onConflict: 'user_id,week_start_date' });
     if (!error) synced++;
     else console.error('weekly_411 upsert failed', p.id, error.message);

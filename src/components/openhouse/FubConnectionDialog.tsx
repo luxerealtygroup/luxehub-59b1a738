@@ -193,6 +193,11 @@ Automatic sends use the hosting agent's usual stage, since nobody has chosen one
                 sign-in; this stage is the backstop when they haven't set one. Change a guest's stage
                 later and it moves in Follow Up Boss too — unless they're already being worked.
               </p>
+              {!teamStage && (
+                <p className="text-xs text-muted-foreground">
+                  Nothing chosen, so guests go in as <span className="font-medium">Lead</span>.
+                </p>
+              )}
             </div>
           </div>
         )}
