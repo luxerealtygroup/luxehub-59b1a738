@@ -373,7 +373,6 @@ async function syncOrg(
   // ---- 6. deals: per agent, the endpoint does filter by user --------------
   for (const p of matched) {
     const t = get(p.fub_user_id!)!;
-    {
     try {
       const deals = await fubGet(key, 'deals', { userId: p.fub_user_id!, status: 'Active', limit: PAGE_LIMIT });
       const rows = (deals?.deals ?? []) as Record<string, unknown>[];
