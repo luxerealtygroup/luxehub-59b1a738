@@ -8,7 +8,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { requireStaff } from '../_shared/auth.ts';
-import { getUserOrgContext, getFubApiKeyForUser } from '../_shared/fub.ts';
+import { getUserOrgContext, getFubApiKeyForUser, getFubApiKeyForOrg } from '../_shared/fub.ts';
 import {
   VISITOR_COLUMNS,
   type Visitor,
@@ -47,6 +47,7 @@ Deno.serve(async (req) => {
     openHouseId?: string;
     stage?: string;
     visitorIds?: string[];
+    orgId?: string;
   };
   try {
     body = await req.json();
