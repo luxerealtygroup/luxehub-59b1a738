@@ -323,6 +323,9 @@ async function syncOrg(
       offset += PAGE_LIMIT;
     }
 
+    // A group text comes back once per participant, so the same message shows up
+    // under several people. Count each message once, by its own id.
+    const seen = new Set<string>();
     const chunk = 10;
     for (let i = 0; i < ids.length; i += chunk) {
       await Promise.all(ids.slice(i, i + chunk).map(async (personId) => {
@@ -330,6 +333,9 @@ async function syncOrg(
         const rows = (data?.textmessages ?? data?.textMessages ?? []) as Record<string, unknown>[];
         for (const m of rows) {
           if (!inWeek(m.created as string, week_start, week_end)) continue;
+          const msgId = String(m.id ?? `${m.userId}:${m.created}:${m.message ?? ''}`);
+          if (seen.has(msgId)) continue;
+          seen.add(msgId);
           const t = get(Number(m.userId));
           if (!t) continue;
           if (m.isIncoming) t.texts_received++;
