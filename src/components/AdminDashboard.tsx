@@ -389,18 +389,19 @@ const AdminDashboard = () => {
         
         setCompanyTransactions(allTransactions);
 
-        // Build agent leaderboard from FUB deals, crediting the producing agent only.
+        // Build agent leaderboard from FUB deals, crediting the producing agent(s).
+        // A split deal gives each agent their percentage, never the whole amount.
         const attribution = await fetchDealAttribution();
         const agentMap = new Map<number, FUBAgentStats>();
         deals.forEach((deal: FUBDeal) => {
-          const credited = resolveProducingAgent(deal, attribution);
           const users: FUBDealUser[] = Array.isArray((deal as any).users) ? (deal as any).users : [];
-          const user = users.find(u => u.id === credited.fubUserId);
-          if (credited.fubUserId == null) return;
-          {
-            const existing = agentMap.get(credited.fubUserId) || {
-              id: credited.fubUserId,
-              name: credited.name || user?.name || 'Unknown Agent',
+          resolveDealShares(deal, attribution).forEach((share) => {
+            if (share.fubUserId == null) return;
+            const user = users.find(u => u.id === share.fubUserId);
+            const fraction = share.percent / 100;
+            const existing = agentMap.get(share.fubUserId) || {
+              id: share.fubUserId,
+              name: share.name || user?.name || 'Unknown Agent',
               picture: user?.picture?.['60x60'] || user?.picture?.original,
               totalGci: 0,
               pendingGci: 0,
@@ -408,30 +409,29 @@ const AdminDashboard = () => {
               teamCommission: 0,
               dealCount: 0,
             };
-            
-            
+
             const isClosedDeal = deal.status?.toLowerCase() === 'won' || 
               deal.stageName?.toLowerCase().includes('closed') ||
               deal.stageName?.toLowerCase().includes('won');
             const isPendingDeal = deal.stageName?.toLowerCase() === 'pending';
             const isConditionalDeal = deal.stageName?.toLowerCase() === 'offer';
-            
+
             if (isClosedDeal) {
-              existing.totalGci += deal.commissionValue || 0;
-              existing.teamCommission += deal.teamCommission || 0;
-              existing.dealCount += getDealWeight(deal, dealMetadata);
+              existing.totalGci += (deal.commissionValue || 0) * fraction;
+              existing.teamCommission += (deal.teamCommission || 0) * fraction;
+              existing.dealCount += getDealWeight(deal, dealMetadata) * fraction;
             } else if (isPendingDeal) {
-              existing.pendingGci += deal.commissionValue || 0;
-              existing.teamCommission += deal.teamCommission || 0;
-              existing.dealCount += getDealWeight(deal, dealMetadata);
+              existing.pendingGci += (deal.commissionValue || 0) * fraction;
+              existing.teamCommission += (deal.teamCommission || 0) * fraction;
+              existing.dealCount += getDealWeight(deal, dealMetadata) * fraction;
             } else if (isConditionalDeal) {
-              existing.conditionalGci += deal.commissionValue || 0;
-              existing.teamCommission += deal.teamCommission || 0;
-              existing.dealCount += getDealWeight(deal, dealMetadata);
+              existing.conditionalGci += (deal.commissionValue || 0) * fraction;
+              existing.teamCommission += (deal.teamCommission || 0) * fraction;
+              existing.dealCount += getDealWeight(deal, dealMetadata) * fraction;
             }
-            
-            agentMap.set(credited.fubUserId, existing);
-          }
+
+            agentMap.set(share.fubUserId, existing);
+          });
         });
         
         // Only people marked as agents belong on the leaderboard.
