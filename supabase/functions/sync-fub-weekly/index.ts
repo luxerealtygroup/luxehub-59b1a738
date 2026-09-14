@@ -254,7 +254,6 @@ async function syncOrg(
 
   // ---- 3. account-wide feeds (no date or user filter available) -----------
   const calls = await pageBackwards(key, 'calls', 'calls', week_start, week_end, { sort: '-created' });
-  const texts = await pageBackwards(key, 'textMessages', 'textmessages', week_start, week_end);
   const people = await pageBackwards(key, 'people', 'people', week_start, week_end, {
     includeUnclaimed: true,
     sort: '-created',
@@ -280,12 +279,9 @@ async function syncOrg(
     }
   }
 
-  for (const m of texts.rows) {
-    const t = get(Number(m.userId));
-    if (!t) continue;
-    if (m.isIncoming) t.texts_received++;
-    else t.texts_sent++;
-  }
+  // GET /v1/textMessages refuses an account-wide query (it demands a person,
+  // thread or number), so weekly text counts are not measurable. They stay null
+  // rather than showing a misleading zero.
 
   for (const p of people.rows) {
     if (looksRental(p, markers)) continue;
@@ -353,8 +349,8 @@ async function syncOrg(
       calls_connected: t.calls_connected,
       talk_time_seconds: t.talk_time_seconds,
       talk_time_minutes: Math.round(t.talk_time_seconds / 60),
-      texts_sent: t.texts_sent,
-      texts_received: t.texts_received,
+      texts_sent: null,
+      texts_received: null,
       appointments_set: t.appointments_set,
       appointments_held: t.appointments_held,
       appointments_actual: t.appointments_held,
@@ -367,7 +363,7 @@ async function syncOrg(
       fub_synced_at: now,
       fub_sync_status: 'ok',
       fub_sync_error: null,
-      fub_raw: { ...t, week_start, week_end, pages_capped: calls.capped || texts.capped || people.capped },
+      fub_raw: { ...t, texts_measurable: false, week_start, week_end, pages_capped: calls.capped || people.capped },
     }, { onConflict: 'user_id,week_start_date' });
     if (!error) synced++;
     else console.error('weekly_411 upsert failed', p.id, error.message);
