@@ -339,6 +339,15 @@ const AdminDashboard = () => {
           conditionalVolume: conditionalDeals.reduce((s, d) => s + (d.price || 0), 0),
         });
 
+        // Who earned each deal, including any 50/50 style split between two agents.
+        const attribution = await fetchDealAttribution();
+        const creditLabel = (deal: FUBDeal) => {
+          const shares = resolveDealShares(deal, attribution);
+          if (!shares.length) return 'Unknown';
+          if (shares.length === 1) return shares[0].name || (deal as any).users?.[0]?.name || 'Unknown';
+          return shares.map((s) => `${s.name ?? 'Unknown'} ${s.percent}%`).join(' · ');
+        };
+
         // Build company transactions list from all relevant deals
         const allTransactions: CompanyTransaction[] = [
           ...closedDeals.map((deal: FUBDeal) => ({
