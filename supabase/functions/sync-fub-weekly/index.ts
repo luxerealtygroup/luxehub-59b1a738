@@ -213,10 +213,13 @@ async function syncOrg(
     }
   };
 
+  // Only producing agents get a weekly 4-1-1; operations, client, demo and
+  // system accounts are skipped entirely.
   const { data: profiles } = await supa
     .from('profiles')
     .select('id, full_name, email, fub_user_id, fub_user_email')
-    .eq('org_id', orgId);
+    .eq('org_id', orgId)
+    .eq('member_type', 'agent');
   const team = (profiles ?? []) as {
     id: string; full_name: string | null; email: string | null;
     fub_user_id: number | null; fub_user_email: string | null;
