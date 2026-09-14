@@ -171,8 +171,8 @@ const TeamSeats = () => {
           </CardTitle>
           <CardDescription>
             {seatLimit
-              ? `${members.length + pending.length} of ${seatLimit} seats used.`
-              : `${members.length} people on the team.`}
+              ? `${activeMembers.length + pending.length} of ${seatLimit} seats used · ${agentCount} agents.`
+              : `${activeMembers.length} people on the team · ${agentCount} agents.`}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
