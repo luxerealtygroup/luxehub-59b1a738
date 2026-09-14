@@ -14,6 +14,7 @@ import {
   type Visitor,
   getStages,
   applyStage,
+  isDemoOpenHouse,
   postNote,
   sendOne,
   testKey,
@@ -247,6 +248,13 @@ Deno.serve(async (req) => {
     // Never cross an organization boundary.
     if (caller.userId && house.org_id && house.org_id !== callerOrgId) {
       return json({ error: 'FORBIDDEN' }, 403);
+    }
+
+    if (await isDemoOpenHouse(db, (house as any).hosting_agent_id, (house as any).user_id)) {
+      return json(
+        { error: 'This is a demo open house — its guests are never sent to Follow Up Boss.' },
+        400,
+      );
     }
 
     const hostId = (house as any).hosting_agent_id || (house as any).user_id;

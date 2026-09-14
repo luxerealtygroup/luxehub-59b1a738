@@ -49,11 +49,27 @@ export function GuestList({
   const [sendingAll, setSendingAll] = useState(false);
   const [showSendAll, setShowSendAll] = useState(false);
   const [batchStage, setBatchStage] = useState<string | null>(lastStage());
+  const [isSampleAccount, setIsSampleAccount] = useState(false);
   const [templates, setTemplates] = useState<FollowUpTemplates>({
     sms: DEFAULT_SMS_TEMPLATE,
     emailSubject: DEFAULT_EMAIL_SUBJECT,
     emailBody: DEFAULT_EMAIL_BODY,
   });
+
+  // Sample/demo logins never reach the live CRM, so we say so instead of
+  // offering a Send button that would be refused.
+  useEffect(() => {
+    if (!user?.id) return;
+    supabase
+      .from('profiles')
+      .select('member_type')
+      .eq('id', user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        const t = (data as { member_type: string | null } | null)?.member_type;
+        setIsSampleAccount(t === 'demo' || t === 'system');
+      });
+  }, [user?.id]);
 
   const load = useCallback(async () => {
     const { data, error } = await supabase
@@ -154,6 +170,11 @@ export function GuestList({
 
   return (
     <div className="space-y-4">
+      {isSampleAccount && (
+        <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+          Sample account — guests here are never sent to Follow Up Boss.
+        </p>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 font-display text-lg font-semibold">
           <Users className="h-5 w-5 text-gold" /> Guests{' '}
@@ -185,7 +206,7 @@ export function GuestList({
               <Plug className="mr-1.5 h-4 w-4" /> Follow Up Boss
             </Button>
           )}
-          {canManage && unsent > 0 && (
+          {canManage && unsent > 0 && !isSampleAccount && (
             <Button variant="outline" size="sm" onClick={() => setShowSendAll(true)} disabled={sendingAll}>
               {sendingAll ? (
                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />

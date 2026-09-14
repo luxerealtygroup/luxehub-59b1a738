@@ -18,6 +18,7 @@ import {
   type Visitor,
   applyStage,
   getStages,
+  isDemoOpenHouse,
   postNote,
   sendOne,
 } from '../_shared/fubOpenHouse.ts';
@@ -92,7 +93,7 @@ Deno.serve(async (req) => {
     .select('id');
   if (!lease || lease.length === 0) return json({ skipped: 'another sweep is running' });
 
-  const summary = { sent: 0, failed: 0, held: 0, notes: 0, stages: 0 };
+  const summary = { sent: 0, failed: 0, held: 0, notes: 0, stages: 0, skipped_demo: 0 };
 
   try {
     const now = new Date();
@@ -163,6 +164,12 @@ Deno.serve(async (req) => {
 
       // Speed is the point: unless the team asked for end-of-open-house,
       // a guest goes over as soon as they sign in.
+      // Sample/demo accounts never reach the live CRM.
+      if (await isDemoOpenHouse(db, house.hosting_agent_id, house.user_id)) {
+        summary.skipped_demo += 1;
+        continue;
+      }
+
       const timing = timingByOrg.get(orgId) ?? 'signin';
       if (timing !== 'signin' && !hasEnded(house, now)) continue;
 

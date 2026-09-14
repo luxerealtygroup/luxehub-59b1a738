@@ -332,3 +332,21 @@ export async function applyStage(
   }
   return { ok: true, stageResult: `Stage set to ${stage}` };
 }
+
+/**
+ * Demo and sample accounts must never reach the live CRM. An open house owned
+ * or hosted by one of those accounts is skipped by every send path, so an App
+ * Store reviewer poking around cannot create a real contact.
+ */
+export async function isDemoOpenHouse(
+  db: { from: (t: string) => any },
+  hostingAgentId: string | null | undefined,
+  ownerId: string | null | undefined,
+): Promise<boolean> {
+  const ids = [hostingAgentId, ownerId].filter(Boolean) as string[];
+  if (!ids.length) return false;
+  const { data } = await db.from('profiles').select('member_type').in('id', ids);
+  return ((data ?? []) as { member_type: string | null }[]).some(
+    (p) => p.member_type === 'demo' || p.member_type === 'system',
+  );
+}
