@@ -14,6 +14,7 @@ import Login from "./pages/Login";
 import OAuthConsent from "./pages/OAuthConsent";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
+import Support from "./pages/Support";
 import Dashboard from "./pages/Dashboard";
 import Activities from "./pages/Activities";
 import Pipeline from "./pages/Pipeline";
@@ -120,6 +121,7 @@ const App = () => (
             <Route path="/join" element={<JoinOrg />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/terms" element={<Terms />} />
+            <Route path="/support" element={<Support />} />
             <Route path="/auth/confirm" element={<AuthConfirm />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
