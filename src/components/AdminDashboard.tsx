@@ -400,7 +400,6 @@ const AdminDashboard = () => {
 
         // Build agent leaderboard from FUB deals, crediting the producing agent(s).
         // A split deal gives each agent their percentage, never the whole amount.
-        const attribution = await fetchDealAttribution();
         const agentMap = new Map<number, FUBAgentStats>();
         deals.forEach((deal: FUBDeal) => {
           const users: FUBDealUser[] = Array.isArray((deal as any).users) ? (deal as any).users : [];
