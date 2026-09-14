@@ -105,7 +105,7 @@ const AUTOMATION_OWNED_FIELDS = [
   'contacts_held',
   'contacts_unstaged',
   'contacts_per_live_deal',
-  'contacts_made',
+  
   'database_size',
   'fub_synced_at',
   'new_leads',
