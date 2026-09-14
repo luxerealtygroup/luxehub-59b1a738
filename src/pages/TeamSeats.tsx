@@ -30,10 +30,28 @@ interface Invite {
   revoked_at: string | null;
 }
 
+interface Member {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  member_type: string;
+  include_in_team_coaching: boolean;
+  access_expires_at: string | null;
+}
+
+/** What each kind of team member is counted in. */
+const MEMBER_TYPES: { value: string; label: string; blurb: string }[] = [
+  { value: 'agent', label: 'Agent', blurb: 'Counted in production, coaching and the weekly sync' },
+  { value: 'operations', label: 'Operations', blurb: 'Full transactions access, never counted as an agent' },
+  { value: 'client', label: 'Client', blurb: 'Client portal only' },
+  { value: 'demo', label: 'Demo', blurb: 'Example account for walkthroughs' },
+  { value: 'system', label: 'System', blurb: 'Service or test account' },
+];
+
 const TeamSeats = () => {
   const tenant = useTenant();
   const [invites, setInvites] = useState<Invite[]>([]);
-  const [members, setMembers] = useState<{ id: string; full_name: string | null }[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
   const [seatLimit, setSeatLimit] = useState<number | null>(null);
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
