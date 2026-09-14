@@ -87,16 +87,12 @@ export function useFubClosingsCalendar({ year, dealMetadataMap, agentNameByFubId
       if (date < start || date > end) continue;
       const stageClass = classifyStage(d.stageName);
       // Include closed (actuals) + forecast stages (pending/offer/listed/other with a date).
-      // Prefer the user whose id matches assignedUserId; fall back to users[0].
-      const assignedId: number | null = d.assignedUserId ?? d.userId ?? null;
-      const usersArr: any[] = Array.isArray(d.users) ? d.users : [];
-      const user =
-        usersArr.find(u => assignedId != null && u?.id === assignedId) ||
-        usersArr[0] ||
-        null;
-      const fubUserId: number | null = user?.id ?? assignedId ?? null;
+      // Credit the recorded producing agent; only fall back to Follow Up Boss order
+      // when nobody has been recorded, since FUB may list the operations admin first.
+      const credited = resolveProducingAgent(d, attribution);
+      const fubUserId: number | null = credited.fubUserId;
       const resolvedName =
-        user?.name ||
+        credited.name ||
         (fubUserId != null ? agentNameByFubId?.get(fubUserId) : undefined) ||
         (fubUserId != null ? `Agent #${fubUserId}` : 'Unassigned');
       const category = inferDealCategory(d, dealMetadataMap).category;
