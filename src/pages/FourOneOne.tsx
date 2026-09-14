@@ -35,7 +35,9 @@ interface Weekly411 {
   listings_actual: number;
   contracts_goal: number;
   contracts_actual: number;
+  /** Conversations the agent actually had, anywhere — entered by hand. */
   contacts_made: number;
+  contacts_goal: number;
   dials: number;
   doors_knocked: number;
   appointments_set: number;
