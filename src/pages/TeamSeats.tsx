@@ -110,7 +110,49 @@ const TeamSeats = () => {
     void load();
   };
 
+  const changeType = async (id: string, memberType: string) => {
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        member_type: memberType,
+        // Only agents belong in weekly coaching.
+        ...(memberType === 'agent' ? {} : { include_in_team_coaching: false }),
+      })
+      .eq('id', id);
+    if (error) return toast.error(error.message);
+    toast.success('Role updated.');
+    void load();
+  };
+
+  const toggleCoaching = async (id: string, include: boolean) => {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ include_in_team_coaching: include })
+      .eq('id', id);
+    if (error) return toast.error(error.message);
+    void load();
+  };
+
+  const removeMember = async (m: Member) => {
+    if (!window.confirm(`Remove ${m.full_name || m.email} from the team? They lose access immediately.`)) return;
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        access_expires_at: new Date().toISOString(),
+        member_type: 'system',
+        include_in_team_coaching: false,
+      })
+      .eq('id', m.id);
+    if (error) return toast.error(error.message);
+    toast.success('Removed from the team.');
+    void load();
+  };
+
   const pending = invites.filter((i) => !i.used_at && !i.revoked_at);
+  const activeMembers = members.filter(
+    (m) => !m.access_expires_at || new Date(m.access_expires_at) > new Date(),
+  );
+  const agentCount = activeMembers.filter((m) => m.member_type === 'agent').length;
 
   return (
     <div className="space-y-6 p-6">
