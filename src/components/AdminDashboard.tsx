@@ -515,22 +515,13 @@ const AdminDashboard = () => {
         setMonthlyRevenue(monthlyRevenueData);
       }
 
-      // Fetch all profiles with fub_user_id (active agents)
+      // Only people marked as agents count towards production.
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('id, full_name, fub_user_id');
+        .select('id, full_name, fub_user_id, member_type')
+        .eq('member_type', 'agent');
 
-      // Fetch user roles to exclude admin-only users
-      const { data: userRoles } = await supabase
-        .from('user_roles')
-        .select('user_id, role');
-
-      // Create a set of admin-only user IDs (admins who are not also owners/agents)
-      const adminOnlyUserIds = new Set(
-        (userRoles || [])
-          .filter(ur => ur.role === 'admin')
-          .map(ur => ur.user_id)
-      );
+      const agentProfileIds = new Set((profiles || []).map(p => p.id));
 
       // Fetch all deals from local DB for agent breakdown
       const { data: deals } = await supabase
