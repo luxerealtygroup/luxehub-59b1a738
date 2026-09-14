@@ -172,7 +172,15 @@ export function ClosingsCalendar({ year, agentNameByFubId, agentFubUserId, title
                             {d.pipelineName} · {d.stageName}
                             {d.status === 'forecast' && <span className="ml-1 text-primary">· Forecast</span>}
                           </div>
-                          <div className="flex justify-between"><span>Agent</span><span>{d.agentName}</span></div>
+                          <div className="flex justify-between">
+                            <span>Agent</span>
+                            <span>
+                              {d.agentName}
+                              {d.sharePercent < 100 && (
+                                <span className="ml-1 text-xs text-muted-foreground">({d.sharePercent}% split)</span>
+                              )}
+                            </span>
+                          </div>
                           <div className="flex justify-between"><span>Type</span><span className="capitalize">{d.category}</span></div>
                           <div className="flex justify-between"><span>Status</span><span>{d.stageName}</span></div>
                           <div className="flex justify-between"><span>Price</span><span>{formatCurrency(d.price)}</span></div>
