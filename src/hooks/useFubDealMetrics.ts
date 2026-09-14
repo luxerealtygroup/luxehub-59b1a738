@@ -327,7 +327,7 @@ export function useFubDealMetrics({
     const weightedClosed = sumWeightedDeals(closedDealsArr, dealMetadataMap);
     const weightedPending = sumWeightedDeals(pendingDealsArr, dealMetadataMap);
     const salesVolumeClosed = closedDealsArr.reduce(
-      (sum, d: any) => sum + Number(d.price || 0),
+      (sum, d: any) => sum + Number(d.price || 0) * (typeof d.__share === 'number' ? d.__share : 1),
       0
     );
     const weightedDebugClosed = buildWeightedDebug(closedDealsArr, dealMetadataMap);
