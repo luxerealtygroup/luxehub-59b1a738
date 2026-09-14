@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
 import { classifyStage } from '@/hooks/useFubDealMetrics';
 import { inferDealCategory, DealMetadataMap } from '@/lib/utils/dealWeight';
+import { fetchDealAttribution, resolveProducingAgent, DealAttributionMap } from '@/lib/dealAttribution';
 
 export type ClosingDateSource = 'closedDate' | 'closeDate' | 'projectedCloseDate';
 export type ClosingStatus = 'closed' | 'forecast';
