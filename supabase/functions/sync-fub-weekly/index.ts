@@ -93,7 +93,10 @@ async function fubGet(key: string, path: string, params: Record<string, string |
       await new Promise((r) => setTimeout(r, waitMs));
       continue;
     }
-    if (!res.ok) throw new Error(`Follow Up Boss ${path} returned ${res.status}`);
+    if (!res.ok) {
+      const detail = (await res.text()).slice(0, 300);
+      throw new Error(`Follow Up Boss ${path} returned ${res.status}: ${detail}`);
+    }
     return await res.json();
   }
   throw new Error(`Follow Up Boss ${path} kept rate limiting`);
