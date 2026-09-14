@@ -222,6 +222,64 @@ const TeamSeats = () => {
 
       <Card>
         <CardHeader>
+          <CardTitle>People on the team</CardTitle>
+          <CardDescription>
+            Only people set to Agent are counted as agents, appear in Weekly Coaching and get a
+            Follow Up Boss sync each Sunday.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+          {!loading && activeMembers.length === 0 && (
+            <p className="text-sm text-muted-foreground">Nobody on the team yet.</p>
+          )}
+          {activeMembers.map((m) => (
+            <div
+              key={m.id}
+              className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3"
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-medium">{m.full_name || m.email || 'Unnamed'}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {m.email || 'No email on file'}
+                  {m.member_type === 'agent' && !m.include_in_team_coaching
+                    ? ' · not in Weekly Coaching'
+                    : ''}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {m.member_type === 'agent' && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => toggleCoaching(m.id, !m.include_in_team_coaching)}
+                  >
+                    {m.include_in_team_coaching ? 'Hide from coaching' : 'Add to coaching'}
+                  </Button>
+                )}
+                <Select value={m.member_type} onValueChange={(v) => changeType(m.id, v)}>
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MEMBER_TYPES.map((t) => (
+                      <SelectItem key={t.value} value={t.value}>
+                        {t.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button size="sm" variant="ghost" onClick={() => removeMember(m)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Pending invitations</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
