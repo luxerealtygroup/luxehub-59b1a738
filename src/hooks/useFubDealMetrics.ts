@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
 import { sumWeightedDeals, buildWeightedDebug, WeightedDebugInfo, DealMetadataMap } from '@/lib/utils/dealWeight';
 import { inferDealCategory } from '@/lib/utils/dealWeight';
-import { fetchDealAttribution, isDealCreditedTo } from '@/lib/dealAttribution';
+import { fetchDealAttribution, isDealCreditedTo, dealShareFor } from '@/lib/dealAttribution';
 
 // ── Single source of truth for stage classification ──────────────────────
 export const CLOSED_STAGES = ['closed', 'won', 'sold', 'settled', 'completed'];
