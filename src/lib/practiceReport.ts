@@ -152,7 +152,7 @@ export function parsePracticeReport(text: string): ParsedPracticeReport {
     scenario: field(src, ['scenario']),
     mode: field(src, ['mode']),
     exchanges: intField(src, ['exchanges', 'number of exchanges']),
-    earn_30_seconds: score(src, ['earn(?:ed)?(?: the)?(?: first)? 30 seconds', 'first 30 seconds', 'earn 30']),
+    earn_30_seconds: score(src, ['earn(?:ed)?(?: the)?(?: first)?\\s*(?:30|thirty)(?: seconds)?', 'first 30 seconds']),
     motivation_discovery: score(src, ['motivation discovery', 'motivation', 'timeline']),
     talk_less_ratio: score(src, ['talk[- ]?less ratio', 'talk ratio', 'talk less']),
     objection_handling: score(src, ['objection handling', 'objections']),
