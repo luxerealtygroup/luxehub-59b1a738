@@ -164,6 +164,7 @@ interface Totals {
   calls_total: number;
   calls_outbound: number;
   calls_connected: number;
+  conversations: number;
   talk_time_seconds: number;
   texts_sent: number;
   texts_received: number;
@@ -175,9 +176,18 @@ interface Totals {
 
 const emptyTotals = (): Totals => ({
   new_leads: 0, leads_claimed_from_pond: 0, calls_total: 0, calls_outbound: 0,
-  calls_connected: 0, talk_time_seconds: 0, texts_sent: 0, texts_received: 0,
+  calls_connected: 0, conversations: 0, talk_time_seconds: 0, texts_sent: 0, texts_received: 0,
   appointments_set: 0, appointments_held: 0, deals_active: 0, deals_created: 0,
 });
+
+/**
+ * Follow Up Boss's own call report counts a call as "Connected" once there is a
+ * minute of talk time, and as a "Conversation" at two minutes. Verified against
+ * the account's published weekly numbers. `outcome` is frequently null on real
+ * connected calls, so it is never used as the test.
+ */
+const CONNECTED_SECONDS = 60;
+const CONVERSATION_SECONDS = 120;
 
 async function syncOrg(
   supa: ReturnType<typeof db>,
