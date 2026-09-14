@@ -329,6 +329,8 @@ serve(async (req) => {
           dp.append('limit', pageSize.toString());
           dp.append('offset', offset.toString());
           if (params?.stage) dp.append('stage', params.stage);
+
+
           const url = `${FUB_BASE_URL}/deals?${dp.toString()}`;
           console.log('Calling FUB endpoint:', url, `(page offset=${offset})`);
           const r = await fubFetch(url, {
@@ -362,6 +364,25 @@ serve(async (req) => {
         }
 
         console.log(`FUB get_deals returned ${allDeals.length} deals (total reported=${total})`);
+
+        // Attribution audits only need who is on the deal and what it is worth.
+        if (params?.summary) {
+          const rows = (allDeals as any[]).map((d) => ({
+            id: d.id,
+            name: d.name,
+            price: d.price,
+            gci: Number(d.agentCommission || 0) || Number(d.commissionValue || 0) || 0,
+            stage: d.stageName,
+            pipeline: d.pipelineName,
+            date: d.closedDate || d.closeDate || d.projectedCloseDate || null,
+            users: (Array.isArray(d.users) ? d.users : []).map((u: any) => ({ id: u.id, name: u.name })),
+          }));
+          return new Response(
+            JSON.stringify({ success: true, data: { deals: rows, _metadata: { total: rows.length } } }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+          );
+        }
+
         return new Response(
           JSON.stringify({
             success: true,
