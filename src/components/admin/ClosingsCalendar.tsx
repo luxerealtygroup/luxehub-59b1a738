@@ -147,7 +147,7 @@ export function ClosingsCalendar({ year, agentNameByFubId, agentFubUserId, title
                   >
                     <div className="text-xs font-medium text-muted-foreground">{c.day}</div>
                     {visible.map(d => (
-                      <Popover key={d.id}>
+                      <Popover key={d.entryKey}>
                         <PopoverTrigger asChild>
                           <button
                             type="button"
