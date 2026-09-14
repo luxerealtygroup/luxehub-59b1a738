@@ -102,3 +102,6 @@ verify_jwt = true
 [functions.sync-fub-weekly]
 verify_jwt = true
 
+
+[functions.fub-probe]
+verify_jwt = true
