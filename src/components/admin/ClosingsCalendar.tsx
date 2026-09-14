@@ -205,8 +205,12 @@ export function ClosingsCalendar({ year, agentNameByFubId, agentFubUserId, title
                         <PopoverContent className="w-72 text-sm space-y-2 max-h-80 overflow-auto">
                           <div className="font-semibold">{c.ymd} — {dayDeals.length} closings</div>
                           {dayDeals.map(d => (
-                            <div key={d.id} className="border-t border-border pt-1.5">
-                              <div className="font-medium">{d.agentName} {d.status === 'forecast' && <span className="text-primary text-[10px]">(forecast)</span>}</div>
+                            <div key={d.entryKey} className="border-t border-border pt-1.5">
+                              <div className="font-medium">
+                                {d.agentName}
+                                {d.sharePercent < 100 && <span className="text-muted-foreground text-[10px]"> ({d.sharePercent}%)</span>}
+                                {d.status === 'forecast' && <span className="text-primary text-[10px]"> (forecast)</span>}
+                              </div>
                               <div className="text-xs text-muted-foreground">{d.address}</div>
                               <div className="text-xs">{formatCurrency(d.gci)} · {d.category} · {d.stageName}</div>
                             </div>
