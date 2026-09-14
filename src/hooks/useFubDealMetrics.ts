@@ -24,10 +24,12 @@ export const isConditionalStage = (stageName: string): boolean => {
 
 // Agent-facing GCI must respect the agent's split. FUB's `commissionValue` is the
 // gross/total commission on the deal; `agentCommission` is the agent's share.
+// `__share` (0-1) is set when a deal is split between two producing agents.
 const getDealGci = (deal: any): number => {
+  const share = typeof deal.__share === 'number' ? deal.__share : 1;
   const agent = Number(deal.agentCommission ?? 0) || 0;
-  if (agent > 0) return agent;
-  return Number(deal.commissionValue ?? 0) || 0;
+  const gross = agent > 0 ? agent : Number(deal.commissionValue ?? 0) || 0;
+  return gross * share;
 };
 
 // ── Deal-side inference ──────────────────────────────────────────────────
