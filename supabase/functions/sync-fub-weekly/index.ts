@@ -341,8 +341,17 @@ async function syncOrg(
           seen.add(msgId);
           const t = get(Number(m.userId));
           if (!t) continue;
-          if (m.isIncoming) t.texts_received++;
-          else t.texts_sent++;
+          if (m.isIncoming) { t.texts_received++; continue; }
+          // A text that was cancelled before sending, or that the carrier never
+          // delivered, is not outreach — Follow Up Boss's own texts report
+          // leaves those out too.
+          const status = String(m.status ?? '').toLowerCase();
+          const delivery = String(m.deliveryStatus ?? '').toLowerCase();
+          const notSent = status.includes('cancel') || status.includes('fail') ||
+            status.includes('queued') || status.includes('draft') || status.includes('error');
+          const notDelivered = delivery.includes('undelivered') || delivery.includes('fail');
+          if (notSent || notDelivered) continue;
+          t.texts_sent++;
         }
       }));
     }
