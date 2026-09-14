@@ -92,31 +92,36 @@ export function useFubClosingsCalendar({ year, dealMetadataMap, agentNameByFubId
       if (date < start || date > end) continue;
       const stageClass = classifyStage(d.stageName);
       // Include closed (actuals) + forecast stages (pending/offer/listed/other with a date).
-      // Credit the recorded producing agent; only fall back to Follow Up Boss order
+      // Credit the recorded producing agent(s); only fall back to Follow Up Boss order
       // when nobody has been recorded, since FUB may list the operations admin first.
-      const credited = resolveProducingAgent(d, attribution);
-      const fubUserId: number | null = credited.fubUserId;
-      const resolvedName =
-        credited.name ||
-        (fubUserId != null ? agentNameByFubId?.get(fubUserId) : undefined) ||
-        (fubUserId != null ? `Agent #${fubUserId}` : 'Unassigned');
+      // A split deal produces one entry per agent, each holding only their share.
       const category = inferDealCategory(d, dealMetadataMap).category;
-      entries.push({
-        id: d.id,
-        name: d.name || '(unnamed deal)',
-        address: getAddress(d),
-        date,
-        dateSource: source,
-        agentFubUserId: fubUserId,
-        agentName: resolvedName,
-        stageName: d.stageName || '',
-        pipelineName: d.pipelineName || '',
-        price: Number(d.price || 0),
-        gci: getGci(d),
-        category,
-        status: stageClass === 'closed' ? 'closed' : 'forecast',
-        raw: d,
-      });
+      const fullGci = getGci(d);
+      for (const share of resolveDealShares(d, attribution)) {
+        const fubUserId: number | null = share.fubUserId;
+        const resolvedName =
+          share.name ||
+          (fubUserId != null ? agentNameByFubId?.get(fubUserId) : undefined) ||
+          (fubUserId != null ? `Agent #${fubUserId}` : 'Unassigned');
+        entries.push({
+          id: d.id,
+          entryKey: `${d.id}:${fubUserId ?? share.profileId ?? 'none'}`,
+          name: d.name || '(unnamed deal)',
+          address: getAddress(d),
+          date,
+          dateSource: source,
+          agentFubUserId: fubUserId,
+          agentName: resolvedName,
+          sharePercent: share.percent,
+          stageName: d.stageName || '',
+          pipelineName: d.pipelineName || '',
+          price: Number(d.price || 0),
+          gci: (fullGci * share.percent) / 100,
+          category,
+          status: stageClass === 'closed' ? 'closed' : 'forecast',
+          raw: d,
+        });
+      }
     }
     setDeals(entries);
     setLoading(false);
