@@ -73,6 +73,17 @@ interface Weekly411 {
   contacts_unstaged?: number | null;
   contacts_per_live_deal?: number | null;
   fub_synced_at?: string | null;
+  new_leads?: number | null;
+  leads_claimed_from_pond?: number | null;
+  calls_total?: number | null;
+  calls_outbound?: number | null;
+  calls_connected?: number | null;
+  talk_time_seconds?: number | null;
+  texts_received?: number | null;
+  deals_active?: number | null;
+  deals_created?: number | null;
+  fub_sync_status?: string | null;
+  fub_sync_error?: string | null;
 }
 
 /**
@@ -86,6 +97,7 @@ const AUTOMATION_OWNED_FIELDS = [
   'conversations',
   'texts_sent',
   'appointments_set',
+  'appointments_held',
   'talk_time_minutes',
   'speed_to_first_touch_minutes',
   'contacts_held',
@@ -94,6 +106,19 @@ const AUTOMATION_OWNED_FIELDS = [
   'contacts_made',
   'database_size',
   'fub_synced_at',
+  'new_leads',
+  'leads_claimed_from_pond',
+  'calls_total',
+  'calls_outbound',
+  'calls_connected',
+  'talk_time_seconds',
+  'texts_received',
+  'deals_active',
+  'deals_created',
+  'fub_sync_status',
+  'fub_sync_error',
+  'calls_actual',
+  'appointments_actual',
 ] as const;
 
 function buildAgentPayload(data: Weekly411): Record<string, unknown> {
@@ -789,45 +814,73 @@ const FourOneOne = () => {
 
 
 
-          {/* Legacy Activity Metrics with Goals */}
+          {/* Goal tracking — Calls and Appointments come from the weekly sync */}
           <Card className="border-primary/10">
             <CardHeader>
               <CardTitle className="text-lg font-display">Goal Tracking (Actual vs Goal)</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Week of {format(currentWeek, 'MMM d')} – {format(addWeeks(currentWeek, 1), 'MMM d, yyyy')}
+                {' • '}
+                {weeklyData.fub_sync_status === 'not_configured'
+                  ? 'Follow Up Boss is not connected for this team'
+                  : weeklyData.fub_sync_status === 'unmatched'
+                    ? 'No Follow Up Boss user matched your email yet'
+                    : weeklyData.fub_synced_at
+                      ? `Last measured ${format(new Date(weeklyData.fub_synced_at), 'MMM d, h:mm a')}`
+                      : 'Not measured yet'}
+              </p>
             </CardHeader>
             <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
-                { label: 'Calls', goal: 'calls_goal', actual: 'calls_actual' },
-                { label: 'Appointments', goal: 'appointments_goal', actual: 'appointments_actual' },
-                { label: 'Listings', goal: 'listings_goal', actual: 'listings_actual' },
-                { label: 'Contracts', goal: 'contracts_goal', actual: 'contracts_actual' },
-              ].map((metric) => (
-                <div key={metric.label} className="space-y-2">
-                  <Label className="text-sm font-medium">{metric.label}</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      type="number"
-                      placeholder="Actual"
-                      value={weeklyData[metric.actual as keyof Weekly411] as number}
-                      onChange={(e) => setWeeklyData({ ...weeklyData, [metric.actual]: parseInt(e.target.value) || 0 })}
-                      className="flex-1"
+                { label: 'Calls', goal: 'calls_goal', actual: 'calls_actual', measured: true },
+                { label: 'Appointments', goal: 'appointments_goal', actual: 'appointments_actual', measured: true },
+                { label: 'Listings', goal: 'listings_goal', actual: 'listings_actual', measured: false },
+                { label: 'Contracts', goal: 'contracts_goal', actual: 'contracts_actual', measured: false },
+              ].map((metric) => {
+                const measuredValue = weeklyData[metric.actual as keyof Weekly411] as number | null | undefined;
+                const hasMeasurement = metric.measured && !!weeklyData.fub_synced_at;
+                return (
+                  <div key={metric.label} className="space-y-2">
+                    <Label className="text-sm font-medium">{metric.label}</Label>
+                    <div className="flex gap-2">
+                      {metric.measured ? (
+                        <div className="flex h-10 flex-1 items-center rounded-md border border-input bg-muted/50 px-3 text-sm font-semibold">
+                          {hasMeasurement ? measuredValue ?? 0 : '—'}
+                        </div>
+                      ) : (
+                        <Input
+                          type="number"
+                          placeholder="Actual"
+                          value={(measuredValue as number) ?? 0}
+                          onChange={(e) => setWeeklyData({ ...weeklyData, [metric.actual]: parseInt(e.target.value) || 0 })}
+                          className="flex-1"
+                        />
+                      )}
+                      <Input
+                        type="number"
+                        placeholder="Goal"
+                        value={weeklyData[metric.goal as keyof Weekly411] as number}
+                        onChange={(e) => setWeeklyData({ ...weeklyData, [metric.goal]: parseInt(e.target.value) || 0 })}
+                        className="w-20 text-muted-foreground"
+                      />
+                    </div>
+                    <Progress
+                      value={calcProgress(
+                        (hasMeasurement || !metric.measured ? (measuredValue as number) ?? 0 : 0),
+                        weeklyData[metric.goal as keyof Weekly411] as number,
+                      )}
+                      className="h-2"
                     />
-                    <Input
-                      type="number"
-                      placeholder="Goal"
-                      value={weeklyData[metric.goal as keyof Weekly411] as number}
-                      onChange={(e) => setWeeklyData({ ...weeklyData, [metric.goal]: parseInt(e.target.value) || 0 })}
-                      className="w-20 text-muted-foreground"
-                    />
+                    <p className="text-xs text-muted-foreground">
+                      {metric.measured
+                        ? hasMeasurement
+                          ? 'From Follow Up Boss'
+                          : 'Not measured for this week'
+                        : 'Enter this yourself'}
+                    </p>
                   </div>
-                  <Progress 
-                    value={calcProgress(
-                      weeklyData[metric.actual as keyof Weekly411] as number,
-                      weeklyData[metric.goal as keyof Weekly411] as number
-                    )} 
-                    className="h-2"
-                  />
-                </div>
-              ))}
+                );
+              })}
             </CardContent>
           </Card>
 
