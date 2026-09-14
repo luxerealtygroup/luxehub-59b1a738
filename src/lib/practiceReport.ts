@@ -29,31 +29,66 @@ export interface ParsedPracticeReport {
 
 const clean = (s: string) => s.replace(/[*_`#>]/g, '').replace(/\s+/g, ' ').trim();
 
-/** "Label: value" or "Label   value" on one line. */
+/** Spelled-out numbers, so dictated reports ("four out of five") parse too. */
+const WORD_NUMBERS: Record<string, number> = {
+  zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8,
+  nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15,
+  sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20, thirty: 30,
+};
+const WORD_ALT = Object.keys(WORD_NUMBERS).join('|');
+const NUM = `(\\d{1,3}|(?:twenty|thirty)[-\\s](?:${WORD_ALT})|${WORD_ALT})`;
+
+function toNumber(raw: string): number | null {
+  const s = raw.toLowerCase().trim();
+  if (/^\d+$/.test(s)) return Number(s);
+  const parts = s.split(/[-\s]+/);
+  let total = 0;
+  for (const p of parts) {
+    if (!(p in WORD_NUMBERS)) return null;
+    total += WORD_NUMBERS[p];
+  }
+  return total;
+}
+
+/** Label at the start of a line OR mid-paragraph after sentence punctuation. */
+function labelRegex(label: string, tail: string, flags = 'im') {
+  return new RegExp(`(?:^|[.;!?\\n—-]\\s*)[\\s*_>#-]*${label}[^:\\n]{0,40}?\\s*[:\\-—]?\\s*${tail}`, flags);
+}
+
+/** "Label: value" — captures the rest of the line. */
 function field(text: string, labels: string[]): string {
   for (const label of labels) {
-    const re = new RegExp(`^[\\s*_>#-]*${label}\\s*[:\\-]?\\s*(.+)$`, 'im');
-    const m = text.match(re);
+    const m = text.match(labelRegex(label, '(.+)$'));
     if (m && clean(m[1])) return clean(m[1]);
   }
   return '';
 }
 
-/** "The ask   4/5" / "The Ask: 4 / 5" / "The ask - 4" */
+/** "The ask 4/5" / "The Ask: 4 / 5" / "The ask: four out of five" */
 function score(text: string, labels: string[]): number | null {
   for (const label of labels) {
-    const re = new RegExp(`^[\\s*_>#-]*${label}[^0-9\\n]*([0-5])\\s*(?:/\\s*5)?\\b`, 'im');
-    const m = text.match(re);
-    if (m) return Number(m[1]);
+    const m =
+      text.match(labelRegex(label, `${NUM}\\s*(?:/|out of)\\s*(?:5|five)\\b`)) ||
+      text.match(labelRegex(label, `${NUM}\\b`));
+    if (m) {
+      const n = toNumber(m[1]);
+      if (n !== null && n >= 0 && n <= 5) return n;
+    }
   }
   return null;
 }
 
 function intField(text: string, labels: string[]): number | null {
-  const raw = field(text, labels);
-  const m = raw.match(/-?\d+/);
-  return m ? Number(m[0]) : null;
+  for (const label of labels) {
+    const m = text.match(labelRegex(label, `(?:about\\s+|roughly\\s+|~)?${NUM}\\b`));
+    if (m) {
+      const n = toNumber(m[1]);
+      if (n !== null) return n;
+    }
+  }
+  return null;
 }
+
 
 export function parsePracticeReport(text: string): ParsedPracticeReport {
   const src = text || '';
