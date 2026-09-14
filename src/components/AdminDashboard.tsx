@@ -581,15 +581,16 @@ const AdminDashboard = () => {
       const fubIdMap = new Map<string, number | null>((profiles || []).map(p => [p.id, p.fub_user_id ?? null]));
       const goalsMap = new Map((productionGoals || []).map(g => [g.user_id, g]));
       
-      // Include all agents (with or without fub_user_id), excluding admin-only users
-      const agentIds = new Set([
-        ...(profiles || [])
-          .filter(p => !adminOnlyUserIds.has(p.id))
-          .map(p => p.id),
-        ...(deals || []).map(d => d.user_id),
-        ...(commissions || []).map(c => c.user_id),
-        ...(pipelineClients || []).map(p => p.user_id),
-      ]);
+      // Include all agents (with or without fub_user_id); operations, client,
+      // demo and system accounts are excluded by member_type above.
+      const agentIds = new Set(
+        [
+          ...(profiles || []).map(p => p.id),
+          ...(deals || []).map(d => d.user_id),
+          ...(commissions || []).map(c => c.user_id),
+          ...(pipelineClients || []).map(p => p.user_id),
+        ].filter(id => agentProfileIds.has(id)),
+      );
 
       const agentData: AgentData[] = Array.from(agentIds).map(agentId => {
         const agentDeals = (deals || []).filter(d => d.user_id === agentId);
