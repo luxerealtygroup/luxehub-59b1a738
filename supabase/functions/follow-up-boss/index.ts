@@ -329,9 +329,7 @@ serve(async (req) => {
           dp.append('limit', pageSize.toString());
           dp.append('offset', offset.toString());
           if (params?.stage) dp.append('stage', params.stage);
-          // Callers that only need a few columns (audits, calendars) can ask for
-          // them; smaller payloads page much faster.
-          if (params?.fields) dp.append('fields', String(params.fields));
+
 
           const url = `${FUB_BASE_URL}/deals?${dp.toString()}`;
           console.log('Calling FUB endpoint:', url, `(page offset=${offset})`);
