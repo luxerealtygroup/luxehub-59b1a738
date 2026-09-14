@@ -14,6 +14,7 @@ import Login from "./pages/Login";
 import OAuthConsent from "./pages/OAuthConsent";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
+import Support from "./pages/Support";
 import Dashboard from "./pages/Dashboard";
 import Activities from "./pages/Activities";
 import Pipeline from "./pages/Pipeline";
