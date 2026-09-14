@@ -415,7 +415,16 @@ async function syncOrg(
       fub_synced_at: now,
       fub_sync_status: 'ok',
       fub_sync_error: null,
-      fub_raw: { ...t, texts_measurable: false, pond_claims_measurable: false, week_start, week_end, pages_capped: calls.capped || people.capped },
+      fub_raw: {
+        ...t,
+        texts_measurable: textsMeasured,
+        texts_error: textError,
+        pond_claims_measurable: false,
+        connected_threshold_seconds: CONNECTED_SECONDS,
+        conversation_threshold_seconds: CONVERSATION_SECONDS,
+        week_start, week_end,
+        pages_capped: calls.capped || people.capped,
+      },
     }, { onConflict: 'user_id,week_start_date' });
     if (!error) synced++;
     else console.error('weekly_411 upsert failed', p.id, error.message);
