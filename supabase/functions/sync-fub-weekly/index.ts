@@ -23,6 +23,8 @@ const db = () =>
 
 const PAGE_LIMIT = 100;
 const MAX_PAGES = 60; // 6,000 records per endpoint per run
+// Texts can only be read one contact at a time, so the scan is bounded.
+const TEXT_PEOPLE_CAP = 800;
 
 // ---------------------------------------------------------------------------
 // Dates (America/Toronto)
