@@ -477,7 +477,6 @@ const AdminDashboard = () => {
         );
         
         const sortedAgents = Array.from(agentMap.values())
-          .filter(agent => !ADMIN_ONLY_FUB_IDS.includes(agent.id)) // Exclude admin-only users
           .filter(agent => agent.name && agent.name !== 'Unknown Agent') // Exclude unknown agents
           .sort((a, b) => (b.totalGci + b.pendingGci + b.conditionalGci) - (a.totalGci + a.pendingGci + a.conditionalGci));
         setFubAgents(sortedAgents);
