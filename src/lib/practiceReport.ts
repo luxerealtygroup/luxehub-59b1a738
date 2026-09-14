@@ -90,6 +90,12 @@ function intField(text: string, labels: string[]): number | null {
 }
 
 
+/** Handles lines like "A L P T M A M A structure: Appointment and Location were covered..." */
+function structureLine(text: string): string {
+  const line = text.split('\n').find((l) => /structure/i.test(l));
+  return line ? clean(line) : '';
+}
+
 export function parsePracticeReport(text: string): ParsedPracticeReport {
   const src = text || '';
 
