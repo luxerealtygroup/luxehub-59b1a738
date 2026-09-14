@@ -64,10 +64,15 @@ export function useFubClosingsCalendar({ year, dealMetadataMap, agentNameByFubId
     const start = `${year}-01-01`;
     const end = `${year}-12-31`;
     const collected: FUBDeal[] = [];
+    let attribution: DealAttributionMap = new Map();
     try {
       // Edge function paginates server-side and returns the full set in one call.
       // Doing additional client-side pagination here causes duplicates.
-      const resp = await followUpBossApi.getDeals(100, 0);
+      const [resp, attr] = await Promise.all([
+        followUpBossApi.getDeals(100, 0),
+        fetchDealAttribution(),
+      ]);
+      attribution = attr;
       if (resp.success && resp.data?.deals) {
         collected.push(...resp.data.deals);
       }
