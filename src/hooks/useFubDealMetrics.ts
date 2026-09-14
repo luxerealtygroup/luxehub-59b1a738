@@ -233,10 +233,14 @@ export function useFubDealMetrics({
           collected.push(...response.data.deals);
         }
 
-        // Filter to the deals this agent actually produced (not ones they only administer)
-        const agentDeals = collected.filter((d: any) =>
-          isDealCreditedTo(d, targetFubUserId as number, attribution)
-        );
+        // Filter to the deals this agent actually produced (not ones they only administer).
+        // On a split deal the agent keeps only their share of the money.
+        const agentDeals = collected
+          .filter((d: any) => isDealCreditedTo(d, targetFubUserId as number, attribution))
+          .map((d: any) => ({
+            ...d,
+            __share: dealShareFor(d, targetFubUserId as number, attribution),
+          }));
 
         debug.totalDealsForAgent = agentDeals.length;
 
