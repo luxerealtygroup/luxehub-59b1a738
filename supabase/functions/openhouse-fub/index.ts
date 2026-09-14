@@ -101,12 +101,21 @@ Deno.serve(async (req) => {
       return json({ error: 'Unknown action' }, 400);
     }
 
-    const key = await getFubApiKeyForUser(caller.userId).catch(() => null);
+    // Server-to-server callers name the organization; people are resolved from
+    // their own profile.
+    const callerOrgId = caller.userId
+      ? (await getUserOrgContext(caller.userId)).orgId
+      : body.orgId ?? null;
+
+    const key = caller.userId
+      ? await getFubApiKeyForUser(caller.userId).catch(() => null)
+      : callerOrgId
+        ? await getFubApiKeyForOrg(callerOrgId).catch(() => null)
+        : null;
     if (!key) {
       return json({ error: 'Follow Up Boss is not connected for this team yet.' }, 400);
     }
 
-    const { orgId: callerOrgId } = await getUserOrgContext(caller.userId!);
     const stages = await getStages(key, callerOrgId ?? 'instance');
 
     if (action === 'stages') return json({ stages: stages.map((s) => s.name) });
