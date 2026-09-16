@@ -780,6 +780,38 @@ function finalizeAnalysis(analysis: any, compStats: any, extras: Record<string, 
   return { ...out, ...extras };
 }
 
+/** Collects the text of a streamed Anthropic response. */
+async function readAnthropicStream(res: Response): Promise<string> {
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error("ANTHROPIC_NO_BODY");
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let text = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+    for (const line of lines) {
+      if (!line.startsWith('data:')) continue;
+      const payload = line.slice(5).trim();
+      if (!payload || payload === '[DONE]') continue;
+      try {
+        const evt = JSON.parse(payload);
+        if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') {
+          text += evt.delta.text || '';
+        } else if (evt.type === 'error') {
+          throw new Error(`ANTHROPIC_STREAM_${evt.error?.type || 'error'}`);
+        }
+      } catch (e) {
+        if (e instanceof Error && e.message.startsWith('ANTHROPIC_STREAM_')) throw e;
+      }
+    }
+  }
+  return text.trim();
+}
+
 // The analysis pass is the single source of truth for pricing, so it runs on
 // Claude (deeper appraisal reasoning). Extraction stays on Gemini Flash.
 async function callAnalysisAI(gatewayKey: string, systemPrompt: string, userPrompt: string) {
