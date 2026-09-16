@@ -151,6 +151,9 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
   };
 
   const isApproved = report ? ['approved', 'exported', 'pushed', 'converted'].includes(report.approval_status) : false;
+  // The agent who owns the CMA, plus admins, Operations and the owner.
+  const canSendToPortal = !!report && (isAdmin || (!!user && report.user_id === user.id));
+
 
   if (loading) {
     return (
