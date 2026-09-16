@@ -273,6 +273,15 @@ export function AgentPortalDialog({
       supabase.functions
         .invoke('portal-fub-link', { body: { portalId: saved.id } })
         .catch((e) => console.warn('Could not write the portal link to Follow Up Boss:', e));
+      // A brand-new portal always asks whether to invite the client now.
+      if (isNew && opts?.promptInvite) {
+        setInviteTarget({
+          portalId: saved.id,
+          clientName: saved.full_name,
+          email: saved.email,
+          agentName: agents.find((a) => a.id === (assignedAgentId || user.id))?.full_name ?? null,
+        });
+      }
       onSaved?.();
     }
     return saved;
