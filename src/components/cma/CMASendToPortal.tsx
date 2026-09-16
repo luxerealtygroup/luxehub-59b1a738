@@ -1,25 +1,43 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Share2 } from 'lucide-react';
+import { Share2, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { SendToPortalDialog } from '@/components/portal/SendToPortalDialog';
 import { CmaPdfInput, buildCmaClientPdf, formatCmaDate } from '@/lib/cma/clientPdf';
+import { loadCmaPdfInput } from '@/lib/cma/loadPdfInput';
 import { safeFileName } from '@/lib/portalDelivery';
 
 interface Props {
   reportId: string;
   clientName?: string | null;
-  pdfInput: CmaPdfInput;
+  /** Supply the finished document when the caller already has it; otherwise it is loaded on demand. */
+  pdfInput?: CmaPdfInput;
   previousDocumentId?: string | null;
   previousSentAt?: string | null;
+  /** When given, sending is blocked until the CMA has been approved. */
+  approvalStatus?: string | null;
   onSent: () => void;
+  size?: 'sm' | 'default';
+  className?: string;
+  /** Card version: no history list, shorter label. */
+  compact?: boolean;
 }
+
+const APPROVED_STATUSES = ['approved', 'exported', 'pushed', 'converted'];
+const NOT_APPROVED_REASON = 'Approve this CMA before sending it to the client portal.';
 
 /** "Send to client portal" for a finished CMA. The agent always presses it. */
 export function CMASendToPortal({
-  reportId, clientName, pdfInput, previousDocumentId, previousSentAt, onSent,
+  reportId, clientName, pdfInput, previousDocumentId, previousSentAt,
+  approvalStatus, onSent, size = 'default', className, compact,
 }: Props) {
   const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState<{
+    input: CmaPdfInput; clientName: string | null;
+    previousDocumentId: string | null; previousSentAt: string | null;
+  } | null>(null);
   // Our own record of what went to the client and when, so nobody has to remember.
   const [sends, setSends] = useState<Array<{ id: string; version_number: number; created_at: string }>>([]);
 
@@ -31,20 +49,55 @@ export function CMASendToPortal({
       .order('version_number', { ascending: true });
     setSends((data as any) || []);
   };
-  useEffect(() => { loadSends(); }, [reportId]);
+  useEffect(() => { if (!compact) loadSends(); }, [reportId, compact]);
 
-  const dateLabel = formatCmaDate(pdfInput.createdAt);
-  const displayName = `Comparative market analysis — ${pdfInput.propertyAddress} — ${dateLabel}`;
-  const fileName = safeFileName(`cma-${pdfInput.propertyAddress}-${dateLabel}`);
+  const approved = approvalStatus == null ? true : APPROVED_STATUSES.includes(approvalStatus);
+
+  const handleClick = async () => {
+    if (pdfInput) { setOpen(true); return; }
+    setLoading(true);
+    try {
+      const result = await loadCmaPdfInput(reportId);
+      setLoaded(result);
+      setOpen(true);
+    } catch (err: any) {
+      console.error('Failed to prepare the CMA document', err);
+      toast.error('Could not prepare the CMA document', { description: err?.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const input = pdfInput ?? loaded?.input ?? null;
+  const priorDocumentId = previousDocumentId ?? loaded?.previousDocumentId ?? null;
+  const priorSentAt = previousSentAt ?? loaded?.previousSentAt ?? null;
+  const client = clientName ?? loaded?.clientName ?? null;
+
+  const label = approved
+    ? (priorSentAt ? (compact ? 'Send again' : 'Send to portal again') : (compact ? 'Send to portal' : 'Send to Client Portal'))
+    : (compact ? 'Send to portal' : 'Send to Client Portal');
 
   return (
     <>
-      <Button variant="outline" onClick={() => setOpen(true)}>
-        <Share2 className="h-4 w-4 mr-2" />
-        {previousSentAt ? 'Send to portal again' : 'Send to Client Portal'}
+      <Button
+        variant="outline"
+        size={size}
+        className={className}
+        disabled={!approved || loading}
+        title={approved ? undefined : NOT_APPROVED_REASON}
+        onClick={(e) => { e.stopPropagation(); handleClick(); }}
+      >
+        {loading
+          ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          : <Share2 className="h-4 w-4 mr-2" />}
+        {label}
       </Button>
 
-      {sends.length > 0 && (
+      {!approved && !compact && (
+        <p className="text-xs text-muted-foreground">{NOT_APPROVED_REASON}</p>
+      )}
+
+      {!compact && sends.length > 0 && (
         <div className="mt-2 text-xs text-muted-foreground space-y-0.5">
           <p className="font-medium text-foreground">Sent to the client portal</p>
           {sends.map((s) => (
@@ -55,20 +108,20 @@ export function CMASendToPortal({
         </div>
       )}
 
-      {open && (
+      {open && input && (
         <SendToPortalDialog
           open
           onClose={() => setOpen(false)}
           title="Send this CMA to the client portal"
-          displayName={displayName}
-          fileName={fileName}
-          clientName={clientName}
-          propertyAddress={pdfInput.propertyAddress}
-          previousDocumentId={previousDocumentId}
-          previousSentAt={previousSentAt}
+          displayName={`Comparative market analysis — ${input.propertyAddress} — ${formatCmaDate(input.createdAt)}`}
+          fileName={safeFileName(`cma-${input.propertyAddress}-${formatCmaDate(input.createdAt)}`)}
+          clientName={client}
+          propertyAddress={input.propertyAddress}
+          previousDocumentId={priorDocumentId}
+          previousSentAt={priorSentAt}
           versionMode="version"
           docKind="cma"
-          buildBlob={() => buildCmaClientPdf(pdfInput).output('blob') as Blob}
+          buildBlob={() => buildCmaClientPdf(input).output('blob') as Blob}
           onSent={async (result) => {
             const { data: { user } } = await supabase.auth.getUser();
             await supabase
@@ -87,7 +140,7 @@ export function CMASendToPortal({
               property_id: result.propertyId,
               version_group_id: result.versionGroupId,
               version_number: result.versionNumber,
-              property_address: pdfInput.propertyAddress,
+              property_address: input.propertyAddress,
               sent_by: user?.id ?? null,
             } as any);
             setOpen(false);
@@ -98,12 +151,12 @@ export function CMASendToPortal({
           preview={(
             <div className="space-y-2 text-xs text-muted-foreground">
               <p>
-                The finished CMA document for <span className="font-medium text-foreground">{pdfInput.propertyAddress}</span>,
-                dated {dateLabel}: summary, recommended pricing, market conditions, strategy and the
+                The finished CMA document for <span className="font-medium text-foreground">{input.propertyAddress}</span>,
+                dated {formatCmaDate(input.createdAt)}: summary, recommended pricing, market conditions, strategy and the
                 comparable sales behind it.
               </p>
-              {pdfInput.executiveSummary && (
-                <p className="italic line-clamp-6">“{pdfInput.executiveSummary}”</p>
+              {input.executiveSummary && (
+                <p className="italic line-clamp-6">“{input.executiveSummary}”</p>
               )}
             </div>
           )}

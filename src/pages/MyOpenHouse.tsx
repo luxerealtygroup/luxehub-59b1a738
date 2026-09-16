@@ -35,6 +35,7 @@ import { agentUrl, kioskUrl, makeSlug, signInUrl } from '@/lib/openHouse/options
 import { GuestList } from '@/components/openhouse/GuestList';
 import { useUserRole } from '@/hooks/useUserRole';
 import { canManageOpenHouse } from '@/lib/openHouse/permissions';
+import { OpenHouseSendToPortalButton } from '@/components/openhouse/OpenHouseSendToPortalButton';
 import { PrepChecklist } from '@/components/openhouse/PrepChecklist';
 import { SellerReportSection } from '@/components/openhouse/SellerReportSection';
 import { SendReportToPortalDialog } from '@/components/openhouse/SendReportToPortalDialog';
@@ -103,6 +104,7 @@ function formatDate(d: string) {
 
 export default function MyOpenHouse() {
   const { user } = useAuth();
+  const { isAdmin, isOwner } = useUserRole();
   const [houses, setHouses] = useState<OpenHouse[]>([]);
   const [attendeeCounts, setAttendeeCounts] = useState<Record<string, {
     total: number; signedIn: number; hot: number; awaiting: number;
@@ -251,9 +253,10 @@ export default function MyOpenHouse() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {houses.map(h => {
             const c = attendeeCounts[h.id] || { total: 0, signedIn: 0, hot: 0, awaiting: 0 };
+            const canManage = canManageOpenHouse(h, user?.id, isAdmin || isOwner);
             return (
-              <button key={h.id} type="button" onClick={() => setSelectedId(h.id)} className="text-left">
-                <Card className="p-4 hover:border-gold/60 hover:shadow-md transition-all h-full">
+              <Card key={h.id} className="p-4 hover:border-gold/60 hover:shadow-md transition-all h-full flex flex-col">
+                <button type="button" onClick={() => setSelectedId(h.id)} className="text-left">
                   <p className="font-semibold leading-tight truncate">{h.property_address}</p>
                   <p className="text-xs text-muted-foreground mt-1">{formatDate(h.open_house_date)}</p>
                   <div className="grid grid-cols-2 gap-2 mt-4 text-xs">
@@ -262,9 +265,22 @@ export default function MyOpenHouse() {
                     <Stat label="Hot" value={c.hot} />
                     <Stat label="No follow-up yet" value={c.awaiting} />
                   </div>
-
-                </Card>
-              </button>
+                </button>
+                {canManage && (
+                  <div className="mt-3 pt-3 border-t flex items-center justify-between gap-2">
+                    <OpenHouseSendToPortalButton
+                      openHouse={h}
+                      onSent={loadHouses}
+                      className="h-7 px-2 text-xs"
+                    />
+                    {h.portal_sent_at && (
+                      <span className="text-[10px] text-muted-foreground/70">
+                        Sent {new Date(h.portal_sent_at).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </Card>
             );
           })}
         </div>

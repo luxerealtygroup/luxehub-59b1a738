@@ -14,6 +14,7 @@ import CMAAuditView from '@/components/cma/CMAAuditView';
 import CMAClientReport from '@/components/cma/CMAClientReport';
 import CMAPerformanceDashboard from '@/components/cma/CMAPerformanceDashboard';
 import { CMAStatusBadge } from '@/components/cma/CMALifecycleStatus';
+import { CMASendToPortal } from '@/components/cma/CMASendToPortal';
 import { useCmaMonthlyUsage } from '@/hooks/useCmaMonthlyUsage';
 import { Link } from 'react-router-dom';
 import { tenant } from '@/config/tenant';
@@ -32,6 +33,9 @@ interface CMAReport {
   listing_status: string;
   user_id: string;
   version_number: number;
+  approval_status: string | null;
+  portal_sent_at: string | null;
+  portal_document_id: string | null;
 }
 
 type ViewMode = 'list' | 'create' | 'edit' | 'audit' | 'report' | 'generated';
@@ -177,7 +181,7 @@ const CMABoss = () => {
 
     let query = supabase
       .from('cma_reports')
-      .select('id, property_address, city_area, property_type, analysis_status, cma_grade, pricing_band_recommended, created_at, updated_at, strategy_recommendation, listing_status, user_id, version_number')
+      .select('id, property_address, city_area, property_type, analysis_status, cma_grade, pricing_band_recommended, created_at, updated_at, strategy_recommendation, listing_status, user_id, version_number, approval_status, portal_sent_at, portal_document_id')
       .order('created_at', { ascending: false });
 
     // Apply agent-level filter at the DB query level
@@ -330,6 +334,17 @@ const CMABoss = () => {
             >
               <Eye className="h-4 w-4 mr-1" /> Client Report
             </Button>
+            {!isViewingAsAgent && (
+              <CMASendToPortal
+                reportId={selectedReportId}
+                approvalStatus={reports.find(r => r.id === selectedReportId)?.approval_status ?? 'draft'}
+                previousSentAt={reports.find(r => r.id === selectedReportId)?.portal_sent_at ?? null}
+                previousDocumentId={reports.find(r => r.id === selectedReportId)?.portal_document_id ?? null}
+                size="sm"
+                compact
+                onSent={fetchReports}
+              />
+            )}
           </div>
         </div>
         {cmaUsage.isFree && !cmaUsage.loading && (
@@ -446,7 +461,7 @@ const CMABoss = () => {
           </TabsList>
 
           <TabsContent value="reports">
-            <CMAReportsList reports={reports} loading={loading} onOpen={openAudit} onEdit={openEdit} onCreate={() => setViewMode('create')} canEdit={!isViewingAsAgent} currentUserId={user?.id} isAdmin={isAdmin} />
+            <CMAReportsList reports={reports} loading={loading} onOpen={openAudit} onEdit={openEdit} onCreate={() => setViewMode('create')} canEdit={!isViewingAsAgent} currentUserId={user?.id} isAdmin={isAdmin} onSent={fetchReports} />
           </TabsContent>
 
           <TabsContent value="performance">
@@ -454,7 +469,7 @@ const CMABoss = () => {
           </TabsContent>
         </Tabs>
       ) : (
-        <CMAReportsList reports={reports} loading={loading} onOpen={openAudit} onEdit={openEdit} onCreate={() => setViewMode('create')} canEdit={true} currentUserId={user?.id} isAdmin={false} />
+        <CMAReportsList reports={reports} loading={loading} onOpen={openAudit} onEdit={openEdit} onCreate={() => setViewMode('create')} canEdit={true} currentUserId={user?.id} isAdmin={false} onSent={fetchReports} />
       )}
     </div>
   );
@@ -470,6 +485,7 @@ const CMAReportsList = ({
   canEdit,
   currentUserId,
   isAdmin,
+  onSent,
 }: {
   reports: CMAReport[];
   loading: boolean;
@@ -479,6 +495,7 @@ const CMAReportsList = ({
   canEdit: boolean;
   currentUserId?: string;
   isAdmin: boolean;
+  onSent?: () => void;
 }) => {
   if (loading) {
     return (
@@ -556,19 +573,36 @@ const CMAReportsList = ({
                 )}
               </div>
               {canEdit && (isAdmin || report.user_id === currentUserId) && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-muted-foreground hover:text-gold"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onEdit(report.id);
-                  }}
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
+                <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                  <CMASendToPortal
+                    reportId={report.id}
+                    approvalStatus={report.approval_status ?? 'draft'}
+                    previousSentAt={report.portal_sent_at}
+                    previousDocumentId={report.portal_document_id}
+                    size="sm"
+                    compact
+                    className="h-7 px-2 text-xs"
+                    onSent={() => onSent?.()}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-muted-foreground hover:text-gold"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEdit(report.id);
+                    }}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               )}
             </div>
+            {report.portal_sent_at && (
+              <p className="text-[10px] text-muted-foreground/70">
+                Sent to the client portal {new Date(report.portal_sent_at).toLocaleDateString()}
+              </p>
+            )}
           </CardContent>
         </Card>
       ))}

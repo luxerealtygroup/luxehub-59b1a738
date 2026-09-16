@@ -483,12 +483,14 @@ const AdminTenants = () => {
               <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
                 <span className="text-muted-foreground">Owner:</span>
                 <span>{ownerLabel(owners[o.id])}</span>
-                {isSuperAdmin && owners[o.id]?.state !== 'active' && (
+                {isSuperAdmin && (
                   <Button size="sm" variant="outline" onClick={() => openOwnerDialog(o)}>
                     <Mail className="mr-1 h-3.5 w-3.5" />
-                    {owners[o.id] && owners[o.id].state !== 'none'
-                      ? 'Resend invitation'
-                      : 'Invite owner'}
+                    {owners[o.id]?.state === 'active'
+                      ? 'Invite a different owner'
+                      : owners[o.id] && owners[o.id].state !== 'none'
+                        ? 'Resend invitation'
+                        : 'Invite owner'}
                   </Button>
                 )}
               </div>
@@ -532,12 +534,18 @@ const AdminTenants = () => {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {ownerFor?.state === 'none' ? 'Invite an owner' : 'Resend the owner invitation'}
+              {ownerFor?.state === 'none'
+                ? 'Invite an owner'
+                : ownerFor?.state === 'active'
+                  ? 'Invite a different owner'
+                  : 'Resend the owner invitation'}
             </DialogTitle>
             <DialogDescription>
               Nothing is sent until you confirm. The invitation makes this person the owner of
               this team only — never a member of Luxe Realty Group. Any invitation still
               outstanding for this team is replaced.
+              {ownerFor?.state === 'active' &&
+                ' This team already has an active owner, who keeps their access.'}
             </DialogDescription>
           </DialogHeader>
           {ownerFor && (

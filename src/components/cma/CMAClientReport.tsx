@@ -282,9 +282,10 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
             approvalStatus={report.approval_status}
           />
         )}
-        {isApproved && canSendToPortal && (
+        {canSendToPortal && (
           <CMASendToPortal
             reportId={report.id}
+            approvalStatus={report.approval_status}
             clientName={report.fub_person_name}
             previousDocumentId={report.portal_document_id}
             previousSentAt={report.portal_sent_at}
