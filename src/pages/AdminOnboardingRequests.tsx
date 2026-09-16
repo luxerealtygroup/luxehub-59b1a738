@@ -37,20 +37,18 @@ type RequestRow = {
   admin_notes: string | null;
 };
 
-const STATUSES = ['new', 'contacted', 'in_setup', 'live', 'declined'] as const;
+const STATUSES = ['new', 'in_progress', 'live', 'declined'] as const;
 
 const STATUS_LABEL: Record<string, string> = {
   new: 'New',
-  contacted: 'Contacted',
-  in_setup: 'In setup',
+  in_progress: 'In progress',
   live: 'Live',
   declined: 'Declined',
 };
 
 const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'destructive'> = {
   new: 'default',
-  contacted: 'secondary',
-  in_setup: 'secondary',
+  in_progress: 'secondary',
   live: 'outline',
   declined: 'destructive',
 };
