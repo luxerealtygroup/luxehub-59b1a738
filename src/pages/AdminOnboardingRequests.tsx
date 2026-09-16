@@ -11,7 +11,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Copy, Download, FileCog, Loader2, RefreshCw } from 'lucide-react';
+import { Copy, Download, FileCog, Loader2, Mail, RefreshCw } from 'lucide-react';
 import { HUB_ROOT_DOMAIN, normalizeWebsiteUrl, toHubUrl } from '@/lib/tenantDomain';
 
 type RequestRow = {
@@ -355,8 +355,22 @@ const AdminOnboardingRequests = () => {
                       View logo
                     </Button>
                   )}
+                  {ownerInvite(r) && (
+                    <Button variant="outline" size="sm" onClick={() => setWelcomeFor(r)}>
+                      <Mail className="mr-2 h-4 w-4" />
+                      {r.welcome_email_sent_at ? 'Send welcome email again' : 'Send welcome email'}
+                    </Button>
+                  )}
                   {savingId === r.id && <Loader2 className="h-4 w-4 animate-spin self-center" />}
                 </div>
+
+                {ownerInvite(r) && (
+                  <p className="text-xs text-muted-foreground">
+                    {r.welcome_email_sent_at
+                      ? `Welcome email sent ${new Date(r.welcome_email_sent_at).toLocaleString()}`
+                      : 'Welcome email not sent yet'}
+                  </p>
+                )}
               </CardContent>
             </Card>
           ))}
