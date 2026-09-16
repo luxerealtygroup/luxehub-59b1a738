@@ -30,9 +30,6 @@ verify_jwt = true
 [functions.sync-claude-profiles]
 verify_jwt = false
 
-[functions.luxehub-mcp]
-verify_jwt = false
-
 [functions.process-email-queue]
 verify_jwt = true
 
