@@ -504,7 +504,7 @@ export function AgentPortalDialog({
                 </div>
               </div>
               <div className="flex flex-wrap gap-2 pt-2">
-                <Button onClick={saveAccount} disabled={saving}>
+                <Button onClick={() => saveAccount({ promptInvite: true })} disabled={saving}>
                   {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   {account ? 'Save changes' : 'Create portal'}
                 </Button>
