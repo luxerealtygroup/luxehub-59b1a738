@@ -232,7 +232,17 @@ const AdminOnboardingRequests = () => {
                 <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
                   <Detail label="Legal name" value={r.legal_name} />
                   <Detail label="Website" value={r.website} />
-                  <Detail label="Desired domain" value={r.desired_domain} />
+                  <div>
+                    <div className="flex gap-2">
+                      <dt className="text-muted-foreground">Desired domain:</dt>
+                      <dd className="text-foreground">{r.desired_domain || '—'}</dd>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {toHubUrl(r.desired_domain)
+                        ? `Hub address: ${toHubUrl(r.desired_domain)}`
+                        : `No subdomain chosen yet — will be <name>.${HUB_ROOT_DOMAIN}`}
+                    </p>
+                  </div>
                   <Detail label="Team size" value={r.team_size} />
                   <Detail label="Area served" value={r.service_area} />
                   <Detail
