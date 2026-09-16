@@ -864,6 +864,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
         if (error) throw error;
         reportId = data!.id;
       }
+      savedReportId = reportId;
 
       // Run analysis with reviewed comps included in the request
       const pdfText = cmaPdf ? await extractPdfText(cmaPdf) : '';
