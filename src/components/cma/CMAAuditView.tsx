@@ -251,27 +251,27 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
     );
   }
 
-  if (report.analysis_status === 'processing') {
-    return (
-      <Card className="border-gold/20">
-        <CardContent className="py-12 text-center flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-gold" />
-          <p className="text-muted-foreground">Analysis in progress...</p>
-        </CardContent>
-      </Card>
-    );
+  const runState = getAnalysisState(report as any);
+  const hasPreviousAnalysis = Boolean(report.cma_grade || report.pricing_band_recommended);
+
+  // A run that died mid-flight must never lock the page behind a spinner: show
+  // the last completed analysis (when there is one) with a retry.
+  const runBanner =
+    runState === 'processing' || runState === 'stale' || runState === 'error' ? (
+      <CMAAnalysisFailedBanner
+        reportId={report.id}
+        running={runState === 'processing'}
+        hasPreviousAnalysis={hasPreviousAnalysis}
+        startedAt={(report as any).analysis_started_at || report.created_at}
+        errorMessage={(report as any).analysis_error}
+        onUpdate={fetchReport}
+      />
+    ) : null;
+
+  if (runBanner && !hasPreviousAnalysis) {
+    return <div className="space-y-6 max-w-5xl">{runBanner}</div>;
   }
 
-  if (report.analysis_status === 'error') {
-    return (
-      <Card className="border-destructive/30">
-        <CardContent className="py-12 text-center">
-          <AlertTriangle className="h-8 w-8 text-destructive mx-auto mb-3" />
-          <p className="text-destructive">Analysis encountered an error. Please try again.</p>
-        </CardContent>
-      </Card>
-    );
-  }
 
   const fmt = (n: number | null) => n != null ? `$${n.toLocaleString()}` : '—';
   const gradeColors: Record<string, string> = {
