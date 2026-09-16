@@ -17,6 +17,7 @@ export default function OAuthConsent() {
   const [params] = useSearchParams();
   const authorizationId = params.get("authorization_id") ?? "";
   const [details, setDetails] = useState<any>(null);
+  const [accountEmail, setAccountEmail] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
