@@ -1093,7 +1093,14 @@ function OpenHouseDetail({
 // Report section
 // ============================================================================
 
-function ReportSection({ openHouse, guests }: { openHouse: OpenHouse; guests: Guest[] }) {
+function ReportSection({ openHouse, guests, canManage, hostName, onChanged }: {
+  openHouse: OpenHouse;
+  guests: Guest[];
+  canManage: boolean;
+  hostName?: string | null;
+  onChanged: () => void;
+}) {
+
   const total = guests.length;
   const signedIn = guests.filter(g => g.source === 'visitor').length;
   const preApproved = guests.filter(g => g.lender_status === 'pre_approved').length;
