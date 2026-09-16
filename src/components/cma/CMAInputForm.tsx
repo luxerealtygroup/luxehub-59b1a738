@@ -745,6 +745,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     if (!user) return;
     setSaving(true);
     setAnalyzing(true);
+    let savedReportId: string | null = null;
 
     try {
       // Upload PDFs
@@ -827,6 +828,8 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
         ...(statsPdfPath ? { stats_pdf_path: statsPdfPath } : {}),
         stats_pasted_text: statsMethod === 'paste' ? pastedStats : null,
         analysis_status: 'processing',
+        analysis_started_at: new Date().toISOString(),
+        analysis_error: null,
         extracted_comps: finalComps,
         last_edited_by: user.id,
         cma_source_url: cmaSourceUrl || null,
@@ -861,6 +864,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
         if (error) throw error;
         reportId = data!.id;
       }
+      savedReportId = reportId;
 
       // Run analysis with reviewed comps included in the request
       const pdfText = cmaPdf ? await extractPdfText(cmaPdf) : '';
@@ -908,13 +912,24 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
 
         toast.success('CMA analysis complete!');
       } else {
-        await supabase.from('cma_reports').update({ analysis_status: 'error' }).eq('id', reportId);
+        await supabase.from('cma_reports').update({
+          analysis_status: 'error',
+          analysis_error: fnData?.error || 'The analysis service did not return a result.',
+        } as any).eq('id', reportId);
         toast.error(fnData?.error || 'Analysis failed');
       }
 
+      savedReportId = reportId;
       onCreated(reportId);
     } catch (err) {
       console.error('CMA submit error:', err);
+      // Never leave the record pinned in "processing" when the run dies here.
+      if (savedReportId) {
+        await supabase.from('cma_reports').update({
+          analysis_status: 'error',
+          analysis_error: err instanceof Error ? err.message : 'The analysis run failed.',
+        } as any).eq('id', savedReportId);
+      }
       toast.error('Failed to save CMA report');
     } finally {
       setSaving(false);

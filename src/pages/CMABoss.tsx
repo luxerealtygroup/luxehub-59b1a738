@@ -18,6 +18,7 @@ import { CMASendToPortal } from '@/components/cma/CMASendToPortal';
 import { useCmaMonthlyUsage } from '@/hooks/useCmaMonthlyUsage';
 import { Link } from 'react-router-dom';
 import { tenant } from '@/config/tenant';
+import { getAnalysisState, analysisStateLabel } from '@/lib/cma/analysisState';
 
 interface CMAReport {
   id: string;
@@ -25,6 +26,7 @@ interface CMAReport {
   city_area: string;
   property_type: string;
   analysis_status: string;
+  analysis_started_at?: string | null;
   cma_grade: string | null;
   pricing_band_recommended: number | null;
   created_at: string;
@@ -181,7 +183,7 @@ const CMABoss = () => {
 
     let query = supabase
       .from('cma_reports')
-      .select('id, property_address, city_area, property_type, analysis_status, cma_grade, pricing_band_recommended, created_at, updated_at, strategy_recommendation, listing_status, user_id, version_number, approval_status, portal_sent_at, portal_document_id')
+      .select('id, property_address, city_area, property_type, analysis_status, analysis_started_at, cma_grade, pricing_band_recommended, created_at, updated_at, strategy_recommendation, listing_status, user_id, version_number, approval_status, portal_sent_at, portal_document_id')
       .order('created_at', { ascending: false });
 
     // Apply agent-level filter at the DB query level
@@ -538,7 +540,7 @@ const CMAReportsList = ({
           <CardContent className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">Analysis</span>
-              <StatusBadge status={report.analysis_status} />
+              <StatusBadge report={report} />
             </div>
             {report.cma_grade && (
               <div className="flex items-center justify-between">
@@ -610,16 +612,18 @@ const CMAReportsList = ({
   );
 };
 
-const StatusBadge = ({ status }: { status: string }) => {
+const StatusBadge = ({ report }: { report: CMAReport }) => {
+  const state = getAnalysisState(report as any);
   const colors: Record<string, string> = {
     draft: 'bg-muted text-muted-foreground',
     processing: 'bg-amber-500/20 text-amber-500',
-    completed: 'bg-emerald-500/20 text-emerald-500',
+    stale: 'bg-destructive/20 text-destructive',
     error: 'bg-destructive/20 text-destructive',
+    completed: 'bg-emerald-500/20 text-emerald-500',
   };
   return (
-    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${colors[status] || colors.draft}`}>
-      {status}
+    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${colors[state] || colors.draft}`}>
+      {analysisStateLabel[state].toLowerCase()}
     </span>
   );
 };
