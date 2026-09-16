@@ -1154,6 +1154,8 @@ export type Database = {
           adjustment_observations: Json | null
           agent_notes: string | null
           ai_raw_response: Json | null
+          analysis_error: string | null
+          analysis_started_at: string | null
           analysis_status: string | null
           approval_status: string
           approved_executive_summary: string | null
@@ -1245,6 +1247,8 @@ export type Database = {
           adjustment_observations?: Json | null
           agent_notes?: string | null
           ai_raw_response?: Json | null
+          analysis_error?: string | null
+          analysis_started_at?: string | null
           analysis_status?: string | null
           approval_status?: string
           approved_executive_summary?: string | null
@@ -1336,6 +1340,8 @@ export type Database = {
           adjustment_observations?: Json | null
           agent_notes?: string | null
           ai_raw_response?: Json | null
+          analysis_error?: string | null
+          analysis_started_at?: string | null
           analysis_status?: string | null
           approval_status?: string
           approved_executive_summary?: string | null
