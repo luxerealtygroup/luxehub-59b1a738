@@ -60,8 +60,10 @@ const slug = (s: string) =>
 const yesNo = (v: boolean | null) => (v === true ? 'yes' : v === false ? 'no' : 'unknown');
 
 function buildConfigSheet(r: RequestRow) {
-  const domain = r.desired_domain?.replace(/^https?:\/\//, '').replace(/\/$/, '') || '';
-  const name = slug(r.business_name);
+  const hubUrl = toHubUrl(r.desired_domain);
+  const appUrlLine = hubUrl
+    ? `VITE_TENANT_APP_URL="${hubUrl}"`
+    : `VITE_TENANT_APP_URL=""   # subdomain still has to be chosen (<label>.${HUB_ROOT_DOMAIN})`;
   return [
     `# Config sheet — ${r.business_name}`,
     `# Generated from setup request ${r.id}`,
@@ -71,8 +73,8 @@ function buildConfigSheet(r: RequestRow) {
     `VITE_TENANT_BROKERAGE_NAME="${r.business_name}"`,
     `VITE_TENANT_LEGAL_NAME="${r.legal_name || r.business_name}"`,
     `VITE_TENANT_SUPPORT_EMAIL="${r.email}"`,
-    `VITE_TENANT_APP_URL="https://${domain || `${name}.lovable.app`}"`,
-    `VITE_TENANT_WEBSITE_URL="${r.website || ''}"`,
+    appUrlLine,
+    `VITE_TENANT_WEBSITE_URL="${normalizeWebsiteUrl(r.website)}"`,
     `VITE_TENANT_PHONE="${r.phone || ''}"`,
     '',
     '## Backend secrets to set (values collected directly from the client — never by form)',
