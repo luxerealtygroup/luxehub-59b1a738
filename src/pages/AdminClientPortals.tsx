@@ -277,12 +277,23 @@ export default function AdminClientPortals() {
     [rows],
   );
 
+  /** Agents who actually have a portal, for the agent dropdown. */
+  const agentOptions = useMemo(
+    () => Array.from(new Set(rows.map((r) => r.agentName).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+    [rows],
+  );
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return rows.filter((r) => {
+    const list = rows.filter((r) => {
       if (q) {
         const hay = `${r.full_name ?? ''} ${r.email} ${r.agentName}`.toLowerCase();
         if (!hay.includes(q)) return false;
+      }
+      if (agentFilter !== 'all' && r.agentName !== agentFilter) return false;
+      if (typeFilter !== 'all') {
+        const side = portalSide(r);
+        if (side !== typeFilter && side !== 'both') return false;
       }
       if (health === 'not_invited' && r.status !== 'not_invited') return false;
       if (health === 'awaiting_signup' && r.status !== 'invited') return false;
@@ -294,7 +305,37 @@ export default function AdminClientPortals() {
       if (health === 'conditions_risk' && !(r.overdueConditions || r.dueSoonConditions)) return false;
       return true;
     });
-  }, [rows, search, health]);
+
+    const dir = sortDir === 'asc' ? 1 : -1;
+    const value = (r: PortalRow) => {
+      switch (sortKey) {
+        case 'agent':
+          return r.agentName.toLowerCase();
+        case 'type':
+          return portalSide(r);
+        case 'health':
+          return r.healthScore;
+        case 'activity':
+          return r.lastMessageAt ? new Date(r.lastMessageAt).getTime() : 0;
+        default:
+          return (r.full_name || r.email || '').toLowerCase();
+      }
+    };
+    return [...list].sort((a, b) => {
+      const va = value(a);
+      const vb = value(b);
+      if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir;
+      return String(va).localeCompare(String(vb)) * dir;
+    });
+  }, [rows, search, health, typeFilter, agentFilter, sortKey, sortDir]);
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else {
+      setSortKey(key);
+      setSortDir(key === 'health' || key === 'activity' ? 'desc' : 'asc');
+    }
+  };
 
   const stats = useMemo(() => {
     return {
