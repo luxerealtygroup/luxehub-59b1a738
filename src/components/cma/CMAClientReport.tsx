@@ -116,6 +116,8 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
           approval_status: r.approval_status || 'draft',
         };
         setReport(reportData);
+        setPortalSentAt(reportData.portal_sent_at ?? null);
+
 
         if (reportData.user_id) {
           const { data: prof } = await supabase
