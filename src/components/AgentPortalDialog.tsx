@@ -606,6 +606,11 @@ export function AgentPortalDialog({
           </Tabs>
         )}
       </DialogContent>
+      <SendInviteConfirmDialog
+        target={inviteTarget}
+        onClose={() => setInviteTarget(null)}
+        onSent={() => onSaved?.()}
+      />
     </Dialog>
   );
 }
