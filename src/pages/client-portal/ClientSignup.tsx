@@ -84,12 +84,13 @@ const ClientSignup = () => {
   }, [token]);
 
   const claimPortal = async (name?: string) => {
-    const { error } = await supabase.rpc('claim_portal_invite', {
+    const { data, error } = await supabase.rpc('claim_portal_invite', {
       _token: token,
       _full_name: name ?? fullName ?? null,
     });
     if (error) throw new Error(error.message);
     clearPendingInvite();
+    clearActivationLink(typeof data === 'string' ? data : null);
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
