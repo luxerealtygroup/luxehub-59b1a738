@@ -75,6 +75,7 @@ export default function AdminClientPortals() {
   const [search, setSearch] = useState('');
   const [health, setHealth] = useState<FilterKey>('all');
   const [resendingId, setResendingId] = useState<string | null>(null);
+  const [backfilling, setBackfilling] = useState(false);
   const { toast } = useToast();
 
   /** Mint a fresh single-use token and email it, straight from the row. */
@@ -229,6 +230,27 @@ export default function AdminClientPortals() {
     load();
   }, [load]);
 
+  /**
+   * Backfill: write every existing portal's staff-only admin link onto the
+   * matching Follow Up Boss contact. Unmatched contacts are skipped.
+   */
+  const backfillFubLinks = async () => {
+    setBackfilling(true);
+    const { data, error } = await supabase.functions.invoke('portal-fub-link', {
+      body: { backfill: true },
+    });
+    setBackfilling(false);
+    if (error) {
+      toast({ title: 'Sync failed', description: error.message, variant: 'destructive' });
+      return;
+    }
+    const res = data as { updated?: number; skipped?: number };
+    toast({
+      title: 'Follow Up Boss updated',
+      description: `${res?.updated ?? 0} contact(s) updated, ${res?.skipped ?? 0} skipped (no match).`,
+    });
+  };
+
   /** Emails that already have a portal — used to keep the queue accurate. */
   const existingEmails = useMemo(
     () => new Set(rows.map((r) => (r.email || '').trim().toLowerCase()).filter(Boolean)),
@@ -308,14 +330,22 @@ export default function AdminClientPortals() {
               : 'Your client portals, with health at a glance.'}
           </p>
         </div>
-        <AgentPortalDialog
-          trigger={
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Set Up New Portal
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <Button variant="outline" className="gap-2" disabled={backfilling} onClick={backfillFubLinks}>
+              {backfilling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+              Sync portal links to Follow Up Boss
             </Button>
-          }
-        />
+          )}
+          <AgentPortalDialog
+            trigger={
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                Set Up New Portal
+              </Button>
+            }
+          />
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
