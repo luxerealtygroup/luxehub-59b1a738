@@ -1242,23 +1242,33 @@ function ReportSection({ openHouse, guests }: { openHouse: OpenHouse; guests: Gu
           >
             <Mail className="h-4 w-4 mr-1" /> Send to Listing Agent
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setShowSendPortal(true)}>
-            <Share2 className="h-4 w-4 mr-1" /> Send to Client Portal
-          </Button>
+          {canManage && (
+            <Button variant="outline" size="sm" onClick={() => setShowSendPortal(true)}>
+              <Share2 className="h-4 w-4 mr-1" /> Send to Client Portal
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={downloadPdf}>
             <FileDown className="h-4 w-4 mr-1" /> Download PDF
           </Button>
         </div>
       </div>
 
+      {openHouse.portal_sent_at && (
+        <p className="text-xs text-muted-foreground">
+          Sent to the client portal on {new Date(openHouse.portal_sent_at).toLocaleString()}.
+        </p>
+      )}
+
       {showSendPortal && (
-        <SendToPortalDialog
+        <SendReportToPortalDialog
           openHouse={openHouse}
-          buildPdf={buildPdf}
-          fileName={pdfFileName()}
+          guests={guests}
+          agentName={hostName}
           onClose={() => setShowSendPortal(false)}
+          onSent={() => { setShowSendPortal(false); onChanged(); }}
         />
       )}
+
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
         <ReportField label="Listing agent" value={openHouse.listing_agent_name || '—'} sub={openHouse.listing_agent_email || ''} />
