@@ -308,14 +308,22 @@ export default function AdminClientPortals() {
               : 'Your client portals, with health at a glance.'}
           </p>
         </div>
-        <AgentPortalDialog
-          trigger={
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Set Up New Portal
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <Button variant="outline" className="gap-2" disabled={backfilling} onClick={backfillFubLinks}>
+              {backfilling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+              Sync portal links to Follow Up Boss
             </Button>
-          }
-        />
+          )}
+          <AgentPortalDialog
+            trigger={
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                Set Up New Portal
+              </Button>
+            }
+          />
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
