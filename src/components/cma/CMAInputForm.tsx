@@ -910,13 +910,24 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
 
         toast.success('CMA analysis complete!');
       } else {
-        await supabase.from('cma_reports').update({ analysis_status: 'error' }).eq('id', reportId);
+        await supabase.from('cma_reports').update({
+          analysis_status: 'error',
+          analysis_error: fnData?.error || 'The analysis service did not return a result.',
+        } as any).eq('id', reportId);
         toast.error(fnData?.error || 'Analysis failed');
       }
 
+      savedReportId = reportId;
       onCreated(reportId);
     } catch (err) {
       console.error('CMA submit error:', err);
+      // Never leave the record pinned in "processing" when the run dies here.
+      if (savedReportId) {
+        await supabase.from('cma_reports').update({
+          analysis_status: 'error',
+          analysis_error: err instanceof Error ? err.message : 'The analysis run failed.',
+        } as any).eq('id', savedReportId);
+      }
       toast.error('Failed to save CMA report');
     } finally {
       setSaving(false);
