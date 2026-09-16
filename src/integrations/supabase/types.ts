@@ -1126,6 +1126,9 @@ export type Database = {
           median_sale_price: number | null
           months_of_inventory: number | null
           org_id: string | null
+          portal_account_id: string | null
+          portal_document_id: string | null
+          portal_sent_at: string | null
           prev_avg_days_on_market: number | null
           prev_median_sale_price: number | null
           price_per_sqft_cross_check: Json | null
@@ -1214,6 +1217,9 @@ export type Database = {
           median_sale_price?: number | null
           months_of_inventory?: number | null
           org_id?: string | null
+          portal_account_id?: string | null
+          portal_document_id?: string | null
+          portal_sent_at?: string | null
           prev_avg_days_on_market?: number | null
           prev_median_sale_price?: number | null
           price_per_sqft_cross_check?: Json | null
@@ -1302,6 +1308,9 @@ export type Database = {
           median_sale_price?: number | null
           months_of_inventory?: number | null
           org_id?: string | null
+          portal_account_id?: string | null
+          portal_document_id?: string | null
+          portal_sent_at?: string | null
           prev_avg_days_on_market?: number | null
           prev_median_sale_price?: number | null
           price_per_sqft_cross_check?: Json | null
@@ -1337,6 +1346,27 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cma_reports_portal_account_id_fkey"
+            columns: ["portal_account_id"]
+            isOneToOne: false
+            referencedRelation: "client_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cma_reports_portal_account_id_fkey"
+            columns: ["portal_account_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sides"
+            referencedColumns: ["portal_id"]
+          },
+          {
+            foreignKeyName: "cma_reports_portal_document_id_fkey"
+            columns: ["portal_document_id"]
+            isOneToOne: false
+            referencedRelation: "portal_documents"
             referencedColumns: ["id"]
           },
         ]
@@ -2959,6 +2989,9 @@ export type Database = {
           mls_number: string | null
           open_house_date: string
           org_id: string | null
+          portal_account_id: string | null
+          portal_document_id: string | null
+          portal_sent_at: string | null
           prep_doors_knocked: number | null
           prep_kiosk_loaded: boolean
           prep_qr_printed: boolean
@@ -2994,6 +3027,9 @@ export type Database = {
           mls_number?: string | null
           open_house_date: string
           org_id?: string | null
+          portal_account_id?: string | null
+          portal_document_id?: string | null
+          portal_sent_at?: string | null
           prep_doors_knocked?: number | null
           prep_kiosk_loaded?: boolean
           prep_qr_printed?: boolean
@@ -3029,6 +3065,9 @@ export type Database = {
           mls_number?: string | null
           open_house_date?: string
           org_id?: string | null
+          portal_account_id?: string | null
+          portal_document_id?: string | null
+          portal_sent_at?: string | null
           prep_doors_knocked?: number | null
           prep_kiosk_loaded?: boolean
           prep_qr_printed?: boolean
@@ -3048,6 +3087,27 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "open_houses_portal_account_id_fkey"
+            columns: ["portal_account_id"]
+            isOneToOne: false
+            referencedRelation: "client_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "open_houses_portal_account_id_fkey"
+            columns: ["portal_account_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sides"
+            referencedColumns: ["portal_id"]
+          },
+          {
+            foreignKeyName: "open_houses_portal_document_id_fkey"
+            columns: ["portal_document_id"]
+            isOneToOne: false
+            referencedRelation: "portal_documents"
             referencedColumns: ["id"]
           },
         ]

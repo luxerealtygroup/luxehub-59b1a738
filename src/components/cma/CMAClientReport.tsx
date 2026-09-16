@@ -5,6 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Loader2, Printer, TrendingUp, BarChart3, Home, Target, FileText, ArrowRight, Phone } from 'lucide-react';
 import CMAFubPush from './CMAFubPush';
+import { CMASendToPortal } from './CMASendToPortal';
+import { useAuth } from '@/hooks/useAuth';
+import { useUserRole } from '@/hooks/useUserRole';
+
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area, Cell, ReferenceLine,
@@ -71,14 +75,20 @@ interface CMAReportFull {
   approved_strategy: string | null;
   approved_market_conditions: string | null;
   user_id?: string | null;
+  portal_document_id?: string | null;
+  portal_sent_at?: string | null;
 }
 
 const CMAClientReport = ({ reportId }: { reportId: string }) => {
+  const { user } = useAuth();
+  const { isAdmin } = useUserRole();
   const [report, setReport] = useState<CMAReportFull | null>(null);
   const [loading, setLoading] = useState(true);
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [agentName, setAgentName] = useState<string>('');
+  const [portalSentAt, setPortalSentAt] = useState<string | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
+
 
   useEffect(() => {
     const fetchReport = async () => {
@@ -106,6 +116,8 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
           approval_status: r.approval_status || 'draft',
         };
         setReport(reportData);
+        setPortalSentAt(reportData.portal_sent_at ?? null);
+
 
         if (reportData.user_id) {
           const { data: prof } = await supabase
@@ -139,6 +151,9 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
   };
 
   const isApproved = report ? ['approved', 'exported', 'pushed', 'converted'].includes(report.approval_status) : false;
+  // The agent who owns the CMA, plus admins, Operations and the owner.
+  const canSendToPortal = !!report && (isAdmin || (!!user && report.user_id === user.id));
+
 
   if (loading) {
     return (
@@ -267,10 +282,41 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
             approvalStatus={report.approval_status}
           />
         )}
+        {isApproved && canSendToPortal && (
+          <CMASendToPortal
+            reportId={report.id}
+            clientName={report.fub_person_name}
+            previousDocumentId={report.portal_document_id}
+            previousSentAt={report.portal_sent_at}
+            onSent={() => setPortalSentAt(new Date().toISOString())}
+            pdfInput={{
+              propertyAddress: report.property_address,
+              cityArea: report.city_area,
+              createdAt: report.created_at,
+              agentName,
+              executiveSummary: executiveSummary,
+              priceNarrative: priceNarrativeText,
+              marketConditions: marketConditionsText,
+              strategy: strategyText,
+              pricingBandLow: report.pricing_band_low,
+              pricingBandRecommended: report.pricing_band_recommended,
+              pricingBandHigh: report.pricing_band_high,
+              pricingConfidence: report.pricing_confidence,
+              comps: report.extracted_comps,
+            }}
+          />
+        )}
         <Button onClick={handlePrint} disabled={!isApproved} className="bg-gold hover:bg-gold/90 text-gold-foreground">
           <Printer className="h-4 w-4 mr-2" /> Print / Save PDF
         </Button>
       </div>
+
+      {portalSentAt && (
+        <p className="print:hidden -mt-4 mb-6 text-right text-xs text-muted-foreground">
+          Sent to the client portal on {new Date(portalSentAt).toLocaleString()}.
+        </p>
+      )}
+
 
       <div ref={printRef} className="max-w-4xl mx-auto print:max-w-none">
 
