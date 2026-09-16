@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Copy, Download, FileCog, Loader2, RefreshCw } from 'lucide-react';
+import { HUB_ROOT_DOMAIN, normalizeWebsiteUrl, toHubUrl } from '@/lib/tenantDomain';
 
 type RequestRow = {
   id: string;
