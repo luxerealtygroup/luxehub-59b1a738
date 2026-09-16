@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useTenant } from '@/hooks/useTenant';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -148,6 +149,7 @@ const formatFileSize = (bytes: number | null) => {
 
 const Library = () => {
   const { user } = useAuth();
+  const { orgId } = useTenant();
   const { isAdmin } = useUserRole();
   const { toast } = useToast();
   
@@ -323,12 +325,13 @@ const Library = () => {
   };
 
   const uploadTrainingDoc = async () => {
-    if (!user || !trainingForm.file) return;
+    if (!user || !trainingForm.file || !orgId) return;
     setUploading(true);
     
     try {
       const file = trainingForm.file;
-      const filePath = `${Date.now()}_${sanitizeFileName(file.name)}`;
+      // Files live in a folder owned by the team, so no other team can reach them.
+      const filePath = `${orgId}/${Date.now()}_${sanitizeFileName(file.name)}`;
       
       const { error: uploadError } = await supabase.storage
         .from('training-library')
@@ -520,12 +523,13 @@ const Library = () => {
   };
 
   const uploadImportantDoc = async () => {
-    if (!user || !importantForm.file) return;
+    if (!user || !importantForm.file || !orgId) return;
     setUploading(true);
     
     try {
       const file = importantForm.file;
-      const filePath = `${Date.now()}_${sanitizeFileName(file.name)}`;
+      // Files live in a folder owned by the team, so no other team can reach them.
+      const filePath = `${orgId}/${Date.now()}_${sanitizeFileName(file.name)}`;
       
       const { error: uploadError } = await supabase.storage
         .from('important-documents')

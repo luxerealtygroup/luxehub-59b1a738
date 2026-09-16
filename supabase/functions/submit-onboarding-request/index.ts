@@ -60,6 +60,39 @@ Deno.serve(async (req) => {
     return json({ error: 'Please enter a valid Slack admin email.' }, 400)
   }
 
+  // Logo: uploaded server-side only. The bucket no longer accepts anonymous
+  // writes, so the browser sends the bytes here and we validate type + size.
+  const supabase = createClient(supabaseUrl, serviceKey)
+  const ALLOWED_LOGO_TYPES: Record<string, string> = {
+    'image/png': 'png',
+    'image/jpeg': 'jpg',
+    'image/webp': 'webp',
+    'image/svg+xml': 'svg',
+  }
+  let logoPath: string | null = null
+  const logoData = str(body.logoData, 4_000_000)
+  const logoType = str(body.logoType, 100)
+  if (logoData && logoType) {
+    const ext = ALLOWED_LOGO_TYPES[logoType]
+    if (!ext) return json({ error: 'Logo must be a PNG, JPG, WEBP or SVG image.' }, 400)
+    let bytes: Uint8Array
+    try {
+      const base64 = logoData.includes(',') ? logoData.split(',')[1] : logoData
+      bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
+    } catch {
+      return json({ error: 'We could not read that logo file.' }, 400)
+    }
+    if (bytes.length > 2 * 1024 * 1024) {
+      return json({ error: 'Logo must be under 2MB.' }, 400)
+    }
+    const path = `${crypto.randomUUID()}.${ext}`
+    const { error: uploadError } = await supabase.storage
+      .from('onboarding-logos')
+      .upload(path, bytes, { contentType: logoType })
+    if (uploadError) console.error('logo upload failed:', uploadError.message)
+    else logoPath = path
+  }
+
   const record = {
     contact_name: contactName,
     business_name: businessName,
@@ -68,7 +101,7 @@ Deno.serve(async (req) => {
     phone: str(body.phone, 40),
     website: str(body.website, 255),
     desired_domain: str(body.desiredDomain, 255),
-    logo_path: str(body.logoPath, 500),
+    logo_path: logoPath,
     team_size: str(body.teamSize, 60),
     service_area: str(body.serviceArea, 200),
     slack_admin_name: str(body.slackAdminName, 120),
@@ -78,8 +111,6 @@ Deno.serve(async (req) => {
     uses_asana: bool(body.usesAsana),
     extra_notes: str(body.extraNotes, 2000),
   }
-
-  const supabase = createClient(supabaseUrl, serviceKey)
 
   const { data, error } = await supabase
     .from('onboarding_requests')
