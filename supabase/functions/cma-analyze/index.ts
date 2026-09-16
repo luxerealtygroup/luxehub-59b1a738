@@ -796,6 +796,9 @@ async function callAnalysisAI(gatewayKey: string, systemPrompt: string, userProm
         body: JSON.stringify({
           model: "claude-sonnet-4-6",
           max_tokens: 8000,
+          // Streamed so bytes keep flowing: a long non-streamed generation
+          // trips the platform's 150s idle timeout and returns a 504.
+          stream: true,
           system: `${systemPrompt}\n\nRespond with the JSON object only — no preamble, no markdown fences.`,
           messages: [{ role: "user", content: userPrompt }],
         }),
@@ -806,11 +809,7 @@ async function callAnalysisAI(gatewayKey: string, systemPrompt: string, userProm
         console.error("Anthropic analysis error:", res.status, t.slice(0, 500));
         throw new Error(`ANTHROPIC_${res.status}`);
       }
-      const data = await res.json();
-      const text = (data.content || [])
-        .filter((b: any) => b.type === 'text')
-        .map((b: any) => b.text || '')
-        .join('\n')
+      const text = (await readAnthropicStream(res))
         .replace(/```json\n?/g, '')
         .replace(/```\n?/g, '')
         .trim();
