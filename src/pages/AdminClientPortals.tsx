@@ -497,7 +497,7 @@ export default function AdminClientPortals() {
                               ) : (
                                 <Send className="mr-1 h-3 w-3" />
                               )}
-                              {r.status === 'invited' ? 'Resend invite' : 'Send invite'}
+                              {r.status === 'invited' ? 'Resend invite' : 'Invite'}
                             </Button>
                           )}
                         </div>
