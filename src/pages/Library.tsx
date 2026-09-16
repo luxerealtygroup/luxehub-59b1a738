@@ -148,6 +148,7 @@ const formatFileSize = (bytes: number | null) => {
 
 const Library = () => {
   const { user } = useAuth();
+  const { orgId } = useTenant();
   const { isAdmin } = useUserRole();
   const { toast } = useToast();
   
