@@ -325,12 +325,13 @@ const Library = () => {
   };
 
   const uploadTrainingDoc = async () => {
-    if (!user || !trainingForm.file) return;
+    if (!user || !trainingForm.file || !orgId) return;
     setUploading(true);
     
     try {
       const file = trainingForm.file;
-      const filePath = `${Date.now()}_${sanitizeFileName(file.name)}`;
+      // Files live in a folder owned by the team, so no other team can reach them.
+      const filePath = `${orgId}/${Date.now()}_${sanitizeFileName(file.name)}`;
       
       const { error: uploadError } = await supabase.storage
         .from('training-library')
