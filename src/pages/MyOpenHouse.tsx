@@ -1082,7 +1082,14 @@ function OpenHouseDetail({
         canManage={canManage}
       />
 
-      <ReportSection openHouse={openHouse} guests={guests} />
+      <ReportSection
+        openHouse={openHouse}
+        guests={guests}
+        canManage={canManage}
+        hostName={hostName}
+        onChanged={onChanged}
+      />
+
     </div>
   );
 }
