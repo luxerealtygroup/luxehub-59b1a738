@@ -524,8 +524,77 @@ const AdminTenants = () => {
         }}
         onSaved={() => void load()}
       />
+
+      <Dialog
+        open={!!ownerFor}
+        onOpenChange={(open) => { if (!open && !sendingOwner) setOwnerFor(null); }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {ownerFor?.state === 'none' ? 'Invite an owner' : 'Resend the owner invitation'}
+            </DialogTitle>
+            <DialogDescription>
+              Nothing is sent until you confirm. The invitation makes this person the owner of
+              this team only — never a member of Luxe Realty Group. Any invitation still
+              outstanding for this team is replaced.
+            </DialogDescription>
+          </DialogHeader>
+          {ownerFor && (
+            <div className="space-y-3 text-sm">
+              <div>
+                <span className="text-muted-foreground">Team: </span>
+                {ownerFor.orgName}
+              </div>
+              <div>
+                <span className="text-muted-foreground">Hub address: </span>
+                {ownerFor.hubHost ? `https://${ownerFor.hubHost}` : 'no web address yet'}
+              </div>
+              <div className="space-y-2">
+                <Label>Owner email</Label>
+                <Input
+                  type="email"
+                  value={ownerEmail}
+                  onChange={(e) => setOwnerEmail(e.target.value)}
+                  placeholder="owner@example.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Owner name (optional)</Label>
+                <Input value={ownerName} onChange={(e) => setOwnerName(e.target.value)} />
+              </div>
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={sendingOwner}
+              onClick={() => setOwnerFor(null)}
+            >
+              Cancel
+            </Button>
+            <Button size="sm" disabled={sendingOwner || !ownerEmail.trim()} onClick={sendOwnerInvite}>
+              {sendingOwner && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Send invitation
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
+
+const fmt = (d: string | null) => (d ? new Date(d).toLocaleDateString() : '');
+
+/** Plain-language owner state for a team row. */
+function ownerLabel(s?: OwnerStatus): string {
+  if (!s) return 'checking…';
+  const who = [s.ownerName, s.ownerEmail].filter(Boolean).join(' · ');
+  if (s.state === 'active') return `active — ${who || 'owner set up'}`;
+  if (s.state === 'invited') return `invited ${fmt(s.invitedAt)} — ${who}`;
+  if (s.state === 'expired') return `invitation expired ${fmt(s.expiresAt)} — ${who}`;
+  return 'no owner invited';
+}
 
 export default AdminTenants;
