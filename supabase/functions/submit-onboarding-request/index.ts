@@ -112,8 +112,6 @@ Deno.serve(async (req) => {
     extra_notes: str(body.extraNotes, 2000),
   }
 
-  const supabase = createClient(supabaseUrl, serviceKey)
-
   const { data, error } = await supabase
     .from('onboarding_requests')
     .insert(record)
