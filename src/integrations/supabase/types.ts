@@ -5732,6 +5732,15 @@ export type Database = {
         Args: { _full_name?: string; _token: string }
         Returns: string
       }
+      client_can_read_client_document: {
+        Args: { _name: string }
+        Returns: boolean
+      }
+      client_can_view_avatar: { Args: { _name: string }; Returns: boolean }
+      client_matches_document: {
+        Args: { _fub_person_id: number; _org_id: string }
+        Returns: boolean
+      }
       create_org_invite: {
         Args: {
           _email: string
@@ -5972,6 +5981,19 @@ export type Database = {
       set_org_secret: {
         Args: { _actor: string; _key: string; _org_id: string; _value: string }
         Returns: undefined
+      }
+      storage_client_doc_in_my_org: {
+        Args: { _name: string }
+        Returns: boolean
+      }
+      storage_library_in_my_org: {
+        Args: { _bucket: string; _name: string }
+        Returns: boolean
+      }
+      storage_owner_in_my_org: { Args: { _name: string }; Returns: boolean }
+      storage_path_uuid: {
+        Args: { _name: string; _pos: number }
+        Returns: string
       }
       submit_agent_qr_lead: {
         Args: {
