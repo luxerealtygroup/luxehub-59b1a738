@@ -229,6 +229,27 @@ export default function AdminClientPortals() {
     load();
   }, [load]);
 
+  /**
+   * Backfill: write every existing portal's staff-only admin link onto the
+   * matching Follow Up Boss contact. Unmatched contacts are skipped.
+   */
+  const backfillFubLinks = async () => {
+    setBackfilling(true);
+    const { data, error } = await supabase.functions.invoke('portal-fub-link', {
+      body: { backfill: true },
+    });
+    setBackfilling(false);
+    if (error) {
+      toast({ title: 'Sync failed', description: error.message, variant: 'destructive' });
+      return;
+    }
+    const res = data as { updated?: number; skipped?: number };
+    toast({
+      title: 'Follow Up Boss updated',
+      description: `${res?.updated ?? 0} contact(s) updated, ${res?.skipped ?? 0} skipped (no match).`,
+    });
+  };
+
   /** Emails that already have a portal — used to keep the queue accurate. */
   const existingEmails = useMemo(
     () => new Set(rows.map((r) => (r.email || '').trim().toLowerCase()).filter(Boolean)),
