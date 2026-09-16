@@ -112,6 +112,9 @@ const AdminOnboardingRequests = () => {
   const [filter, setFilter] = useState<string>('all');
   const [sheetFor, setSheetFor] = useState<RequestRow | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [invites, setInvites] = useState<Record<string, OwnerInvite>>({});
+  const [welcomeFor, setWelcomeFor] = useState<RequestRow | null>(null);
+  const [sendingWelcome, setSendingWelcome] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -121,10 +124,64 @@ const AdminOnboardingRequests = () => {
       .order('created_at', { ascending: false });
     if (error) {
       toast({ title: 'Could not load requests', description: error.message, variant: 'destructive' });
+      setLoading(false);
+      return;
+    }
+    const requests = (data || []) as RequestRow[];
+    setRows(requests);
+
+    const orgIds = [...new Set(requests.map((r) => r.org_id).filter(Boolean))] as string[];
+    if (orgIds.length) {
+      const [{ data: inviteRows }, { data: orgRows }] = await Promise.all([
+        supabase
+          .from('org_invites')
+          .select('org_id, email, used_at, revoked_at, created_at')
+          .in('org_id', orgIds)
+          .eq('role', 'owner')
+          .order('created_at', { ascending: false }),
+        supabase.from('organizations').select('id, slug').in('id', orgIds),
+      ]);
+      const slugs = new Map((orgRows || []).map((o) => [o.id as string, o.slug as string]));
+      const map: Record<string, OwnerInvite> = {};
+      for (const inv of inviteRows || []) {
+        if (inv.revoked_at) continue;
+        const orgId = inv.org_id as string;
+        if (map[orgId]) continue; // newest wins
+        map[orgId] = {
+          org_id: orgId,
+          email: inv.email as string,
+          used_at: (inv.used_at as string) ?? null,
+          hub_host: `${slugs.get(orgId) ?? ''}.${HUB_ROOT_DOMAIN}`,
+        };
+      }
+      setInvites(map);
     } else {
-      setRows((data || []) as RequestRow[]);
+      setInvites({});
     }
     setLoading(false);
+  };
+
+  const ownerInvite = (r: RequestRow) => (r.org_id ? invites[r.org_id] : undefined);
+
+  const sendWelcome = async (r: RequestRow) => {
+    if (sendingWelcome) return;
+    setSendingWelcome(true);
+    const { data, error } = await supabase.functions.invoke('send-owner-welcome', {
+      body: { requestId: r.id },
+    });
+    setSendingWelcome(false);
+    if (error || (data as { error?: string })?.error) {
+      toast({
+        title: 'Welcome email not sent',
+        description: (data as { error?: string })?.error || error?.message,
+        variant: 'destructive',
+      });
+      return;
+    }
+    const sentAt = (data as { sentAt?: string })?.sentAt ?? new Date().toISOString();
+    setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, welcome_email_sent_at: sentAt } : x)));
+    setWelcomeFor(null);
+    toast({ title: `Welcome email sent to ${(data as { recipient?: string })?.recipient || r.email}` });
   };
 
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
