@@ -151,7 +151,8 @@ const GetStarted = () => {
           usesFub: toBool(usesFub),
           usesStripe: toBool(usesStripe),
           usesAsana: toBool(usesAsana),
-          logoPath,
+          logoData,
+          logoType,
           company_website_confirm: form.honeypot,
         },
       });
