@@ -35,6 +35,16 @@ type RequestRow = {
   uses_asana: boolean | null;
   extra_notes: string | null;
   admin_notes: string | null;
+  org_id: string | null;
+  welcome_email_sent_at: string | null;
+};
+
+/** Owner invitation state for the team a request created. */
+type OwnerInvite = {
+  org_id: string;
+  email: string;
+  used_at: string | null;
+  hub_host: string;
 };
 
 const STATUSES = ['new', 'in_progress', 'live', 'declined'] as const;
