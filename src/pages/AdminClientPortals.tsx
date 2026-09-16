@@ -493,17 +493,11 @@ export default function AdminClientPortals() {
 
       <NeedsPortalQueue existingEmails={existingEmails} onPortalCreated={load} />
 
-      <Card>
+      <Card className="min-w-0">
         <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
           <CardTitle className="text-base">All Portals ({filtered.length})</CardTitle>
-          <Input
-            placeholder="Search client, email, agent…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-64"
-          />
         </CardHeader>
-        <CardContent>
+        <CardContent className="min-w-0">
           {loading ? (
             <div className="flex items-center gap-2 text-muted-foreground py-10 justify-center">
               <Loader2 className="h-4 w-4 animate-spin" /> Loading portals…
@@ -513,15 +507,15 @@ export default function AdminClientPortals() {
               No portals match the current filter.
             </div>
           ) : (
-            <div className="overflow-x-auto border border-border/50 rounded-lg">
+            <div className="w-full max-w-full overflow-x-auto border border-border/50 rounded-lg">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Client</TableHead>
-                    <TableHead>Agent</TableHead>
-                    <TableHead>Type</TableHead>
+                    <TableHead><SortButton label="Client" sortKey="client" /></TableHead>
+                    <TableHead><SortButton label="Agent" sortKey="agent" /></TableHead>
+                    <TableHead><SortButton label="Type" sortKey="type" /></TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Health</TableHead>
+                    <TableHead><SortButton label="Health" sortKey="health" /></TableHead>
                     <TableHead className="text-center">FUB</TableHead>
                     <TableHead className="text-center">Slack</TableHead>
                     <TableHead className="text-center">Docs</TableHead>
