@@ -90,7 +90,50 @@ export default function OAuthConsent() {
           </CardDescription>
         </CardHeader>
         {details && !error && (
-          <CardContent className="flex gap-3">
+          <CardContent className="space-y-4">
+            <dl className="space-y-2 rounded-md border border-border/60 bg-background/40 p-3 text-sm">
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Signed in as</dt>
+                <dd className="truncate font-medium">{accountEmail ?? "your account"}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Requesting app</dt>
+                <dd className="truncate font-medium">{clientName}</dd>
+              </div>
+              {(details?.client?.redirect_uri ?? details?.redirect_uri) && (
+                <div className="flex justify-between gap-3">
+                  <dt className="text-muted-foreground">Returns to</dt>
+                  <dd className="truncate font-medium">
+                    {details?.client?.redirect_uri ?? details?.redirect_uri}
+                  </dd>
+                </div>
+              )}
+              {details?.scope && (
+                <div className="flex justify-between gap-3">
+                  <dt className="text-muted-foreground">Shares</dt>
+                  <dd className="truncate font-medium">
+                    {String(details.scope)
+                      .split(/\s+/)
+                      .filter(Boolean)
+                      .map((s: string) =>
+                        s === "email"
+                          ? "your email address"
+                          : s === "profile"
+                            ? "your basic profile"
+                            : s === "offline_access"
+                              ? "ongoing access until you disconnect"
+                              : s,
+                      )
+                      .join(", ")}
+                  </dd>
+                </div>
+              )}
+            </dl>
+            <p className="text-xs text-muted-foreground">
+              {clientName} will act as you inside {tenant.appName}. It cannot see anything your own
+              account cannot see, and it stays inside your team's data.
+            </p>
+            <div className="flex gap-3">
             <Button
               disabled={busy}
               onClick={() => decide(true)}
