@@ -304,6 +304,7 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
 
   return (
     <div className="space-y-6 max-w-5xl">
+      {runBanner}
       {/* Workflow Status Badge */}
       <div className="flex items-center gap-3 flex-wrap">
         <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Workflow Status:</span>
