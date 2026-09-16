@@ -745,6 +745,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     if (!user) return;
     setSaving(true);
     setAnalyzing(true);
+    let savedReportId: string | null = null;
 
     try {
       // Upload PDFs
