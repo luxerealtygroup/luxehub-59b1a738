@@ -101,7 +101,11 @@ const GetStarted = () => {
     setSubmitting(true);
 
     try {
-      let logoPath: string | null = null;
+      // The logo travels with the form and is stored server-side after the
+      // server checks its type and size; the browser cannot write files itself.
+      const ALLOWED_LOGO_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
+      let logoData: string | null = null;
+      let logoType: string | null = null;
       if (logo) {
         if (logo.size > 2 * 1024 * 1024) {
           toast({
@@ -112,16 +116,22 @@ const GetStarted = () => {
           setSubmitting(false);
           return;
         }
-        const ext = logo.name.split('.').pop()?.toLowerCase().slice(0, 8) || 'png';
-        const path = `${crypto.randomUUID()}.${ext}`;
-        const { error: uploadError } = await supabase.storage
-          .from('onboarding-logos')
-          .upload(path, logo, { contentType: logo.type || undefined });
-        if (uploadError) {
-          console.error(uploadError);
-        } else {
-          logoPath = path;
+        if (!ALLOWED_LOGO_TYPES.includes(logo.type)) {
+          toast({
+            title: 'Unsupported logo file',
+            description: 'Please upload a PNG, JPG, WEBP or SVG image.',
+            variant: 'destructive',
+          });
+          setSubmitting(false);
+          return;
         }
+        logoData = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '');
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(logo);
+        });
+        logoType = logo.type;
       }
 
       const { data, error } = await supabase.functions.invoke('submit-onboarding-request', {
