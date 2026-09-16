@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Check, Download, Eye, EyeOff, FileText, File, Image as ImageIcon, Loader2, Lock, Pencil, Trash2, Upload, X } from 'lucide-react';
+import { Check, Download, Eye, EyeOff, FileText, File, Image as ImageIcon, History, Loader2, Lock, Pencil, Trash2, Upload, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -23,7 +23,15 @@ interface PortalDocument {
   property_id: string | null;
   is_internal: boolean;
   created_at: string;
+  // Version history: a revised market analysis arrives as a new version of the
+  // same document rather than quietly replacing the one the client already read.
+  version_group_id: string | null;
+  version_number: number | null;
+  is_current_version: boolean | null;
+  superseded_at: string | null;
+  doc_kind: string | null;
 }
+
 
 
 interface Props {
@@ -89,6 +97,8 @@ export function PortalDocumentsPanel({
   // Inline rename of the client-facing display name (the stored file is untouched).
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState('');
+  // Which documents have their earlier-version list expanded.
+  const [openHistory, setOpenHistory] = useState<Record<string, boolean>>({});
   useEffect(() => { setUploadTarget(scopePropertyId(scope) ?? 'general'); }, [scope]);
   // Internal (agent-only) rows are blocked by RLS for real clients; preview mode
   // runs on the agent's session, so filter them out here to stay accurate.
@@ -207,9 +217,25 @@ export function PortalDocumentsPanel({
     setEditingId(null);
   };
 
-  const visibleDocs = docs.filter(
+  const inScope = docs.filter(
     (d) => matchesScope(d.property_id, scope) && (showInternal || !d.is_internal),
   );
+
+  // Only the current version of each document is listed; earlier versions sit
+  // behind "earlier versions", oldest to newest, so nothing stale is opened by
+  // mistake and nothing already sent disappears.
+  const visibleDocs = inScope.filter((d) => d.is_current_version !== false);
+  const historyByGroup = new Map<string, PortalDocument[]>();
+  inScope
+    .filter((d) => d.is_current_version === false && d.version_group_id)
+    .forEach((d) => {
+      const key = d.version_group_id as string;
+      historyByGroup.set(key, [...(historyByGroup.get(key) || []), d]);
+    });
+  historyByGroup.forEach((list) =>
+    list.sort((a, b) => (a.version_number || 0) - (b.version_number || 0)),
+  );
+
 
   return (
     <div className="space-y-4">
@@ -277,9 +303,11 @@ export function PortalDocumentsPanel({
         <div className="grid gap-3 sm:grid-cols-2">
           {visibleDocs.map((d) => {
             const { icon, tone } = iconFor(d.file_type, d.file_name);
+            const history = (d.version_group_id && historyByGroup.get(d.version_group_id)) || [];
+            const versionNo = d.version_number || 1;
             return (
+              <div key={d.id} className="space-y-2">
               <div
-                key={d.id}
                 className={`group flex items-center gap-3 rounded-2xl border p-4 shadow-sm hover:shadow-luxe-hover hover:-translate-y-0.5 transition-all ${
                   d.is_internal
                     ? 'border-dashed border-amber-500/50 bg-muted/50'
@@ -324,12 +352,18 @@ export function PortalDocumentsPanel({
                       {format(new Date(d.created_at), 'MMM d, yyyy')}
                       {d.file_size ? ` · ${fmtSize(d.file_size)}` : ''}
                     </span>
+                    {(versionNo > 1 || history.length > 0) && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 text-emerald-700 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                        Current · Version {versionNo}
+                      </span>
+                    )}
                     {d.is_internal && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 text-amber-700 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
                         <Lock className="h-3 w-3" /> Internal
                       </span>
                     )}
                   </div>
+
                 </div>
                 <div className="flex items-center gap-0.5 shrink-0 opacity-70 group-hover:opacity-100 transition-opacity">
                   <Button size="icon" variant="ghost" className="h-9 w-9 rounded-full" onClick={() => openPreview(d)} title="Preview">
@@ -368,7 +402,41 @@ export function PortalDocumentsPanel({
                 </div>
               </div>
 
+              {history.length > 0 && (
+                <div className="px-2">
+                  <button
+                    type="button"
+                    onClick={() => setOpenHistory((prev) => ({ ...prev, [d.id]: !prev[d.id] }))}
+                    className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+                    aria-expanded={!!openHistory[d.id]}
+                  >
+                    <History className="h-3.5 w-3.5" />
+                    {openHistory[d.id]
+                      ? 'Hide earlier versions'
+                      : `Earlier versions (${history.length})`}
+                  </button>
+                  {openHistory[d.id] && (
+                    <ul className="mt-2 space-y-1 border-l border-border/70 pl-3">
+                      {history.map((h) => (
+                        <li key={h.id} className="flex items-center gap-2 text-xs">
+                          <span className="text-muted-foreground">
+                            Version {h.version_number || 1} · {format(new Date(h.created_at), 'MMM d, yyyy')}
+                          </span>
+                          <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => openPreview(h)}>
+                            <Eye className="h-3.5 w-3.5 mr-1" /> View
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => download(h)}>
+                            <Download className="h-3.5 w-3.5 mr-1" /> Download
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+              </div>
             );
+
           })}
         </div>
       )}

@@ -83,7 +83,15 @@ export interface DeliverArgs {
   fileName: string;
   /** Client-facing title, e.g. "Open house report — 12 King St — Sep 14, 2026". */
   displayName: string;
-  /** A previous send of the same thing: its document is replaced, not stacked. */
+  /**
+   * 'replace' — a correction to the same thing: the earlier file is swapped out.
+   * 'version' — a revision the client must be told about: the earlier document
+   * stays in their history and this one becomes the current version.
+   */
+  versionMode?: 'replace' | 'version';
+  /** Groups versions together, e.g. 'cma' for a market analysis. */
+  docKind?: 'cma' | 'open_house' | null;
+  /** A previous send of the same thing (used by 'replace'). */
   replaceDocumentId?: string | null;
 }
 
@@ -92,10 +100,29 @@ export interface DeliverResult {
   /** False when the client has not activated their portal — nothing was emailed. */
   clientActivated: boolean;
   replaced: boolean;
+  versionNumber: number;
+  versionGroupId: string;
+}
+
+/** The current document of this kind for this portal/property, if any. */
+async function findCurrentVersion(portalId: string, propertyId: string | null, docKind: string) {
+  let q = supabase
+    .from('portal_documents')
+    .select('id, version_group_id, version_number')
+    .eq('portal_id', portalId)
+    .eq('doc_kind', docKind)
+    .eq('is_current_version', true)
+    .order('version_number', { ascending: false })
+    .limit(1);
+  q = propertyId ? q.eq('property_id', propertyId) : q.is('property_id', null);
+  const { data } = await q.maybeSingle();
+  return data as { id: string; version_group_id: string | null; version_number: number } | null;
 }
 
 export async function deliverDocumentToPortal(args: DeliverArgs): Promise<DeliverResult> {
   const { portalId, propertyId, blob, fileName, displayName } = args;
+  const versionMode = args.versionMode ?? 'replace';
+  const docKind = args.docKind ?? null;
 
   const { data: account, error: accountErr } = await supabase
     .from('client_accounts')
@@ -104,15 +131,30 @@ export async function deliverDocumentToPortal(args: DeliverArgs): Promise<Delive
     .maybeSingle();
   if (accountErr) throw accountErr;
 
-  // Remove the earlier copy first, so the client never sees two versions.
   let replaced = false;
-  if (args.replaceDocumentId) {
+  let versionNumber = 1;
+  let versionGroupId: string | null = null;
+  let previousCurrentId: string | null = null;
+
+  if (versionMode === 'version' && docKind) {
+    const current = await findCurrentVersion(portalId, propertyId, docKind);
+    if (current) {
+      versionGroupId = current.version_group_id ?? current.id;
+      versionNumber = (current.version_number || 1) + 1;
+      previousCurrentId = current.id;
+    }
+  } else if (args.replaceDocumentId) {
+    // A correction: swap the earlier file out entirely, keeping its place in
+    // any version history it already belonged to.
     const { data: prev } = await supabase
       .from('portal_documents')
-      .select('id, file_path')
+      .select('id, file_path, portal_id, version_group_id, version_number')
       .eq('id', args.replaceDocumentId)
       .maybeSingle();
-    if (prev) {
+    // Never touch a document belonging to a different client's portal.
+    if (prev && prev.portal_id === portalId) {
+      versionGroupId = (prev as any).version_group_id ?? null;
+      versionNumber = (prev as any).version_number || 1;
       await supabase.storage.from(BUCKET).remove([prev.file_path]);
       await supabase.from('portal_documents').delete().eq('id', prev.id);
       replaced = true;
@@ -137,17 +179,38 @@ export async function deliverDocumentToPortal(args: DeliverArgs): Promise<Delive
       property_id: propertyId,
       is_internal: false,
       source: 'transaction',
-    })
-    .select('id')
+      doc_kind: docKind,
+      version_group_id: versionGroupId,
+      version_number: versionNumber,
+      is_current_version: true,
+    } as any)
+    .select('id, version_group_id')
     .single();
   if (error) {
     await supabase.storage.from(BUCKET).remove([path]);
     throw error;
   }
 
+  const newId = inserted.id as string;
+  const group = ((inserted as any).version_group_id as string | null) ?? newId;
+  if (!(inserted as any).version_group_id) {
+    await supabase.from('portal_documents').update({ version_group_id: group } as any).eq('id', newId);
+  }
+
+  // Only once the new version is safely stored does the old one stop being current.
+  if (previousCurrentId) {
+    await supabase
+      .from('portal_documents')
+      .update({ is_current_version: false, superseded_at: new Date().toISOString() } as any)
+      .eq('id', previousCurrentId);
+  }
+
   return {
-    documentId: inserted.id as string,
+    documentId: newId,
     clientActivated: !!account?.user_id,
     replaced,
+    versionNumber,
+    versionGroupId: group,
   };
 }
+

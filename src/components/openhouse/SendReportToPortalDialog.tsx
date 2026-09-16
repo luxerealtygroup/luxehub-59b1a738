@@ -53,6 +53,10 @@ export function SendReportToPortalDialog({ openHouse, guests, agentName, onClose
       propertyAddress={openHouse.property_address}
       previousDocumentId={openHouse.portal_document_id}
       previousSentAt={openHouse.portal_sent_at}
+      versionMode="replace"
+      docKind="open_house"
+
+
       buildBlob={() => buildClientOpenHouseReportPdf({
         propertyAddress: openHouse.property_address,
         openHouseDate: openHouse.open_house_date,
