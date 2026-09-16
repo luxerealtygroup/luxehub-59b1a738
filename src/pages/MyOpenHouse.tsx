@@ -76,7 +76,12 @@ type OpenHouse = {
   prep_tablet_charged: boolean | null;
   prep_doors_knocked: number | null;
   seller_notes: string | null;
+  // Set once the recap has been delivered to the client's portal.
+  portal_account_id?: string | null;
+  portal_document_id?: string | null;
+  portal_sent_at?: string | null;
 };
+
 
 type InterestLevel = 'high' | 'medium' | 'low';
 type PriceFeedback = 'priced_right' | 'slightly_high' | 'too_high' | 'below_market';
