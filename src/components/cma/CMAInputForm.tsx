@@ -827,6 +827,8 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
         ...(statsPdfPath ? { stats_pdf_path: statsPdfPath } : {}),
         stats_pasted_text: statsMethod === 'paste' ? pastedStats : null,
         analysis_status: 'processing',
+        analysis_started_at: new Date().toISOString(),
+        analysis_error: null,
         extracted_comps: finalComps,
         last_edited_by: user.id,
         cma_source_url: cmaSourceUrl || null,
