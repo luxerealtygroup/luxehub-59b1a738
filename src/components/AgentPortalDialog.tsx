@@ -196,8 +196,9 @@ export function AgentPortalDialog({
     });
   }, [open, isAdmin]);
 
-  const saveAccount = async (): Promise<ClientAccountRow | null> => {
+  const saveAccount = async (opts?: { promptInvite?: boolean }): Promise<ClientAccountRow | null> => {
     if (!user) return null;
+    const isNew = !account;
     const email = form.email.trim().toLowerCase();
     if (!isValidEmail(email)) {
       toast({
