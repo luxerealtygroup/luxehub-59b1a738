@@ -253,8 +253,32 @@ const GetStarted = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="desiredDomain">Domain you'd like your hub on</Label>
-                <Input id="desiredDomain" value={form.desiredDomain} onChange={set('desiredDomain')} placeholder="hub.yourname.ca" maxLength={255} />
+                <Label htmlFor="desiredDomain">Web address you'd like your hub on</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="desiredDomain"
+                    value={form.desiredDomain}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        desiredDomain: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''),
+                      }))
+                    }
+                    placeholder="yourname"
+                    maxLength={63}
+                    aria-describedby="desiredDomain-help"
+                  />
+                  <span className="shrink-0 text-sm text-muted-foreground">
+                    .{HUB_ROOT_DOMAIN}
+                  </span>
+                </div>
+                <p id="desiredDomain-help" className="text-xs text-muted-foreground">
+                  {domainError
+                    ? domainError
+                    : hubPreview
+                      ? `Your hub will be at ${hubPreview}`
+                      : 'Lowercase letters, numbers and hyphens only.'}
+                </p>
               </div>
 
               <div className="space-y-2">
