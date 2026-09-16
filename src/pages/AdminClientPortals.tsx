@@ -72,6 +72,17 @@ type FilterKey =
   | 'unread'
   | 'conditions_risk';
 
+type SortKey = 'client' | 'agent' | 'type' | 'health' | 'activity';
+
+/** Buyer / seller side of a portal, from its transactions with a fallback to the stored type. */
+const portalSide = (r: PortalRow): 'buyer' | 'seller' | 'both' | 'none' => {
+  const buyer = r.transactionSides.has('buyer') || r.client_type === 'buyer';
+  const seller = r.transactionSides.has('seller') || r.client_type === 'seller';
+  if (buyer && seller) return 'both';
+  if (buyer) return 'buyer';
+  if (seller) return 'seller';
+  return 'none';
+};
 
 export default function AdminClientPortals() {
   const { isAdmin } = useUserRole();
