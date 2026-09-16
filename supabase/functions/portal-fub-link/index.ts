@@ -1,23 +1,32 @@
 /**
- * Writes each client portal's INTERNAL admin URL onto the matching Follow Up
- * Boss person record, in a custom field called "LUXEhub Portal".
+ * Writes client portal links onto the matching Follow Up Boss person record.
+ *
+ * Two custom fields:
+ *  - "LUXEhub Portal"          — the INTERNAL, staff-only admin view (login required)
+ *  - "LUXEhub Activation Link" — the client's activation URL for the current invite
  *
  * Hard rules:
- *  - The value is always the staff-only admin view (login required). Invite
- *    tokens, magic links and passwords are NEVER written to Follow Up Boss.
+ *  - Passwords are NEVER written to Follow Up Boss.
+ *  - The activation link is bound to the invited email address (enforced in the
+ *    database), and is cleared the moment the portal is claimed so no dead link
+ *    is left behind.
  *  - A person that cannot be matched by email is skipped and logged; portal
  *    creation must never fail because of this.
  *
- * Body: { portalId: string }  — single portal
- *       { backfill: true }    — every portal in the caller's organization
+ * Body:
+ *   { portalId }                      — write the admin link for one portal
+ *   { backfill: true }                — write the admin link for the whole org
+ *   { portalId, activationUrl }       — also write the activation link
+ *   { portalId, clearActivation:true} — blank the activation link (after claim)
  */
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { requireStaff } from '../_shared/auth.ts';
-import { fubAuthHeaderForUser, FUB_BASE_URL } from '../_shared/fub.ts';
+import { resolveCaller } from '../_shared/auth.ts';
+import { fubAuthHeaderForUser, getFubApiKeyForOrg, FUB_BASE_URL } from '../_shared/fub.ts';
 import { tenant } from '../_shared/tenant.ts';
 
-const FIELD_LABEL = 'LUXEhub Portal';
+const PORTAL_FIELD = 'LUXEhub Portal';
+const ACTIVATION_FIELD = 'LUXEhub Activation Link';
 
 const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 
@@ -32,33 +41,37 @@ function portalAdminUrl(portalId: string): string {
   return `${tenant.appUrl}/dashboard/client-portals?portal=${portalId}`;
 }
 
-/** Find (or create) the custom field and return the key used on /people. */
-async function resolveCustomField(authHeader: string): Promise<string> {
-  const res = await fetch(`${FUB_BASE_URL}/customFields?limit=100`, {
-    headers: { Authorization: authHeader, Accept: 'application/json' },
-  });
-  if (res.ok) {
-    const data = await res.json();
-    const fields = (data.customfields || data.customFields || []) as any[];
-    const target = normalize(FIELD_LABEL);
-    const hit = fields.find(
-      (f) => normalize(f.label || '') === target || normalize(f.name || '') === `custom${target}`,
-    );
-    if (hit?.name) return hit.name as string;
-  }
+/** Find (or create) a custom field and return the key used on /people. */
+async function resolveCustomField(authHeader: string, label: string): Promise<string | null> {
+  try {
+    const res = await fetch(`${FUB_BASE_URL}/customFields?limit=100`, {
+      headers: { Authorization: authHeader, Accept: 'application/json' },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const fields = (data.customfields || data.customFields || []) as any[];
+      const target = normalize(label);
+      const hit = fields.find(
+        (f) => normalize(f.label || '') === target || normalize(f.name || '') === `custom${target}`,
+      );
+      if (hit?.name) return hit.name as string;
+    }
 
-  const created = await fetch(`${FUB_BASE_URL}/customFields`, {
-    method: 'POST',
-    headers: { Authorization: authHeader, 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ label: FIELD_LABEL, type: 'text' }),
-  });
-  if (!created.ok) {
-    throw new Error(`Could not create the "${FIELD_LABEL}" field in Follow Up Boss (${created.status})`);
+    const created = await fetch(`${FUB_BASE_URL}/customFields`, {
+      method: 'POST',
+      headers: { Authorization: authHeader, 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ label, type: 'text' }),
+    });
+    if (!created.ok) {
+      console.error(`portal-fub-link: could not create "${label}" (${created.status})`);
+      return null;
+    }
+    const field = await created.json();
+    return (field?.name || field?.customfield?.name || null) as string | null;
+  } catch (e) {
+    console.error(`portal-fub-link: custom field lookup failed for "${label}":`, (e as Error).message);
+    return null;
   }
-  const field = await created.json();
-  const name = field?.name || field?.customfield?.name;
-  if (!name) throw new Error('Follow Up Boss did not return the custom field name');
-  return name as string;
 }
 
 async function findPersonIdByEmail(authHeader: string, email: string): Promise<number | null> {
@@ -73,26 +86,42 @@ async function findPersonIdByEmail(authHeader: string, email: string): Promise<n
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
-  const guard = await requireStaff(req, { cors: corsHeaders });
-  if (!guard.ok) return guard.response;
-
   const json = (body: unknown, status = 200) =>
     new Response(JSON.stringify(body), {
       status,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
+  const caller = await resolveCaller(req);
+  if (!caller) return json({ error: 'UNAUTHORIZED' }, 401);
+
   try {
-    const { portalId, backfill } = await req.json().catch(() => ({}) as any);
+    const { portalId, backfill, activationUrl, clearActivation } = await req
+      .json()
+      .catch(() => ({}) as any);
     const db = admin();
 
-    // Callers only ever touch portals inside their own organization.
-    const { data: profile } = await db
-      .from('profiles')
-      .select('org_id')
-      .eq('id', guard.caller.userId)
-      .maybeSingle();
-    const orgId = profile?.org_id ?? null;
+    // A portal client may only blank their own activation link once claimed.
+    if (!caller.isStaff) {
+      if (!clearActivation || !portalId) return json({ error: 'FORBIDDEN' }, 403);
+      const { data: owned } = await db
+        .from('client_accounts')
+        .select('id')
+        .eq('id', portalId)
+        .eq('user_id', caller.userId)
+        .maybeSingle();
+      if (!owned) return json({ error: 'FORBIDDEN' }, 403);
+    }
+
+    let orgId: string | null = null;
+    if (caller.kind === 'staff') {
+      const { data: profile } = await db
+        .from('profiles')
+        .select('org_id')
+        .eq('id', caller.userId)
+        .maybeSingle();
+      orgId = profile?.org_id ?? null;
+    }
 
     let query = db.from('client_accounts').select('id,email,fub_person_id,org_id');
     if (orgId) query = query.eq('org_id', orgId);
@@ -103,8 +132,23 @@ Deno.serve(async (req) => {
     if (error) return json({ error: error.message }, 500);
     if (!portals?.length) return json({ updated: 0, skipped: 0, results: [] });
 
-    const authHeader = await fubAuthHeaderForUser(guard.caller.userId);
-    const fieldKey = await resolveCustomField(authHeader);
+    // Staff act with their own organization's key; service and client callers
+    // use the key of the organization that owns the portal.
+    let authHeader: string;
+    if (caller.kind === 'staff') {
+      authHeader = await fubAuthHeaderForUser(caller.userId);
+    } else {
+      const ownerOrg = (portals[0] as { org_id: string | null }).org_id;
+      const key = await getFubApiKeyForOrg(ownerOrg);
+      if (!key) return json({ updated: 0, skipped: portals.length, results: [], reason: 'no_key' });
+      authHeader = 'Basic ' + btoa(`${key}:`);
+    }
+
+    const portalField = await resolveCustomField(authHeader, PORTAL_FIELD);
+    const wantsActivation = Boolean(activationUrl) || clearActivation === true;
+    const activationField = wantsActivation
+      ? await resolveCustomField(authHeader, ACTIVATION_FIELD)
+      : null;
 
     let updated = 0;
     let skipped = 0;
@@ -120,6 +164,18 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      const payload: Record<string, string> = {};
+      // Never overwrite the admin link during a pure clear-activation call.
+      if (portalField && !clearActivation) payload[portalField] = portalAdminUrl(p.id);
+      if (activationField) {
+        payload[activationField] = clearActivation ? '' : String(activationUrl);
+      }
+      if (!Object.keys(payload).length) {
+        skipped++;
+        results.push({ email, status: 'no_field' });
+        continue;
+      }
+
       const res = await fetch(`${FUB_BASE_URL}/people/${personId}`, {
         method: 'PUT',
         headers: {
@@ -127,7 +183,7 @@ Deno.serve(async (req) => {
           'Content-Type': 'application/json',
           Accept: 'application/json',
         },
-        body: JSON.stringify({ [fieldKey]: portalAdminUrl(p.id) }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         skipped++;
@@ -137,7 +193,7 @@ Deno.serve(async (req) => {
         continue;
       }
       updated++;
-      results.push({ email, status: 'updated' });
+      results.push({ email, status: clearActivation ? 'cleared' : 'updated' });
 
       // Remember the match so future writes skip the lookup.
       if (!p.fub_person_id) {
