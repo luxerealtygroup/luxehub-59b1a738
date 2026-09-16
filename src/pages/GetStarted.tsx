@@ -13,6 +13,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle2, Lock } from 'lucide-react';
 import { tenant } from '@/config/tenant';
+import { HUB_ROOT_DOMAIN, isValidHubLabel, toHubUrl } from '@/lib/tenantDomain';
 
 type YesNo = 'yes' | 'no' | '';
 
