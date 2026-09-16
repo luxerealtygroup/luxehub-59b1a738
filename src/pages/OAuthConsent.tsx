@@ -142,8 +142,9 @@ export default function OAuthConsent() {
               Approve
             </Button>
             <Button disabled={busy} variant="outline" onClick={() => decide(false)} className="flex-1">
-              Deny
+              Cancel connection
             </Button>
+            </div>
           </CardContent>
         )}
       </Card>
