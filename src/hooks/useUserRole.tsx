@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
-type AppRole = 'owner' | 'admin' | 'agent' | 'planning_access';
+type AppRole = 'owner' | 'admin' | 'agent' | 'planning_access' | 'operations';
 
 interface UseUserRoleReturn {
   roles: AppRole[];
@@ -11,6 +11,8 @@ interface UseUserRoleReturn {
   isAdmin: boolean;
   isAgent: boolean;
   isPlanningAccess: boolean;
+  /** Director of Operations: company-wide visibility, never a producing agent. */
+  isOperations: boolean;
   hasRole: (role: AppRole) => boolean;
   accessExpired: boolean;
   accessExpiresAt: string | null;
