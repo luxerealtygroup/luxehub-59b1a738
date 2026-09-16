@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Copy, Download, FileCog, Loader2, RefreshCw } from 'lucide-react';
+import { HUB_ROOT_DOMAIN, normalizeWebsiteUrl, toHubUrl } from '@/lib/tenantDomain';
 
 type RequestRow = {
   id: string;
@@ -60,8 +61,10 @@ const slug = (s: string) =>
 const yesNo = (v: boolean | null) => (v === true ? 'yes' : v === false ? 'no' : 'unknown');
 
 function buildConfigSheet(r: RequestRow) {
-  const domain = r.desired_domain?.replace(/^https?:\/\//, '').replace(/\/$/, '') || '';
-  const name = slug(r.business_name);
+  const hubUrl = toHubUrl(r.desired_domain);
+  const appUrlLine = hubUrl
+    ? `VITE_TENANT_APP_URL="${hubUrl}"`
+    : `VITE_TENANT_APP_URL=""   # subdomain still has to be chosen (<label>.${HUB_ROOT_DOMAIN})`;
   return [
     `# Config sheet — ${r.business_name}`,
     `# Generated from setup request ${r.id}`,
@@ -71,8 +74,8 @@ function buildConfigSheet(r: RequestRow) {
     `VITE_TENANT_BROKERAGE_NAME="${r.business_name}"`,
     `VITE_TENANT_LEGAL_NAME="${r.legal_name || r.business_name}"`,
     `VITE_TENANT_SUPPORT_EMAIL="${r.email}"`,
-    `VITE_TENANT_APP_URL="https://${domain || `${name}.lovable.app`}"`,
-    `VITE_TENANT_WEBSITE_URL="${r.website || ''}"`,
+    appUrlLine,
+    `VITE_TENANT_WEBSITE_URL="${normalizeWebsiteUrl(r.website)}"`,
     `VITE_TENANT_PHONE="${r.phone || ''}"`,
     '',
     '## Backend secrets to set (values collected directly from the client — never by form)',
@@ -86,7 +89,8 @@ function buildConfigSheet(r: RequestRow) {
     `Team size:      ${r.team_size || '—'}`,
     `Area served:    ${r.service_area || '—'}`,
     `Slack admin:    ${r.slack_admin_name || '—'} <${r.slack_admin_email || '—'}>`,
-    `Desired domain: ${domain || '—'}`,
+    `Requested:      ${r.desired_domain || '—'}`,
+    `Hub address:    ${hubUrl || '— (subdomain still to be chosen)'}`,
     `Logo uploaded:  ${r.logo_path ? 'yes' : 'no'}`,
     `Their notes:    ${r.extra_notes || '—'}`,
     '',
@@ -228,7 +232,17 @@ const AdminOnboardingRequests = () => {
                 <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
                   <Detail label="Legal name" value={r.legal_name} />
                   <Detail label="Website" value={r.website} />
-                  <Detail label="Desired domain" value={r.desired_domain} />
+                  <div>
+                    <div className="flex gap-2">
+                      <dt className="text-muted-foreground">Desired domain:</dt>
+                      <dd className="text-foreground">{r.desired_domain || '—'}</dd>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {toHubUrl(r.desired_domain)
+                        ? `Hub address: ${toHubUrl(r.desired_domain)}`
+                        : `No subdomain chosen yet — will be <name>.${HUB_ROOT_DOMAIN}`}
+                    </p>
+                  </div>
                   <Detail label="Team size" value={r.team_size} />
                   <Detail label="Area served" value={r.service_area} />
                   <Detail
