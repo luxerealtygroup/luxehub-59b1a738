@@ -11,7 +11,10 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import { Building2, Copy, Eye, Loader2, Palette, Plus, ShieldAlert } from 'lucide-react';
+import { Building2, Copy, Eye, Loader2, Mail, Palette, Plus, ShieldAlert } from 'lucide-react';
+import {
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
 import { EditTenantBrandingDialog, type EditableOrg } from '@/components/admin/EditTenantBrandingDialog';
 import { useNavigate } from 'react-router-dom';
 
@@ -28,6 +31,18 @@ interface Org {
   seat_limit: number | null;
   tier: string | null;
   is_original_org: boolean | null;
+}
+
+/** Owner state for a team that already exists. */
+interface OwnerStatus {
+  orgId: string;
+  orgName: string;
+  hubHost: string | null;
+  state: 'active' | 'invited' | 'expired' | 'none';
+  ownerName: string | null;
+  ownerEmail: string | null;
+  invitedAt: string | null;
+  expiresAt: string | null;
 }
 
 const slugify = (v: string) =>
@@ -75,8 +90,22 @@ const AdminTenants = () => {
   const [markFile, setMarkFile] = useState<File | null>(null);
   const [invites, setInvites] = useState<Record<string, string>>({});
   const [editing, setEditing] = useState<EditableOrg | null>(null);
+  const [owners, setOwners] = useState<Record<string, OwnerStatus>>({});
+  const [ownerFor, setOwnerFor] = useState<OwnerStatus | null>(null);
+  const [ownerEmail, setOwnerEmail] = useState('');
+  const [ownerName, setOwnerName] = useState('');
+  const [sendingOwner, setSendingOwner] = useState(false);
   const logoRef = useRef<HTMLInputElement>(null);
   const markRef = useRef<HTMLInputElement>(null);
+
+  const loadOwners = useCallback(async () => {
+    const { data, error } = await supabase.functions.invoke('org-owner-invite', {
+      body: { action: 'status' },
+    });
+    if (error) return;
+    const teams = (data as { teams?: OwnerStatus[] })?.teams ?? [];
+    setOwners(Object.fromEntries(teams.map((t) => [t.orgId, t])));
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -89,11 +118,50 @@ const AdminTenants = () => {
     if (error) toast.error('Could not load organizations.');
     setOrgs((data as Org[]) ?? []);
     setLoading(false);
-  }, []);
+    void loadOwners();
+  }, [loadOwners]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  const openOwnerDialog = (o: Org) => {
+    const status: OwnerStatus = owners[o.id] ?? {
+      orgId: o.id,
+      orgName: o.name,
+      hubHost: o.slug ? `${o.slug}.luxerealtyhub.com` : null,
+      state: 'none',
+      ownerName: null,
+      ownerEmail: null,
+      invitedAt: null,
+      expiresAt: null,
+    };
+    setOwnerEmail(status.ownerEmail ?? '');
+    setOwnerName(status.ownerName ?? '');
+    setOwnerFor(status);
+  };
+
+  const sendOwnerInvite = async () => {
+    if (!ownerFor || sendingOwner) return;
+    setSendingOwner(true);
+    const { data, error } = await supabase.functions.invoke('org-owner-invite', {
+      body: {
+        action: 'send',
+        orgId: ownerFor.orgId,
+        email: ownerEmail.trim(),
+        fullName: ownerName.trim() || null,
+      },
+    });
+    setSendingOwner(false);
+    const failure = (data as { error?: string })?.error || error?.message;
+    if (failure) {
+      toast.error(failure);
+      return;
+    }
+    toast.success(`Owner invitation sent to ${ownerEmail.trim()}.`);
+    setOwnerFor(null);
+    void loadOwners();
+  };
 
   // Preview is a platform-owner capability, enforced server-side by the
   // org-preview function; this only decides whether to show the button.
@@ -411,6 +479,19 @@ const AdminTenants = () => {
                   </Button>
                 )}
               </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+                <span className="text-muted-foreground">Owner:</span>
+                <span>{ownerLabel(owners[o.id])}</span>
+                {isSuperAdmin && owners[o.id]?.state !== 'active' && (
+                  <Button size="sm" variant="outline" onClick={() => openOwnerDialog(o)}>
+                    <Mail className="mr-1 h-3.5 w-3.5" />
+                    {owners[o.id] && owners[o.id].state !== 'none'
+                      ? 'Resend invitation'
+                      : 'Invite owner'}
+                  </Button>
+                )}
+              </div>
               {invites[o.id] && (
                 <div className="mt-3 flex items-center gap-2 rounded-md bg-muted p-2 text-xs">
                   <span className="truncate">{invites[o.id]}</span>
@@ -443,8 +524,77 @@ const AdminTenants = () => {
         }}
         onSaved={() => void load()}
       />
+
+      <Dialog
+        open={!!ownerFor}
+        onOpenChange={(open) => { if (!open && !sendingOwner) setOwnerFor(null); }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {ownerFor?.state === 'none' ? 'Invite an owner' : 'Resend the owner invitation'}
+            </DialogTitle>
+            <DialogDescription>
+              Nothing is sent until you confirm. The invitation makes this person the owner of
+              this team only — never a member of Luxe Realty Group. Any invitation still
+              outstanding for this team is replaced.
+            </DialogDescription>
+          </DialogHeader>
+          {ownerFor && (
+            <div className="space-y-3 text-sm">
+              <div>
+                <span className="text-muted-foreground">Team: </span>
+                {ownerFor.orgName}
+              </div>
+              <div>
+                <span className="text-muted-foreground">Hub address: </span>
+                {ownerFor.hubHost ? `https://${ownerFor.hubHost}` : 'no web address yet'}
+              </div>
+              <div className="space-y-2">
+                <Label>Owner email</Label>
+                <Input
+                  type="email"
+                  value={ownerEmail}
+                  onChange={(e) => setOwnerEmail(e.target.value)}
+                  placeholder="owner@example.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Owner name (optional)</Label>
+                <Input value={ownerName} onChange={(e) => setOwnerName(e.target.value)} />
+              </div>
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={sendingOwner}
+              onClick={() => setOwnerFor(null)}
+            >
+              Cancel
+            </Button>
+            <Button size="sm" disabled={sendingOwner || !ownerEmail.trim()} onClick={sendOwnerInvite}>
+              {sendingOwner && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Send invitation
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
+
+const fmt = (d: string | null) => (d ? new Date(d).toLocaleDateString() : '');
+
+/** Plain-language owner state for a team row. */
+function ownerLabel(s?: OwnerStatus): string {
+  if (!s) return 'checking…';
+  const who = [s.ownerName, s.ownerEmail].filter(Boolean).join(' · ');
+  if (s.state === 'active') return `active — ${who || 'owner set up'}`;
+  if (s.state === 'invited') return `invited ${fmt(s.invitedAt)} — ${who}`;
+  if (s.state === 'expired') return `invitation expired ${fmt(s.expiresAt)} — ${who}`;
+  return 'no owner invited';
+}
 
 export default AdminTenants;

@@ -292,10 +292,16 @@ const TeamSeats = () => {
               <div>
                 <p className="text-sm font-medium">{i.full_name || i.email}</p>
                 <p className="text-xs text-muted-foreground">
-                  {i.email} · expires {new Date(i.expires_at).toLocaleDateString()}
+                  {i.email} ·{' '}
+                  {new Date(i.expires_at) < new Date()
+                    ? `expired ${new Date(i.expires_at).toLocaleDateString()}`
+                    : `expires ${new Date(i.expires_at).toLocaleDateString()}`}
                 </p>
               </div>
               <div className="flex items-center gap-2">
+                {new Date(i.expires_at) < new Date() && (
+                  <Badge variant="destructive">Expired</Badge>
+                )}
                 <Badge variant="outline">{i.role}</Badge>
                 <Button size="sm" variant="ghost" onClick={() => revoke(i.id)}>
                   <X className="h-4 w-4" />
