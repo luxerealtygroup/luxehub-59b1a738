@@ -90,8 +90,22 @@ const AdminTenants = () => {
   const [markFile, setMarkFile] = useState<File | null>(null);
   const [invites, setInvites] = useState<Record<string, string>>({});
   const [editing, setEditing] = useState<EditableOrg | null>(null);
+  const [owners, setOwners] = useState<Record<string, OwnerStatus>>({});
+  const [ownerFor, setOwnerFor] = useState<OwnerStatus | null>(null);
+  const [ownerEmail, setOwnerEmail] = useState('');
+  const [ownerName, setOwnerName] = useState('');
+  const [sendingOwner, setSendingOwner] = useState(false);
   const logoRef = useRef<HTMLInputElement>(null);
   const markRef = useRef<HTMLInputElement>(null);
+
+  const loadOwners = useCallback(async () => {
+    const { data, error } = await supabase.functions.invoke('org-owner-invite', {
+      body: { action: 'status' },
+    });
+    if (error) return;
+    const teams = (data as { teams?: OwnerStatus[] })?.teams ?? [];
+    setOwners(Object.fromEntries(teams.map((t) => [t.orgId, t])));
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -104,11 +118,50 @@ const AdminTenants = () => {
     if (error) toast.error('Could not load organizations.');
     setOrgs((data as Org[]) ?? []);
     setLoading(false);
-  }, []);
+    void loadOwners();
+  }, [loadOwners]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  const openOwnerDialog = (o: Org) => {
+    const status: OwnerStatus = owners[o.id] ?? {
+      orgId: o.id,
+      orgName: o.name,
+      hubHost: o.slug ? `${o.slug}.luxerealtyhub.com` : null,
+      state: 'none',
+      ownerName: null,
+      ownerEmail: null,
+      invitedAt: null,
+      expiresAt: null,
+    };
+    setOwnerEmail(status.ownerEmail ?? '');
+    setOwnerName(status.ownerName ?? '');
+    setOwnerFor(status);
+  };
+
+  const sendOwnerInvite = async () => {
+    if (!ownerFor || sendingOwner) return;
+    setSendingOwner(true);
+    const { data, error } = await supabase.functions.invoke('org-owner-invite', {
+      body: {
+        action: 'send',
+        orgId: ownerFor.orgId,
+        email: ownerEmail.trim(),
+        fullName: ownerName.trim() || null,
+      },
+    });
+    setSendingOwner(false);
+    const failure = (data as { error?: string })?.error || error?.message;
+    if (failure) {
+      toast.error(failure);
+      return;
+    }
+    toast.success(`Owner invitation sent to ${ownerEmail.trim()}.`);
+    setOwnerFor(null);
+    void loadOwners();
+  };
 
   // Preview is a platform-owner capability, enforced server-side by the
   // org-preview function; this only decides whether to show the button.
