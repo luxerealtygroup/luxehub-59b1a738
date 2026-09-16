@@ -12,6 +12,8 @@ import CMAEquityRecheck from './CMAEquityRecheck';
 import CMAMarketShiftAlert from './CMAMarketShiftAlert';
 import CMAEditApprove from './CMAEditApprove';
 import CMAImprovements, { type ImprovementItem } from './CMAImprovements';
+import CMAAnalysisFailedBanner from './CMAAnalysisFailedBanner';
+import { getAnalysisState } from '@/lib/cma/analysisState';
 
 interface Comp {
   address: string;

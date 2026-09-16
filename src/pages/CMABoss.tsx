@@ -610,16 +610,18 @@ const CMAReportsList = ({
   );
 };
 
-const StatusBadge = ({ status }: { status: string }) => {
+const StatusBadge = ({ report }: { report: CMAReport }) => {
+  const state = getAnalysisState(report as any);
   const colors: Record<string, string> = {
     draft: 'bg-muted text-muted-foreground',
     processing: 'bg-amber-500/20 text-amber-500',
-    completed: 'bg-emerald-500/20 text-emerald-500',
+    stale: 'bg-destructive/20 text-destructive',
     error: 'bg-destructive/20 text-destructive',
+    completed: 'bg-emerald-500/20 text-emerald-500',
   };
   return (
-    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${colors[status] || colors.draft}`}>
-      {status}
+    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${colors[state] || colors.draft}`}>
+      {analysisStateLabel[state].toLowerCase()}
     </span>
   );
 };
