@@ -1066,6 +1066,87 @@ export type Database = {
           },
         ]
       }
+      cma_portal_sends: {
+        Row: {
+          created_at: string
+          document_id: string | null
+          id: string
+          org_id: string
+          portal_id: string
+          property_address: string | null
+          property_id: string | null
+          report_id: string
+          sent_by: string | null
+          updated_at: string
+          version_group_id: string | null
+          version_number: number
+        }
+        Insert: {
+          created_at?: string
+          document_id?: string | null
+          id?: string
+          org_id?: string
+          portal_id: string
+          property_address?: string | null
+          property_id?: string | null
+          report_id: string
+          sent_by?: string | null
+          updated_at?: string
+          version_group_id?: string | null
+          version_number?: number
+        }
+        Update: {
+          created_at?: string
+          document_id?: string | null
+          id?: string
+          org_id?: string
+          portal_id?: string
+          property_address?: string | null
+          property_id?: string | null
+          report_id?: string
+          sent_by?: string | null
+          updated_at?: string
+          version_group_id?: string | null
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cma_portal_sends_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "portal_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cma_portal_sends_portal_id_fkey"
+            columns: ["portal_id"]
+            isOneToOne: false
+            referencedRelation: "client_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cma_portal_sends_portal_id_fkey"
+            columns: ["portal_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sides"
+            referencedColumns: ["portal_id"]
+          },
+          {
+            foreignKeyName: "cma_portal_sends_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "portal_properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cma_portal_sends_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "cma_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cma_reports: {
         Row: {
           above_grade_sqft: number | null
@@ -3776,6 +3857,7 @@ export type Database = {
           category: string | null
           created_at: string
           display_name: string | null
+          doc_kind: string | null
           file_name: string
           file_path: string
           file_size: number | null
@@ -3784,17 +3866,22 @@ export type Database = {
           fub_push_error: string | null
           fub_pushed_at: string | null
           id: string
+          is_current_version: boolean
           is_internal: boolean
           org_id: string | null
           portal_id: string
           property_id: string | null
           source: string
+          superseded_at: string | null
           uploaded_by: string | null
+          version_group_id: string | null
+          version_number: number
         }
         Insert: {
           category?: string | null
           created_at?: string
           display_name?: string | null
+          doc_kind?: string | null
           file_name: string
           file_path: string
           file_size?: number | null
@@ -3803,17 +3890,22 @@ export type Database = {
           fub_push_error?: string | null
           fub_pushed_at?: string | null
           id?: string
+          is_current_version?: boolean
           is_internal?: boolean
           org_id?: string | null
           portal_id: string
           property_id?: string | null
           source?: string
+          superseded_at?: string | null
           uploaded_by?: string | null
+          version_group_id?: string | null
+          version_number?: number
         }
         Update: {
           category?: string | null
           created_at?: string
           display_name?: string | null
+          doc_kind?: string | null
           file_name?: string
           file_path?: string
           file_size?: number | null
@@ -3822,12 +3914,16 @@ export type Database = {
           fub_push_error?: string | null
           fub_pushed_at?: string | null
           id?: string
+          is_current_version?: boolean
           is_internal?: boolean
           org_id?: string | null
           portal_id?: string
           property_id?: string | null
           source?: string
+          superseded_at?: string | null
           uploaded_by?: string | null
+          version_group_id?: string | null
+          version_number?: number
         }
         Relationships: [
           {

@@ -4,6 +4,7 @@ import { template as clientPortalInvite } from './client-portal-invite.tsx'
 import { template as clientPortalSignin } from './client-portal-signin.tsx'
 import { template as supportTicketEscalated } from './support-ticket-escalated.tsx'
 import { template as portalNewDocuments } from './portal-new-documents.tsx'
+import { template as portalDocumentUpdated } from './portal-document-updated.tsx'
 import { template as portalNewPhotos } from './portal-new-photos.tsx'
 import { template as portalNewTask } from './portal-new-task.tsx'
 import { template as portalNewMessage } from './portal-new-message.tsx'
@@ -26,6 +27,7 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'client-portal-signin': clientPortalSignin,
   'support-ticket-escalated': supportTicketEscalated,
   'portal-new-documents': portalNewDocuments,
+  'portal-document-updated': portalDocumentUpdated,
   'portal-new-photos': portalNewPhotos,
   'portal-new-task': portalNewTask,
   'portal-new-message': portalNewMessage,

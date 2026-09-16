@@ -33,13 +33,23 @@ interface Props {
   /** A previous send: the document it created is replaced instead of duplicated. */
   previousDocumentId?: string | null;
   previousSentAt?: string | null;
-  onSent: (result: DeliverResult & { portalId: string }) => void | Promise<void>;
+  /**
+   * 'replace' (default) — a correction to the same document.
+   * 'version' — a revision: the client keeps the earlier one in their history
+   * and is told this one is an update.
+   */
+  versionMode?: 'replace' | 'version';
+  docKind?: 'cma' | 'open_house' | null;
+  onSent: (result: DeliverResult & { portalId: string; propertyId: string | null }) => void | Promise<void>;
 }
+
 
 export function SendToPortalDialog({
   open, onClose, title, displayName, fileName, buildBlob, preview,
-  clientEmail, clientName, propertyAddress, previousDocumentId, previousSentAt, onSent,
+  clientEmail, clientName, propertyAddress, previousDocumentId, previousSentAt,
+  versionMode = 'replace', docKind = null, onSent,
 }: Props) {
+
   const [portals, setPortals] = useState<PortalOption[]>([]);
   const [portalId, setPortalId] = useState('');
   const [properties, setProperties] = useState<PortalPropertyOption[]>([]);
@@ -80,25 +90,39 @@ export function SendToPortalDialog({
     setSending(true);
     try {
       const blob = await buildBlob();
+      const targetPropertyId = propertyId === 'general' ? null : propertyId;
       const result = await deliverDocumentToPortal({
         portalId,
-        propertyId: propertyId === 'general' ? null : propertyId,
+        propertyId: targetPropertyId,
         blob,
         fileName,
         displayName,
-        replaceDocumentId: previousDocumentId,
+        versionMode,
+        docKind,
+        replaceDocumentId: versionMode === 'replace' ? previousDocumentId : null,
       });
-      await onSent({ ...result, portalId });
+      await onSent({ ...result, portalId, propertyId: targetPropertyId });
+      const isRevision = result.versionNumber > 1;
       if (!result.clientActivated) {
-        toast.success('Saved to the client portal', {
+        toast.success(isRevision ? `Saved as version ${result.versionNumber}` : 'Saved to the client portal', {
           description: `${selected?.full_name || 'This client'} has not activated their portal yet, so no email went out. They will see it once they sign in.`,
         });
       } else {
-        toast.success(result.replaced ? 'Replaced the earlier copy in the client portal' : 'Sent to the client portal', {
-          description: 'The client has been notified by email that a new document is waiting.',
-        });
+        toast.success(
+          isRevision
+            ? `Sent as version ${result.versionNumber}`
+            : result.replaced
+              ? 'Replaced the earlier copy in the client portal'
+              : 'Sent to the client portal',
+          {
+            description: isRevision
+              ? 'The client has been told their document was updated. The earlier version stays in their history.'
+              : 'The client has been notified by email that a new document is waiting.',
+          },
+        );
       }
       onClose();
+
     } catch (e: any) {
       console.error('Send to portal failed', e);
       toast.error('Could not send to the portal', { description: e?.message });
@@ -138,10 +162,14 @@ export function SendToPortalDialog({
           <div className="space-y-4">
             {previousSentAt && (
               <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
-                Already sent on {new Date(previousSentAt).toLocaleString()}. Sending again replaces
-                that copy rather than adding a second one.
+                {versionMode === 'version'
+                  ? `Already sent on ${new Date(previousSentAt).toLocaleString()}. Sending again adds a new
+                     version — the client keeps the earlier one in their history and is told this one is an update.`
+                  : `Already sent on ${new Date(previousSentAt).toLocaleString()}. Sending again replaces
+                     that copy rather than adding a second one.`}
               </p>
             )}
+
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
@@ -195,7 +223,10 @@ export function SendToPortalDialog({
           <Button variant="outline" onClick={onClose} disabled={sending}>Cancel</Button>
           <Button onClick={send} disabled={!portalId || sending || noPortals}>
             {sending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Send className="h-4 w-4 mr-1" />}
-            {previousSentAt ? 'Send again (replaces)' : 'Send to client portal'}
+            {!previousSentAt
+              ? 'Send to client portal'
+              : versionMode === 'version' ? 'Send updated version' : 'Send again (replaces)'}
+
           </Button>
         </DialogFooter>
       </DialogContent>
