@@ -33,9 +33,21 @@ interface NeedsPortalQueueProps {
   existingEmails: Set<string>;
   /** Called after a portal is created so the parent list can refresh. */
   onPortalCreated: () => void;
+  /** Shared page search text — matches client, email or agent. */
+  search?: string;
+  /** Shared Buyer / Seller filter. */
+  typeFilter?: 'all' | 'buyer' | 'seller';
+  /** Shared agent filter, by agent name. */
+  agentFilter?: string;
 }
 
-export function NeedsPortalQueue({ existingEmails, onPortalCreated }: NeedsPortalQueueProps) {
+export function NeedsPortalQueue({
+  existingEmails,
+  onPortalCreated,
+  search = '',
+  typeFilter = 'all',
+  agentFilter = 'all',
+}: NeedsPortalQueueProps) {
   const { isAdmin } = useUserRole();
   const { user } = useAuth();
   const [rows, setRows] = useState<QueueRow[]>([]);
