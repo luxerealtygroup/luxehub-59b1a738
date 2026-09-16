@@ -94,7 +94,7 @@ export default function AdminClientPortals() {
       );
       toast({
         title: 'Invitation sent',
-        description: `${row.email} will receive a single-use link, valid for 7 days.`,
+        description: `${row.email} will receive a single-use activation link, valid for 30 days.`,
       });
     } catch (err) {
       toast({
