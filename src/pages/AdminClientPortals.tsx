@@ -509,7 +509,13 @@ export default function AdminClientPortals() {
         </div>
       )}
 
-      <NeedsPortalQueue existingEmails={existingEmails} onPortalCreated={load} />
+      <NeedsPortalQueue
+        existingEmails={existingEmails}
+        onPortalCreated={load}
+        search={search}
+        typeFilter={typeFilter}
+        agentFilter={agentFilter}
+      />
 
       <Card className="min-w-0">
         <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
