@@ -106,8 +106,7 @@ export default function AdminClientPortals() {
   };
 
 
-  useEffect(() => {
-    const load = async () => {
+  const load = useCallback(async () => {
       setLoading(true);
       const { data: accounts } = await supabase
         .from('client_accounts')
