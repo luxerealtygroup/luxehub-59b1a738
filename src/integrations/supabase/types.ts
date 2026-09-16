@@ -5864,7 +5864,7 @@ export type Database = {
         | "email"
         | "meeting"
         | "other"
-      app_role: "owner" | "admin" | "agent" | "planning_access"
+      app_role: "owner" | "admin" | "agent" | "planning_access" | "operations"
       deal_stage:
         | "lead"
         | "contacted"
@@ -6011,7 +6011,7 @@ export const Constants = {
         "meeting",
         "other",
       ],
-      app_role: ["owner", "admin", "agent", "planning_access"],
+      app_role: ["owner", "admin", "agent", "planning_access", "operations"],
       deal_stage: [
         "lead",
         "contacted",
