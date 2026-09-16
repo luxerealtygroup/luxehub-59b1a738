@@ -73,6 +73,9 @@ export function AgentPortalDialog({
   defaultType,
   trigger,
   initialTab,
+  defaultAgentId,
+  defaultPropertyAddress,
+  onSaved,
 }: AgentPortalDialogProps) {
   const { user } = useAuth();
   const { isAdmin } = useUserRole();
@@ -93,7 +96,7 @@ export function AgentPortalDialog({
   const [sendingInvite, setSendingInvite] = useState(false);
   const [copied, setCopied] = useState(false);
   const [agents, setAgents] = useState<{ id: string; full_name: string | null }[]>([]);
-  const [assignedAgentId, setAssignedAgentId] = useState<string>('');
+  const [assignedAgentId, setAssignedAgentId] = useState<string>(defaultAgentId || '');
   const [scope, setScope] = useState<PortalScope>('all');
   const { properties, transactions: portalTransactions, reload: reloadProperties } =
     usePortalProperties(account?.id ?? null);
