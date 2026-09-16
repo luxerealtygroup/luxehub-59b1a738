@@ -3525,6 +3525,27 @@ export type Database = {
           },
         ]
       }
+      portal_access_requests: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          outcome: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          outcome?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          outcome?: string | null
+        }
+        Relationships: []
+      }
       portal_condition_notes: {
         Row: {
           body: string

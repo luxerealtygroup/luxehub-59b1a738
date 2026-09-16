@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +17,19 @@ const RequestAccess = () => {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [params] = useSearchParams();
+
+  // Set when we bounced someone here from a dead activation link.
+  const reason = params.get('reason');
+  const reasonNote =
+    reason === 'expired'
+      ? 'That activation link has expired. Enter your email below and we will send you a fresh one.'
+      : reason === 'used'
+        ? 'That activation link has already been used. Enter your email below and we will send you a new link to get back in.'
+        : reason === 'invalid'
+          ? 'That link is no longer valid. Enter your email below and we will send you a fresh one.'
+          : null;
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,6 +61,11 @@ const RequestAccess = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {reasonNote && !sent && (
+            <p className="mb-4 rounded-md border border-primary/20 bg-primary/5 p-3 text-sm text-muted-foreground">
+              {reasonNote}
+            </p>
+          )}
           {sent ? (
             <div className="text-center space-y-4 py-4">
               <MailCheck className="h-8 w-8 mx-auto text-primary" />

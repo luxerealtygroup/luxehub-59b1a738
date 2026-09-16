@@ -38,8 +38,12 @@ export interface PortalInvite {
 }
 
 /**
- * Mint a fresh single-use, 7-day invite token for a portal. Any previously
+ * Mint a fresh single-use, 30-day invite token for a portal. Any previously
  * issued token for that portal is replaced.
+ *
+ * The activation URL is also written to the client's Follow Up Boss record so
+ * the welcome email there can carry the real link. It is only usable by someone
+ * signing in with the invited email address, and is cleared once claimed.
  */
 export async function createPortalInvite(portalId: string): Promise<PortalInvite> {
   const { data, error } = await supabase.rpc('create_portal_invite', { _portal_id: portalId });
@@ -50,7 +54,12 @@ export async function createPortalInvite(portalId: string): Promise<PortalInvite
   const expiresAt = (row as { expires_at?: string } | null)?.expires_at ?? '';
   if (!token) throw new Error('Could not generate an invitation link');
 
-  return { token, expiresAt, url: buildInviteUrl(token) };
+  const url = buildInviteUrl(token);
+  supabase.functions
+    .invoke('portal-fub-link', { body: { portalId, activationUrl: url } })
+    .catch((e) => console.warn('Could not write the activation link to Follow Up Boss:', e));
+
+  return { token, expiresAt, url };
 }
 
 interface SendInviteArgs {
@@ -123,7 +132,7 @@ export function clearPendingInvite() {
 export async function claimPendingInvite(fullName?: string | null): Promise<boolean> {
   const token = readPendingInvite();
   if (!token) return false;
-  const { error } = await supabase.rpc('claim_portal_invite', {
+  const { data, error } = await supabase.rpc('claim_portal_invite', {
     _token: token,
     _full_name: fullName ?? null,
   });
@@ -132,5 +141,19 @@ export async function claimPendingInvite(fullName?: string | null): Promise<bool
     console.error('Could not claim portal invite:', error.message);
     return false;
   }
+  clearActivationLink(typeof data === 'string' ? data : null);
   return true;
+}
+
+/**
+ * Blank the "LUXEhub Activation Link" field in Follow Up Boss once the portal
+ * has been claimed, so no dead link is left sitting on the contact.
+ */
+export function clearActivationLink(portalId: string | null) {
+  if (!portalId) return;
+  supabase.functions
+    .invoke('portal-fub-link', { body: { portalId, clearActivation: true } })
+    .catch(() => {
+      /* cosmetic cleanup — never blocks the client */
+    });
 }
