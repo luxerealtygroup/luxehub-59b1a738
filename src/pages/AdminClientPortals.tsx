@@ -18,7 +18,12 @@ import {
   Eye,
   Send,
   AlertTriangle,
+  Search,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AgentPortalDialog } from '@/components/AgentPortalDialog';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Link } from 'react-router-dom';
@@ -67,6 +72,17 @@ type FilterKey =
   | 'unread'
   | 'conditions_risk';
 
+type SortKey = 'client' | 'agent' | 'type' | 'health' | 'activity';
+
+/** Buyer / seller side of a portal, from its transactions with a fallback to the stored type. */
+const portalSide = (r: PortalRow): 'buyer' | 'seller' | 'both' | 'none' => {
+  const buyer = r.transactionSides.has('buyer') || r.client_type === 'buyer';
+  const seller = r.transactionSides.has('seller') || r.client_type === 'seller';
+  if (buyer && seller) return 'both';
+  if (buyer) return 'buyer';
+  if (seller) return 'seller';
+  return 'none';
+};
 
 export default function AdminClientPortals() {
   const { isAdmin } = useUserRole();
@@ -74,6 +90,10 @@ export default function AdminClientPortals() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [health, setHealth] = useState<FilterKey>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'buyer' | 'seller'>('all');
+  const [agentFilter, setAgentFilter] = useState<string>('all');
+  const [sortKey, setSortKey] = useState<SortKey>('client');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [resendingId, setResendingId] = useState<string | null>(null);
   const [backfilling, setBackfilling] = useState(false);
   const { toast } = useToast();
@@ -257,12 +277,23 @@ export default function AdminClientPortals() {
     [rows],
   );
 
+  /** Agents who actually have a portal, for the agent dropdown. */
+  const agentOptions = useMemo(
+    () => Array.from(new Set(rows.map((r) => r.agentName).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+    [rows],
+  );
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return rows.filter((r) => {
+    const list = rows.filter((r) => {
       if (q) {
         const hay = `${r.full_name ?? ''} ${r.email} ${r.agentName}`.toLowerCase();
         if (!hay.includes(q)) return false;
+      }
+      if (agentFilter !== 'all' && r.agentName !== agentFilter) return false;
+      if (typeFilter !== 'all') {
+        const side = portalSide(r);
+        if (side !== typeFilter && side !== 'both') return false;
       }
       if (health === 'not_invited' && r.status !== 'not_invited') return false;
       if (health === 'awaiting_signup' && r.status !== 'invited') return false;
@@ -274,7 +305,55 @@ export default function AdminClientPortals() {
       if (health === 'conditions_risk' && !(r.overdueConditions || r.dueSoonConditions)) return false;
       return true;
     });
-  }, [rows, search, health]);
+
+    const dir = sortDir === 'asc' ? 1 : -1;
+    const value = (r: PortalRow) => {
+      switch (sortKey) {
+        case 'agent':
+          return r.agentName.toLowerCase();
+        case 'type':
+          return portalSide(r);
+        case 'health':
+          return r.healthScore;
+        case 'activity':
+          return r.lastMessageAt ? new Date(r.lastMessageAt).getTime() : 0;
+        default:
+          return (r.full_name || r.email || '').toLowerCase();
+      }
+    };
+    return [...list].sort((a, b) => {
+      const va = value(a);
+      const vb = value(b);
+      if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir;
+      return String(va).localeCompare(String(vb)) * dir;
+    });
+  }, [rows, search, health, typeFilter, agentFilter, sortKey, sortDir]);
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else {
+      setSortKey(key);
+      setSortDir(key === 'health' || key === 'activity' ? 'desc' : 'asc');
+    }
+  };
+
+  const SortButton = ({ label, sortKey: key }: { label: string; sortKey: SortKey }) => {
+    const active = sortKey === key;
+    const Icon = !active ? ArrowUpDown : sortDir === 'asc' ? ArrowUp : ArrowDown;
+    return (
+      <button
+        type="button"
+        onClick={() => toggleSort(key)}
+        className={`inline-flex items-center gap-1 whitespace-nowrap transition-colors hover:text-foreground ${
+          active ? 'text-foreground font-semibold' : ''
+        }`}
+        aria-label={`Sort by ${label}`}
+      >
+        {label}
+        <Icon className="h-3 w-3" />
+      </button>
+    );
+  };
 
   const stats = useMemo(() => {
     return {
@@ -317,7 +396,7 @@ export default function AdminClientPortals() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 min-w-0 max-w-full overflow-x-hidden">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-display font-semibold text-foreground flex items-center gap-2">
@@ -348,7 +427,43 @@ export default function AdminClientPortals() {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="rounded-lg border border-border/60 bg-card/60 p-3 space-y-3 min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-full sm:w-72 min-w-0">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search client, email, agent…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as 'all' | 'buyer' | 'seller')}>
+            <SelectTrigger className="w-full sm:w-40">
+              <SelectValue placeholder="Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All types</SelectItem>
+              <SelectItem value="buyer">Buyer</SelectItem>
+              <SelectItem value="seller">Seller</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={agentFilter} onValueChange={setAgentFilter}>
+            <SelectTrigger className="w-full sm:w-52">
+              <SelectValue placeholder="Agent" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All agents</SelectItem>
+              {agentOptions.map((a) => (
+                <SelectItem key={a} value={a}>
+                  {a}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
         {filterChips.map((c) => {
           const active = health === c.key;
           return (
@@ -373,7 +488,9 @@ export default function AdminClientPortals() {
             </button>
           );
         })}
+        </div>
       </div>
+
 
       {/* On-demand FUB stage check for linked portals — agent-confirmed, never automatic. */}
       {!loading && (
@@ -392,19 +509,19 @@ export default function AdminClientPortals() {
         </div>
       )}
 
-      <NeedsPortalQueue existingEmails={existingEmails} onPortalCreated={load} />
+      <NeedsPortalQueue
+        existingEmails={existingEmails}
+        onPortalCreated={load}
+        search={search}
+        typeFilter={typeFilter}
+        agentFilter={agentFilter}
+      />
 
-      <Card>
+      <Card className="min-w-0">
         <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
           <CardTitle className="text-base">All Portals ({filtered.length})</CardTitle>
-          <Input
-            placeholder="Search client, email, agent…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-64"
-          />
         </CardHeader>
-        <CardContent>
+        <CardContent className="min-w-0">
           {loading ? (
             <div className="flex items-center gap-2 text-muted-foreground py-10 justify-center">
               <Loader2 className="h-4 w-4 animate-spin" /> Loading portals…
@@ -414,19 +531,19 @@ export default function AdminClientPortals() {
               No portals match the current filter.
             </div>
           ) : (
-            <div className="overflow-x-auto border border-border/50 rounded-lg">
+            <div className="w-full max-w-full overflow-x-auto border border-border/50 rounded-lg">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Client</TableHead>
-                    <TableHead>Agent</TableHead>
-                    <TableHead>Type</TableHead>
+                    <TableHead><SortButton label="Client" sortKey="client" /></TableHead>
+                    <TableHead><SortButton label="Agent" sortKey="agent" /></TableHead>
+                    <TableHead><SortButton label="Type" sortKey="type" /></TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Health</TableHead>
+                    <TableHead><SortButton label="Health" sortKey="health" /></TableHead>
                     <TableHead className="text-center">FUB</TableHead>
                     <TableHead className="text-center">Slack</TableHead>
                     <TableHead className="text-center">Docs</TableHead>
-                    <TableHead>Last message</TableHead>
+                    <TableHead><SortButton label="Last activity" sortKey="activity" /></TableHead>
                     <TableHead className="text-right">Manage</TableHead>
                   </TableRow>
                 </TableHeader>

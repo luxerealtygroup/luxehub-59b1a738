@@ -33,9 +33,21 @@ interface NeedsPortalQueueProps {
   existingEmails: Set<string>;
   /** Called after a portal is created so the parent list can refresh. */
   onPortalCreated: () => void;
+  /** Shared page search text — matches client, email or agent. */
+  search?: string;
+  /** Shared Buyer / Seller filter. */
+  typeFilter?: 'all' | 'buyer' | 'seller';
+  /** Shared agent filter, by agent name. */
+  agentFilter?: string;
 }
 
-export function NeedsPortalQueue({ existingEmails, onPortalCreated }: NeedsPortalQueueProps) {
+export function NeedsPortalQueue({
+  existingEmails,
+  onPortalCreated,
+  search = '',
+  typeFilter = 'all',
+  agentFilter = 'all',
+}: NeedsPortalQueueProps) {
   const { isAdmin } = useUserRole();
   const { user } = useAuth();
   const [rows, setRows] = useState<QueueRow[]>([]);
@@ -72,15 +84,20 @@ export function NeedsPortalQueue({ existingEmails, onPortalCreated }: NeedsPorta
   }, [isAdmin, user]);
 
   const queue = useMemo(() => {
+    const q = search.trim().toLowerCase();
     return rows
       .filter((r) => {
         const email = (r.email || '').trim().toLowerCase();
-        if (!email) return true;
-        return !existingEmails.has(email);
+        if (email && existingEmails.has(email)) return false;
+        if (q && !`${r.client_name ?? ''} ${r.email ?? ''} ${r.agentName ?? ''}`.toLowerCase().includes(q))
+          return false;
+        if (typeFilter !== 'all' && (r.client_type || '').toLowerCase() !== typeFilter) return false;
+        if (agentFilter !== 'all' && r.agentName !== agentFilter) return false;
+        return true;
       })
       // Oldest signed first so nobody sits unnoticed.
       .sort((a, b) => new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime());
-  }, [rows, existingEmails]);
+  }, [rows, existingEmails, search, typeFilter, agentFilter]);
 
   if (!loading && queue.length === 0) return null;
 
