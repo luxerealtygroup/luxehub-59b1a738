@@ -101,7 +101,7 @@ Deno.serve(async (req) => {
     phone: str(body.phone, 40),
     website: str(body.website, 255),
     desired_domain: str(body.desiredDomain, 255),
-    logo_path: str(body.logoPath, 500),
+    logo_path: logoPath,
     team_size: str(body.teamSize, 60),
     service_area: str(body.serviceArea, 200),
     slack_admin_name: str(body.slackAdminName, 120),
