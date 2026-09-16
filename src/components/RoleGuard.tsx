@@ -4,7 +4,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 interface RoleGuardProps {
   children: React.ReactNode;
   /** Roles that are ALLOWED to access this route */
-  allowedRoles?: ('owner' | 'admin' | 'agent')[];
+  allowedRoles?: ('owner' | 'admin' | 'agent' | 'operations')[];
   /** If true, planning_access users are blocked (default: true) */
   blockPlanning?: boolean;
 }
@@ -14,7 +14,7 @@ interface RoleGuardProps {
  * Must be used inside ProtectedRoute (user is already authenticated).
  */
 const RoleGuard = ({ children, allowedRoles, blockPlanning = true }: RoleGuardProps) => {
-  const { isOwner, isAdmin, isAgent, isPlanningAccess, isLoading } = useUserRole();
+  const { isOwner, isAdmin, isAgent, isOperations, isPlanningAccess, isLoading } = useUserRole();
 
   if (isLoading) {
     return (
@@ -36,6 +36,7 @@ const RoleGuard = ({ children, allowedRoles, blockPlanning = true }: RoleGuardPr
     const hasAllowed =
       (allowedRoles.includes('owner') && isOwner) ||
       (allowedRoles.includes('admin') && isAdmin) ||
+      (allowedRoles.includes('operations') && isOperations) ||
       (allowedRoles.includes('agent') && isAgent);
 
     if (!hasAllowed) {

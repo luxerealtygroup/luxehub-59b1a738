@@ -8,7 +8,7 @@
 //    (pg_cron, other edge functions). It is never derivable by a browser.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
-const STAFF_ROLES = new Set(['owner', 'admin', 'agent', 'planning_access']);
+const STAFF_ROLES = new Set(['owner', 'admin', 'agent', 'planning_access', 'operations']);
 
 export const sharedCorsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -48,7 +48,8 @@ export async function resolveCaller(req: Request): Promise<Caller | null> {
     .select('role')
     .eq('user_id', user.id);
   const roles = (roleRows ?? []).map((r: { role: string }) => r.role);
-  const isAdmin = roles.includes('admin') || roles.includes('owner');
+  const isAdmin =
+    roles.includes('admin') || roles.includes('owner') || roles.includes('operations');
   if (roles.some((r) => STAFF_ROLES.has(r))) {
     return { kind: 'staff', userId: user.id, isAdmin, isStaff: true };
   }

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
-type AppRole = 'owner' | 'admin' | 'agent' | 'planning_access';
+type AppRole = 'owner' | 'admin' | 'agent' | 'planning_access' | 'operations';
 
 interface UseUserRoleReturn {
   roles: AppRole[];
@@ -11,6 +11,8 @@ interface UseUserRoleReturn {
   isAdmin: boolean;
   isAgent: boolean;
   isPlanningAccess: boolean;
+  /** Director of Operations: company-wide visibility, never a producing agent. */
+  isOperations: boolean;
   hasRole: (role: AppRole) => boolean;
   accessExpired: boolean;
   accessExpiresAt: string | null;
@@ -61,17 +63,20 @@ export const useUserRole = (): UseUserRoleReturn => {
   }, [user]);
 
   const isOwner = roles.includes('owner');
-  const isAdmin = roles.includes('admin') || isOwner;
-  const isAgent = roles.includes('agent') || isAdmin || isOwner;
+  const isOperations = roles.includes('operations');
+  // Operations sees the company the way an admin does, but is never an agent.
+  const isAdmin = roles.includes('admin') || isOwner || isOperations;
+  const isAgent = roles.includes('agent') || roles.includes('admin') || isOwner;
   const isPlanningAccess = roles.includes('planning_access');
 
   const hasRole = useCallback((role: AppRole) => {
     if (role === 'agent') return isAgent;
     if (role === 'admin') return isAdmin;
     if (role === 'owner') return isOwner;
+    if (role === 'operations') return isOperations;
     if (role === 'planning_access') return isPlanningAccess;
     return false;
-  }, [isOwner, isAdmin, isAgent, isPlanningAccess]);
+  }, [isOwner, isAdmin, isAgent, isOperations, isPlanningAccess]);
 
   return {
     roles,
@@ -79,6 +84,7 @@ export const useUserRole = (): UseUserRoleReturn => {
     isOwner,
     isAdmin,
     isAgent,
+    isOperations,
     isPlanningAccess,
     hasRole,
     accessExpired,

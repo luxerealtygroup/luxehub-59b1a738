@@ -8,7 +8,7 @@ export async function getRoleBasedRedirect(userId: string): Promise<string> {
 
   const roles = (data || []).map(r => r.role);
 
-  if (roles.includes('owner') || roles.includes('admin')) {
+  if (roles.includes('owner') || roles.includes('admin') || roles.includes('operations')) {
     return '/dashboard/admin';
   }
   if (roles.includes('planning_access')) {
