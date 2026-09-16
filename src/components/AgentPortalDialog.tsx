@@ -95,6 +95,7 @@ export function AgentPortalDialog({
   });
   const [saving, setSaving] = useState(false);
   const [sendingInvite, setSendingInvite] = useState(false);
+  const [inviteTarget, setInviteTarget] = useState<InviteTarget | null>(null);
   const [copied, setCopied] = useState(false);
   const [agents, setAgents] = useState<{ id: string; full_name: string | null }[]>([]);
   const [assignedAgentId, setAssignedAgentId] = useState<string>(defaultAgentId || '');
