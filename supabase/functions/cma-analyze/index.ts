@@ -780,6 +780,38 @@ function finalizeAnalysis(analysis: any, compStats: any, extras: Record<string, 
   return { ...out, ...extras };
 }
 
+/** Collects the text of a streamed Anthropic response. */
+async function readAnthropicStream(res: Response): Promise<string> {
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error("ANTHROPIC_NO_BODY");
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let text = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+    for (const line of lines) {
+      if (!line.startsWith('data:')) continue;
+      const payload = line.slice(5).trim();
+      if (!payload || payload === '[DONE]') continue;
+      try {
+        const evt = JSON.parse(payload);
+        if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') {
+          text += evt.delta.text || '';
+        } else if (evt.type === 'error') {
+          throw new Error(`ANTHROPIC_STREAM_${evt.error?.type || 'error'}`);
+        }
+      } catch (e) {
+        if (e instanceof Error && e.message.startsWith('ANTHROPIC_STREAM_')) throw e;
+      }
+    }
+  }
+  return text.trim();
+}
+
 // The analysis pass is the single source of truth for pricing, so it runs on
 // Claude (deeper appraisal reasoning). Extraction stays on Gemini Flash.
 async function callAnalysisAI(gatewayKey: string, systemPrompt: string, userPrompt: string) {
@@ -796,6 +828,9 @@ async function callAnalysisAI(gatewayKey: string, systemPrompt: string, userProm
         body: JSON.stringify({
           model: "claude-sonnet-4-6",
           max_tokens: 8000,
+          // Streamed so bytes keep flowing: a long non-streamed generation
+          // trips the platform's 150s idle timeout and returns a 504.
+          stream: true,
           system: `${systemPrompt}\n\nRespond with the JSON object only — no preamble, no markdown fences.`,
           messages: [{ role: "user", content: userPrompt }],
         }),
@@ -806,11 +841,7 @@ async function callAnalysisAI(gatewayKey: string, systemPrompt: string, userProm
         console.error("Anthropic analysis error:", res.status, t.slice(0, 500));
         throw new Error(`ANTHROPIC_${res.status}`);
       }
-      const data = await res.json();
-      const text = (data.content || [])
-        .filter((b: any) => b.type === 'text')
-        .map((b: any) => b.text || '')
-        .join('\n')
+      const text = (await readAnthropicStream(res))
         .replace(/```json\n?/g, '')
         .replace(/```\n?/g, '')
         .trim();
