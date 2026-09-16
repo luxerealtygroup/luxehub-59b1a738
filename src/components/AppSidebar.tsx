@@ -138,7 +138,7 @@ const planningPerformanceItems = ['Goals', 'Weekly Coaching', 'Reports', 'Busine
 
 export function AppSidebar() {
   const { signOut, user } = useAuth();
-  const { isAdmin, isOwner, isPlanningAccess, isAgent } = useUserRole();
+  const { isAdmin, isOwner, isOperations, isPlanningAccess, isAgent } = useUserRole();
   const {
     canAccessCompanyDashboard,
     canAccessCompanyBusinessPlanning,
@@ -146,7 +146,8 @@ export function AppSidebar() {
     canAccessNominations,
   } = useOrgTier();
   const tenant = useTenant();
-  const isSuperAdmin = (isOwner || isAdmin) && tenant.isDefaultTenant;
+  // Cross-tenant tools stay off-limits to Operations, which is team-scoped.
+  const isSuperAdmin = (isOwner || isAdmin) && !isOperations && tenant.isDefaultTenant;
   const { state } = useSidebar();
   const navigate = useNavigate();
   const location = useLocation();

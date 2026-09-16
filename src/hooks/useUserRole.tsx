@@ -87,6 +87,7 @@ export const useUserRole = (): UseUserRoleReturn => {
     roles,
     isLoading,
     isOwner,
+    isStrictOwner: strictOwner,
     isAdmin,
     isAgent,
     isOperations,
