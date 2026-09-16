@@ -519,7 +519,7 @@ export default function AdminClientPortals() {
                     <TableHead className="text-center">FUB</TableHead>
                     <TableHead className="text-center">Slack</TableHead>
                     <TableHead className="text-center">Docs</TableHead>
-                    <TableHead>Last message</TableHead>
+                    <TableHead><SortButton label="Last activity" sortKey="activity" /></TableHead>
                     <TableHead className="text-right">Manage</TableHead>
                   </TableRow>
                 </TableHeader>
