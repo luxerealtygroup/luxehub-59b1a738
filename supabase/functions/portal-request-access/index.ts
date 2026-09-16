@@ -110,11 +110,25 @@ Deno.serve(async (req) => {
         if (agent?.full_name) agentName = agent.full_name;
       }
 
+      const inviteUrl = `${tenant.appUrl}/client-portal/signup?token=${encodeURIComponent(token)}`;
       await sendEmail('client-portal-invite', email, {
         clientName: portal.full_name || '',
         agentName,
-        inviteUrl: `${tenant.appUrl}/client-portal/signup?token=${encodeURIComponent(token)}`,
+        inviteUrl,
       });
+      // Keep the Follow Up Boss activation field pointing at the newest link.
+      try {
+        await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/portal-fub-link`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ portalId: portal.id, activationUrl: inviteUrl }),
+        });
+      } catch (e) {
+        console.error('portal-request-access: could not update Follow Up Boss', (e as Error).message);
+      }
       await db.from('portal_access_requests').insert({ email, outcome: 'invite_sent' });
       return ok();
     }
