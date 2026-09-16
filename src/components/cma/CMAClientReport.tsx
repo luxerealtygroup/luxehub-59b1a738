@@ -5,6 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Loader2, Printer, TrendingUp, BarChart3, Home, Target, FileText, ArrowRight, Phone } from 'lucide-react';
 import CMAFubPush from './CMAFubPush';
+import { CMASendToPortal } from './CMASendToPortal';
+import { useAuth } from '@/hooks/useAuth';
+import { useUserRole } from '@/hooks/useUserRole';
+
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area, Cell, ReferenceLine,
