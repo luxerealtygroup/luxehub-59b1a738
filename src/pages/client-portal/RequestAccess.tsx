@@ -61,6 +61,11 @@ const RequestAccess = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {reasonNote && !sent && (
+            <p className="mb-4 rounded-md border border-primary/20 bg-primary/5 p-3 text-sm text-muted-foreground">
+              {reasonNote}
+            </p>
+          )}
           {sent ? (
             <div className="text-center space-y-4 py-4">
               <MailCheck className="h-8 w-8 mx-auto text-primary" />
