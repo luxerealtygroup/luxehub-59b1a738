@@ -401,6 +401,63 @@ const AdminOnboardingRequests = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      <Dialog
+        open={!!welcomeFor}
+        onOpenChange={(o) => { if (!o && !sendingWelcome) setWelcomeFor(null); }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Send the welcome email?</DialogTitle>
+            <DialogDescription>
+              Nothing is sent until you confirm. The email carries their hub address and their
+              own activation link — never a password.
+            </DialogDescription>
+          </DialogHeader>
+          {welcomeFor && (
+            <div className="space-y-3 text-sm">
+              <div>
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">Goes to</div>
+                <div className="text-foreground">
+                  {ownerInvite(welcomeFor)?.email || welcomeFor.email}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Hub address
+                </div>
+                <div className="text-foreground">
+                  https://{ownerInvite(welcomeFor)?.hub_host}
+                </div>
+              </div>
+              {welcomeFor.welcome_email_sent_at && (
+                <p className="text-xs text-muted-foreground">
+                  Already sent {new Date(welcomeFor.welcome_email_sent_at).toLocaleString()} —
+                  sending again issues a fresh activation link.
+                </p>
+              )}
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={sendingWelcome}
+              onClick={() => setWelcomeFor(null)}
+            >
+              Not yet
+            </Button>
+            <Button
+              size="sm"
+              disabled={sendingWelcome}
+              onClick={() => welcomeFor && sendWelcome(welcomeFor)}
+            >
+              {sendingWelcome && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Send welcome email
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
