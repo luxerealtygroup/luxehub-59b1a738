@@ -18,6 +18,7 @@ import { CMASendToPortal } from '@/components/cma/CMASendToPortal';
 import { useCmaMonthlyUsage } from '@/hooks/useCmaMonthlyUsage';
 import { Link } from 'react-router-dom';
 import { tenant } from '@/config/tenant';
+import { getAnalysisState, analysisStateLabel } from '@/lib/cma/analysisState';
 
 interface CMAReport {
   id: string;
@@ -538,7 +539,7 @@ const CMAReportsList = ({
           <CardContent className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">Analysis</span>
-              <StatusBadge status={report.analysis_status} />
+              <StatusBadge report={report} />
             </div>
             {report.cma_grade && (
               <div className="flex items-center justify-between">
