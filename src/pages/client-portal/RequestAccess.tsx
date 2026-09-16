@@ -17,6 +17,19 @@ const RequestAccess = () => {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [params] = useSearchParams();
+
+  // Set when we bounced someone here from a dead activation link.
+  const reason = params.get('reason');
+  const reasonNote =
+    reason === 'expired'
+      ? 'That activation link has expired. Enter your email below and we will send you a fresh one.'
+      : reason === 'used'
+        ? 'That activation link has already been used. Enter your email below and we will send you a new link to get back in.'
+        : reason === 'invalid'
+          ? 'That link is no longer valid. Enter your email below and we will send you a fresh one.'
+          : null;
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
