@@ -481,7 +481,7 @@ export default function AdminClientPortals() {
                             </Badge>
                           ) : (
                             <Badge className="bg-destructive/15 text-destructive border-destructive/30">
-                              Never invited
+                              Not invited
                             </Badge>
                           )}
                           {r.status !== 'active' && (
