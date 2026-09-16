@@ -72,12 +72,27 @@ export default defineConfig(({ mode }) => ({
         ],
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        // HTML is deliberately NOT precached: the app shell must always be
+        // revalidated against the network or returning users get pinned to an
+        // old bundle.
+        globPatterns: ["**/*.{js,css,ico,png,svg,woff2}"],
         // The main app bundle is larger than Workbox's 2 MiB default.
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
-        navigateFallback: "/index.html",
-        navigateFallbackDenylist: [/^\/~oauth/, /^\/\.lovable/],
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
+        navigateFallback: undefined,
         runtimeCaching: [
+          {
+            // Public pages outsiders hit: never served from cache.
+            urlPattern: ({ request, url }) =>
+              request.mode === "navigate" &&
+              (url.pathname.startsWith("/support") ||
+                url.pathname.startsWith("/client-portal/request-access") ||
+                url.pathname.startsWith("/~oauth") ||
+                url.pathname.startsWith("/.lovable")),
+            handler: "NetworkOnly",
+          },
           {
             urlPattern: ({ request }) => request.mode === "navigate",
             handler: "NetworkFirst",
