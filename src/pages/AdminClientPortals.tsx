@@ -362,6 +362,8 @@ export default function AdminClientPortals() {
         </div>
       )}
 
+      <NeedsPortalQueue existingEmails={existingEmails} onPortalCreated={load} />
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
           <CardTitle className="text-base">All Portals ({filtered.length})</CardTitle>
