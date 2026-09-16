@@ -266,6 +266,11 @@ export function AgentPortalDialog({
         title: 'Portal saved',
         description: saved.slack_channel_id ? 'Slack channel linked.' : 'Changes saved.',
       });
+      // Write the staff-only portal link onto the Follow Up Boss contact.
+      // Never blocks the save, and never carries an invite token.
+      supabase.functions
+        .invoke('portal-fub-link', { body: { portalId: saved.id } })
+        .catch((e) => console.warn('Could not write the portal link to Follow Up Boss:', e));
       onSaved?.();
     }
     return saved;
