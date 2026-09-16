@@ -343,6 +343,7 @@ export function AgentPortalDialog({
 
 
   return (
+    <>
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger ?? (
