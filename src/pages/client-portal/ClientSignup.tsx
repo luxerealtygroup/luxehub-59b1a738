@@ -172,48 +172,10 @@ const ClientSignup = () => {
     );
   }
 
+  // Expired, used or unknown links are not an error the client can act on:
+  // send them straight to the page that emails a fresh one.
   if (inviteStatus === 'expired' || inviteStatus === 'used' || inviteStatus === 'invalid') {
-    const copy = {
-      expired: {
-        title: 'This link has expired',
-        description:
-          'Invitation links are valid for 7 days. Ask your agent to send a new one and it will land in your inbox within a minute.',
-        icon: <Clock className="h-6 w-6 text-primary" />,
-      },
-      used: {
-        title: 'This link has already been used',
-        description:
-          'Your portal is already set up. Sign in below — or ask your agent for a new invitation if you can\u2019t get in.',
-        icon: <ShieldAlert className="h-6 w-6 text-primary" />,
-      },
-      invalid: {
-        title: 'This invitation isn\u2019t valid',
-        description:
-          'The link is incomplete or was never issued. Ask your agent to send you a fresh portal invitation.',
-        icon: <ShieldAlert className="h-6 w-6 text-primary" />,
-      },
-    }[inviteStatus];
-
-    return (
-      <Shell icon={copy.icon} title={copy.title} description={copy.description}>
-        <div className="space-y-3">
-          <Button asChild className="w-full">
-            <Link to="/client-portal/login">Sign in to your portal</Link>
-          </Button>
-          <Button asChild variant="outline" className="w-full">
-            <a href={`mailto:${tenant.supportEmail}?subject=New%20client%20portal%20invitation`}>
-              Request a new invitation
-            </a>
-          </Button>
-          <p className="text-center text-xs text-muted-foreground">
-            Forgot your password?{' '}
-            <Link to="/forgot-password" className="text-primary hover:underline">
-              Reset it here
-            </Link>
-          </p>
-        </div>
-      </Shell>
-    );
+    return <Navigate to={`/client-portal/request-access?reason=${inviteStatus}`} replace />;
   }
 
   if (existingAccount) {
