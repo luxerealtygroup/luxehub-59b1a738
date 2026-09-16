@@ -337,6 +337,24 @@ export default function AdminClientPortals() {
     }
   };
 
+  const SortButton = ({ label, sortKey: key }: { label: string; sortKey: SortKey }) => {
+    const active = sortKey === key;
+    const Icon = !active ? ArrowUpDown : sortDir === 'asc' ? ArrowUp : ArrowDown;
+    return (
+      <button
+        type="button"
+        onClick={() => toggleSort(key)}
+        className={`inline-flex items-center gap-1 whitespace-nowrap transition-colors hover:text-foreground ${
+          active ? 'text-foreground font-semibold' : ''
+        }`}
+        aria-label={`Sort by ${label}`}
+      >
+        {label}
+        <Icon className="h-3 w-3" />
+      </button>
+    );
+  };
+
   const stats = useMemo(() => {
     return {
       all: rows.length,
