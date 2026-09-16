@@ -37,6 +37,8 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { canManageOpenHouse } from '@/lib/openHouse/permissions';
 import { PrepChecklist } from '@/components/openhouse/PrepChecklist';
 import { SellerReportSection } from '@/components/openhouse/SellerReportSection';
+import { SendReportToPortalDialog } from '@/components/openhouse/SendReportToPortalDialog';
+
 import {
   CONDITION_LABEL, GUEST_COLUMNS, Guest, INTEREST_LABEL, PRICE_LABEL, guestName,
 } from '@/lib/openHouse/guests';
