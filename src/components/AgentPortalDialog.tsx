@@ -47,6 +47,12 @@ interface AgentPortalDialogProps {
   defaultType?: 'buyer' | 'seller';
   trigger?: React.ReactNode;
   initialTab?: 'setup' | 'timeline' | 'tasks' | 'documents' | 'photos' | 'messages';
+  /** Pre-select the owning agent (used when creating from the pipeline queue). */
+  defaultAgentId?: string | null;
+  /** Seller address carried over from the pipeline record. */
+  defaultPropertyAddress?: string | null;
+  /** Fires after a portal row is created or updated. */
+  onSaved?: () => void;
 }
 
 interface ClientAccountRow {
