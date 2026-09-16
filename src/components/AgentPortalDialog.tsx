@@ -612,6 +612,11 @@ export function AgentPortalDialog({
       target={inviteTarget}
       onClose={() => setInviteTarget(null)}
       onSent={() => onSaved?.()}
+      onEmailChanged={(_id, email) => {
+        setAccount((a) => (a ? { ...a, email } : a));
+        setForm((f) => ({ ...f, email }));
+        onSaved?.();
+      }}
     />
     </>
   );
