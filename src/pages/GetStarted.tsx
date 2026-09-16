@@ -81,8 +81,23 @@ const GetStarted = () => {
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
+  const domainInput = form.desiredDomain.trim();
+  const domainError =
+    domainInput && !isValidHubLabel(domainInput)
+      ? 'Use lowercase letters, numbers and hyphens only, starting and ending with a letter or number.'
+      : '';
+  const hubPreview = !domainError ? toHubUrl(domainInput) : '';
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (domainError) {
+      toast({
+        title: 'Check the web address',
+        description: domainError,
+        variant: 'destructive',
+      });
+      return;
+    }
     setSubmitting(true);
 
     try {
