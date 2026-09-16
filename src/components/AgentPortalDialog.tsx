@@ -38,6 +38,7 @@ import { usePortalDealSuggestions } from '@/hooks/usePortalDealSuggestions';
 import { followUpBossApi } from '@/lib/api/followUpBoss';
 import { Badge } from '@/components/ui/badge';
 import { isValidEmail } from '@/lib/validation/email';
+import { SendInviteConfirmDialog, type InviteTarget } from '@/components/portal/SendInviteConfirmDialog';
 
 
 interface AgentPortalDialogProps {
