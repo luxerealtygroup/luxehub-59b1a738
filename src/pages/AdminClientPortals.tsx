@@ -94,7 +94,7 @@ export default function AdminClientPortals() {
       );
       toast({
         title: 'Invitation sent',
-        description: `${row.email} will receive a single-use link, valid for 7 days.`,
+        description: `${row.email} will receive a single-use activation link, valid for 30 days.`,
       });
     } catch (err) {
       toast({
@@ -481,7 +481,7 @@ export default function AdminClientPortals() {
                             </Badge>
                           ) : (
                             <Badge className="bg-destructive/15 text-destructive border-destructive/30">
-                              Never invited
+                              Not invited
                             </Badge>
                           )}
                           {r.status !== 'active' && (
@@ -497,7 +497,7 @@ export default function AdminClientPortals() {
                               ) : (
                                 <Send className="mr-1 h-3 w-3" />
                               )}
-                              {r.status === 'invited' ? 'Resend invite' : 'Send invite'}
+                              {r.status === 'invited' ? 'Resend invite' : 'Invite'}
                             </Button>
                           )}
                         </div>

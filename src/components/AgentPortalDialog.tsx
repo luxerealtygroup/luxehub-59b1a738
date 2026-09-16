@@ -38,6 +38,7 @@ import { usePortalDealSuggestions } from '@/hooks/usePortalDealSuggestions';
 import { followUpBossApi } from '@/lib/api/followUpBoss';
 import { Badge } from '@/components/ui/badge';
 import { isValidEmail } from '@/lib/validation/email';
+import { SendInviteConfirmDialog, type InviteTarget } from '@/components/portal/SendInviteConfirmDialog';
 
 
 interface AgentPortalDialogProps {
@@ -94,6 +95,7 @@ export function AgentPortalDialog({
   });
   const [saving, setSaving] = useState(false);
   const [sendingInvite, setSendingInvite] = useState(false);
+  const [inviteTarget, setInviteTarget] = useState<InviteTarget | null>(null);
   const [copied, setCopied] = useState(false);
   const [agents, setAgents] = useState<{ id: string; full_name: string | null }[]>([]);
   const [assignedAgentId, setAssignedAgentId] = useState<string>(defaultAgentId || '');
@@ -195,8 +197,9 @@ export function AgentPortalDialog({
     });
   }, [open, isAdmin]);
 
-  const saveAccount = async (): Promise<ClientAccountRow | null> => {
+  const saveAccount = async (opts?: { promptInvite?: boolean }): Promise<ClientAccountRow | null> => {
     if (!user) return null;
+    const isNew = !account;
     const email = form.email.trim().toLowerCase();
     if (!isValidEmail(email)) {
       toast({
@@ -271,6 +274,15 @@ export function AgentPortalDialog({
       supabase.functions
         .invoke('portal-fub-link', { body: { portalId: saved.id } })
         .catch((e) => console.warn('Could not write the portal link to Follow Up Boss:', e));
+      // A brand-new portal always asks whether to invite the client now.
+      if (isNew && opts?.promptInvite) {
+        setInviteTarget({
+          portalId: saved.id,
+          clientName: saved.full_name,
+          email: saved.email,
+          agentName: agents.find((a) => a.id === (assignedAgentId || user.id))?.full_name ?? null,
+        });
+      }
       onSaved?.();
     }
     return saved;
@@ -331,6 +343,7 @@ export function AgentPortalDialog({
 
 
   return (
+    <>
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger ?? (
@@ -492,7 +505,7 @@ export function AgentPortalDialog({
                 </div>
               </div>
               <div className="flex flex-wrap gap-2 pt-2">
-                <Button onClick={saveAccount} disabled={saving}>
+                <Button onClick={() => saveAccount({ promptInvite: true })} disabled={saving}>
                   {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   {account ? 'Save changes' : 'Create portal'}
                 </Button>
@@ -595,5 +608,11 @@ export function AgentPortalDialog({
         )}
       </DialogContent>
     </Dialog>
+    <SendInviteConfirmDialog
+      target={inviteTarget}
+      onClose={() => setInviteTarget(null)}
+      onSent={() => onSaved?.()}
+    />
+    </>
   );
 }
