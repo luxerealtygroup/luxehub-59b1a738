@@ -11,7 +11,10 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import { Building2, Copy, Eye, Loader2, Palette, Plus, ShieldAlert } from 'lucide-react';
+import { Building2, Copy, Eye, Loader2, Mail, Palette, Plus, ShieldAlert } from 'lucide-react';
+import {
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
 import { EditTenantBrandingDialog, type EditableOrg } from '@/components/admin/EditTenantBrandingDialog';
 import { useNavigate } from 'react-router-dom';
 
@@ -28,6 +31,18 @@ interface Org {
   seat_limit: number | null;
   tier: string | null;
   is_original_org: boolean | null;
+}
+
+/** Owner state for a team that already exists. */
+interface OwnerStatus {
+  orgId: string;
+  orgName: string;
+  hubHost: string | null;
+  state: 'active' | 'invited' | 'expired' | 'none';
+  ownerName: string | null;
+  ownerEmail: string | null;
+  invitedAt: string | null;
+  expiresAt: string | null;
 }
 
 const slugify = (v: string) =>
