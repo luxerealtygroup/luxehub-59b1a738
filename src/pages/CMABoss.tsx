@@ -26,6 +26,7 @@ interface CMAReport {
   city_area: string;
   property_type: string;
   analysis_status: string;
+  analysis_started_at?: string | null;
   cma_grade: string | null;
   pricing_band_recommended: number | null;
   created_at: string;
@@ -182,7 +183,7 @@ const CMABoss = () => {
 
     let query = supabase
       .from('cma_reports')
-      .select('id, property_address, city_area, property_type, analysis_status, cma_grade, pricing_band_recommended, created_at, updated_at, strategy_recommendation, listing_status, user_id, version_number, approval_status, portal_sent_at, portal_document_id')
+      .select('id, property_address, city_area, property_type, analysis_status, analysis_started_at, cma_grade, pricing_band_recommended, created_at, updated_at, strategy_recommendation, listing_status, user_id, version_number, approval_status, portal_sent_at, portal_document_id')
       .order('created_at', { ascending: false });
 
     // Apply agent-level filter at the DB query level
