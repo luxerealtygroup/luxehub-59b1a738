@@ -523,12 +523,13 @@ const Library = () => {
   };
 
   const uploadImportantDoc = async () => {
-    if (!user || !importantForm.file) return;
+    if (!user || !importantForm.file || !orgId) return;
     setUploading(true);
     
     try {
       const file = importantForm.file;
-      const filePath = `${Date.now()}_${sanitizeFileName(file.name)}`;
+      // Files live in a folder owned by the team, so no other team can reach them.
+      const filePath = `${orgId}/${Date.now()}_${sanitizeFileName(file.name)}`;
       
       const { error: uploadError } = await supabase.storage
         .from('important-documents')
