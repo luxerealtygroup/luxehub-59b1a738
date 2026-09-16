@@ -479,6 +479,19 @@ const AdminTenants = () => {
                   </Button>
                 )}
               </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+                <span className="text-muted-foreground">Owner:</span>
+                <span>{ownerLabel(owners[o.id])}</span>
+                {isSuperAdmin && owners[o.id]?.state !== 'active' && (
+                  <Button size="sm" variant="outline" onClick={() => openOwnerDialog(o)}>
+                    <Mail className="mr-1 h-3.5 w-3.5" />
+                    {owners[o.id] && owners[o.id].state !== 'none'
+                      ? 'Resend invitation'
+                      : 'Invite owner'}
+                  </Button>
+                )}
+              </div>
               {invites[o.id] && (
                 <div className="mt-3 flex items-center gap-2 rounded-md bg-muted p-2 text-xs">
                   <span className="truncate">{invites[o.id]}</span>
