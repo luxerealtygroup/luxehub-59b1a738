@@ -2641,6 +2641,7 @@ export type Database = {
           id: string
           legal_name: string | null
           logo_path: string | null
+          org_id: string | null
           phone: string | null
           service_area: string | null
           slack_admin_email: string | null
@@ -2652,6 +2653,7 @@ export type Database = {
           uses_fub: boolean | null
           uses_stripe: boolean | null
           website: string | null
+          welcome_email_sent_at: string | null
         }
         Insert: {
           admin_notes?: string | null
@@ -2664,6 +2666,7 @@ export type Database = {
           id?: string
           legal_name?: string | null
           logo_path?: string | null
+          org_id?: string | null
           phone?: string | null
           service_area?: string | null
           slack_admin_email?: string | null
@@ -2675,6 +2678,7 @@ export type Database = {
           uses_fub?: boolean | null
           uses_stripe?: boolean | null
           website?: string | null
+          welcome_email_sent_at?: string | null
         }
         Update: {
           admin_notes?: string | null
@@ -2687,6 +2691,7 @@ export type Database = {
           id?: string
           legal_name?: string | null
           logo_path?: string | null
+          org_id?: string | null
           phone?: string | null
           service_area?: string | null
           slack_admin_email?: string | null
@@ -2698,8 +2703,17 @@ export type Database = {
           uses_fub?: boolean | null
           uses_stripe?: boolean | null
           website?: string | null
+          welcome_email_sent_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_requests_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       open_house_attendees: {
         Row: {

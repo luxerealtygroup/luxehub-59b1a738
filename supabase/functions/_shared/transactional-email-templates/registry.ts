@@ -10,6 +10,7 @@ import { template as portalNewMessage } from './portal-new-message.tsx'
 import { template as onboardingRequest } from './onboarding-request.tsx'
 import { template as teamOwnerInvite } from './team-owner-invite.tsx'
 import { template as teamOwnerInviteCorrection } from './team-owner-invite-correction.tsx'
+import { template as tenantOwnerWelcome } from './tenant-owner-welcome.tsx'
 
 export interface TemplateEntry {
   component: ComponentType<any>
@@ -31,4 +32,5 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'onboarding-request': onboardingRequest,
   'team-owner-invite': teamOwnerInvite,
   'team-owner-invite-correction': teamOwnerInviteCorrection,
+  'tenant-owner-welcome': tenantOwnerWelcome,
 }
