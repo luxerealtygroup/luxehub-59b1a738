@@ -75,14 +75,20 @@ interface CMAReportFull {
   approved_strategy: string | null;
   approved_market_conditions: string | null;
   user_id?: string | null;
+  portal_document_id?: string | null;
+  portal_sent_at?: string | null;
 }
 
 const CMAClientReport = ({ reportId }: { reportId: string }) => {
+  const { user } = useAuth();
+  const { isAdmin } = useUserRole();
   const [report, setReport] = useState<CMAReportFull | null>(null);
   const [loading, setLoading] = useState(true);
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [agentName, setAgentName] = useState<string>('');
+  const [portalSentAt, setPortalSentAt] = useState<string | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
+
 
   useEffect(() => {
     const fetchReport = async () => {
