@@ -75,6 +75,7 @@ export default function AdminClientPortals() {
   const [search, setSearch] = useState('');
   const [health, setHealth] = useState<FilterKey>('all');
   const [resendingId, setResendingId] = useState<string | null>(null);
+  const [backfilling, setBackfilling] = useState(false);
   const { toast } = useToast();
 
   /** Mint a fresh single-use token and email it, straight from the row. */
