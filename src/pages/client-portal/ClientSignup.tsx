@@ -12,7 +12,7 @@ import {
   rememberPendingInvite,
   clearPendingInvite,
 } from '@/lib/inviteLinks';
-import { tenant } from '@/config/tenant';
+
 
 type InviteStatus = 'checking' | 'valid' | 'expired' | 'used' | 'invalid';
 

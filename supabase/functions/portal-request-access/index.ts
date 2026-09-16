@@ -86,14 +86,15 @@ Deno.serve(async (req) => {
     }
 
     if (!portal.user_id) {
-      // No account yet — mint a fresh single-use invite, same as the agent flow.
+      // No account yet — mint a fresh single-use, 30-day invite. The token can
+      // only be claimed by an account using this same email address.
       const token =
         crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
       await db
         .from('client_accounts')
         .update({
           invite_token: token,
-          invite_expires_at: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString(),
+          invite_expires_at: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
           invite_used_at: null,
           invited_at: new Date().toISOString(),
         })
