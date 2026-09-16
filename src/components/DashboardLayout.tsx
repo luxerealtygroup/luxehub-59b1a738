@@ -105,7 +105,7 @@ const DashboardLayout = () => {
       <SidebarProvider>
         <div className="min-h-screen flex w-full bg-background">
           <AppSidebar />
-          <main className="flex-1 flex flex-col">
+          <main className="flex-1 flex flex-col min-w-0">
             <header className="h-14 border-b border-gold/10 flex items-center px-4 bg-background/50 backdrop-blur sticky top-0 z-10">
               <SidebarTrigger className="text-muted-foreground hover:text-gold" />
               <div className="ml-4">
