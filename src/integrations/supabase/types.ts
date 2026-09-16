@@ -5646,6 +5646,7 @@ export type Database = {
       is_demo_account: { Args: { _user_id: string }; Returns: boolean }
       is_mentor_of: { Args: { _agent_id: string }; Returns: boolean }
       is_operations: { Args: { _user_id: string }; Returns: boolean }
+      is_strict_owner: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
       is_team_member: { Args: { _user_id: string }; Returns: boolean }
       move_to_dlq: {

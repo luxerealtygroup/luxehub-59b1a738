@@ -8,6 +8,8 @@ interface UseUserRoleReturn {
   roles: AppRole[];
   isLoading: boolean;
   isOwner: boolean;
+  /** True only for a real owner role — never for Operations. */
+  isStrictOwner: boolean;
   isAdmin: boolean;
   isAgent: boolean;
   isPlanningAccess: boolean;
@@ -62,11 +64,14 @@ export const useUserRole = (): UseUserRoleReturn => {
     fetchRolesAndExpiry();
   }, [user]);
 
-  const isOwner = roles.includes('owner');
   const isOperations = roles.includes('operations');
-  // Operations sees the company the way an admin does, but is never an agent.
-  const isAdmin = roles.includes('admin') || isOwner || isOperations;
-  const isAgent = roles.includes('agent') || roles.includes('admin') || isOwner;
+  // Operations is derived from Owner: same rights inside its own team. The only
+  // carve-outs are owner management, cross-tenant (super admin) surfaces, and
+  // everything agent-production related.
+  const strictOwner = roles.includes('owner');
+  const isOwner = strictOwner || isOperations;
+  const isAdmin = roles.includes('admin') || isOwner;
+  const isAgent = roles.includes('agent') || roles.includes('admin') || strictOwner;
   const isPlanningAccess = roles.includes('planning_access');
 
   const hasRole = useCallback((role: AppRole) => {
@@ -82,6 +87,7 @@ export const useUserRole = (): UseUserRoleReturn => {
     roles,
     isLoading,
     isOwner,
+    isStrictOwner: strictOwner,
     isAdmin,
     isAgent,
     isOperations,
