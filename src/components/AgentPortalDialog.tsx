@@ -47,6 +47,12 @@ interface AgentPortalDialogProps {
   defaultType?: 'buyer' | 'seller';
   trigger?: React.ReactNode;
   initialTab?: 'setup' | 'timeline' | 'tasks' | 'documents' | 'photos' | 'messages';
+  /** Pre-select the owning agent (used when creating from the pipeline queue). */
+  defaultAgentId?: string | null;
+  /** Seller address carried over from the pipeline record. */
+  defaultPropertyAddress?: string | null;
+  /** Fires after a portal row is created or updated. */
+  onSaved?: () => void;
 }
 
 interface ClientAccountRow {
@@ -67,6 +73,9 @@ export function AgentPortalDialog({
   defaultType,
   trigger,
   initialTab,
+  defaultAgentId,
+  defaultPropertyAddress,
+  onSaved,
 }: AgentPortalDialogProps) {
   const { user } = useAuth();
   const { isAdmin } = useUserRole();
@@ -87,7 +96,7 @@ export function AgentPortalDialog({
   const [sendingInvite, setSendingInvite] = useState(false);
   const [copied, setCopied] = useState(false);
   const [agents, setAgents] = useState<{ id: string; full_name: string | null }[]>([]);
-  const [assignedAgentId, setAssignedAgentId] = useState<string>('');
+  const [assignedAgentId, setAssignedAgentId] = useState<string>(defaultAgentId || '');
   const [scope, setScope] = useState<PortalScope>('all');
   const { properties, transactions: portalTransactions, reload: reloadProperties } =
     usePortalProperties(account?.id ?? null);
@@ -149,7 +158,7 @@ export function AgentPortalDialog({
       }
       const { data } = await query.maybeSingle();
       setAccount((data as ClientAccountRow) ?? null);
-      setAssignedAgentId((data as ClientAccountRow)?.invited_by || user?.id || '');
+      setAssignedAgentId((data as ClientAccountRow)?.invited_by || defaultAgentId || user?.id || '');
       if (data) {
         setForm((f) => ({
           ...f,
@@ -236,6 +245,17 @@ export function AgentPortalDialog({
         toast({ title: 'Save failed', description: error.message, variant: 'destructive' });
       } else {
         saved = data as ClientAccountRow;
+        // A seller's address comes across from the pipeline record so the
+        // portal isn't empty on day one. No invite is sent here.
+        const address = (defaultPropertyAddress || '').trim();
+        if (saved && address && form.client_type === 'seller') {
+          await supabase.from('portal_properties').insert({
+            portal_id: saved.id,
+            address,
+            role: 'listing',
+            created_by: user.id,
+          });
+        }
       }
     }
     setSaving(false);
@@ -246,6 +266,7 @@ export function AgentPortalDialog({
         title: 'Portal saved',
         description: saved.slack_channel_id ? 'Slack channel linked.' : 'Changes saved.',
       });
+      onSaved?.();
     }
     return saved;
   };
