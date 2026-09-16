@@ -84,15 +84,20 @@ export function NeedsPortalQueue({
   }, [isAdmin, user]);
 
   const queue = useMemo(() => {
+    const q = search.trim().toLowerCase();
     return rows
       .filter((r) => {
         const email = (r.email || '').trim().toLowerCase();
-        if (!email) return true;
-        return !existingEmails.has(email);
+        if (email && existingEmails.has(email)) return false;
+        if (q && !`${r.client_name ?? ''} ${r.email ?? ''} ${r.agentName ?? ''}`.toLowerCase().includes(q))
+          return false;
+        if (typeFilter !== 'all' && (r.client_type || '').toLowerCase() !== typeFilter) return false;
+        if (agentFilter !== 'all' && r.agentName !== agentFilter) return false;
+        return true;
       })
       // Oldest signed first so nobody sits unnoticed.
       .sort((a, b) => new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime());
-  }, [rows, existingEmails]);
+  }, [rows, existingEmails, search, typeFilter, agentFilter]);
 
   if (!loading && queue.length === 0) return null;
 
