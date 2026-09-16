@@ -267,10 +267,41 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
             approvalStatus={report.approval_status}
           />
         )}
+        {isApproved && canSendToPortal && (
+          <CMASendToPortal
+            reportId={report.id}
+            clientName={report.fub_person_name}
+            previousDocumentId={report.portal_document_id}
+            previousSentAt={report.portal_sent_at}
+            onSent={() => setPortalSentAt(new Date().toISOString())}
+            pdfInput={{
+              propertyAddress: report.property_address,
+              cityArea: report.city_area,
+              createdAt: report.created_at,
+              agentName,
+              executiveSummary: executiveSummary,
+              priceNarrative: priceNarrativeText,
+              marketConditions: marketConditionsText,
+              strategy: strategyText,
+              pricingBandLow: report.pricing_band_low,
+              pricingBandRecommended: report.pricing_band_recommended,
+              pricingBandHigh: report.pricing_band_high,
+              pricingConfidence: report.pricing_confidence,
+              comps: report.extracted_comps,
+            }}
+          />
+        )}
         <Button onClick={handlePrint} disabled={!isApproved} className="bg-gold hover:bg-gold/90 text-gold-foreground">
           <Printer className="h-4 w-4 mr-2" /> Print / Save PDF
         </Button>
       </div>
+
+      {portalSentAt && (
+        <p className="print:hidden -mt-4 mb-6 text-right text-xs text-muted-foreground">
+          Sent to the client portal on {new Date(portalSentAt).toLocaleString()}.
+        </p>
+      )}
+
 
       <div ref={printRef} className="max-w-4xl mx-auto print:max-w-none">
 
