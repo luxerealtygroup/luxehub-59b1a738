@@ -90,6 +90,10 @@ export default function AdminClientPortals() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [health, setHealth] = useState<FilterKey>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'buyer' | 'seller'>('all');
+  const [agentFilter, setAgentFilter] = useState<string>('all');
+  const [sortKey, setSortKey] = useState<SortKey>('client');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [resendingId, setResendingId] = useState<string | null>(null);
   const [backfilling, setBackfilling] = useState(false);
   const { toast } = useToast();
