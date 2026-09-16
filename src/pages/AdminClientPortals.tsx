@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,6 +26,7 @@ import { useToast } from '@/hooks/use-toast';
 import { sendPortalInvite } from '@/lib/inviteLinks';
 import { PortalSuggestionScanner } from '@/components/portal/PortalSuggestionScanner';
 import { daysUntil, isSettled } from '@/lib/portalConditions';
+import { NeedsPortalQueue } from '@/components/portal/NeedsPortalQueue';
 
 
 type PortalRow = {
@@ -222,9 +223,17 @@ export default function AdminClientPortals() {
 
       setRows(enriched);
       setLoading(false);
-    };
-    load();
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  /** Emails that already have a portal — used to keep the queue accurate. */
+  const existingEmails = useMemo(
+    () => new Set(rows.map((r) => (r.email || '').trim().toLowerCase()).filter(Boolean)),
+    [rows],
+  );
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
