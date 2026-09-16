@@ -470,7 +470,9 @@ export default function AdminClientPortals() {
             </button>
           );
         })}
+        </div>
       </div>
+
 
       {/* On-demand FUB stage check for linked portals — agent-confirmed, never automatic. */}
       {!loading && (
