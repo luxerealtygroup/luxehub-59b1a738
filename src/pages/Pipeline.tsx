@@ -372,6 +372,18 @@ const Pipeline = () => {
       return;
     }
 
+    if (before && user) {
+      await logClientChanges({
+        clientId: editingClient.id,
+        ownerUserId: before.user_id,
+        actorId: user.id,
+        changes: diffClientFields(
+          before as unknown as Record<string, unknown>,
+          editingClient as unknown as Record<string, unknown>,
+        ),
+      });
+    }
+
     toast({ title: 'Success', description: 'Client updated' });
     setEditingClient(null);
     fetchClients();
