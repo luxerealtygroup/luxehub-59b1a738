@@ -122,6 +122,10 @@ const Pipeline = () => {
   const [teamScope, setTeamScope] = useState(false);
   const canSeeTeam = isAdmin && !isViewingAsAgent;
   const [linkingClient, setLinkingClient] = useState<PipelineClient | null>(null);
+  // Whose book the new client lands in. Always visible; only admins/operations
+  // may point it at somebody else, and doing so is written to the audit trail.
+  const [assignedAgentId, setAssignedAgentId] = useState<string>('');
+  const [teamAgents, setTeamAgents] = useState<{ id: string; full_name: string }[]>([]);
   const [clients, setClients] = useState<PipelineClient[]>([]);
   const [filteredClients, setFilteredClients] = useState<PipelineClient[]>([]);
   const [loading, setLoading] = useState(true);
