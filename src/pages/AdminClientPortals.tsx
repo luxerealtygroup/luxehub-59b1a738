@@ -44,11 +44,14 @@ type PortalRow = {
   drive_folder_id: string | null;
   user_id: string | null;
   invited_by: string | null;
+  assigned_agent_id: string | null;
   invited_at: string | null;
   claimed_at: string | null;
   created_at: string;
   agentName: string;
   status: 'active' | 'invited' | 'not_invited';
+  /** Where the client is in their deal — independent of any pipeline row. */
+  dealStatus: DealStatus;
 
   docCount: number;
   lastMessageAt: string | null;
@@ -74,6 +77,12 @@ type FilterKey =
 
 type SortKey = 'client' | 'agent' | 'type' | 'health' | 'activity';
 
+/** Deal status shown on every portal row. Past clients stay listed for good. */
+type DealStatus = 'active' | 'pending' | 'closed';
+
+const PENDING_TX = new Set(['pending', 'conditional', 'firm', 'under_contract', 'sold_conditional']);
+const CLOSED_TX = new Set(['closed', 'completed', 'settled']);
+
 /** Buyer / seller side of a portal, from its transactions with a fallback to the stored type. */
 const portalSide = (r: PortalRow): 'buyer' | 'seller' | 'both' | 'none' => {
   const buyer = r.transactionSides.has('buyer') || r.client_type === 'buyer';
@@ -92,6 +101,8 @@ export default function AdminClientPortals() {
   const [health, setHealth] = useState<FilterKey>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'buyer' | 'seller'>('all');
   const [agentFilter, setAgentFilter] = useState<string>('all');
+  // Default is everything: a past client must never be hidden by accident.
+  const [dealFilter, setDealFilter] = useState<'all' | DealStatus>('all');
   const [sortKey, setSortKey] = useState<SortKey>('client');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [resendingId, setResendingId] = useState<string | null>(null);
@@ -132,11 +143,13 @@ export default function AdminClientPortals() {
       setLoading(true);
       const { data: accounts } = await supabase
         .from('client_accounts')
-        .select('id,email,full_name,client_type,fub_person_id,slack_channel_id,drive_folder_id,user_id,invited_by,invited_at,claimed_at,created_at')
+        .select('id,email,full_name,client_type,fub_person_id,slack_channel_id,drive_folder_id,user_id,invited_by,assigned_agent_id,invited_at,claimed_at,created_at')
         .order('created_at', { ascending: false });
 
       const list = (accounts ?? []) as PortalRow[];
-      const inviterIds = Array.from(new Set(list.map((r) => r.invited_by).filter(Boolean))) as string[];
+      const inviterIds = Array.from(
+        new Set(list.flatMap((r) => [r.assigned_agent_id, r.invited_by]).filter(Boolean)),
+      ) as string[];
       const portalIds = list.map((r) => r.id);
 
       const [profilesRes, docsRes, msgsRes, txRes, propsRes, condRes] = await Promise.all([
@@ -156,7 +169,7 @@ export default function AdminClientPortals() {
         portalIds.length
           ? supabase
               .from('portal_transactions')
-              .select('portal_id,side')
+              .select('portal_id,side,status')
               .in('portal_id', portalIds)
           : Promise.resolve({ data: [] as any[] }),
         portalIds.length
@@ -194,6 +207,19 @@ export default function AdminClientPortals() {
         txSides.set(t.portal_id, set);
       });
 
+      // Deal status comes from the portal's own transactions only. A portal with
+      // no transaction at all still counts as Active, never hidden.
+      const dealStatusByPortal = new Map<string, DealStatus>();
+      (txRes.data ?? []).forEach((t: any) => {
+        const s = String(t.status ?? '').toLowerCase();
+        const next: DealStatus = PENDING_TX.has(s) ? 'pending' : CLOSED_TX.has(s) ? 'closed' : 'active';
+        const rank: Record<DealStatus, number> = { active: 3, pending: 2, closed: 1 };
+        const cur = dealStatusByPortal.get(t.portal_id);
+        if (!cur || rank[next] > rank[cur]) dealStatusByPortal.set(t.portal_id, next);
+      });
+
+
+
       const propCount = new Map<string, number>();
       (propsRes.data ?? []).forEach((p: any) => propCount.set(p.portal_id, (propCount.get(p.portal_id) ?? 0) + 1));
 
@@ -227,10 +253,12 @@ export default function AdminClientPortals() {
           (r.fub_person_id ? 1 : 0) +
           (dCount > 0 ? 1 : 0) +
           (replied ? 1 : 0);
+        const agentId = r.assigned_agent_id || r.invited_by;
         return {
           ...r,
-          agentName: r.invited_by ? profileMap.get(r.invited_by) ?? 'Unknown' : 'Unknown',
+          agentName: agentId ? profileMap.get(agentId) ?? 'Unknown' : 'Unknown',
           status,
+          dealStatus: dealStatusByPortal.get(r.id) ?? 'active',
           docCount: dCount,
           lastMessageAt: lastAt,
           lastMessageFromClient: clientLast,
@@ -291,6 +319,7 @@ export default function AdminClientPortals() {
         if (!hay.includes(q)) return false;
       }
       if (agentFilter !== 'all' && r.agentName !== agentFilter) return false;
+      if (dealFilter !== 'all' && r.dealStatus !== dealFilter) return false;
       if (typeFilter !== 'all') {
         const side = portalSide(r);
         if (side !== typeFilter && side !== 'both') return false;
@@ -327,7 +356,7 @@ export default function AdminClientPortals() {
       if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir;
       return String(va).localeCompare(String(vb)) * dir;
     });
-  }, [rows, search, health, typeFilter, agentFilter, sortKey, sortDir]);
+  }, [rows, search, health, typeFilter, agentFilter, dealFilter, sortKey, sortDir]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -446,6 +475,17 @@ export default function AdminClientPortals() {
               <SelectItem value="all">All types</SelectItem>
               <SelectItem value="buyer">Buyer</SelectItem>
               <SelectItem value="seller">Seller</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={dealFilter} onValueChange={(v) => setDealFilter(v as 'all' | DealStatus)}>
+            <SelectTrigger className="w-full sm:w-44">
+              <SelectValue placeholder="Deal status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="closed">Closed</SelectItem>
             </SelectContent>
           </Select>
           <Select value={agentFilter} onValueChange={setAgentFilter}>
@@ -576,6 +616,18 @@ export default function AdminClientPortals() {
                         <div className="flex flex-col items-start gap-1">
                           <Badge variant="outline" className="text-xs">
                             {transactionLabel(r.transactionSides, r.client_type)}
+                          </Badge>
+                          <Badge
+                            variant="outline"
+                            className={
+                              r.dealStatus === 'pending'
+                                ? 'text-[10px] border-amber-500/40 text-amber-600'
+                                : r.dealStatus === 'closed'
+                                  ? 'text-[10px] border-muted-foreground/40 text-muted-foreground'
+                                  : 'text-[10px] border-green-500/40 text-green-600'
+                            }
+                          >
+                            {r.dealStatus === 'pending' ? 'Pending' : r.dealStatus === 'closed' ? 'Closed' : 'Active'}
                           </Badge>
                           {r.propertyCount === 0 ? (
                             <Badge variant="secondary" className="text-[10px] font-normal">

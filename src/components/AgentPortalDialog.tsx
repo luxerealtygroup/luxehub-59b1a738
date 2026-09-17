@@ -221,6 +221,8 @@ export function AgentPortalDialog({
       // Never silently steal ownership: keep the existing agent unless an admin
       // explicitly reassigns the portal.
       invited_by: assignedAgentId || account?.invited_by || user.id,
+      // Kept in step so portal access follows the assigned agent, not the pipeline.
+      assigned_agent_id: assignedAgentId || account?.invited_by || user.id,
     };
     let saved: ClientAccountRow | null = null;
     if (account) {

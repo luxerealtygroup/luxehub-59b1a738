@@ -618,6 +618,7 @@ export type Database = {
       }
       client_accounts: {
         Row: {
+          assigned_agent_id: string | null
           claimed_at: string | null
           client_type: string | null
           created_at: string
@@ -638,6 +639,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          assigned_agent_id?: string | null
           claimed_at?: string | null
           client_type?: string | null
           created_at?: string
@@ -658,6 +660,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          assigned_agent_id?: string | null
           claimed_at?: string | null
           client_type?: string | null
           created_at?: string

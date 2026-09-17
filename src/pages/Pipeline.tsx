@@ -91,6 +91,9 @@ const stageLabels: { [key: number]: string } = {
   9: 'Pending',
 };
 
+/** Once a deal is Pending it belongs in Transactions, not the prospect list. */
+const PENDING_STAGE = 9;
+
 const Pipeline = () => {
   const { user } = useAuth();
   const { isViewingAsAgent, effectiveUserId } = useViewAsAgent();
@@ -106,6 +109,9 @@ const Pipeline = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'buyer' | 'seller' | 'tenant' | 'landlord'>('all');
   const [filterStage, setFilterStage] = useState<string>('all');
+  // Pending deals live in Transactions; they leave this list automatically and
+  // come straight back if the stage is moved backwards. Nothing is deleted.
+  const [showPending, setShowPending] = useState(false);
   const [newClient, setNewClient] = useState<NewClient>({
     client_name: '',
     client_type: 'buyer',
@@ -219,7 +225,8 @@ const Pipeline = () => {
 
   useEffect(() => {
     filterClients();
-  }, [clients, searchTerm, filterType, filterStage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clients, searchTerm, filterType, filterStage, showPending]);
 
   const fetchClients = async () => {
     if (!queryUserId) return;
@@ -256,8 +263,14 @@ const Pipeline = () => {
     }
     if (filterType !== 'all') filtered = filtered.filter((c) => c.client_type === filterType);
     if (filterStage !== 'all') filtered = filtered.filter((c) => c.stage === parseInt(filterStage));
+    // Pending (stage 9) leaves the active list unless it is explicitly asked for.
+    if (!showPending && filterStage !== String(PENDING_STAGE)) {
+      filtered = filtered.filter((c) => c.stage !== PENDING_STAGE);
+    }
     setFilteredClients(filtered);
   };
+
+  const pendingCount = clients.filter((c) => c.stage === PENDING_STAGE).length;
 
   const calculateGCI = (saleAmount: number, commissionPercent: number, splitPercent: number) => {
     return (saleAmount * (commissionPercent / 100) * (splitPercent / 100));
@@ -715,6 +728,19 @@ const Pipeline = () => {
               </SelectContent>
             </Select>
           </div>
+          {pendingCount > 0 && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              {pendingCount} pending {pendingCount === 1 ? 'client has' : 'clients have'} moved to Transactions. Their
+              records, portals and documents are untouched.{' '}
+              <button
+                type="button"
+                onClick={() => setShowPending((v) => !v)}
+                className="underline underline-offset-2 hover:text-foreground"
+              >
+                {showPending ? 'Hide them here' : 'Show them here'}
+              </button>
+            </p>
+          )}
         </CardContent>
       </Card>
 
