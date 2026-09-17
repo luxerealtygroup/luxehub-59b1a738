@@ -3563,6 +3563,7 @@ export type Database = {
           notes: string | null
           org_id: string | null
           phone: string | null
+          portal_id: string | null
           projected_gci: number | null
           projected_sale_amount: number | null
           property_address: string | null
@@ -3592,6 +3593,7 @@ export type Database = {
           notes?: string | null
           org_id?: string | null
           phone?: string | null
+          portal_id?: string | null
           projected_gci?: number | null
           projected_sale_amount?: number | null
           property_address?: string | null
@@ -3621,6 +3623,7 @@ export type Database = {
           notes?: string | null
           org_id?: string | null
           phone?: string | null
+          portal_id?: string | null
           projected_gci?: number | null
           projected_sale_amount?: number | null
           property_address?: string | null
@@ -3638,6 +3641,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pipeline_clients_portal_id_fkey"
+            columns: ["portal_id"]
+            isOneToOne: false
+            referencedRelation: "client_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pipeline_clients_portal_id_fkey"
+            columns: ["portal_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sides"
+            referencedColumns: ["portal_id"]
           },
         ]
       }
