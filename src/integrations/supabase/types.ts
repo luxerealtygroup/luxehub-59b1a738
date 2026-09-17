@@ -76,6 +76,45 @@ export type Database = {
           },
         ]
       }
+      account_deletion_log: {
+        Row: {
+          action: string
+          actor_email: string | null
+          actor_full_name: string | null
+          actor_role: string
+          actor_user_id: string
+          created_at: string
+          details: Json
+          id: string
+          org_id: string | null
+          org_name: string | null
+        }
+        Insert: {
+          action: string
+          actor_email?: string | null
+          actor_full_name?: string | null
+          actor_role: string
+          actor_user_id: string
+          created_at?: string
+          details?: Json
+          id?: string
+          org_id?: string | null
+          org_name?: string | null
+        }
+        Update: {
+          action?: string
+          actor_email?: string | null
+          actor_full_name?: string | null
+          actor_role?: string
+          actor_user_id?: string
+          created_at?: string
+          details?: Json
+          id?: string
+          org_id?: string | null
+          org_name?: string | null
+        }
+        Relationships: []
+      }
       agent_activities: {
         Row: {
           activity_type: Database["public"]["Enums"]["activity_type"]
