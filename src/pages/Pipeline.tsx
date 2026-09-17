@@ -345,7 +345,10 @@ const Pipeline = () => {
 
   const handleUpdateClient = async () => {
     if (!editingClient) return;
+    const before = clients.find((c) => c.id === editingClient.id);
 
+    // The assigned agent is never part of this update: commission attribution
+    // stays with the producing agent no matter who does the admin work.
     const { error } = await supabase
       .from('pipeline_clients')
       .update({
