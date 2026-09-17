@@ -249,12 +249,13 @@ const Pipeline = () => {
   }, [clients, searchTerm, filterType, filterStage, showPending]);
 
   const fetchClients = async () => {
-    if (!queryUserId) return;
-    const { data, error } = await supabase
-      .from('pipeline_clients')
-      .select('*')
-      .eq('user_id', queryUserId)
-      .order('created_at', { ascending: false });
+    const wholeTeam = canSeeTeam && teamScope;
+    if (!queryUserId && !wholeTeam) return;
+    let query = supabase.from('pipeline_clients').select('*').order('created_at', { ascending: false });
+    // Team scope relies on the same team rules the database already enforces:
+    // an admin/owner/Operations sees their own team and nobody else's.
+    if (!wholeTeam) query = query.eq('user_id', queryUserId as string);
+    const { data, error } = await query;
 
     if (error) {
       toast({ title: 'Error', description: 'Failed to fetch pipeline clients', variant: 'destructive' });
@@ -267,6 +268,17 @@ const Pipeline = () => {
       commission_percent: row.commission_percent ?? 0,
       split_percent: row.split_percent ?? 0,
     }));
+
+    if (wholeTeam) {
+      const ids = Array.from(new Set(mapped.map((c) => c.user_id).filter(Boolean)));
+      const { data: profiles } = ids.length
+        ? await supabase.from('profiles').select('id,full_name').in('id', ids)
+        : { data: [] as any[] };
+      const names = new Map<string, string>();
+      (profiles ?? []).forEach((p: any) => names.set(p.id, p.full_name || 'Unassigned'));
+      mapped.forEach((c) => (c.agentName = names.get(c.user_id) || 'Unassigned'));
+    }
+
     setClients(mapped);
     setLoading(false);
   };
