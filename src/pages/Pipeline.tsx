@@ -726,6 +726,19 @@ const Pipeline = () => {
               </SelectContent>
             </Select>
           </div>
+          {pendingCount > 0 && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              {pendingCount} pending {pendingCount === 1 ? 'client has' : 'clients have'} moved to Transactions. Their
+              records, portals and documents are untouched.{' '}
+              <button
+                type="button"
+                onClick={() => setShowPending((v) => !v)}
+                className="underline underline-offset-2 hover:text-foreground"
+              >
+                {showPending ? 'Hide them here' : 'Show them here'}
+              </button>
+            </p>
+          )}
         </CardContent>
       </Card>
 
