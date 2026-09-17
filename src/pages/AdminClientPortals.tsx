@@ -319,6 +319,7 @@ export default function AdminClientPortals() {
         if (!hay.includes(q)) return false;
       }
       if (agentFilter !== 'all' && r.agentName !== agentFilter) return false;
+      if (dealFilter !== 'all' && r.dealStatus !== dealFilter) return false;
       if (typeFilter !== 'all') {
         const side = portalSide(r);
         if (side !== typeFilter && side !== 'both') return false;
@@ -474,6 +475,17 @@ export default function AdminClientPortals() {
               <SelectItem value="all">All types</SelectItem>
               <SelectItem value="buyer">Buyer</SelectItem>
               <SelectItem value="seller">Seller</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={dealFilter} onValueChange={(v) => setDealFilter(v as 'all' | DealStatus)}>
+            <SelectTrigger className="w-full sm:w-44">
+              <SelectValue placeholder="Deal status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="closed">Closed</SelectItem>
             </SelectContent>
           </Select>
           <Select value={agentFilter} onValueChange={setAgentFilter}>
