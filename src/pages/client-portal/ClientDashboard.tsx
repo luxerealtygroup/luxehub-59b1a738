@@ -809,6 +809,19 @@ const ClientDashboard = ({ previewPortalId, section }: ClientDashboardProps = {}
           <PortalChatPanel portalId={clientAccount.id} viewerRole="client" />
         );
 
+      case 'settings':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-xl font-semibold text-foreground">
+                {clientAccount?.full_name || 'Your account'}
+              </h2>
+              <p className="text-muted-foreground">{clientAccount?.email}</p>
+            </div>
+            {!isPreview && <DeleteAccountCard signInPath="/client-portal/login" />}
+          </div>
+        );
+
       default:
         return null;
     }
@@ -827,6 +840,7 @@ const ClientDashboard = ({ previewPortalId, section }: ClientDashboardProps = {}
       case 'agent': return 'Your Agent';
 
       case 'messages': return 'Messages';
+      case 'settings': return 'Settings';
       default: return 'Dashboard';
     }
   };
@@ -844,6 +858,7 @@ const ClientDashboard = ({ previewPortalId, section }: ClientDashboardProps = {}
       case 'agent': return <UserRound className="h-5 w-5" />;
 
       case 'messages': return <MessageCircle className="h-5 w-5" />;
+      case 'settings': return <SettingsIcon className="h-5 w-5" />;
       default: return <Home className="h-5 w-5" />;
     }
   };
