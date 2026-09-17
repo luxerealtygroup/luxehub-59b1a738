@@ -44,11 +44,14 @@ type PortalRow = {
   drive_folder_id: string | null;
   user_id: string | null;
   invited_by: string | null;
+  assigned_agent_id: string | null;
   invited_at: string | null;
   claimed_at: string | null;
   created_at: string;
   agentName: string;
   status: 'active' | 'invited' | 'not_invited';
+  /** Where the client is in their deal — independent of any pipeline row. */
+  dealStatus: DealStatus;
 
   docCount: number;
   lastMessageAt: string | null;
@@ -73,6 +76,12 @@ type FilterKey =
   | 'conditions_risk';
 
 type SortKey = 'client' | 'agent' | 'type' | 'health' | 'activity';
+
+/** Deal status shown on every portal row. Past clients stay listed for good. */
+type DealStatus = 'active' | 'pending' | 'closed';
+
+const PENDING_TX = new Set(['pending', 'conditional', 'firm', 'under_contract', 'sold_conditional']);
+const CLOSED_TX = new Set(['closed', 'completed', 'settled']);
 
 /** Buyer / seller side of a portal, from its transactions with a fallback to the stored type. */
 const portalSide = (r: PortalRow): 'buyer' | 'seller' | 'both' | 'none' => {
