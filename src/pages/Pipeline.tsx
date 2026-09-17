@@ -819,6 +819,9 @@ const Pipeline = () => {
                     <Badge variant={client.client_type === 'buyer' ? 'default' : 'secondary'}>{client.client_type}</Badge>
                     <Badge variant="outline">{stageLabels[client.stage]}</Badge>
                   </div>
+                  {client.agentName && (
+                    <p className="text-xs text-muted-foreground">Agent: {client.agentName}</p>
+                  )}
                   {client.client_type === 'seller' && client.property_address && (
                     <p className="text-xs text-muted-foreground">{client.property_address}</p>
                   )}
