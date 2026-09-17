@@ -905,6 +905,11 @@ const Pipeline = () => {
         ))}
       </div>
 
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
       {linkingClient && user && (
         <FubDealLinkDialog
           client={linkingClient}
@@ -914,10 +919,6 @@ const Pipeline = () => {
           onLinked={fetchClients}
         />
       )}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
 
       {filteredClients.length === 0 && (
         <Card className="border-border/50">
