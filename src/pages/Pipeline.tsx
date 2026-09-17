@@ -604,6 +604,29 @@ const Pipeline = () => {
                 </div>
               </div>
 
+              <div>
+                <Label>Agent</Label>
+                {isAdmin ? (
+                  <Select value={assignedAgentId} onValueChange={setAssignedAgentId}>
+                    <SelectTrigger><SelectValue placeholder="Select agent" /></SelectTrigger>
+                    <SelectContent>
+                      {teamAgents.map((a) => (
+                        <SelectItem key={a.id} value={a.id}>{a.full_name}</SelectItem>
+                      ))}
+                      {!teamAgents.some((a) => a.id === user?.id) && user?.id && (
+                        <SelectItem value={user.id}>Me</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input value="You" disabled />
+                )}
+                <p className="text-xs text-muted-foreground mt-1">
+                  This client will be added to this agent's book.
+                </p>
+              </div>
+
+
               <div className="grid grid-cols-2 gap-4">
                 <div><Label>Phone</Label><Input value={newClient.phone} onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })} placeholder="(555) 123-4567" /></div>
                 <div><Label>Email</Label><Input value={newClient.email} onChange={(e) => setNewClient({ ...newClient, email: e.target.value })} placeholder="john@example.com" /></div>
