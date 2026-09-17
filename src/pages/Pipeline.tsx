@@ -355,14 +355,37 @@ const Pipeline = () => {
       projected_gci: gci,
       expected_pending_date: newClient.expected_pending_date || null,
       property_address: newClient.client_type === 'seller' ? (newClient.property_address || null) : null,
-    });
+    }).select('id').single();
 
     if (error) {
       toast({ title: 'Error', description: 'Failed to add client', variant: 'destructive' });
       return;
     }
 
-    toast({ title: 'Success', description: 'Client added to pipeline' });
+    // Adding a client for another agent is recorded, so their book shows who
+    // put it there.
+    if (inserted?.id && ownerId !== user.id) {
+      await logClientChanges({
+        clientId: inserted.id as string,
+        ownerUserId: ownerId,
+        actorId: user.id,
+        changes: [
+          {
+            field: 'added_by',
+            old_value: null,
+            new_value: teamAgents.find((a) => a.id === ownerId)?.full_name ?? 'this agent',
+          },
+        ],
+      });
+    }
+
+    toast({
+      title: 'Success',
+      description:
+        ownerId === user.id
+          ? 'Client added to pipeline'
+          : `Client added to ${teamAgents.find((a) => a.id === ownerId)?.full_name ?? 'the selected agent'}'s pipeline`,
+    });
     setAddDialogOpen(false);
     setNewClient({ client_name: '', client_type: 'buyer', stage: 1, source: '', phone: '', email: '', notes: '', projected_sale_amount: 0, commission_percent: 0, split_percent: 0, expected_pending_date: '', property_address: '' });
     fetchClients();
