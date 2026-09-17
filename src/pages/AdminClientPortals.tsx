@@ -101,6 +101,8 @@ export default function AdminClientPortals() {
   const [health, setHealth] = useState<FilterKey>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'buyer' | 'seller'>('all');
   const [agentFilter, setAgentFilter] = useState<string>('all');
+  // Default is everything: a past client must never be hidden by accident.
+  const [dealFilter, setDealFilter] = useState<'all' | DealStatus>('all');
   const [sortKey, setSortKey] = useState<SortKey>('client');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [resendingId, setResendingId] = useState<string | null>(null);
@@ -141,11 +143,13 @@ export default function AdminClientPortals() {
       setLoading(true);
       const { data: accounts } = await supabase
         .from('client_accounts')
-        .select('id,email,full_name,client_type,fub_person_id,slack_channel_id,drive_folder_id,user_id,invited_by,invited_at,claimed_at,created_at')
+        .select('id,email,full_name,client_type,fub_person_id,slack_channel_id,drive_folder_id,user_id,invited_by,assigned_agent_id,invited_at,claimed_at,created_at')
         .order('created_at', { ascending: false });
 
       const list = (accounts ?? []) as PortalRow[];
-      const inviterIds = Array.from(new Set(list.map((r) => r.invited_by).filter(Boolean))) as string[];
+      const inviterIds = Array.from(
+        new Set(list.flatMap((r) => [r.assigned_agent_id, r.invited_by]).filter(Boolean)),
+      ) as string[];
       const portalIds = list.map((r) => r.id);
 
       const [profilesRes, docsRes, msgsRes, txRes, propsRes, condRes] = await Promise.all([
@@ -165,7 +169,7 @@ export default function AdminClientPortals() {
         portalIds.length
           ? supabase
               .from('portal_transactions')
-              .select('portal_id,side')
+              .select('portal_id,side,status')
               .in('portal_id', portalIds)
           : Promise.resolve({ data: [] as any[] }),
         portalIds.length
@@ -236,10 +240,12 @@ export default function AdminClientPortals() {
           (r.fub_person_id ? 1 : 0) +
           (dCount > 0 ? 1 : 0) +
           (replied ? 1 : 0);
+        const agentId = r.assigned_agent_id || r.invited_by;
         return {
           ...r,
-          agentName: r.invited_by ? profileMap.get(r.invited_by) ?? 'Unknown' : 'Unknown',
+          agentName: agentId ? profileMap.get(agentId) ?? 'Unknown' : 'Unknown',
           status,
+          dealStatus: dealStatusByPortal.get(r.id) ?? 'active',
           docCount: dCount,
           lastMessageAt: lastAt,
           lastMessageFromClient: clientLast,
