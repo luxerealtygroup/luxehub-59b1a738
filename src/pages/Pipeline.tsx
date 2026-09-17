@@ -338,8 +338,12 @@ const Pipeline = () => {
 
     const gci = calculateGCI(newClient.projected_sale_amount, newClient.commission_percent, newClient.split_percent);
 
-    const { error } = await supabase.from('pipeline_clients').insert({
-      user_id: user.id,
+    // Plain agents can only ever add their own clients; the picker is disabled
+    // for them, and this guard makes that true server-side too.
+    const ownerId = isAdmin && assignedAgentId ? assignedAgentId : user.id;
+
+    const { data: inserted, error } = await supabase.from('pipeline_clients').insert({
+      user_id: ownerId,
       client_name: newClient.client_name,
       client_type: newClient.client_type,
       stage: newClient.stage,
