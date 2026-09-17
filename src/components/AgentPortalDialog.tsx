@@ -78,6 +78,7 @@ export function AgentPortalDialog({
   initialTab,
   defaultAgentId,
   defaultPropertyAddress,
+  pipelineClientId,
   onSaved,
 }: AgentPortalDialogProps) {
   const { user } = useAuth();
@@ -269,6 +270,15 @@ export function AgentPortalDialog({
     if (saved) {
       setAccount(saved);
       setForm((f) => ({ ...f, slack_channel_id: saved!.slack_channel_id || '' }));
+      // Bind the client record to its portal, so it can never be offered a
+      // second one. Only ever fills an empty link; never re-points an existing.
+      if (pipelineClientId) {
+        await supabase
+          .from('pipeline_clients')
+          .update({ portal_id: saved.id })
+          .eq('id', pipelineClientId)
+          .is('portal_id', null);
+      }
       toast({
         title: 'Portal saved',
         description: saved.slack_channel_id ? 'Slack channel linked.' : 'Changes saved.',
