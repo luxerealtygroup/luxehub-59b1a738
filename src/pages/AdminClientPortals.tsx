@@ -299,11 +299,6 @@ export default function AdminClientPortals() {
     });
   };
 
-  /** Emails that already have a portal — used to keep the queue accurate. */
-  const existingEmails = useMemo(
-    () => new Set(rows.map((r) => (r.email || '').trim().toLowerCase()).filter(Boolean)),
-    [rows],
-  );
 
   /** Agents who actually have a portal, for the agent dropdown. */
   const agentOptions = useMemo(
@@ -550,7 +545,6 @@ export default function AdminClientPortals() {
       )}
 
       <NeedsPortalQueue
-        existingEmails={existingEmails}
         onPortalCreated={load}
         search={search}
         typeFilter={typeFilter}

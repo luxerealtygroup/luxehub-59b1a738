@@ -52,6 +52,8 @@ interface AgentPortalDialogProps {
   defaultAgentId?: string | null;
   /** Seller address carried over from the pipeline record. */
   defaultPropertyAddress?: string | null;
+  /** Pipeline client record this portal is being created for, if any. */
+  pipelineClientId?: string | null;
   /** Fires after a portal row is created or updated. */
   onSaved?: () => void;
 }
@@ -76,6 +78,7 @@ export function AgentPortalDialog({
   initialTab,
   defaultAgentId,
   defaultPropertyAddress,
+  pipelineClientId,
   onSaved,
 }: AgentPortalDialogProps) {
   const { user } = useAuth();
@@ -210,6 +213,26 @@ export function AgentPortalDialog({
       return null;
     }
 
+    // Never a second portal for a client record that already has one, whatever
+    // any list happens to show.
+    if (isNew && pipelineClientId) {
+      const { data: existing } = await supabase
+        .from('pipeline_clients')
+        .select('portal_id')
+        .eq('id', pipelineClientId)
+        .maybeSingle();
+      if (existing?.portal_id) {
+        toast({
+          title: 'This client already has a portal',
+          description: 'Open their existing portal instead of creating a new one.',
+          variant: 'destructive',
+        });
+        return null;
+      }
+    }
+
+
+
     setSaving(true);
     const payload = {
       email,
@@ -267,6 +290,15 @@ export function AgentPortalDialog({
     if (saved) {
       setAccount(saved);
       setForm((f) => ({ ...f, slack_channel_id: saved!.slack_channel_id || '' }));
+      // Bind the client record to its portal, so it can never be offered a
+      // second one. Only ever fills an empty link; never re-points an existing.
+      if (pipelineClientId) {
+        await supabase
+          .from('pipeline_clients')
+          .update({ portal_id: saved.id })
+          .eq('id', pipelineClientId)
+          .is('portal_id', null);
+      }
       toast({
         title: 'Portal saved',
         description: saved.slack_channel_id ? 'Slack channel linked.' : 'Changes saved.',
