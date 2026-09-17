@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, Plus, UserPlus } from 'lucide-react';
+import { Link2, Loader2, Plus, UserPlus } from 'lucide-react';
 import { AgentPortalDialog } from '@/components/AgentPortalDialog';
+import { AttachToPortalDialog } from '@/components/portal/AttachToPortalDialog';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -29,9 +30,7 @@ type QueueRow = {
 };
 
 interface NeedsPortalQueueProps {
-  /** Lowercased emails of clients that already have a portal. */
-  existingEmails: Set<string>;
-  /** Called after a portal is created so the parent list can refresh. */
+  /** Called after a portal is created or attached so the parent list refreshes. */
   onPortalCreated: () => void;
   /** Shared page search text — matches client, email or agent. */
   search?: string;
@@ -42,7 +41,6 @@ interface NeedsPortalQueueProps {
 }
 
 export function NeedsPortalQueue({
-  existingEmails,
   onPortalCreated,
   search = '',
   typeFilter = 'all',
@@ -52,6 +50,7 @@ export function NeedsPortalQueue({
   const { user } = useAuth();
   const [rows, setRows] = useState<QueueRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     const load = async () => {
@@ -59,6 +58,9 @@ export function NeedsPortalQueue({
       let query = supabase
         .from('pipeline_clients')
         .select('id,client_name,email,client_type,property_address,updated_at,user_id,stage')
+        // A client record belongs to at most one portal. No portal attached is
+        // the only definition of "needs a portal" — never an email match.
+        .is('portal_id', null)
         .or(
           `stage.gte.${SIGNED_FROM_STAGE},and(client_type.eq.seller,stage.in.(${SELLER_SIGNED_STAGES.join(',')}))`,
         );
@@ -81,14 +83,17 @@ export function NeedsPortalQueue({
       setLoading(false);
     };
     load();
-  }, [isAdmin, user]);
+  }, [isAdmin, user, reloadKey]);
+
+  const refresh = () => {
+    setReloadKey((k) => k + 1);
+    onPortalCreated();
+  };
 
   const queue = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows
       .filter((r) => {
-        const email = (r.email || '').trim().toLowerCase();
-        if (email && existingEmails.has(email)) return false;
         if (q && !`${r.client_name ?? ''} ${r.email ?? ''} ${r.agentName ?? ''}`.toLowerCase().includes(q))
           return false;
         if (typeFilter !== 'all' && (r.client_type || '').toLowerCase() !== typeFilter) return false;
@@ -97,7 +102,7 @@ export function NeedsPortalQueue({
       })
       // Oldest signed first so nobody sits unnoticed.
       .sort((a, b) => new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime());
-  }, [rows, existingEmails, search, typeFilter, agentFilter]);
+  }, [rows, search, typeFilter, agentFilter]);
 
   if (!loading && queue.length === 0) return null;
 
