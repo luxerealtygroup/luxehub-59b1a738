@@ -207,6 +207,19 @@ export default function AdminClientPortals() {
         txSides.set(t.portal_id, set);
       });
 
+      // Deal status comes from the portal's own transactions only. A portal with
+      // no transaction at all still counts as Active, never hidden.
+      const dealStatusByPortal = new Map<string, DealStatus>();
+      (txRes.data ?? []).forEach((t: any) => {
+        const s = String(t.status ?? '').toLowerCase();
+        const next: DealStatus = PENDING_TX.has(s) ? 'pending' : CLOSED_TX.has(s) ? 'closed' : 'active';
+        const rank: Record<DealStatus, number> = { active: 3, pending: 2, closed: 1 };
+        const cur = dealStatusByPortal.get(t.portal_id);
+        if (!cur || rank[next] > rank[cur]) dealStatusByPortal.set(t.portal_id, next);
+      });
+
+
+
       const propCount = new Map<string, number>();
       (propsRes.data ?? []).forEach((p: any) => propCount.set(p.portal_id, (propCount.get(p.portal_id) ?? 0) + 1));
 
