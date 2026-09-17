@@ -356,7 +356,7 @@ export default function AdminClientPortals() {
       if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir;
       return String(va).localeCompare(String(vb)) * dir;
     });
-  }, [rows, search, health, typeFilter, agentFilter, sortKey, sortDir]);
+  }, [rows, search, health, typeFilter, agentFilter, dealFilter, sortKey, sortDir]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -616,6 +616,18 @@ export default function AdminClientPortals() {
                         <div className="flex flex-col items-start gap-1">
                           <Badge variant="outline" className="text-xs">
                             {transactionLabel(r.transactionSides, r.client_type)}
+                          </Badge>
+                          <Badge
+                            variant="outline"
+                            className={
+                              r.dealStatus === 'pending'
+                                ? 'text-[10px] border-amber-500/40 text-amber-600'
+                                : r.dealStatus === 'closed'
+                                  ? 'text-[10px] border-muted-foreground/40 text-muted-foreground'
+                                  : 'text-[10px] border-green-500/40 text-green-600'
+                            }
+                          >
+                            {r.dealStatus === 'pending' ? 'Pending' : r.dealStatus === 'closed' ? 'Closed' : 'Active'}
                           </Badge>
                           {r.propertyCount === 0 ? (
                             <Badge variant="secondary" className="text-[10px] font-normal">
