@@ -152,6 +152,22 @@ const Pipeline = () => {
     property_address: '',
   });
 
+  // Opening Add Client always starts on the person adding it — a client is
+  // never silently placed in somebody else's book.
+  useEffect(() => {
+    if (!addDialogOpen || !user) return;
+    setAssignedAgentId(user.id);
+    if (!isAdmin) return;
+    supabase.rpc('get_team_agents').then(({ data }) => {
+      setTeamAgents(
+        ((data as any[]) ?? [])
+          .map((a) => ({ id: a.id as string, full_name: (a.full_name as string) ?? a.email }))
+          .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '')),
+      );
+    });
+  }, [addDialogOpen, isAdmin, user?.id]);
+
+
   // ── Activity Requirements Engine data ──
   const currentMonth = new Date().getMonth();
   const currentQuarter = Math.floor(currentMonth / 3) + 1;
