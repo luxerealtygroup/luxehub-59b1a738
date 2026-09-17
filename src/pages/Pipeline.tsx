@@ -22,6 +22,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { differenceInDays, format, parseISO } from 'date-fns';
 import { SOURCE_OPTIONS } from '@/lib/constants/sourceOptions';
 import { formatCurrency, formatNumber } from '@/lib/utils';
+import { useUserRole } from '@/hooks/useUserRole';
+import { ClientChangeLog } from '@/components/pipeline/ClientChangeLog';
+import { FubDealLinkDialog } from '@/components/pipeline/FubDealLinkDialog';
+import { diffClientFields, logClientChanges } from '@/lib/pipelineAudit';
 
 // Safely format a date string; returns '—' on invalid input so one bad row
 // (e.g. a typo'd year) can't crash the whole Pipeline page.
@@ -61,6 +65,16 @@ interface PipelineClient {
   last_contact?: string;
   fub_person_id?: number;
   property_address?: string;
+  user_id: string;
+  /** Filled only when viewing the whole team. */
+  agentName?: string;
+  fub_deal_id?: number | null;
+  fub_deal_name?: string | null;
+  fub_deal_pipeline?: string | null;
+  fub_deal_stage?: string | null;
+  fub_deal_price?: number | null;
+  fub_deal_close_date?: string | null;
+  fub_deal_synced_at?: string | null;
 }
 
 interface NewClient {
