@@ -122,6 +122,10 @@ const Pipeline = () => {
   const [teamScope, setTeamScope] = useState(false);
   const canSeeTeam = isAdmin && !isViewingAsAgent;
   const [linkingClient, setLinkingClient] = useState<PipelineClient | null>(null);
+  // Whose book the new client lands in. Always visible; only admins/operations
+  // may point it at somebody else, and doing so is written to the audit trail.
+  const [assignedAgentId, setAssignedAgentId] = useState<string>('');
+  const [teamAgents, setTeamAgents] = useState<{ id: string; full_name: string }[]>([]);
   const [clients, setClients] = useState<PipelineClient[]>([]);
   const [filteredClients, setFilteredClients] = useState<PipelineClient[]>([]);
   const [loading, setLoading] = useState(true);
@@ -147,6 +151,22 @@ const Pipeline = () => {
     expected_pending_date: '',
     property_address: '',
   });
+
+  // Opening Add Client always starts on the person adding it — a client is
+  // never silently placed in somebody else's book.
+  useEffect(() => {
+    if (!addDialogOpen || !user) return;
+    setAssignedAgentId(user.id);
+    if (!isAdmin) return;
+    supabase.rpc('get_team_agents').then(({ data }) => {
+      setTeamAgents(
+        ((data as any[]) ?? [])
+          .map((a) => ({ id: a.id as string, full_name: (a.full_name as string) ?? a.email }))
+          .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '')),
+      );
+    });
+  }, [addDialogOpen, isAdmin, user?.id]);
+
 
   // ── Activity Requirements Engine data ──
   const currentMonth = new Date().getMonth();
@@ -318,8 +338,12 @@ const Pipeline = () => {
 
     const gci = calculateGCI(newClient.projected_sale_amount, newClient.commission_percent, newClient.split_percent);
 
-    const { error } = await supabase.from('pipeline_clients').insert({
-      user_id: user.id,
+    // Plain agents can only ever add their own clients; the picker is disabled
+    // for them, and this guard makes that true server-side too.
+    const ownerId = isAdmin && assignedAgentId ? assignedAgentId : user.id;
+
+    const { data: inserted, error } = await supabase.from('pipeline_clients').insert({
+      user_id: ownerId,
       client_name: newClient.client_name,
       client_type: newClient.client_type,
       stage: newClient.stage,
@@ -331,14 +355,37 @@ const Pipeline = () => {
       projected_gci: gci,
       expected_pending_date: newClient.expected_pending_date || null,
       property_address: newClient.client_type === 'seller' ? (newClient.property_address || null) : null,
-    });
+    }).select('id').single();
 
     if (error) {
       toast({ title: 'Error', description: 'Failed to add client', variant: 'destructive' });
       return;
     }
 
-    toast({ title: 'Success', description: 'Client added to pipeline' });
+    // Adding a client for another agent is recorded, so their book shows who
+    // put it there.
+    if (inserted?.id && ownerId !== user.id) {
+      await logClientChanges({
+        clientId: inserted.id as string,
+        ownerUserId: ownerId,
+        actorId: user.id,
+        changes: [
+          {
+            field: 'added_by',
+            old_value: null,
+            new_value: teamAgents.find((a) => a.id === ownerId)?.full_name ?? 'this agent',
+          },
+        ],
+      });
+    }
+
+    toast({
+      title: 'Success',
+      description:
+        ownerId === user.id
+          ? 'Client added to pipeline'
+          : `Client added to ${teamAgents.find((a) => a.id === ownerId)?.full_name ?? 'the selected agent'}'s pipeline`,
+    });
     setAddDialogOpen(false);
     setNewClient({ client_name: '', client_type: 'buyer', stage: 1, source: '', phone: '', email: '', notes: '', projected_sale_amount: 0, commission_percent: 0, split_percent: 0, expected_pending_date: '', property_address: '' });
     fetchClients();
@@ -556,6 +603,29 @@ const Pipeline = () => {
                   </Select>
                 </div>
               </div>
+
+              <div>
+                <Label>Agent</Label>
+                {isAdmin ? (
+                  <Select value={assignedAgentId} onValueChange={setAssignedAgentId}>
+                    <SelectTrigger><SelectValue placeholder="Select agent" /></SelectTrigger>
+                    <SelectContent>
+                      {teamAgents.map((a) => (
+                        <SelectItem key={a.id} value={a.id}>{a.full_name}</SelectItem>
+                      ))}
+                      {!teamAgents.some((a) => a.id === user?.id) && user?.id && (
+                        <SelectItem value={user.id}>Me</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input value="You" disabled />
+                )}
+                <p className="text-xs text-muted-foreground mt-1">
+                  This client will be added to this agent's book.
+                </p>
+              </div>
+
 
               <div className="grid grid-cols-2 gap-4">
                 <div><Label>Phone</Label><Input value={newClient.phone} onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })} placeholder="(555) 123-4567" /></div>

@@ -15,7 +15,8 @@ export type AuditField =
   | 'projected_sale_amount'
   | 'projected_gci'
   | 'property_address'
-  | 'fub_deal';
+  | 'fub_deal'
+  | 'added_by';
 
 export interface ClientAuditEntry {
   id: string;
@@ -102,6 +103,7 @@ const FIELD_LABELS: Record<string, string> = {
   projected_gci: 'Projected GCI',
   property_address: 'Property address',
   fub_deal: 'Follow Up Boss deal',
+  added_by: 'Added to this agent by another user',
 };
 
 /** Plain-English one-liner for an audit row. */
