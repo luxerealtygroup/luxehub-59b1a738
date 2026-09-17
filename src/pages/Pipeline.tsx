@@ -115,6 +115,12 @@ const Pipeline = () => {
   const isReadOnly = isViewingAsAgent;
   const queryUserId = effectiveUserId;
   const { toast } = useToast();
+  // Admins, owners and Operations can work the whole team's book. Everyone else
+  // sees exactly what they saw before: their own clients only.
+  const { isAdmin } = useUserRole();
+  const [teamScope, setTeamScope] = useState(false);
+  const canSeeTeam = isAdmin && !isViewingAsAgent;
+  const [linkingClient, setLinkingClient] = useState<PipelineClient | null>(null);
   const [clients, setClients] = useState<PipelineClient[]>([]);
   const [filteredClients, setFilteredClients] = useState<PipelineClient[]>([]);
   const [loading, setLoading] = useState(true);
