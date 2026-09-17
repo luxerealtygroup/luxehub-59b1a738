@@ -162,20 +162,34 @@ export function NeedsPortalQueue({
                         {format(new Date(r.updated_at), 'MMM d, yyyy')}
                       </TableCell>
                       <TableCell className="text-right">
-                        <AgentPortalDialog
-                          clientName={r.client_name}
-                          clientEmail={r.email || undefined}
-                          defaultType={isSeller ? 'seller' : 'buyer'}
-                          defaultAgentId={r.user_id}
-                          defaultPropertyAddress={isSeller ? r.property_address : null}
-                          onSaved={onPortalCreated}
-                          trigger={
-                            <Button size="sm" className="gap-2">
-                              <Plus className="h-4 w-4" />
-                              Create portal
-                            </Button>
-                          }
-                        />
+                        <div className="flex justify-end gap-2">
+                          <AttachToPortalDialog
+                            pipelineClientId={r.id}
+                            clientName={r.client_name}
+                            onAttached={refresh}
+                            trigger={
+                              <Button size="sm" variant="outline" className="gap-2">
+                                <Link2 className="h-4 w-4" />
+                                Attach to existing portal
+                              </Button>
+                            }
+                          />
+                          <AgentPortalDialog
+                            clientName={r.client_name}
+                            clientEmail={r.email || undefined}
+                            defaultType={isSeller ? 'seller' : 'buyer'}
+                            defaultAgentId={r.user_id}
+                            defaultPropertyAddress={isSeller ? r.property_address : null}
+                            pipelineClientId={r.id}
+                            onSaved={refresh}
+                            trigger={
+                              <Button size="sm" className="gap-2">
+                                <Plus className="h-4 w-4" />
+                                Create portal
+                              </Button>
+                            }
+                          />
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
