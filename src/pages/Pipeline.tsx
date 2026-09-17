@@ -106,6 +106,9 @@ const Pipeline = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'buyer' | 'seller' | 'tenant' | 'landlord'>('all');
   const [filterStage, setFilterStage] = useState<string>('all');
+  // Pending deals live in Transactions; they leave this list automatically and
+  // come straight back if the stage is moved backwards. Nothing is deleted.
+  const [showPending, setShowPending] = useState(false);
   const [newClient, setNewClient] = useState<NewClient>({
     client_name: '',
     client_type: 'buyer',
