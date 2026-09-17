@@ -76,6 +76,45 @@ export type Database = {
           },
         ]
       }
+      account_deletion_log: {
+        Row: {
+          action: string
+          actor_email: string | null
+          actor_full_name: string | null
+          actor_role: string
+          actor_user_id: string
+          created_at: string
+          details: Json
+          id: string
+          org_id: string | null
+          org_name: string | null
+        }
+        Insert: {
+          action: string
+          actor_email?: string | null
+          actor_full_name?: string | null
+          actor_role: string
+          actor_user_id: string
+          created_at?: string
+          details?: Json
+          id?: string
+          org_id?: string | null
+          org_name?: string | null
+        }
+        Update: {
+          action?: string
+          actor_email?: string | null
+          actor_full_name?: string | null
+          actor_role?: string
+          actor_user_id?: string
+          created_at?: string
+          details?: Json
+          id?: string
+          org_id?: string | null
+          org_name?: string | null
+        }
+        Relationships: []
+      }
       agent_activities: {
         Row: {
           activity_type: Database["public"]["Enums"]["activity_type"]
@@ -5714,6 +5753,16 @@ export type Database = {
       }
     }
     Functions: {
+      admin_detach_client_login: { Args: { _user_id: string }; Returns: number }
+      admin_purge_org: { Args: { _org_id: string }; Returns: Json }
+      admin_reassign_agent_records: {
+        Args: { _from: string; _to: string }
+        Returns: Json
+      }
+      admin_release_user_refs: {
+        Args: { _fallback: string; _user_id: string }
+        Returns: undefined
+      }
       can_access_portal: {
         Args: { _portal_id: string; _user_id: string }
         Returns: boolean

@@ -21,8 +21,8 @@ const FAQS = [
     a: "Client documents are visible only to you and your assigned agent, plus brokerage administrators. Team documents are scoped to the brokerage that owns them.",
   },
   {
-    q: "How do I delete my account or my data?",
-    a: "Email info@luxerealtygroup.ca and we will action your request.",
+    q: "How do I delete my account?",
+    a: "You can delete your account from inside the app. Sign in, open Settings, scroll to the bottom and choose “Delete my account”, then confirm in the dialog. This permanently removes your account and signs you out everywhere. Clients: your sign-in is removed and your agent's own transaction records are unaffected. If you cannot sign in, email info@luxerealtygroup.ca and we will action the request for you.",
   },
 ];
 

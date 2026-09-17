@@ -10,6 +10,7 @@ import { Camera, Loader2, Mail, CheckCircle2, Trash2 } from 'lucide-react';
 import { AVATAR_BUCKET, resolveAvatarUrl } from '@/lib/avatar';
 import { useUserRole } from '@/hooks/useUserRole';
 import FubWeeklySyncCard from '@/components/admin/FubWeeklySyncCard';
+import DeleteAccountCard from '@/components/account/DeleteAccountCard';
 
 const AccountSettings = () => {
   const { user } = useAuth();
@@ -257,6 +258,9 @@ const AccountSettings = () => {
           <FubWeeklySyncCard />
         </div>
       )}
+
+      {/* Danger Zone — always the last card on the page. */}
+      <DeleteAccountCard signInPath="/login" />
     </div>
   );
 };
