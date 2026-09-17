@@ -91,6 +91,9 @@ const stageLabels: { [key: number]: string } = {
   9: 'Pending',
 };
 
+/** Once a deal is Pending it belongs in Transactions, not the prospect list. */
+const PENDING_STAGE = 9;
+
 const Pipeline = () => {
   const { user } = useAuth();
   const { isViewingAsAgent, effectiveUserId } = useViewAsAgent();
@@ -222,7 +225,8 @@ const Pipeline = () => {
 
   useEffect(() => {
     filterClients();
-  }, [clients, searchTerm, filterType, filterStage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clients, searchTerm, filterType, filterStage, showPending]);
 
   const fetchClients = async () => {
     if (!queryUserId) return;
@@ -259,6 +263,10 @@ const Pipeline = () => {
     }
     if (filterType !== 'all') filtered = filtered.filter((c) => c.client_type === filterType);
     if (filterStage !== 'all') filtered = filtered.filter((c) => c.stage === parseInt(filterStage));
+    // Pending (stage 9) leaves the active list unless it is explicitly asked for.
+    if (!showPending && filterStage !== String(PENDING_STAGE)) {
+      filtered = filtered.filter((c) => c.stage !== PENDING_STAGE);
+    }
     setFilteredClients(filtered);
   };
 
