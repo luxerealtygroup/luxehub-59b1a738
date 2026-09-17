@@ -23,6 +23,7 @@ import { differenceInDays, format, parseISO } from 'date-fns';
 import { SOURCE_OPTIONS } from '@/lib/constants/sourceOptions';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { useUserRole } from '@/hooks/useUserRole';
+import { followUpBossApi } from '@/lib/api/followUpBoss';
 import { ClientChangeLog } from '@/components/pipeline/ClientChangeLog';
 import { FubDealLinkDialog } from '@/components/pipeline/FubDealLinkDialog';
 import { diffClientFields, logClientChanges } from '@/lib/pipelineAudit';
