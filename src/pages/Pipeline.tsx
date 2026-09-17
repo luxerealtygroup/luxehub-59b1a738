@@ -858,6 +858,62 @@ const Pipeline = () => {
                 </div>
               )}
               {client.notes && <p className="text-xs text-muted-foreground mt-2 p-2 bg-muted/50 rounded">{client.notes}</p>}
+
+              {/* Follow Up Boss deal — read-only mirror, chosen by hand. */}
+              <div className="mt-3 rounded-lg border border-border/50 p-2.5 text-xs">
+                {client.fub_deal_id ? (
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-foreground truncate">
+                        {client.fub_deal_name || `Deal #${client.fub_deal_id}`}
+                      </span>
+                      {!isReadOnly && (
+                        <div className="flex gap-1 shrink-0">
+                          <Button size="sm" variant="ghost" className="h-6 px-2" onClick={() => refreshDeal(client)}>
+                            Refresh
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-6 px-2" onClick={() => unlinkDeal(client)}>
+                            Unlink
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-muted-foreground">
+                      {[client.fub_deal_pipeline, client.fub_deal_stage].filter(Boolean).join(' · ')}
+                      {client.fub_deal_price ? ` · ${formatCurrency(client.fub_deal_price)}` : ''}
+                      {client.fub_deal_close_date ? ` · closes ${safeFormatDate(client.fub_deal_close_date)}` : ''}
+                    </p>
+                    <p className="text-muted-foreground">
+                      From Follow Up Boss{client.fub_deal_synced_at ? `, updated ${safeFormatDate(client.fub_deal_synced_at)}` : ''}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-muted-foreground">No Follow Up Boss deal connected</span>
+                    {!isReadOnly && (
+                      <Button size="sm" variant="outline" className="h-6 px-2" onClick={() => setLinkingClient(client)}>
+                        Connect
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <ClientChangeLog clientId={client.id} compact />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {linkingClient && user && (
+        <FubDealLinkDialog
+          client={linkingClient}
+          actorId={user.id}
+          open={!!linkingClient}
+          onOpenChange={(v) => !v && setLinkingClient(null)}
+          onLinked={fetchClients}
+        />
+      )}
             </CardContent>
           </Card>
         ))}
