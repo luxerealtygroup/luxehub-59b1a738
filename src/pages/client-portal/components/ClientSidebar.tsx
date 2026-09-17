@@ -10,6 +10,7 @@ import {
   Users,
   FolderHeart,
   UserRound,
+  Settings,
 } from 'lucide-react';
 import luxeLogo from '@/assets/luxe-logo.png.asset.json';
 import { Button } from '@/components/ui/button';
@@ -47,6 +48,7 @@ const mainMenuItems = [
   { id: 'photos', title: 'Photos', icon: ImageIcon },
   { id: 'agent', title: 'Your Agent', icon: UserRound },
   { id: 'messages', title: 'Messages', icon: MessageCircle },
+  { id: 'settings', title: 'Settings', icon: Settings },
 ];
 
 export function ClientSidebar({ 
