@@ -230,8 +230,9 @@ const Pipeline = () => {
   }, [queryUserId, pipelineMetrics.clientsInDateRange]);
 
   useEffect(() => {
-    if (queryUserId) fetchClients();
-  }, [queryUserId]);
+    if (queryUserId || (canSeeTeam && teamScope)) fetchClients();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryUserId, teamScope, canSeeTeam]);
 
   useEffect(() => {
     if (demoMode) {
