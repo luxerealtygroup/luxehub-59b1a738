@@ -52,6 +52,8 @@ interface AgentPortalDialogProps {
   defaultAgentId?: string | null;
   /** Seller address carried over from the pipeline record. */
   defaultPropertyAddress?: string | null;
+  /** Pipeline client record this portal is being created for, if any. */
+  pipelineClientId?: string | null;
   /** Fires after a portal row is created or updated. */
   onSaved?: () => void;
 }
