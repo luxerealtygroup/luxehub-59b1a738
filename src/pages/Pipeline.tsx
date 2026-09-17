@@ -389,6 +389,69 @@ const Pipeline = () => {
     fetchClients();
   };
 
+  /** Pulls the latest deal details from Follow Up Boss. One-way: nothing is sent back. */
+  const refreshDeal = async (client: PipelineClient) => {
+    if (!client.fub_person_id || !client.fub_deal_id) return;
+    const res = await followUpBossApi.getPersonDeals(client.fub_person_id);
+    const deal = res.success ? (res.data?.deals ?? []).find((d) => d.id === client.fub_deal_id) : undefined;
+    if (!deal) {
+      toast({
+        title: 'Could not refresh',
+        description: 'That deal is no longer available in Follow Up Boss.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    await supabase
+      .from('pipeline_clients')
+      .update({
+        fub_deal_name: deal.name ?? null,
+        fub_deal_pipeline: deal.pipelineName ?? null,
+        fub_deal_stage: deal.stageName ?? null,
+        fub_deal_price: deal.price ?? null,
+        fub_deal_close_date: deal.projectedCloseDate ? deal.projectedCloseDate.slice(0, 10) : null,
+        fub_deal_synced_at: new Date().toISOString(),
+      })
+      .eq('id', client.id);
+    toast({ title: 'Updated', description: 'Latest details pulled from Follow Up Boss.' });
+    fetchClients();
+  };
+
+  const unlinkDeal = async (client: PipelineClient) => {
+    const { error } = await supabase
+      .from('pipeline_clients')
+      .update({
+        fub_deal_id: null,
+        fub_deal_name: null,
+        fub_deal_pipeline: null,
+        fub_deal_stage: null,
+        fub_deal_price: null,
+        fub_deal_close_date: null,
+        fub_deal_synced_at: null,
+      })
+      .eq('id', client.id);
+    if (error) {
+      toast({ title: 'Could not unlink', description: error.message, variant: 'destructive' });
+      return;
+    }
+    if (user) {
+      await logClientChanges({
+        clientId: client.id,
+        ownerUserId: client.user_id,
+        actorId: user.id,
+        changes: [
+          {
+            field: 'fub_deal',
+            old_value: client.fub_deal_name || String(client.fub_deal_id ?? ''),
+            new_value: null,
+          },
+        ],
+      });
+    }
+    toast({ title: 'Unlinked', description: 'This client is no longer connected to a Follow Up Boss deal.' });
+    fetchClients();
+  };
+
   const handleDeleteClient = async (id: string) => {
     const { error } = await supabase.from('pipeline_clients').delete().eq('id', id);
     if (error) { toast({ title: 'Error', description: 'Failed to delete client', variant: 'destructive' }); return; }
