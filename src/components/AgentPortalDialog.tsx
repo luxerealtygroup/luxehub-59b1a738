@@ -213,6 +213,26 @@ export function AgentPortalDialog({
       return null;
     }
 
+    // Never a second portal for a client record that already has one, whatever
+    // any list happens to show.
+    if (isNew && pipelineClientId) {
+      const { data: existing } = await supabase
+        .from('pipeline_clients')
+        .select('portal_id')
+        .eq('id', pipelineClientId)
+        .maybeSingle();
+      if (existing?.portal_id) {
+        toast({
+          title: 'This client already has a portal',
+          description: 'Open their existing portal instead of creating a new one.',
+          variant: 'destructive',
+        });
+        return null;
+      }
+    }
+
+
+
     setSaving(true);
     const payload = {
       email,
