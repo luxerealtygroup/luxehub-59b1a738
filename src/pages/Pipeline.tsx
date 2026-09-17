@@ -22,6 +22,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { differenceInDays, format, parseISO } from 'date-fns';
 import { SOURCE_OPTIONS } from '@/lib/constants/sourceOptions';
 import { formatCurrency, formatNumber } from '@/lib/utils';
+import { useUserRole } from '@/hooks/useUserRole';
+import { followUpBossApi } from '@/lib/api/followUpBoss';
+import { ClientChangeLog } from '@/components/pipeline/ClientChangeLog';
+import { FubDealLinkDialog } from '@/components/pipeline/FubDealLinkDialog';
+import { diffClientFields, logClientChanges } from '@/lib/pipelineAudit';
 
 // Safely format a date string; returns '—' on invalid input so one bad row
 // (e.g. a typo'd year) can't crash the whole Pipeline page.
@@ -61,6 +66,16 @@ interface PipelineClient {
   last_contact?: string;
   fub_person_id?: number;
   property_address?: string;
+  user_id: string;
+  /** Filled only when viewing the whole team. */
+  agentName?: string;
+  fub_deal_id?: number | null;
+  fub_deal_name?: string | null;
+  fub_deal_pipeline?: string | null;
+  fub_deal_stage?: string | null;
+  fub_deal_price?: number | null;
+  fub_deal_close_date?: string | null;
+  fub_deal_synced_at?: string | null;
 }
 
 interface NewClient {
@@ -101,6 +116,12 @@ const Pipeline = () => {
   const isReadOnly = isViewingAsAgent;
   const queryUserId = effectiveUserId;
   const { toast } = useToast();
+  // Admins, owners and Operations can work the whole team's book. Everyone else
+  // sees exactly what they saw before: their own clients only.
+  const { isAdmin } = useUserRole();
+  const [teamScope, setTeamScope] = useState(false);
+  const canSeeTeam = isAdmin && !isViewingAsAgent;
+  const [linkingClient, setLinkingClient] = useState<PipelineClient | null>(null);
   const [clients, setClients] = useState<PipelineClient[]>([]);
   const [filteredClients, setFilteredClients] = useState<PipelineClient[]>([]);
   const [loading, setLoading] = useState(true);
@@ -210,8 +231,9 @@ const Pipeline = () => {
   }, [queryUserId, pipelineMetrics.clientsInDateRange]);
 
   useEffect(() => {
-    if (queryUserId) fetchClients();
-  }, [queryUserId]);
+    if (queryUserId || (canSeeTeam && teamScope)) fetchClients();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryUserId, teamScope, canSeeTeam]);
 
   useEffect(() => {
     if (demoMode) {
@@ -229,12 +251,13 @@ const Pipeline = () => {
   }, [clients, searchTerm, filterType, filterStage, showPending]);
 
   const fetchClients = async () => {
-    if (!queryUserId) return;
-    const { data, error } = await supabase
-      .from('pipeline_clients')
-      .select('*')
-      .eq('user_id', queryUserId)
-      .order('created_at', { ascending: false });
+    const wholeTeam = canSeeTeam && teamScope;
+    if (!queryUserId && !wholeTeam) return;
+    let query = supabase.from('pipeline_clients').select('*').order('created_at', { ascending: false });
+    // Team scope relies on the same team rules the database already enforces:
+    // an admin/owner/Operations sees their own team and nobody else's.
+    if (!wholeTeam) query = query.eq('user_id', queryUserId as string);
+    const { data, error } = await query;
 
     if (error) {
       toast({ title: 'Error', description: 'Failed to fetch pipeline clients', variant: 'destructive' });
@@ -247,6 +270,17 @@ const Pipeline = () => {
       commission_percent: row.commission_percent ?? 0,
       split_percent: row.split_percent ?? 0,
     }));
+
+    if (wholeTeam) {
+      const ids = Array.from(new Set(mapped.map((c) => c.user_id).filter(Boolean)));
+      const { data: profiles } = ids.length
+        ? await supabase.from('profiles').select('id,full_name').in('id', ids)
+        : { data: [] as any[] };
+      const names = new Map<string, string>();
+      (profiles ?? []).forEach((p: any) => names.set(p.id, p.full_name || 'Unassigned'));
+      mapped.forEach((c) => (c.agentName = names.get(c.user_id) || 'Unassigned'));
+    }
+
     setClients(mapped);
     setLoading(false);
   };
@@ -312,7 +346,10 @@ const Pipeline = () => {
 
   const handleUpdateClient = async () => {
     if (!editingClient) return;
+    const before = clients.find((c) => c.id === editingClient.id);
 
+    // The assigned agent is never part of this update: commission attribution
+    // stays with the producing agent no matter who does the admin work.
     const { error } = await supabase
       .from('pipeline_clients')
       .update({
@@ -336,8 +373,83 @@ const Pipeline = () => {
       return;
     }
 
+    if (before && user) {
+      await logClientChanges({
+        clientId: editingClient.id,
+        ownerUserId: before.user_id,
+        actorId: user.id,
+        changes: diffClientFields(
+          before as unknown as Record<string, unknown>,
+          editingClient as unknown as Record<string, unknown>,
+        ),
+      });
+    }
+
     toast({ title: 'Success', description: 'Client updated' });
     setEditingClient(null);
+    fetchClients();
+  };
+
+  /** Pulls the latest deal details from Follow Up Boss. One-way: nothing is sent back. */
+  const refreshDeal = async (client: PipelineClient) => {
+    if (!client.fub_person_id || !client.fub_deal_id) return;
+    const res = await followUpBossApi.getPersonDeals(client.fub_person_id);
+    const deal = res.success ? (res.data?.deals ?? []).find((d) => d.id === client.fub_deal_id) : undefined;
+    if (!deal) {
+      toast({
+        title: 'Could not refresh',
+        description: 'That deal is no longer available in Follow Up Boss.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    await supabase
+      .from('pipeline_clients')
+      .update({
+        fub_deal_name: deal.name ?? null,
+        fub_deal_pipeline: deal.pipelineName ?? null,
+        fub_deal_stage: deal.stageName ?? null,
+        fub_deal_price: deal.price ?? null,
+        fub_deal_close_date: deal.projectedCloseDate ? deal.projectedCloseDate.slice(0, 10) : null,
+        fub_deal_synced_at: new Date().toISOString(),
+      })
+      .eq('id', client.id);
+    toast({ title: 'Updated', description: 'Latest details pulled from Follow Up Boss.' });
+    fetchClients();
+  };
+
+  const unlinkDeal = async (client: PipelineClient) => {
+    const { error } = await supabase
+      .from('pipeline_clients')
+      .update({
+        fub_deal_id: null,
+        fub_deal_name: null,
+        fub_deal_pipeline: null,
+        fub_deal_stage: null,
+        fub_deal_price: null,
+        fub_deal_close_date: null,
+        fub_deal_synced_at: null,
+      })
+      .eq('id', client.id);
+    if (error) {
+      toast({ title: 'Could not unlink', description: error.message, variant: 'destructive' });
+      return;
+    }
+    if (user) {
+      await logClientChanges({
+        clientId: client.id,
+        ownerUserId: client.user_id,
+        actorId: user.id,
+        changes: [
+          {
+            field: 'fub_deal',
+            old_value: client.fub_deal_name || String(client.fub_deal_id ?? ''),
+            new_value: null,
+          },
+        ],
+      });
+    }
+    toast({ title: 'Unlinked', description: 'This client is no longer connected to a Follow Up Boss deal.' });
     fetchClients();
   };
 
@@ -396,7 +508,22 @@ const Pipeline = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground font-display">Pipeline</h1>
-          <p className="text-muted-foreground">Manage your active clients and pipeline</p>
+          <p className="text-muted-foreground">
+            {canSeeTeam && teamScope ? "Every agent's clients on your team" : 'Manage your active clients and pipeline'}
+          </p>
+          {canSeeTeam && (
+            <div className="mt-2">
+              <Select value={teamScope ? 'team' : 'mine'} onValueChange={(v) => setTeamScope(v === 'team')}>
+                <SelectTrigger className="h-8 w-48 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="mine">My clients</SelectItem>
+                  <SelectItem value="team">All agents</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
         {!isReadOnly && (
         <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
@@ -756,6 +883,9 @@ const Pipeline = () => {
                     <Badge variant={client.client_type === 'buyer' ? 'default' : 'secondary'}>{client.client_type}</Badge>
                     <Badge variant="outline">{stageLabels[client.stage]}</Badge>
                   </div>
+                  {client.agentName && (
+                    <p className="text-xs text-muted-foreground">Agent: {client.agentName}</p>
+                  )}
                   {client.client_type === 'seller' && client.property_address && (
                     <p className="text-xs text-muted-foreground">{client.property_address}</p>
                   )}
@@ -792,10 +922,62 @@ const Pipeline = () => {
                 </div>
               )}
               {client.notes && <p className="text-xs text-muted-foreground mt-2 p-2 bg-muted/50 rounded">{client.notes}</p>}
+
+              {/* Follow Up Boss deal — read-only mirror, chosen by hand. */}
+              <div className="mt-3 rounded-lg border border-border/50 p-2.5 text-xs">
+                {client.fub_deal_id ? (
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-foreground truncate">
+                        {client.fub_deal_name || `Deal #${client.fub_deal_id}`}
+                      </span>
+                      {!isReadOnly && (
+                        <div className="flex gap-1 shrink-0">
+                          <Button size="sm" variant="ghost" className="h-6 px-2" onClick={() => refreshDeal(client)}>
+                            Refresh
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-6 px-2" onClick={() => unlinkDeal(client)}>
+                            Unlink
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-muted-foreground">
+                      {[client.fub_deal_pipeline, client.fub_deal_stage].filter(Boolean).join(' · ')}
+                      {client.fub_deal_price ? ` · ${formatCurrency(client.fub_deal_price)}` : ''}
+                      {client.fub_deal_close_date ? ` · closes ${safeFormatDate(client.fub_deal_close_date)}` : ''}
+                    </p>
+                    <p className="text-muted-foreground">
+                      From Follow Up Boss{client.fub_deal_synced_at ? `, updated ${safeFormatDate(client.fub_deal_synced_at)}` : ''}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-muted-foreground">No Follow Up Boss deal connected</span>
+                    {!isReadOnly && (
+                      <Button size="sm" variant="outline" className="h-6 px-2" onClick={() => setLinkingClient(client)}>
+                        Connect
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <ClientChangeLog clientId={client.id} compact />
             </CardContent>
           </Card>
         ))}
       </div>
+
+      {linkingClient && user && (
+        <FubDealLinkDialog
+          client={linkingClient}
+          actorId={user.id}
+          open={!!linkingClient}
+          onOpenChange={(v) => !v && setLinkingClient(null)}
+          onLinked={fetchClients}
+        />
+      )}
 
       {filteredClients.length === 0 && (
         <Card className="border-border/50">

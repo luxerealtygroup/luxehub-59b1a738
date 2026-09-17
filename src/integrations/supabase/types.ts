@@ -3492,6 +3492,57 @@ export type Database = {
         }
         Relationships: []
       }
+      pipeline_client_audit: {
+        Row: {
+          changed_by: string
+          client_id: string
+          created_at: string
+          field: string
+          id: string
+          new_value: string | null
+          old_value: string | null
+          org_id: string | null
+          owner_user_id: string
+        }
+        Insert: {
+          changed_by: string
+          client_id: string
+          created_at?: string
+          field: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          org_id?: string | null
+          owner_user_id: string
+        }
+        Update: {
+          changed_by?: string
+          client_id?: string
+          created_at?: string
+          field?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          org_id?: string | null
+          owner_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipeline_client_audit_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pipeline_client_audit_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pipeline_clients: {
         Row: {
           client_name: string
@@ -3500,6 +3551,14 @@ export type Database = {
           deal_category: string
           email: string | null
           expected_pending_date: string | null
+          fub_deal_close_date: string | null
+          fub_deal_id: number | null
+          fub_deal_linked_by: string | null
+          fub_deal_name: string | null
+          fub_deal_pipeline: string | null
+          fub_deal_price: number | null
+          fub_deal_stage: string | null
+          fub_deal_synced_at: string | null
           id: string
           notes: string | null
           org_id: string | null
@@ -3521,6 +3580,14 @@ export type Database = {
           deal_category?: string
           email?: string | null
           expected_pending_date?: string | null
+          fub_deal_close_date?: string | null
+          fub_deal_id?: number | null
+          fub_deal_linked_by?: string | null
+          fub_deal_name?: string | null
+          fub_deal_pipeline?: string | null
+          fub_deal_price?: number | null
+          fub_deal_stage?: string | null
+          fub_deal_synced_at?: string | null
           id?: string
           notes?: string | null
           org_id?: string | null
@@ -3542,6 +3609,14 @@ export type Database = {
           deal_category?: string
           email?: string | null
           expected_pending_date?: string | null
+          fub_deal_close_date?: string | null
+          fub_deal_id?: number | null
+          fub_deal_linked_by?: string | null
+          fub_deal_name?: string | null
+          fub_deal_pipeline?: string | null
+          fub_deal_price?: number | null
+          fub_deal_stage?: string | null
+          fub_deal_synced_at?: string | null
           id?: string
           notes?: string | null
           org_id?: string | null
