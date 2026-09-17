@@ -969,11 +969,6 @@ const Pipeline = () => {
         ))}
       </div>
 
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
       {linkingClient && user && (
         <FubDealLinkDialog
           client={linkingClient}
