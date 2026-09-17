@@ -270,6 +270,8 @@ const Pipeline = () => {
     setFilteredClients(filtered);
   };
 
+  const pendingCount = clients.filter((c) => c.stage === PENDING_STAGE).length;
+
   const calculateGCI = (saleAmount: number, commissionPercent: number, splitPercent: number) => {
     return (saleAmount * (commissionPercent / 100) * (splitPercent / 100));
   };
