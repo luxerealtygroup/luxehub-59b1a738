@@ -444,7 +444,22 @@ const Pipeline = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground font-display">Pipeline</h1>
-          <p className="text-muted-foreground">Manage your active clients and pipeline</p>
+          <p className="text-muted-foreground">
+            {canSeeTeam && teamScope ? "Every agent's clients on your team" : 'Manage your active clients and pipeline'}
+          </p>
+          {canSeeTeam && (
+            <div className="mt-2">
+              <Select value={teamScope ? 'team' : 'mine'} onValueChange={(v) => setTeamScope(v === 'team')}>
+                <SelectTrigger className="h-8 w-48 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="mine">My clients</SelectItem>
+                  <SelectItem value="team">All agents</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
         {!isReadOnly && (
         <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
