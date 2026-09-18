@@ -1,6 +1,9 @@
 import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useTenant } from '@/hooks/useTenant';
+import { useUserRole } from '@/hooks/useUserRole';
+import CompanyGoalDialog from '@/components/CompanyGoalDialog';
 import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
 import { classifyStage, isActiveListingDeal } from '@/hooks/useFubDealMetrics';
 import { sumWeightedDeals, buildWeightedDebug, formatWeightedDeals, WeightedDebugInfo, inferDealCategory, DealMetadataMap } from '@/lib/utils/dealWeight';
@@ -94,6 +97,10 @@ const CURRENT_QUARTER = Math.ceil((new Date().getMonth() + 1) / 3);
 // ── Component ────────────────────────────────────────────────────────────
 const CompanyBusinessPlanning = () => {
   const { user } = useAuth();
+  const { orgId } = useTenant();
+  const { isAdmin } = useUserRole();
+  const [goalDialogOpen, setGoalDialogOpen] = useState(false);
+  const [hasCompanyGoal, setHasCompanyGoal] = useState(true);
   const { metadata: dealMetadataMap, loading: metaLoading } = useDealMetadata();
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<CompanyMetrics | null>(null);
@@ -119,8 +126,8 @@ const CompanyBusinessPlanning = () => {
   const [savingRecruiting, setSavingRecruiting] = useState(false);
 
   useEffect(() => {
-    if (!metaLoading) fetchAll();
-  }, [metaLoading]);
+    if (!metaLoading && orgId) fetchAll();
+  }, [metaLoading, orgId]);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -202,7 +209,7 @@ const CompanyBusinessPlanning = () => {
   // ── 2. Agent goals ──
   const fetchAgentGoals = async () => {
     const [goalsRes, profilesRes, assumptionsRes] = await Promise.all([
-      supabase.from('production_goals').select('user_id, annual_units_goal, annual_gci_goal, annual_volume_goal').eq('year', CURRENT_YEAR),
+      supabase.from('production_goals').select('user_id, annual_units_goal, annual_gci_goal, annual_volume_goal').eq('org_id', orgId).eq('year', CURRENT_YEAR),
       supabase.from('profiles').select('id, full_name'),
       supabase.from('planning_assumptions').select('user_id, split_percent').eq('year', CURRENT_YEAR),
     ]);
@@ -229,7 +236,19 @@ const CompanyBusinessPlanning = () => {
 
   // ── 3. Company goals ──
   const fetchCompanyGoals = async () => {
-    const { data } = await supabase.from('company_goals').select('annual_deals_goal, annual_gci_goal, monthly_goals').eq('year', CURRENT_YEAR).maybeSingle();
+    if (!orgId) return;
+    const { data } = await supabase
+      .from('company_goals')
+      .select('annual_deals_goal, annual_gci_goal, monthly_goals')
+      .eq('org_id', orgId)
+      .eq('year', CURRENT_YEAR)
+      .maybeSingle();
+    setHasCompanyGoal(!!data);
+    if (!data) {
+      setCompanyDealGoal(0);
+      setCompanyGciGoal(0);
+      setQuarterlyDealGoals({ q1: 0, q2: 0, q3: 0, q4: 0 });
+    }
     if (data) {
       setCompanyDealGoal(data.annual_deals_goal || 0);
       setCompanyGciGoal(data.annual_gci_goal || 0);
@@ -407,11 +426,34 @@ const CompanyBusinessPlanning = () => {
   return (
     <Card className="border-gold/20">
       <CardHeader>
-        <CardTitle className="text-gold font-display flex items-center gap-2">
-          <Building2 className="h-5 w-5" /> Company Business Planning — {CURRENT_YEAR}
-        </CardTitle>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="text-gold font-display flex items-center gap-2">
+            <Building2 className="h-5 w-5" /> Company Business Planning — {CURRENT_YEAR}
+          </CardTitle>
+          {isAdmin && (
+            <Button size="sm" variant="outline" onClick={() => setGoalDialogOpen(true)}>
+              <Target className="h-4 w-4 mr-1" /> {hasCompanyGoal ? 'Edit company goal' : 'Set company goal'}
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
+        <CompanyGoalDialog
+          open={goalDialogOpen}
+          onOpenChange={setGoalDialogOpen}
+          year={CURRENT_YEAR}
+          onSaved={fetchCompanyGoals}
+        />
+        {!hasCompanyGoal && (
+          <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+            <p className="text-sm font-medium text-amber-600">No company goal has been set for {CURRENT_YEAR}.</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {isAdmin
+                ? 'Use “Set company goal” above to enter your annual target, and optionally a per-quarter breakdown.'
+                : 'Ask an owner or admin to set your team’s annual target.'}
+            </p>
+          </div>
+        )}
         <Tabs defaultValue="performance" className="space-y-4">
           <TabsList className="bg-card border border-border h-auto p-1 flex-wrap">
             <TabsTrigger value="performance" className="flex items-center gap-1 text-xs sm:text-sm">

@@ -299,6 +299,42 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_goal_audit: {
+        Row: {
+          agent_user_id: string
+          changed_by: string
+          created_at: string
+          field: string
+          id: string
+          new_value: string | null
+          old_value: string | null
+          org_id: string | null
+          year: number | null
+        }
+        Insert: {
+          agent_user_id: string
+          changed_by: string
+          created_at?: string
+          field: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          org_id?: string | null
+          year?: number | null
+        }
+        Update: {
+          agent_user_id?: string
+          changed_by?: string
+          created_at?: string
+          field?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          org_id?: string | null
+          year?: number | null
+        }
+        Relationships: []
+      }
       agent_goals: {
         Row: {
           category: string
@@ -4830,7 +4866,9 @@ export type Database = {
           created_at: string
           id: string
           monthly_goals: Json | null
+          monthly_plan: Json | null
           org_id: string | null
+          plan_assumptions: Json | null
           updated_at: string
           user_id: string
           year: number
@@ -4843,7 +4881,9 @@ export type Database = {
           created_at?: string
           id?: string
           monthly_goals?: Json | null
+          monthly_plan?: Json | null
           org_id?: string | null
+          plan_assumptions?: Json | null
           updated_at?: string
           user_id: string
           year: number
@@ -4856,7 +4896,9 @@ export type Database = {
           created_at?: string
           id?: string
           monthly_goals?: Json | null
+          monthly_plan?: Json | null
           org_id?: string | null
+          plan_assumptions?: Json | null
           updated_at?: string
           user_id?: string
           year?: number

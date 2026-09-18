@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useTenant } from '@/hooks/useTenant';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,6 +45,7 @@ const DEFAULT_CATEGORIES = [
 
 const CompanyBudget = () => {
   const { user } = useAuth();
+  const { orgId } = useTenant();
   const [expenses, setExpenses] = useState<BudgetExpense[]>([]);
   const [projectedRevenue, setProjectedRevenue] = useState<number>(0);
   const [pendingCount, setPendingCount] = useState<number>(0);
@@ -59,15 +61,17 @@ const CompanyBudget = () => {
 
   useEffect(() => {
     fetchData();
-  }, [selectedMonth, selectedYear]);
+  }, [selectedMonth, selectedYear, orgId]);
 
   const fetchData = async () => {
+    if (!orgId) return;
     setLoading(true);
     
     // Fetch expenses for the selected month
     const { data: expensesData, error: expensesError } = await supabase
       .from('company_budget_expenses')
       .select('*')
+      .eq('org_id', orgId)
       .eq('year', selectedYear)
       .eq('month', selectedMonth);
 
@@ -136,6 +140,7 @@ const CompanyBudget = () => {
     const { data: recurringExpenses, error } = await supabase
       .from('company_budget_expenses')
       .select('*')
+      .eq('org_id', orgId)
       .eq('year', prevYear)
       .eq('month', prevMonth)
       .eq('is_recurring', true);

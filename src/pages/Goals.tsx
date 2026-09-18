@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Target, TrendingUp, DollarSign, Home, Edit2, Calendar } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency, formatNumber } from '@/lib/utils';
+import { logAgentGoalChanges, fetchAgentGoalAudit, AgentGoalAuditEntry, AGENT_GOAL_FIELD_LABELS } from '@/lib/agentGoalAudit';
 
 interface AnnualGoals {
   id?: string;
@@ -65,8 +66,11 @@ const Goals = () => {
   const { hasFUB } = useHasFUB();
   const { isAdmin } = useUserRole();
   const { toast } = useToast();
-  const isReadOnly = isViewingAsAgent; // Admin viewing as agent = read-only
+  // Owners/admins may set goals for the agent they are viewing; plain agents only their own.
+  const isReadOnly = isViewingAsAgent && !isAdmin;
   const queryUserId = effectiveUserId; // Use effective user for all READ queries
+  const targetUserId = effectiveUserId; // Goals always save against the agent being viewed
+  const editingOnBehalf = !!user && targetUserId !== user.id;
 
   // ── Shared metrics hook (single source of truth) ──
   const { metrics: actualMetrics, debugInfo, loading: metricsLoading } = useFubDealMetrics({
@@ -95,6 +99,8 @@ const Goals = () => {
   const [monthlyGoals, setMonthlyGoals] = useState<MonthlyGoal[]>(
     createDefaultMonthlyGoals(0, 0)
   );
+  const [planRowId, setPlanRowId] = useState<string | null>(null);
+  const [auditEntries, setAuditEntries] = useState<AgentGoalAuditEntry[]>([]);
   
   const [formData, setFormData] = useState({
     deals_goal: '',
@@ -106,6 +112,61 @@ const Goals = () => {
   });
 
   const currentYear = 2026;
+
+  /**
+   * Store the monthly breakdown and planning assumptions in the database,
+   * against the agent whose goals are on screen (never the admin viewing them).
+   */
+  const persistPlan = async (opts: {
+    monthlyPlan?: MonthlyGoal[];
+    assumptions?: Record<string, number>;
+    rowId?: string | null;
+    silent?: boolean;
+  }) => {
+    if (!user || !targetUserId) return;
+    const rowId = opts.rowId !== undefined ? opts.rowId : planRowId;
+    const payload: Record<string, unknown> = {};
+    if (opts.monthlyPlan) payload.monthly_plan = JSON.parse(JSON.stringify(opts.monthlyPlan));
+    if (opts.assumptions) payload.plan_assumptions = JSON.parse(JSON.stringify(opts.assumptions));
+    if (Object.keys(payload).length === 0) return;
+
+    let error = null;
+    if (rowId) {
+      ({ error } = await supabase.from('production_goals').update(payload).eq('id', rowId));
+    } else {
+      const { data, error: insertError } = await supabase
+        .from('production_goals')
+        .insert({ user_id: targetUserId, year: currentYear, ...payload })
+        .select('id')
+        .maybeSingle();
+      error = insertError;
+      if (data?.id) setPlanRowId(data.id);
+    }
+
+    if (error) {
+      console.error('Failed to save goal plan', error);
+      if (!opts.silent) toast({ title: 'Could not save goals', variant: 'destructive' });
+      return;
+    }
+
+    if (editingOnBehalf && !opts.silent) {
+      await logAgentGoalChanges({
+        agentUserId: targetUserId,
+        changedBy: user.id,
+        year: currentYear,
+        changes: [
+          ...(opts.monthlyPlan ? [{ field: 'monthly_plan' as const, oldValue: 'previous', newValue: 'updated' }] : []),
+          ...(opts.assumptions ? [{ field: 'plan_assumptions' as const, oldValue: 'previous', newValue: 'updated' }] : []),
+        ],
+      });
+      loadAudit();
+    }
+  };
+
+  const loadAudit = async () => {
+    if (!queryUserId) return;
+    setAuditEntries(await fetchAgentGoalAudit(queryUserId, currentYear));
+  };
 
   const fetchAnnualGoals = async () => {
     if (!queryUserId) return;
@@ -120,12 +181,33 @@ const Goals = () => {
     // Also fetch 411 monthly goals from production_goals
     const { data: productionData } = await supabase
       .from('production_goals')
-      .select('monthly_goals')
+      .select('id, monthly_goals, monthly_plan, plan_assumptions')
       .eq('user_id', queryUserId)
       .eq('year', currentYear)
       .maybeSingle();
     
+    setPlanRowId(productionData?.id || null);
     const fourOneOneGoals: FourOneOneMonthlyGoal[] = (productionData?.monthly_goals as unknown as FourOneOneMonthlyGoal[]) || [];
+    const storedPlan = (productionData?.monthly_plan as unknown as MonthlyGoal[]) || null;
+    const storedAssumptions = (productionData?.plan_assumptions as unknown as Record<string, number>) || null;
+
+    // One-time migration: anything still sitting in this browser is written up to the database.
+    const legacyCalcRaw = localStorage.getItem(`goalCalcValues_${queryUserId}_${currentYear}`);
+    const legacyPlanRaw = localStorage.getItem(`monthlyGoals_${queryUserId}_${currentYear}`);
+    const legacyCalc = legacyCalcRaw ? JSON.parse(legacyCalcRaw) : null;
+    const legacyPlan = legacyPlanRaw ? (JSON.parse(legacyPlanRaw) as MonthlyGoal[]) : null;
+    const needsMigration = (!storedPlan && !!legacyPlan) || (!storedAssumptions && !!legacyCalc);
+    if (needsMigration && user && queryUserId === user.id) {
+      await persistPlan({
+        monthlyPlan: storedPlan || legacyPlan || undefined,
+        assumptions: storedAssumptions || legacyCalc || undefined,
+        rowId: productionData?.id || null,
+        silent: true,
+      });
+    }
+
+    const effectiveAssumptions = storedAssumptions || legacyCalc;
+    const effectivePlan = storedPlan || legacyPlan;
     
     if (data && data.length > 0) {
       const dealsGoal = data.find(g => g.goal_type === 'deals_closed');
@@ -134,9 +216,8 @@ const Goals = () => {
       const dealsValue = dealsGoal?.target_value || 0;
       const gciValue = gciGoal?.target_value || 0;
       
-      // Load saved calculation values from localStorage
-      const savedCalcValues = localStorage.getItem(`goalCalcValues_${queryUserId}_${currentYear}`);
-      const calcValues = savedCalcValues ? JSON.parse(savedCalcValues) : {
+      // Planning assumptions now live in the database; browser values are only a fallback.
+      const calcValues = effectiveAssumptions || {
         avg_sale_price: 350000,
         commission_rate: 3,
         split_percent: 70,
@@ -162,10 +243,9 @@ const Goals = () => {
         fallout_rate: (calcValues.fallout_rate ?? 50).toString()
       });
       
-      // Initialize monthly goals - check if saved in localStorage
-      const savedMonthlyGoals = localStorage.getItem(`monthlyGoals_${queryUserId}_${currentYear}`);
-      if (savedMonthlyGoals) {
-        const parsed = JSON.parse(savedMonthlyGoals);
+      // Initialize monthly goals from the stored plan
+      if (effectivePlan) {
+        const parsed = effectivePlan;
         // Merge with 411 goals
         const merged = parsed.map((goal: MonthlyGoal, idx: number) => {
           const fourOneOneGoal = fourOneOneGoals.find(g => g.month === idx);
@@ -206,6 +286,7 @@ const Goals = () => {
 
   useEffect(() => {
     fetchAnnualGoals();
+    loadAudit();
   }, [queryUserId, hasFUB, effectiveFubUserId]);
 
   // Loading is done when both goals + metrics are loaded
@@ -214,7 +295,7 @@ const Goals = () => {
   }, [metricsLoading]);
 
   const handleSaveGoals = async () => {
-    if (!user) return;
+    if (!user || !targetUserId) return;
     
     const dealsTarget = parseFloat(formData.deals_goal) || 0;
     const gciTarget = parseFloat(formData.gci_goal) || 0;
@@ -223,7 +304,7 @@ const Goals = () => {
     const { data: existingGoals } = await supabase
       .from('agent_goals')
       .select('id, goal_type')
-      .eq('user_id', user.id)
+      .eq('user_id', targetUserId)
       .eq('period', 'yearly')
       .in('goal_type', ['deals_closed', 'revenue']);
     
@@ -238,7 +319,7 @@ const Goals = () => {
         .eq('id', existingDealsGoal.id);
     } else {
       await supabase.from('agent_goals').insert({
-        user_id: user.id,
+        user_id: targetUserId,
         goal_type: 'deals_closed',
         target_value: dealsTarget,
         current_value: actualMetrics.deals_closed,
@@ -255,7 +336,7 @@ const Goals = () => {
         .eq('id', existingGciGoal.id);
     } else {
       await supabase.from('agent_goals').insert({
-        user_id: user.id,
+        user_id: targetUserId,
         goal_type: 'revenue',
         target_value: gciTarget,
         current_value: actualMetrics.gci_earned,
@@ -269,14 +350,27 @@ const Goals = () => {
     const splitPct = parseFloat(formData.split_percent) || 70;
     const falloutRate = parseFloat(formData.fallout_rate) || 50;
     
-    // Save calculation values to localStorage
-    if (user) {
-      localStorage.setItem(`goalCalcValues_${user.id}_${currentYear}`, JSON.stringify({
+    // Save planning assumptions to the database (scoped to the agent being edited)
+    await persistPlan({
+      assumptions: {
         avg_sale_price: avgPrice,
         commission_rate: commRate,
         split_percent: splitPct,
         fallout_rate: falloutRate
-      }));
+      },
+    });
+
+    if (editingOnBehalf) {
+      await logAgentGoalChanges({
+        agentUserId: targetUserId,
+        changedBy: user.id,
+        year: currentYear,
+        changes: [
+          { field: 'annual_deals_goal', oldValue: annualGoals.deals_goal, newValue: dealsTarget },
+          { field: 'annual_gci_goal', oldValue: annualGoals.gci_goal, newValue: gciTarget },
+        ],
+      });
+      loadAudit();
     }
     
     setAnnualGoals({ 
@@ -334,17 +428,13 @@ const Goals = () => {
     const calculatedGci = calculateGciFromDeals(deals);
     updated[monthIndex] = { ...updated[monthIndex], deals, gci: calculatedGci };
     setMonthlyGoals(updated);
-    if (user) {
-      localStorage.setItem(`monthlyGoals_${user.id}_${currentYear}`, JSON.stringify(updated));
-    }
+    persistPlan({ monthlyPlan: updated });
   };
 
   const resetToEvenDistribution = () => {
     const newGoals = createDefaultMonthlyGoals(annualGoals.deals_goal, annualGoals.gci_goal);
     setMonthlyGoals(newGoals);
-    if (user) {
-      localStorage.setItem(`monthlyGoals_${user.id}_${currentYear}`, JSON.stringify(newGoals));
-    }
+    persistPlan({ monthlyPlan: newGoals });
     toast({ title: 'Goals reset to even distribution' });
   };
 
@@ -358,10 +448,14 @@ const Goals = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-display font-bold text-foreground">
-            {isReadOnly ? `${viewingAgentName}'s ${currentYear} Goals` : `${currentYear} Goals`}
+            {isViewingAsAgent ? `${viewingAgentName}'s ${currentYear} Goals` : `${currentYear} Goals`}
           </h1>
           <p className="text-muted-foreground mt-1">
-            {isReadOnly ? 'Viewing agent goals (read-only)' : 'Track your annual targets'}
+            {isReadOnly
+              ? 'Viewing agent goals (read-only)'
+              : editingOnBehalf
+                ? `Editing ${viewingAgentName}'s goals — changes are recorded in their goal history`
+                : 'Track your annual targets'}
           </p>
         </div>
         {!isReadOnly && (
@@ -376,10 +470,28 @@ const Goals = () => {
       </div>
 
       {/* Goal Setup Dialog */}
-      <Dialog open={!isReadOnly && (showSetup || !hasGoalsSet)} onOpenChange={setShowSetup}>
+      {auditEntries.length > 0 && (
+        <div className="rounded-lg border border-border bg-muted/20 p-3 text-sm">
+          <p className="font-medium text-foreground mb-1">Goal change history</p>
+          <ul className="space-y-1 text-muted-foreground text-xs">
+            {auditEntries.slice(0, 5).map((entry) => (
+              <li key={entry.id}>
+                {(AGENT_GOAL_FIELD_LABELS as Record<string, string>)[entry.field] || entry.field} set by{' '}
+                <span className="text-foreground">{entry.changed_by_name}</span> on{' '}
+                {new Date(entry.created_at).toLocaleDateString()}
+                {entry.new_value && entry.new_value !== 'updated' ? ` → ${entry.new_value}` : ''}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <Dialog open={!isReadOnly && (showSetup || (!hasGoalsSet && !isViewingAsAgent))} onOpenChange={setShowSetup}>
         <DialogContent className="border-gold/20 bg-card">
           <DialogHeader>
-            <DialogTitle className="text-gold font-display text-xl">Set Your {currentYear} Goals</DialogTitle>
+            <DialogTitle className="text-gold font-display text-xl">
+              {editingOnBehalf ? `Set ${viewingAgentName}'s ${currentYear} Goals` : `Set Your ${currentYear} Goals`}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-6 pt-4">
             {/* Calculation inputs section */}
