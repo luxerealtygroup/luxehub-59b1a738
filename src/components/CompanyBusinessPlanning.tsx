@@ -299,13 +299,15 @@ const CompanyBusinessPlanning = () => {
     if (!orgId) return;
     const { data } = await supabase
       .from('company_goals')
-      .select('annual_deals_goal, annual_gci_goal, monthly_goals, conversion_rate')
+      .select('annual_deals_goal, annual_gci_goal, monthly_goals, conversion_rate, funnel_assumptions')
       .eq('org_id', orgId)
       .eq('year', CURRENT_YEAR)
       .maybeSingle();
     setHasCompanyGoal(!!data);
     const storedRate = data && data.conversion_rate != null ? Number(data.conversion_rate) : null;
     setCompanyConversionRate(storedRate != null && storedRate > 0 ? storedRate : null);
+    const fa = (data as any)?.funnel_assumptions;
+    setFunnelAssumptions(fa && typeof fa === 'object' && !Array.isArray(fa) ? fa as FunnelAssumptions : {});
     if (!data) {
       setCompanyDealGoal(0);
       setCompanyGciGoal(0);
