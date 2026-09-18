@@ -74,7 +74,29 @@ interface PipelineSummary {
   projectedGci: number;
   weightedTotal: number;
   leaseCount: number;
+  /** Client records with a signed agreement or a live deal (stages 2–9). */
+  qualifiedClients: number;
+  qualifiedWeighted: number;
+  qualifiedBuyers: number;
+  qualifiedSellers: number;
+  qualifiedLeases: number;
+  qualifiedGci: number;
+  leadCount: number;
+  finishedCount: number;
 }
+
+/**
+ * Pipeline stages that represent a real prospect of closing: a signed
+ * agreement or a deal already in progress. Stage 1 (Lead) has no commitment
+ * and stage 10+ is already finished, so neither belongs in "pipeline".
+ *  2 Active on MLS · 3 Exclusive Listing · 4 BRA Signed · 5 Appointment Held
+ *  6 Appointment Set · 7 Showing · 8 Offer · 9 Pending
+ */
+const QUALIFIED_PIPELINE_STAGES = [2, 3, 4, 5, 6, 7, 8, 9];
+const LEAD_STAGE = 1;
+
+/** Used when a team has not set its own conversion rate. */
+const DEFAULT_CONVERSION_RATE = 0.30;
 
 interface ConversionTotals {
   contacts_made: number;
@@ -121,7 +143,9 @@ const CompanyBusinessPlanning = () => {
   const [quarterlyDealGoals, setQuarterlyDealGoals] = useState<{ q1: number; q2: number; q3: number; q4: number }>({ q1: 0, q2: 0, q3: 0, q4: 0 });
   // Actuals scoped to the elapsed period (Jan 1 → end of the CURRENT quarter)
   const [periodActuals, setPeriodActuals] = useState<{ closed: number; pending: number; rawClosed: number; rawPending: number }>({ closed: 0, pending: 0, rawClosed: 0, rawPending: 0 });
-  const [pipelineSummary, setPipelineSummary] = useState<PipelineSummary>({ totalClients: 0, buyers: 0, sellers: 0, projectedGci: 0, weightedTotal: 0, leaseCount: 0 });
+  const [pipelineSummary, setPipelineSummary] = useState<PipelineSummary>({ totalClients: 0, buyers: 0, sellers: 0, projectedGci: 0, weightedTotal: 0, leaseCount: 0, qualifiedClients: 0, qualifiedWeighted: 0, qualifiedBuyers: 0, qualifiedSellers: 0, qualifiedLeases: 0, qualifiedGci: 0, leadCount: 0, finishedCount: 0 });
+  // Company conversion rate: null until this team sets one, then the platform default applies.
+  const [companyConversionRate, setCompanyConversionRate] = useState<number | null>(null);
   const [conversionTotals, setConversionTotals] = useState<ConversionTotals>({ contacts_made: 0, dials: 0, appointments_set: 0, appointments_held: 0, pipeline_additions: 0, contracts_signed: 0, firm_deals: 0 });
   const [recruiting, setRecruiting] = useState<RecruitingData>({
     year: CURRENT_YEAR,
@@ -259,11 +283,13 @@ const CompanyBusinessPlanning = () => {
     if (!orgId) return;
     const { data } = await supabase
       .from('company_goals')
-      .select('annual_deals_goal, annual_gci_goal, monthly_goals')
+      .select('annual_deals_goal, annual_gci_goal, monthly_goals, conversion_rate')
       .eq('org_id', orgId)
       .eq('year', CURRENT_YEAR)
       .maybeSingle();
     setHasCompanyGoal(!!data);
+    const storedRate = data && data.conversion_rate != null ? Number(data.conversion_rate) : null;
+    setCompanyConversionRate(storedRate != null && storedRate > 0 ? storedRate : null);
     if (!data) {
       setCompanyDealGoal(0);
       setCompanyGciGoal(0);
@@ -317,19 +343,36 @@ const CompanyBusinessPlanning = () => {
 
   // ── 5. Team pipeline ──
   const fetchPipeline = async () => {
-    const { data } = await supabase.from('pipeline_clients').select('client_type, projected_gci, deal_category');
+    if (!orgId) return;
+    const { data } = await supabase
+      .from('pipeline_clients')
+      .select('client_type, projected_gci, deal_category, stage')
+      .eq('org_id', orgId);
     const clients = data || [];
     const isLeaseLike = (c: any) =>
       c.deal_category === 'lease' || c.client_type === 'tenant' || c.client_type === 'landlord';
-    const leases = clients.filter(isLeaseLike);
-    const weightedTotal = clients.reduce((sum, c) => sum + (isLeaseLike(c) ? 1 / 3 : 1), 0);
+    const weigh = (list: any[]) =>
+      Math.round(list.reduce((sum, c) => sum + (isLeaseLike(c) ? 1 / 3 : 1), 0) * 100) / 100;
+
+    // Qualified = signed agreement or live deal. Leads and finished records excluded.
+    const qualified = clients.filter(c => QUALIFIED_PIPELINE_STAGES.includes(Number(c.stage)));
+    const leads = clients.filter(c => Number(c.stage) === LEAD_STAGE);
+
     setPipelineSummary({
       totalClients: clients.length,
       buyers: clients.filter(c => c.client_type === 'buyer').length,
       sellers: clients.filter(c => c.client_type === 'seller').length,
       projectedGci: clients.reduce((s, c) => s + Number(c.projected_gci || 0), 0),
-      weightedTotal: Math.round(weightedTotal * 100) / 100,
-      leaseCount: leases.length,
+      weightedTotal: weigh(clients),
+      leaseCount: clients.filter(isLeaseLike).length,
+      qualifiedClients: qualified.length,
+      qualifiedWeighted: weigh(qualified),
+      qualifiedBuyers: qualified.filter(c => c.client_type === 'buyer').length,
+      qualifiedSellers: qualified.filter(c => c.client_type === 'seller').length,
+      qualifiedLeases: qualified.filter(isLeaseLike).length,
+      qualifiedGci: qualified.reduce((s, c) => s + Number(c.projected_gci || 0), 0),
+      leadCount: leads.length,
+      finishedCount: clients.length - qualified.length - leads.length,
     });
   };
 
