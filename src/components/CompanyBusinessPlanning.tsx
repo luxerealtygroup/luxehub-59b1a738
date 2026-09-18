@@ -74,7 +74,7 @@ interface PipelineSummary {
   projectedGci: number;
   weightedTotal: number;
   leaseCount: number;
-  /** Client records with a signed agreement or a live deal (stages 2–9). */
+  /** Everyone entered into the pipeline this year and still live (stages 1–9), Leads included. */
   qualifiedClients: number;
   qualifiedWeighted: number;
   qualifiedBuyers: number;
@@ -83,6 +83,10 @@ interface PipelineSummary {
   qualifiedGci: number;
   leadCount: number;
   finishedCount: number;
+  /** Entered this year, including those since finished — the cohort denominator. */
+  enteredThisYear: number;
+  /** Records entered in an earlier year, excluded from this year's pipeline. */
+  priorYearCount: number;
 }
 
 /**
