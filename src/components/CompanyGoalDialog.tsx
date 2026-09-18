@@ -64,6 +64,9 @@ const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved, suggestedConvers
         setAnnualGci(String(data.annual_gci_goal ?? ''));
         setAnnualVolume(String(data.annual_volume_goal ?? ''));
         setAnnualRevenue(String(data.annual_revenue_goal ?? ''));
+        setConversionPct(
+          data.conversion_rate != null ? String(Math.round(Number(data.conversion_rate) * 1000) / 10) : '',
+        );
         const raw = data.monthly_goals as any;
         const q = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw.quarterly : null;
         if (Array.isArray(q)) {
@@ -83,6 +86,7 @@ const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved, suggestedConvers
         setAnnualGci('');
         setAnnualVolume('');
         setAnnualRevenue('');
+        setConversionPct('');
         setQuarters(emptyQuarters);
       }
       setLoading(false);
