@@ -19,7 +19,8 @@ interface Props {
 }
 
 /** Used when a team has not set its own conversion rate. */
-const DEFAULT_CONVERSION_PCT = 30;
+/** Blended rate over everyone entered into the pipeline: 20% convert, 80% fall out. */
+const DEFAULT_CONVERSION_PCT = 20;
 
 interface Quarters {
   q1: string;
@@ -226,6 +227,8 @@ const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved, suggestedConvers
                 onChange={(e) => setConversionPct(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
+                Measured over everyone entered into the pipeline, Leads included — the same population the
+                pipeline figure counts.{' '}
                 {conversionEntered && conversionValid
                   ? `Fallout ${Math.round((100 - conversionValue) * 10) / 10}%. Used to work out how much pipeline your goal needs.`
                   : `Leave blank to use the platform default of ${DEFAULT_CONVERSION_PCT}% (${100 - DEFAULT_CONVERSION_PCT}% fallout).`}
@@ -236,7 +239,8 @@ const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved, suggestedConvers
               {suggestedConversionPct != null && suggestedConversionPct > 0 && (
                 <div className="flex items-center gap-2 pt-1">
                   <p className="text-xs text-muted-foreground">
-                    Your team’s measured rate this year: {suggestedConversionPct}%
+                    Your own history suggests {suggestedConversionPct}% — closed deals this year against everyone
+                    entered into the pipeline this year
                   </p>
                   <Button
                     type="button"
