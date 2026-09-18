@@ -416,7 +416,9 @@ const CompanyBusinessPlanning = () => {
   const elapsedGoal = Math.round(
     elapsedQuarters.reduce((sum, q) => sum + (quarterlyDealGoals[`q${q}` as 'q1' | 'q2' | 'q3' | 'q4'] || 0), 0) * 100,
   ) / 100;
-  const elapsedLabel = `Q1–Q${quarter} (Jan–${QUARTER_RANGE_LABEL[quarter].split('–')[1]})`;
+  const elapsedLabel = quarter === 1 ? 'Q1 (Jan–Mar)' : `Q1–Q${quarter} (Jan–${QUARTER_RANGE_LABEL[quarter].split('–')[1]})`;
+  const elapsedShort = quarter === 1 ? 'Q1' : `Q1–Q${quarter}`;
+  const periodEndLabel = QUARTER_RANGE_LABEL[quarter].split('–')[1];
 
   // Actuals for that same window (weighted): closed + pending expected to close by quarter end
   const periodProductionWeighted = Math.round((periodActuals.closed + periodActuals.pending) * 100) / 100;
@@ -577,12 +579,12 @@ const CompanyBusinessPlanning = () => {
                       </div>
                       <div className="flex items-center justify-between text-muted-foreground text-xs">
                         <span>
-                          Raw: {periodProductionRaw} deals ({periodActuals.rawClosed} closed, {periodActuals.rawPending} pending by {QUARTER_RANGE_LABEL[quarter].split('–')[1]} 30/31)
+                          Raw: {periodProductionRaw} deals ({periodActuals.rawClosed} closed, {periodActuals.rawPending} pending due by end of {periodEndLabel})
                         </span>
                       </div>
                       {/* Cumulative carryover — may be a deficit or a surplus */}
                       <div className={`flex items-center justify-between ${carryoverDeficit > 0 ? 'text-amber-600' : 'text-green-600'}`}>
-                        <span>Carryover ({elapsedLabel} gap)</span>
+                        <span>Carryover ({elapsedShort} gap)</span>
                         <span className="font-bold">
                           {carryoverDeficit > 0
                             ? `+${formatWeightedDeals(carryoverDeficit)}`
