@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Target, TrendingUp, DollarSign, Home, Edit2, Calendar } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency, formatNumber } from '@/lib/utils';
+import { logAgentGoalChanges, fetchAgentGoalAudit, AgentGoalAuditEntry, AGENT_GOAL_FIELD_LABELS } from '@/lib/agentGoalAudit';
 
 interface AnnualGoals {
   id?: string;
@@ -65,8 +66,11 @@ const Goals = () => {
   const { hasFUB } = useHasFUB();
   const { isAdmin } = useUserRole();
   const { toast } = useToast();
-  const isReadOnly = isViewingAsAgent; // Admin viewing as agent = read-only
+  // Owners/admins may set goals for the agent they are viewing; plain agents only their own.
+  const isReadOnly = isViewingAsAgent && !isAdmin;
   const queryUserId = effectiveUserId; // Use effective user for all READ queries
+  const targetUserId = effectiveUserId; // Goals always save against the agent being viewed
+  const editingOnBehalf = !!user && targetUserId !== user.id;
 
   // ── Shared metrics hook (single source of truth) ──
   const { metrics: actualMetrics, debugInfo, loading: metricsLoading } = useFubDealMetrics({
@@ -95,6 +99,8 @@ const Goals = () => {
   const [monthlyGoals, setMonthlyGoals] = useState<MonthlyGoal[]>(
     createDefaultMonthlyGoals(0, 0)
   );
+  const [planRowId, setPlanRowId] = useState<string | null>(null);
+  const [auditEntries, setAuditEntries] = useState<AgentGoalAuditEntry[]>([]);
   
   const [formData, setFormData] = useState({
     deals_goal: '',
