@@ -98,6 +98,15 @@ const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved, suggestedConvers
         } else {
           setQuarters(emptyQuarters);
         }
+        const fa = (data as any).funnel_assumptions;
+        const next: Record<string, string> = {};
+        if (fa && typeof fa === 'object' && !Array.isArray(fa)) {
+          FUNNEL_FIELDS.forEach(f => {
+            const v = fa[f.key];
+            if (v != null) next[f.key] = String(v);
+          });
+        }
+        setFunnel(next);
       } else {
         setGoalId(null);
         setAnnualDeals('');
@@ -106,6 +115,7 @@ const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved, suggestedConvers
         setAnnualRevenue('');
         setConversionPct('');
         setQuarters(emptyQuarters);
+        setFunnel({});
       }
       setLoading(false);
     };
