@@ -126,12 +126,33 @@ const Goals = () => {
     // Also fetch 411 monthly goals from production_goals
     const { data: productionData } = await supabase
       .from('production_goals')
-      .select('monthly_goals')
+      .select('id, monthly_goals, monthly_plan, plan_assumptions')
       .eq('user_id', queryUserId)
       .eq('year', currentYear)
       .maybeSingle();
     
+    setPlanRowId(productionData?.id || null);
     const fourOneOneGoals: FourOneOneMonthlyGoal[] = (productionData?.monthly_goals as unknown as FourOneOneMonthlyGoal[]) || [];
+    const storedPlan = (productionData?.monthly_plan as unknown as MonthlyGoal[]) || null;
+    const storedAssumptions = (productionData?.plan_assumptions as unknown as Record<string, number>) || null;
+
+    // One-time migration: anything still sitting in this browser is written up to the database.
+    const legacyCalcRaw = localStorage.getItem(`goalCalcValues_${queryUserId}_${currentYear}`);
+    const legacyPlanRaw = localStorage.getItem(`monthlyGoals_${queryUserId}_${currentYear}`);
+    const legacyCalc = legacyCalcRaw ? JSON.parse(legacyCalcRaw) : null;
+    const legacyPlan = legacyPlanRaw ? (JSON.parse(legacyPlanRaw) as MonthlyGoal[]) : null;
+    const needsMigration = (!storedPlan && !!legacyPlan) || (!storedAssumptions && !!legacyCalc);
+    if (needsMigration && user && queryUserId === user.id) {
+      await persistPlan({
+        monthlyPlan: storedPlan || legacyPlan || undefined,
+        assumptions: storedAssumptions || legacyCalc || undefined,
+        rowId: productionData?.id || null,
+        silent: true,
+      });
+    }
+
+    const effectiveAssumptions = storedAssumptions || legacyCalc;
+    const effectivePlan = storedPlan || legacyPlan;
     
     if (data && data.length > 0) {
       const dealsGoal = data.find(g => g.goal_type === 'deals_closed');
@@ -140,9 +161,8 @@ const Goals = () => {
       const dealsValue = dealsGoal?.target_value || 0;
       const gciValue = gciGoal?.target_value || 0;
       
-      // Load saved calculation values from localStorage
-      const savedCalcValues = localStorage.getItem(`goalCalcValues_${queryUserId}_${currentYear}`);
-      const calcValues = savedCalcValues ? JSON.parse(savedCalcValues) : {
+      // Planning assumptions now live in the database; browser values are only a fallback.
+      const calcValues = effectiveAssumptions || {
         avg_sale_price: 350000,
         commission_rate: 3,
         split_percent: 70,
@@ -168,10 +188,9 @@ const Goals = () => {
         fallout_rate: (calcValues.fallout_rate ?? 50).toString()
       });
       
-      // Initialize monthly goals - check if saved in localStorage
-      const savedMonthlyGoals = localStorage.getItem(`monthlyGoals_${queryUserId}_${currentYear}`);
-      if (savedMonthlyGoals) {
-        const parsed = JSON.parse(savedMonthlyGoals);
+      // Initialize monthly goals from the stored plan
+      if (effectivePlan) {
+        const parsed = effectivePlan;
         // Merge with 411 goals
         const merged = parsed.map((goal: MonthlyGoal, idx: number) => {
           const fourOneOneGoal = fourOneOneGoals.find(g => g.month === idx);
