@@ -101,12 +101,19 @@ const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved, suggestedConvers
 
   const quarterTotal = num(quarters.q1) + num(quarters.q2) + num(quarters.q3) + num(quarters.q4);
   const anyQuarter = [quarters.q1, quarters.q2, quarters.q3, quarters.q4].some((v) => v.trim() !== '');
+  const conversionEntered = conversionPct.trim() !== '';
+  const conversionValue = num(conversionPct);
+  const conversionValid = !conversionEntered || (conversionValue > 0 && conversionValue <= 100);
 
   const handleSave = async () => {
     if (!user || !orgId) return;
     const deals = anyQuarter ? quarterTotal : num(annualDeals);
     if (deals <= 0) {
       toast.error('Enter an annual deal goal, or a per-quarter breakdown.');
+      return;
+    }
+    if (!conversionValid) {
+      toast.error('Conversion rate must be between 1 and 100.');
       return;
     }
     setSaving(true);
