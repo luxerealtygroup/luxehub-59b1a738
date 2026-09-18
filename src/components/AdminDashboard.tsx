@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useAuth } from '@/hooks/useAuth';
+import { useTenant } from '@/hooks/useTenant';
 import { followUpBossApi, FUBDeal, FUBDealUser } from '@/lib/api/followUpBoss';
 import { useDealMetadata } from '@/hooks/useDealMetadata';
 import { fetchDealAttribution, resolveDealShares } from '@/lib/dealAttribution';
@@ -194,6 +195,7 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   const { isAdmin, isLoading: roleLoading } = useUserRole();
   const { user } = useAuth();
+  const { orgId } = useTenant();
   const [stats, setStats] = useState<CompanyStats | null>(null);
   const [fubStats, setFubStats] = useState<FUBStats | null>(null);
   const [fubAgents, setFubAgents] = useState<FUBAgentStats[]>([]);
@@ -553,6 +555,7 @@ const AdminDashboard = () => {
       const { data: productionGoals } = await supabase
         .from('production_goals')
         .select('*')
+        .eq('org_id', orgId)
         .eq('year', 2026);
 
 
@@ -560,9 +563,8 @@ const AdminDashboard = () => {
       const { data: companyGoalsData } = await supabase
         .from('company_goals')
         .select('*')
+        .eq('org_id', orgId)
         .eq('year', 2026)
-        .order('updated_at', { ascending: false })
-        .limit(1)
         .maybeSingle();
 
       // Parse quarterly goals from company_goals if available
