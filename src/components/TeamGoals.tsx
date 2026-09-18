@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useTenant } from '@/hooks/useTenant';
 import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -61,6 +62,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 
 const TeamGoals = () => {
   const { user } = useAuth();
+  const { orgId } = useTenant();
   const currentYear = 2026;
   
   const [goals, setGoals] = useState<CompanyGoal | null>(null);
@@ -88,15 +90,17 @@ const TeamGoals = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [orgId]);
 
   const fetchData = async () => {
+    if (!orgId) return;
     setLoading(true);
 
-    // Fetch company goals
+    // Fetch company goals for this tenant only
     const { data: goalsData } = await supabase
       .from('company_goals')
       .select('*')
+      .eq('org_id', orgId)
       .eq('year', currentYear)
       .maybeSingle();
 
@@ -228,6 +232,7 @@ const TeamGoals = () => {
     const { data: allAgentGoals } = await supabase
       .from('production_goals')
       .select('user_id, annual_units_goal, annual_gci_goal, annual_volume_goal')
+      .eq('org_id', orgId)
       .eq('year', currentYear);
 
     const { data: allProfiles } = await supabase
@@ -303,6 +308,7 @@ const TeamGoals = () => {
       annual_revenue_goal: formData.annual_revenue_goal,
       monthly_goals: JSON.parse(JSON.stringify({ monthly: monthlyGoals, quarterly: quarterlyDealsData })),
       created_by: user.id,
+      org_id: orgId,
     };
 
     if (goals?.id) {

@@ -555,11 +555,14 @@ const AdminDashboard = () => {
         .select('*')
         .eq('year', 2026);
 
+
       // Fetch company goals for quarterly seasonality
       const { data: companyGoalsData } = await supabase
         .from('company_goals')
         .select('*')
         .eq('year', 2026)
+        .order('updated_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       // Parse quarterly goals from company_goals if available
