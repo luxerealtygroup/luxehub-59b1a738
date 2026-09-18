@@ -702,10 +702,13 @@ const CompanyBusinessPlanning = () => {
                           ({Math.round(FALLOUT_RATE * 1000) / 10}% fallout · {usingDefaultConversion ? 'platform default' : 'company setting'})
                         </span>
                       </div>
+                      <div className="text-xs text-muted-foreground -mt-1">
+                        Measured over {CONVERSION_POPULATION} — the same population the pipeline below counts.
+                      </div>
                       {usingDefaultConversion && (
                         <div className="text-xs text-muted-foreground">
                           Your team has not set a conversion rate yet, so the platform default of {Math.round(DEFAULT_CONVERSION_RATE * 100)}% is used.
-                          {measuredConversionPct != null && ` Your measured rate this year is ${measuredConversionPct}%.`}
+                          {measuredConversionPct != null && ` Your own history this year suggests ${measuredConversionPct}% (${measuredConversionBasis}).`}
                           {isAdmin && ' Set your own under “Edit company goal”.'}
                         </div>
                       )}
