@@ -73,7 +73,10 @@ interface CompanyStats {
   totalDeals: number;
   closedDeals: number;
   activeDeals: number;
+  /** Weighted qualified pipeline: stages 2–9 only, leases at 0.33. */
   totalPipelineClients: number;
+  allPipelineClientRecords: number;
+  qualifiedPipelineClientRecords: number;
   totalPipelineGci: number;
   agents: AgentData[];
 }
@@ -690,8 +693,13 @@ const AdminDashboard = () => {
         };
       });
 
-      // Calculate total pipeline GCI
-      const totalPipelineGci = (pipelineClients || [])
+      // Qualified pipeline only — signed agreement or live deal (stages 2–9).
+      // Stage 1 (Lead) has no commitment and stage 10+ is finished, so neither
+      // counts as pipeline. Same definition as Company Business Planning.
+      const qualifiedPipelineClients = (pipelineClients || []).filter(
+        (c: any) => Number(c.stage) >= 2 && Number(c.stage) <= 9,
+      );
+      const totalPipelineGci = qualifiedPipelineClients
         .reduce((sum, p) => sum + Number(p.projected_gci || 0), 0);
 
       const companyStats: CompanyStats = {
@@ -702,11 +710,14 @@ const AdminDashboard = () => {
         closedDeals: (deals || []).filter(d => d.stage === 'closed').length,
         activeDeals: (deals || []).filter(d => ['lead', 'contacted', 'showing', 'offer', 'under_contract'].includes(d.stage)).length,
         totalPipelineClients: Math.round(
-          (pipelineClients || []).reduce(
-            (s: number, c: any) => s + (c.client_type === 'tenant' || c.client_type === 'landlord' ? 1 / 3 : 1),
+          qualifiedPipelineClients.reduce(
+            (s: number, c: any) =>
+              s + (c.client_type === 'tenant' || c.client_type === 'landlord' || c.deal_category === 'lease' ? 1 / 3 : 1),
             0,
           ) * 100,
         ) / 100,
+        allPipelineClientRecords: (pipelineClients || []).length,
+        qualifiedPipelineClientRecords: qualifiedPipelineClients.length,
         totalPipelineGci,
         agents: agentData
           .filter(a => a.full_name && a.full_name !== 'Unknown Agent') // Exclude unknown agents
@@ -953,7 +964,7 @@ const AdminDashboard = () => {
           <CardContent className="p-5">
             <div className="flex items-center gap-2 mb-2">
               <DollarSign className="h-5 w-5 text-green-500" />
-              <span className="text-sm text-muted-foreground">Sales GCI</span>
+              <span className="text-sm text-muted-foreground">Sales GCI — closed + pending + conditional</span>
             </div>
             <p className="text-xl md:text-2xl xl:text-xl font-bold tabular-nums break-words leading-tight text-foreground">
               {formatCurrency((fubStats?.saleClosedGci || 0) + (fubStats?.salePendingGci || 0) + (fubStats?.saleConditionalGci || 0))}
@@ -961,6 +972,7 @@ const AdminDashboard = () => {
             <p className="text-xs font-medium text-green-500 mt-1">
               {formatWeightedDeals((fubStats?.saleClosedUnits || 0) + (fubStats?.salePendingUnits || 0) + (fubStats?.saleConditionalUnits || 0))} units
             </p>
+            <p className="text-xs text-muted-foreground mt-1">Year to date · sales only, leases excluded</p>
             <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
               <p>{formatWeightedDeals(fubStats?.saleClosedUnits || 0)} units — {formatCurrency(fubStats?.saleClosedGci)} closed</p>
               <p>{formatWeightedDeals(fubStats?.salePendingUnits || 0)} units — {formatCurrency(fubStats?.salePendingGci)} pending</p>
@@ -973,7 +985,7 @@ const AdminDashboard = () => {
           <CardContent className="p-5">
             <div className="flex items-center gap-2 mb-2">
               <ArrowRightLeft className="h-5 w-5 text-teal-500" />
-              <span className="text-sm text-muted-foreground">Lease GCI</span>
+              <span className="text-sm text-muted-foreground">Lease GCI — closed + pending + conditional</span>
             </div>
             <p className="text-xl md:text-2xl xl:text-xl font-bold tabular-nums break-words leading-tight text-teal-500">
               {formatCurrency((fubStats?.leaseClosedGci || 0) + (fubStats?.leasePendingGci || 0) + (fubStats?.leaseConditionalGci || 0))}
@@ -981,6 +993,7 @@ const AdminDashboard = () => {
             <p className="text-xs font-medium text-teal-500 mt-1">
               {formatWeightedDeals((fubStats?.leaseClosedUnits || 0) + (fubStats?.leasePendingUnits || 0) + (fubStats?.leaseConditionalUnits || 0))} units
             </p>
+            <p className="text-xs text-muted-foreground mt-1">Year to date · leases only, at 0.33 units each</p>
             <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
               <p>{formatWeightedDeals(fubStats?.leaseClosedUnits || 0)} units — {formatCurrency(fubStats?.leaseClosedGci)} closed</p>
               <p>{formatWeightedDeals(fubStats?.leasePendingUnits || 0)} units — {formatCurrency(fubStats?.leasePendingGci)} pending</p>
@@ -993,7 +1006,7 @@ const AdminDashboard = () => {
           <CardContent className="p-5">
             <div className="flex items-center gap-2 mb-2">
               <Building2 className="h-5 w-5 text-blue-500" />
-              <span className="text-sm text-muted-foreground">Company Revenue</span>
+              <span className="text-sm text-muted-foreground">Company Revenue — earned + pending + conditional</span>
             </div>
             <p className="text-xl md:text-2xl xl:text-xl font-bold tabular-nums break-words leading-tight text-blue-500">
               {formatCurrency((fubStats?.companyRevenueEarned || 0) + (fubStats?.companyRevenuePending || 0) + (fubStats?.companyRevenueConditional || 0))}
@@ -1001,6 +1014,7 @@ const AdminDashboard = () => {
             <p className="text-xs font-medium text-blue-500 mt-1">
               {formatWeightedDeals((fubStats?.closedDeals || 0) + (fubStats?.pendingDeals || 0) + (fubStats?.conditionalDeals || 0))} total units
             </p>
+            <p className="text-xs text-muted-foreground mt-1">Year to date · sales and leases</p>
             <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
               <p>{formatCurrency(fubStats?.companyRevenueEarned)} earned</p>
               <p>{formatCurrency(fubStats?.companyRevenuePending)} pending</p>
@@ -1013,11 +1027,12 @@ const AdminDashboard = () => {
           <CardContent className="p-5">
             <div className="flex items-center gap-2 mb-2">
               <TrendingUp className="h-5 w-5 text-amber-500" />
-              <span className="text-sm text-muted-foreground">Sales Volume</span>
+              <span className="text-sm text-muted-foreground">Volume — closed + pending + conditional</span>
             </div>
             <p className="text-xl md:text-2xl xl:text-xl font-bold tabular-nums break-words leading-tight text-amber-500">
               {formatCurrency((fubStats?.closedVolume || 0) + (fubStats?.pendingVolume || 0) + (fubStats?.conditionalVolume || 0))}
             </p>
+            <p className="text-xs text-muted-foreground mt-1">Year to date · sales and leases</p>
             <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
               <p>{formatCurrency(fubStats?.closedVolume)} closed</p>
               <p>{formatCurrency(fubStats?.pendingVolume)} pending</p>
@@ -1030,11 +1045,14 @@ const AdminDashboard = () => {
           <CardContent className="p-5">
             <div className="flex items-center gap-2 mb-2">
               <Users className="h-5 w-5 text-purple-500" />
-              <span className="text-sm text-muted-foreground">Pipeline Clients</span>
+              <span className="text-sm text-muted-foreground">Qualified Pipeline (weighted)</span>
             </div>
             <p className="text-xl md:text-2xl xl:text-xl font-bold tabular-nums break-words leading-tight text-purple-500">{stats?.totalPipelineClients || 0}</p>
             <p className="text-xs text-muted-foreground mt-1 break-words">
-              {stats?.closedDeals || 0} closed / {stats?.activeDeals || 0} active
+              {stats?.qualifiedPipelineClientRecords || 0} of {stats?.allPipelineClientRecords || 0} client records — signed agreement or live deal, leases at 0.33
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5 break-words">
+              Excludes Leads and finished clients · same measure as Business Planning
             </p>
           </CardContent>
         </Card>
@@ -1082,11 +1100,13 @@ const AdminDashboard = () => {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center p-4 rounded-lg bg-purple-500/10">
                   <p className="text-2xl font-bold tabular-nums break-words leading-tight text-purple-500">{teamPipelineSummary.totalClients}</p>
-                  <p className="text-sm text-muted-foreground">Total Pipeline Clients</p>
+                  <p className="text-sm text-muted-foreground">Qualified Pipeline (weighted)</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Signed or live · Leads excluded</p>
                 </div>
                 <div className="text-center p-4 rounded-lg bg-gold/10">
                   <p className="text-2xl font-bold tabular-nums break-words leading-tight text-gold">{formatCurrency(teamPipelineSummary.totalProjectedGci)}</p>
                   <p className="text-sm text-muted-foreground">Projected Pipeline GCI</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Qualified clients, not yet closed</p>
                 </div>
                 <div className="text-center p-4 rounded-lg bg-green-500/10">
                   <p className="text-2xl font-bold tabular-nums break-words leading-tight text-green-500">{teamPipelineSummary.totalDealsGoal}</p>
