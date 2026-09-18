@@ -876,6 +876,94 @@ const CompanyBusinessPlanning = () => {
               </CardContent>
             </Card>
 
+            {/* Required Activity */}
+            <Card className="border-border">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Crosshair className="h-4 w-4 text-gold" /> Required Activity to Close the Gap
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {pipelineDeficit <= 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No pipeline deficit for {nextQuarterLabel} at today's rates, so no catch-up activity is required.
+                    Keep the current pace.
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-xs text-muted-foreground">
+                      Working backwards from the {formatWeightedDeals(pipelineDeficit)} deal units of pipeline still needed,
+                      through the team's own funnel. Per-agent figures divide by {activeAgentCount} producing
+                      agent{activeAgentCount === 1 ? '' : 's'} (operations staff and clients excluded);
+                      weekly figures divide by {weeksLeftInQuarter} whole week{weeksLeftInQuarter === 1 ? '' : 's'} left in
+                      Q{quarter}.
+                    </p>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Activity</TableHead>
+                            <TableHead className="text-right">Needed (rest of Q{quarter})</TableHead>
+                            <TableHead className="text-right">Per week</TableHead>
+                            <TableHead className="text-right">Per agent / week</TableHead>
+                            <TableHead className="text-right">Current pace (per week, last 8 wks)</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {activityRows.map(row => {
+                            if (row.needed == null) {
+                              return (
+                                <TableRow key={row.key}>
+                                  <TableCell className="font-medium">{row.label}</TableCell>
+                                  <TableCell colSpan={3} className="text-sm text-muted-foreground">
+                                    Cannot calculate — {row.rate?.measured.reason || 'not enough data for this rate'}
+                                  </TableCell>
+                                  <TableCell className="text-right">{formatNumber(row.pace)}</TableCell>
+                                </TableRow>
+                              );
+                            }
+                            const perWeek = Math.ceil(row.needed / weeksLeftInQuarter);
+                            const perAgentWeek = Math.round((perWeek / agentDivisor) * 10) / 10;
+                            const shortfall = Math.round((perWeek - row.pace) * 10) / 10;
+                            return (
+                              <TableRow key={row.key}>
+                                <TableCell className="font-medium">
+                                  {row.label}
+                                  {row.rateLabel && row.rate?.rate != null && (
+                                    <span className="block text-xs text-muted-foreground">
+                                      {row.rateLabel} {Math.round(row.rate.rate * 1000) / 10}%
+                                      {' · '}
+                                      {row.rate.source === 'company setting' ? 'company setting' : 'measured'}
+                                      {row.rate.source === 'measured' && row.rate.measured.unverified ? ' · unverified' : ''}
+                                    </span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-right">{formatNumber(row.needed)}</TableCell>
+                                <TableCell className="text-right">{formatNumber(perWeek)}</TableCell>
+                                <TableCell className="text-right">{perAgentWeek}</TableCell>
+                                <TableCell className="text-right">
+                                  {formatNumber(row.pace)}
+                                  <span className={`block text-xs ${shortfall > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                                    {shortfall > 0 ? `${formatNumber(shortfall)} short` : `${formatNumber(Math.abs(shortfall))} ahead`}
+                                  </span>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    {isAdmin && (
+                      <p className="text-xs text-muted-foreground">
+                        Set your own funnel assumptions under “Edit company goal”. Blank fields use the team's measured rate
+                        where it is reliable.
+                      </p>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Team Conversion Rates */}
             <Card className="border-border">
               <CardHeader className="pb-3">
@@ -886,20 +974,38 @@ const CompanyBusinessPlanning = () => {
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                   {[
-                    { label: 'Contact → Appt Set', val: pctFmt(conversionTotals.appointments_set, conversionTotals.contacts_made), sub: `${conversionTotals.appointments_set}/${conversionTotals.contacts_made}` },
-                    { label: 'Dials → Appt Set', val: pctFmt(conversionTotals.appointments_set, conversionTotals.dials), sub: `${conversionTotals.appointments_set}/${conversionTotals.dials}` },
-                    { label: 'Contact → Pipeline', val: pctFmt(conversionTotals.pipeline_additions, conversionTotals.contacts_made), sub: `${conversionTotals.pipeline_additions}/${conversionTotals.contacts_made}` },
-                    { label: 'Appt Held → Contract', val: pctFmt(conversionTotals.contracts_signed, conversionTotals.appointments_held), sub: `${conversionTotals.contracts_signed}/${conversionTotals.appointments_held}` },
-                    { label: 'Appt Held → Firm Deal', val: pctFmt(conversionTotals.firm_deals, conversionTotals.appointments_held), sub: `${conversionTotals.firm_deals}/${conversionTotals.appointments_held}` },
-                    { label: 'Dials → Pipeline', val: pctFmt(conversionTotals.pipeline_additions, conversionTotals.dials), sub: `${conversionTotals.pipeline_additions}/${conversionTotals.dials}` },
+                    { label: 'Contact → Appt Set', r: measuredRates.contactToApptSet },
+                    { label: 'Dials → Appt Set', r: measuredRates.dialsToApptSet },
+                    { label: 'Contact → Pipeline', r: measuredRates.contactToPipeline },
+                    { label: 'Appt Held → Contract', r: measuredRates.apptHeldToContract },
+                    { label: 'Appt Held → Firm Deal', r: measuredRates.apptHeldToFirm },
+                    { label: 'Dials → Pipeline', r: measuredRates.dialsToPipeline },
                   ].map(m => (
                     <div key={m.label} className="text-center p-3 rounded-lg border border-border bg-muted/20">
-                      <p className="text-xl font-bold text-foreground">{m.val}</p>
-                      <p className="text-xs text-muted-foreground leading-tight mt-1">{m.label}</p>
-                      <p className="text-xs text-muted-foreground">{m.sub}</p>
+                      {m.r.ok ? (
+                        <>
+                          <p className="text-xl font-bold text-foreground">{m.r.pct}%</p>
+                          <p className="text-xs text-muted-foreground leading-tight mt-1">{m.label}</p>
+                          <p className="text-xs text-muted-foreground">{formatNumber(m.r.numerator)}/{formatNumber(m.r.denominator)} over {m.r.pairedWeeks} weeks</p>
+                          {m.r.unverified && (
+                            <p className="text-xs text-amber-600 leading-tight mt-1">Unverified — {m.r.unverifiedReason}</p>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-sm font-semibold text-muted-foreground">Not enough data</p>
+                          <p className="text-xs text-muted-foreground leading-tight mt-1">{m.label}</p>
+                          <p className="text-xs text-muted-foreground leading-tight">{m.r.reason}</p>
+                        </>
+                      )}
                     </div>
                   ))}
                 </div>
+                <p className="text-xs text-muted-foreground mt-3">
+                  Each rate is measured only over weeks where both figures were recorded, needs at least {MIN_PAIRED_WEEKS} such
+                  weeks and {MIN_DENOMINATOR} on the bottom of the fraction, and is suppressed entirely if it exceeds 100% —
+                  which means the bottom figure is being under-logged rather than the rate being real.
+                </p>
               </CardContent>
             </Card>
 
