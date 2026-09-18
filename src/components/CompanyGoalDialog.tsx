@@ -14,7 +14,12 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   year: number;
   onSaved?: () => void;
+  /** Rate measured from the team's own history, offered as a suggestion only. */
+  suggestedConversionPct?: number | null;
 }
+
+/** Used when a team has not set its own conversion rate. */
+const DEFAULT_CONVERSION_PCT = 30;
 
 interface Quarters {
   q1: string;
