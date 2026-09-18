@@ -552,6 +552,88 @@ const CompanyBusinessPlanning = () => {
   const pipelineDeficit = Math.max(0, Math.round((requiredPipelineDeals - currentPipelineWeighted) * 100) / 100);
   const pipelineSurplus = Math.max(0, Math.round((currentPipelineWeighted - requiredPipelineDeals) * 100) / 100);
 
+  // ── Required activity: turn the pipeline gap into dials, conversations, appointments ──
+  // Every rate goes through the reliability check first; a failed rate is never consumed.
+  const measuredRates = useMemo(() => ({
+    contactToPipeline: computeFunnelRate(weeklyRows, 'pipeline_additions', 'contacts_made'),
+    dialsToContact: computeFunnelRate(weeklyRows, 'contacts_made', 'dials'),
+    contactToApptSet: computeFunnelRate(weeklyRows, 'appointments_set', 'contacts_made'),
+    apptHeldToContract: computeFunnelRate(weeklyRows, 'contracts_signed', 'appointments_held'),
+    apptHeldToFirm: computeFunnelRate(weeklyRows, 'firm_deals', 'appointments_held'),
+    dialsToApptSet: computeFunnelRate(weeklyRows, 'appointments_set', 'dials'),
+    dialsToPipeline: computeFunnelRate(weeklyRows, 'pipeline_additions', 'dials'),
+  }), [weeklyRows]);
+
+  /** An override wins over the measured rate; otherwise the measured rate if it is reliable. */
+  const resolveRate = (override: number | null | undefined, measured: FunnelRate) => {
+    if (override != null && override > 0) {
+      return { rate: override / 100, source: 'company setting' as const, measured };
+    }
+    if (measured.ok && measured.rate) {
+      return { rate: measured.rate, source: 'measured' as const, measured };
+    }
+    return { rate: null, source: 'unavailable' as const, measured };
+  };
+
+  const rContactToPipeline = resolveRate(funnelAssumptions.contact_to_pipeline_pct, measuredRates.contactToPipeline);
+  const rDialsToContact = resolveRate(funnelAssumptions.dials_to_contact_pct, measuredRates.dialsToContact);
+  const rContactToApptSet = resolveRate(funnelAssumptions.contact_to_appt_set_pct, measuredRates.contactToApptSet);
+
+  // Whole weeks left in the current quarter, floored at 1 so the maths stays usable.
+  const weeksLeftInQuarter = Math.max(1, Math.floor(
+    (new Date(QUARTER_END_DATE[quarter]).getTime() - Date.now()) / (7 * 24 * 60 * 60 * 1000),
+  ));
+  const agentDivisor = Math.max(1, activeAgentCount);
+
+  // Actual pace over the last 8 weeks, from the same weekly records.
+  const PACE_WEEKS = 8;
+  const paceRows = useMemo(() => {
+    const cutoff = format(addWeeks(new Date(), -PACE_WEEKS), 'yyyy-MM-dd');
+    return weeklyRows.filter(r => (r.week_start_date || '') >= cutoff);
+  }, [weeklyRows]);
+  const pacePerWeek = (metric: Parameters<typeof totalMetric>[1]) =>
+    Math.round((totalMetric(paceRows, metric) / PACE_WEEKS) * 10) / 10;
+
+  const pipelineUnitsNeeded = pipelineDeficit;
+  const conversationsNeeded = rContactToPipeline.rate ? Math.ceil(pipelineUnitsNeeded / rContactToPipeline.rate) : null;
+  const dialsNeeded = conversationsNeeded != null && rDialsToContact.rate ? Math.ceil(conversationsNeeded / rDialsToContact.rate) : null;
+  const apptsNeeded = conversationsNeeded != null && rContactToApptSet.rate ? Math.ceil(conversationsNeeded * rContactToApptSet.rate) : null;
+
+  const activityRows = [
+    {
+      key: 'pipeline',
+      label: 'Pipeline additions',
+      needed: pipelineUnitsNeeded > 0 ? Math.ceil(pipelineUnitsNeeded) : 0,
+      pace: pacePerWeek('pipeline_additions'),
+      rate: null as null | typeof rContactToPipeline,
+      rateLabel: null as string | null,
+    },
+    {
+      key: 'conversations',
+      label: 'Conversations',
+      needed: conversationsNeeded,
+      pace: pacePerWeek('contacts_made'),
+      rate: rContactToPipeline,
+      rateLabel: 'Conversation → pipeline',
+    },
+    {
+      key: 'dials',
+      label: 'Dials',
+      needed: dialsNeeded,
+      pace: pacePerWeek('dials'),
+      rate: rDialsToContact,
+      rateLabel: 'Dial → conversation',
+    },
+    {
+      key: 'appointments',
+      label: 'Appointments set',
+      needed: apptsNeeded,
+      pace: pacePerWeek('appointments_set'),
+      rate: rContactToApptSet,
+      rateLabel: 'Conversation → appointment set',
+    },
+  ];
+
   // Year-to-date totals (still used by other sections of the page)
   const companyProductionRaw = (metrics?.closedDeals || 0) + (metrics?.pendingDeals || 0);
 
