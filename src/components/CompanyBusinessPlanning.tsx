@@ -469,9 +469,15 @@ const CompanyBusinessPlanning = () => {
   const usingDefaultConversion = companyConversionRate == null;
   const conversionRate = companyConversionRate ?? DEFAULT_CONVERSION_RATE;
   const FALLOUT_RATE = 1 - conversionRate;
-  // Suggested rate measured from this team's own 4-1-1 history — never applied automatically.
-  const measuredConversionPct = conversionTotals.pipeline_additions > 0
-    ? Math.round((conversionTotals.firm_deals / conversionTotals.pipeline_additions) * 1000) / 10
+  // Suggested rate, measured over the SAME population the pipeline counts:
+  // of everyone entered into the pipeline this year, what share has closed.
+  // Approximate — some closings come from clients entered in an earlier year, and
+  // clients entered recently have not had time to close — so it is a suggestion only.
+  const measuredConversionPct = pipelineSummary.enteredThisYear > 0
+    ? Math.round(((metrics?.weightedClosed || 0) / pipelineSummary.enteredThisYear) * 1000) / 10
+    : null;
+  const measuredConversionBasis = pipelineSummary.enteredThisYear > 0
+    ? `${formatWeightedDeals(metrics?.weightedClosed || 0)} closed ÷ ${pipelineSummary.enteredThisYear} entered in ${CURRENT_YEAR}`
     : null;
   const quarter = CURRENT_QUARTER;
 
