@@ -1100,11 +1100,13 @@ const AdminDashboard = () => {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center p-4 rounded-lg bg-purple-500/10">
                   <p className="text-2xl font-bold tabular-nums break-words leading-tight text-purple-500">{teamPipelineSummary.totalClients}</p>
-                  <p className="text-sm text-muted-foreground">Total Pipeline Clients</p>
+                  <p className="text-sm text-muted-foreground">Qualified Pipeline (weighted)</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Signed or live · Leads excluded</p>
                 </div>
                 <div className="text-center p-4 rounded-lg bg-gold/10">
                   <p className="text-2xl font-bold tabular-nums break-words leading-tight text-gold">{formatCurrency(teamPipelineSummary.totalProjectedGci)}</p>
                   <p className="text-sm text-muted-foreground">Projected Pipeline GCI</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Qualified clients, not yet closed</p>
                 </div>
                 <div className="text-center p-4 rounded-lg bg-green-500/10">
                   <p className="text-2xl font-bold tabular-nums break-words leading-tight text-green-500">{teamPipelineSummary.totalDealsGoal}</p>
