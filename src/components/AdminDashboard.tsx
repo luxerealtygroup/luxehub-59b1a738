@@ -1041,11 +1041,14 @@ const AdminDashboard = () => {
           <CardContent className="p-5">
             <div className="flex items-center gap-2 mb-2">
               <Users className="h-5 w-5 text-purple-500" />
-              <span className="text-sm text-muted-foreground">Pipeline Clients</span>
+              <span className="text-sm text-muted-foreground">Qualified Pipeline (weighted)</span>
             </div>
             <p className="text-xl md:text-2xl xl:text-xl font-bold tabular-nums break-words leading-tight text-purple-500">{stats?.totalPipelineClients || 0}</p>
             <p className="text-xs text-muted-foreground mt-1 break-words">
-              {stats?.closedDeals || 0} closed / {stats?.activeDeals || 0} active
+              {stats?.qualifiedPipelineClientRecords || 0} of {stats?.allPipelineClientRecords || 0} client records — signed agreement or live deal, leases at 0.33
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5 break-words">
+              Excludes Leads and finished clients · same measure as Business Planning
             </p>
           </CardContent>
         </Card>

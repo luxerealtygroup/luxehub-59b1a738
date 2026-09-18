@@ -569,15 +569,15 @@ const CompanyBusinessPlanning = () => {
           {/* ── TAB 1: Company Performance Reality ── */}
           <TabsContent value="performance" className="space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <MetricCard label="YTD Closed (weighted)" value={formatWeightedDeals(metrics?.weightedClosed || 0)} icon={<Target className="h-4 w-4 text-green-500" />} sub={metrics?.leasesClosed ? `${metrics.closedDeals} raw · ${metrics.leasesClosed} leases` : `${metrics?.closedDeals || 0} raw`} />
-              <MetricCard label="YTD Gross GCI" value={formatCurrency(metrics?.grossGciClosed)} icon={<DollarSign className="h-4 w-4 text-green-500" />} />
-              <MetricCard label="Pending (weighted)" value={formatWeightedDeals(metrics?.weightedPending || 0)} icon={<TrendingUp className="h-4 w-4 text-gold" />} sub={metrics?.leasesPending ? `${metrics.pendingDeals} raw · ${metrics.leasesPending} leases` : `${metrics?.pendingDeals || 0} raw`} />
-              <MetricCard label="Active Listings" value={metrics?.activeListings || 0} icon={<Building2 className="h-4 w-4 text-blue-500" />} />
+              <MetricCard label="Closed units — YTD, sales + leases" value={formatWeightedDeals(metrics?.weightedClosed || 0)} icon={<Target className="h-4 w-4 text-green-500" />} sub={metrics?.leasesClosed ? `${metrics.closedDeals} raw · ${metrics.leasesClosed} leases (0.33 each)` : `${metrics?.closedDeals || 0} raw · no leases`} />
+              <MetricCard label="Gross GCI — closed only, YTD, sales + leases" value={formatCurrency(metrics?.grossGciClosed)} icon={<DollarSign className="h-4 w-4 text-green-500" />} sub="Excludes pending and conditional" />
+              <MetricCard label="Pending units — sales + leases" value={formatWeightedDeals(metrics?.weightedPending || 0)} icon={<TrendingUp className="h-4 w-4 text-gold" />} sub={metrics?.leasesPending ? `${metrics.pendingDeals} raw · ${metrics.leasesPending} leases (0.33 each)` : `${metrics?.pendingDeals || 0} raw · not yet closed`} />
+              <MetricCard label="Active Listings" value={metrics?.activeListings || 0} icon={<Building2 className="h-4 w-4 text-blue-500" />} sub="Open listings today" />
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              <MetricCard label="Live FUB deals (weighted)" value={formatWeightedDeals(metrics?.weightedPipeline || 0)} icon={<Users className="h-4 w-4 text-purple-500" />} sub={`${metrics?.totalPipeline || 0} open deals in Follow Up Boss`} />
-              <MetricCard label="Projected Year-End (weighted)" value={formatWeightedDeals(projectedClosings)} icon={<TrendingUp className="h-4 w-4 text-amber-500" />} sub={`Based on ${monthsElapsed} months pace`} />
-              <MetricCard label="Projected Year-End GCI" value={formatCurrency(projectedGci)} icon={<DollarSign className="h-4 w-4 text-amber-500" />} sub={`Based on ${monthsElapsed} months pace`} />
+              <MetricCard label="Live FUB deals (weighted)" value={formatWeightedDeals(metrics?.weightedPipeline || 0)} icon={<Users className="h-4 w-4 text-purple-500" />} sub={`${metrics?.totalPipeline || 0} open deals in Follow Up Boss · not the client pipeline below`} />
+              <MetricCard label="Projected Year-End units — sales + leases" value={formatWeightedDeals(projectedClosings)} icon={<TrendingUp className="h-4 w-4 text-amber-500" />} sub={`Based on ${monthsElapsed} months pace`} />
+              <MetricCard label="Projected Year-End GCI — closed basis" value={formatCurrency(projectedGci)} icon={<DollarSign className="h-4 w-4 text-amber-500" />} sub={`Based on ${monthsElapsed} months pace`} />
             </div>
 
             {/* Team Pipeline */}
