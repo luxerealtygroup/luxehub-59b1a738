@@ -34,7 +34,7 @@ const emptyQuarters: Quarters = { q1: '', q2: '', q3: '', q4: '' };
  * Owner/admin editor for the company (tenant) annual goal.
  * Always scoped to the signed-in person's own team.
  */
-const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved }: Props) => {
+const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved, suggestedConversionPct }: Props) => {
   const { user } = useAuth();
   const { orgId } = useTenant();
   const [loading, setLoading] = useState(false);
@@ -44,6 +44,7 @@ const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved }: Props) => {
   const [annualGci, setAnnualGci] = useState('');
   const [annualVolume, setAnnualVolume] = useState('');
   const [annualRevenue, setAnnualRevenue] = useState('');
+  const [conversionPct, setConversionPct] = useState('');
   const [quarters, setQuarters] = useState<Quarters>(emptyQuarters);
 
   useEffect(() => {
