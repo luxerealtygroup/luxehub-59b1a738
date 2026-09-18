@@ -535,6 +535,7 @@ const CompanyBusinessPlanning = () => {
           onOpenChange={setGoalDialogOpen}
           year={CURRENT_YEAR}
           onSaved={fetchCompanyGoals}
+          suggestedConversionPct={measuredConversionPct}
         />
         {!hasCompanyGoal && (
           <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
