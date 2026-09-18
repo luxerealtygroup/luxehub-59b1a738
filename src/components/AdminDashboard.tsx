@@ -247,7 +247,7 @@ const AdminDashboard = () => {
   }, [roleLoading, isAdmin]);
 
   useEffect(() => {
-    if (roleLoading || !isAdmin) return;
+    if (roleLoading || !isAdmin || !orgId) return;
 
     const fetchCompanyData = async () => {
       setLoading(true);
@@ -765,7 +765,7 @@ const AdminDashboard = () => {
     }, 3 * 60 * 1000);
 
     return () => clearInterval(refreshInterval);
-  }, [isAdmin, roleLoading, dealMetadata, attributionVersion]);
+  }, [isAdmin, roleLoading, dealMetadata, attributionVersion, orgId]);
 
   if (roleLoading || loading) {
     return (
