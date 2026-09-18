@@ -565,35 +565,39 @@ const CompanyBusinessPlanning = () => {
                 ) : (
                   <>
                     <div className="rounded-lg border border-border bg-card p-4 space-y-2 font-mono text-sm">
-                      {/* Q1 Goal */}
+                      {/* Goal for every elapsed quarter */}
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Q1 Goal</span>
-                        <span className="font-bold text-foreground">{q1Goal} deal units</span>
+                        <span className="text-muted-foreground">Goal {elapsedLabel}</span>
+                        <span className="font-bold text-foreground">{formatWeightedDeals(elapsedGoal)} deal units</span>
                       </div>
-                      {/* Actual Closed + Pending (weighted) */}
+                      {/* Actuals for that SAME period */}
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Actual Closed + Pending (weighted)</span>
-                        <span className="font-bold text-foreground">{formatWeightedDeals(companyProductionWeighted)} deal units</span>
+                        <span className="text-muted-foreground">Closed + Pending {elapsedLabel} (weighted)</span>
+                        <span className="font-bold text-foreground">{formatWeightedDeals(periodProductionWeighted)} deal units</span>
                       </div>
-                      {companyProductionRaw !== Math.round(companyProductionWeighted) && (
-                        <div className="flex items-center justify-between text-muted-foreground text-xs">
-                          <span>Raw: {companyProductionRaw} deals ({metrics?.leasesClosed || 0} leases closed, {metrics?.leasesPending || 0} leases pending)</span>
-                        </div>
-                      )}
-                      {/* Carryover (only show for Q2+) */}
-                      {quarter >= 2 && (
-                        <div className="flex items-center justify-between text-amber-600">
-                          <span>Carryover (Q1 Gap)</span>
-                          <span className="font-bold">{q1Carryover > 0 ? `+${formatWeightedDeals(q1Carryover)}` : '0'} deal units</span>
-                        </div>
-                      )}
-                      {/* Q2 Goal */}
-                      {quarter >= 2 && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground">Q2 Goal</span>
-                          <span className="font-bold text-foreground">{q2Goal} deal units</span>
-                        </div>
-                      )}
+                      <div className="flex items-center justify-between text-muted-foreground text-xs">
+                        <span>
+                          Raw: {periodProductionRaw} deals ({periodActuals.rawClosed} closed, {periodActuals.rawPending} pending by {QUARTER_RANGE_LABEL[quarter].split('–')[1]} 30/31)
+                        </span>
+                      </div>
+                      {/* Cumulative carryover — may be a deficit or a surplus */}
+                      <div className={`flex items-center justify-between ${carryoverDeficit > 0 ? 'text-amber-600' : 'text-green-600'}`}>
+                        <span>Carryover ({elapsedLabel} gap)</span>
+                        <span className="font-bold">
+                          {carryoverDeficit > 0
+                            ? `+${formatWeightedDeals(carryoverDeficit)}`
+                            : carryoverSurplus > 0
+                              ? `−${formatWeightedDeals(carryoverSurplus)} (ahead)`
+                              : '0'} deal units
+                        </span>
+                      </div>
+                      {/* Next quarter goal */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Goal {nextQuarterLabel}</span>
+                        <span className="font-bold text-foreground">
+                          {nextQuarterIsNextYear ? 'not set' : `${formatWeightedDeals(nextQuarterGoal)} deal units`}
+                        </span>
+                      </div>
                       <Separator />
                       {/* Total Closings Needed */}
                       <div className="flex items-center justify-between font-bold">
