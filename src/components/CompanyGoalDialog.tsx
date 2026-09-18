@@ -213,6 +213,43 @@ const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved, suggestedConvers
                 ))}
               </div>
             </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="cg-conversion">Conversion rate (%)</Label>
+              <Input
+                id="cg-conversion"
+                type="number"
+                min={1}
+                max={100}
+                placeholder={String(DEFAULT_CONVERSION_PCT)}
+                value={conversionPct}
+                onChange={(e) => setConversionPct(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                {conversionEntered && conversionValid
+                  ? `Fallout ${Math.round((100 - conversionValue) * 10) / 10}%. Used to work out how much pipeline your goal needs.`
+                  : `Leave blank to use the platform default of ${DEFAULT_CONVERSION_PCT}% (${100 - DEFAULT_CONVERSION_PCT}% fallout).`}
+              </p>
+              {!conversionValid && (
+                <p className="text-xs text-destructive">Enter a number between 1 and 100.</p>
+              )}
+              {suggestedConversionPct != null && suggestedConversionPct > 0 && (
+                <div className="flex items-center gap-2 pt-1">
+                  <p className="text-xs text-muted-foreground">
+                    Your team’s measured rate this year: {suggestedConversionPct}%
+                  </p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-6 px-2 text-xs"
+                    onClick={() => setConversionPct(String(suggestedConversionPct))}
+                  >
+                    Use this
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
