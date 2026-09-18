@@ -113,6 +113,61 @@ const Goals = () => {
 
   const currentYear = 2026;
 
+  /**
+   * Store the monthly breakdown and planning assumptions in the database,
+   * against the agent whose goals are on screen (never the admin viewing them).
+   */
+  const persistPlan = async (opts: {
+    monthlyPlan?: MonthlyGoal[];
+    assumptions?: Record<string, number>;
+    rowId?: string | null;
+    silent?: boolean;
+  }) => {
+    if (!user || !targetUserId) return;
+    const rowId = opts.rowId !== undefined ? opts.rowId : planRowId;
+    const payload: Record<string, unknown> = {};
+    if (opts.monthlyPlan) payload.monthly_plan = JSON.parse(JSON.stringify(opts.monthlyPlan));
+    if (opts.assumptions) payload.plan_assumptions = JSON.parse(JSON.stringify(opts.assumptions));
+    if (Object.keys(payload).length === 0) return;
+
+    let error = null;
+    if (rowId) {
+      ({ error } = await supabase.from('production_goals').update(payload).eq('id', rowId));
+    } else {
+      const { data, error: insertError } = await supabase
+        .from('production_goals')
+        .insert({ user_id: targetUserId, year: currentYear, ...payload })
+        .select('id')
+        .maybeSingle();
+      error = insertError;
+      if (data?.id) setPlanRowId(data.id);
+    }
+
+    if (error) {
+      console.error('Failed to save goal plan', error);
+      if (!opts.silent) toast({ title: 'Could not save goals', variant: 'destructive' });
+      return;
+    }
+
+    if (editingOnBehalf && !opts.silent) {
+      await logAgentGoalChanges({
+        agentUserId: targetUserId,
+        changedBy: user.id,
+        year: currentYear,
+        changes: [
+          ...(opts.monthlyPlan ? [{ field: 'monthly_plan' as const, oldValue: 'previous', newValue: 'updated' }] : []),
+          ...(opts.assumptions ? [{ field: 'plan_assumptions' as const, oldValue: 'previous', newValue: 'updated' }] : []),
+        ],
+      });
+      loadAudit();
+    }
+  };
+
+  const loadAudit = async () => {
+    if (!queryUserId) return;
+    setAuditEntries(await fetchAgentGoalAudit(queryUserId, currentYear));
+  };
+
   const fetchAnnualGoals = async () => {
     if (!queryUserId) return;
     
@@ -231,6 +286,7 @@ const Goals = () => {
 
   useEffect(() => {
     fetchAnnualGoals();
+    loadAudit();
   }, [queryUserId, hasFUB, effectiveFubUserId]);
 
   // Loading is done when both goals + metrics are loaded
@@ -239,7 +295,7 @@ const Goals = () => {
   }, [metricsLoading]);
 
   const handleSaveGoals = async () => {
-    if (!user) return;
+    if (!user || !targetUserId) return;
     
     const dealsTarget = parseFloat(formData.deals_goal) || 0;
     const gciTarget = parseFloat(formData.gci_goal) || 0;
@@ -248,7 +304,7 @@ const Goals = () => {
     const { data: existingGoals } = await supabase
       .from('agent_goals')
       .select('id, goal_type')
-      .eq('user_id', user.id)
+      .eq('user_id', targetUserId)
       .eq('period', 'yearly')
       .in('goal_type', ['deals_closed', 'revenue']);
     
@@ -263,7 +319,7 @@ const Goals = () => {
         .eq('id', existingDealsGoal.id);
     } else {
       await supabase.from('agent_goals').insert({
-        user_id: user.id,
+        user_id: targetUserId,
         goal_type: 'deals_closed',
         target_value: dealsTarget,
         current_value: actualMetrics.deals_closed,
@@ -280,7 +336,7 @@ const Goals = () => {
         .eq('id', existingGciGoal.id);
     } else {
       await supabase.from('agent_goals').insert({
-        user_id: user.id,
+        user_id: targetUserId,
         goal_type: 'revenue',
         target_value: gciTarget,
         current_value: actualMetrics.gci_earned,
@@ -294,14 +350,27 @@ const Goals = () => {
     const splitPct = parseFloat(formData.split_percent) || 70;
     const falloutRate = parseFloat(formData.fallout_rate) || 50;
     
-    // Save calculation values to localStorage
-    if (user) {
-      localStorage.setItem(`goalCalcValues_${user.id}_${currentYear}`, JSON.stringify({
+    // Save planning assumptions to the database (scoped to the agent being edited)
+    await persistPlan({
+      assumptions: {
         avg_sale_price: avgPrice,
         commission_rate: commRate,
         split_percent: splitPct,
         fallout_rate: falloutRate
-      }));
+      },
+    });
+
+    if (editingOnBehalf) {
+      await logAgentGoalChanges({
+        agentUserId: targetUserId,
+        changedBy: user.id,
+        year: currentYear,
+        changes: [
+          { field: 'annual_deals_goal', oldValue: annualGoals.deals_goal, newValue: dealsTarget },
+          { field: 'annual_gci_goal', oldValue: annualGoals.gci_goal, newValue: gciTarget },
+        ],
+      });
+      loadAudit();
     }
     
     setAnnualGoals({ 
@@ -359,17 +428,13 @@ const Goals = () => {
     const calculatedGci = calculateGciFromDeals(deals);
     updated[monthIndex] = { ...updated[monthIndex], deals, gci: calculatedGci };
     setMonthlyGoals(updated);
-    if (user) {
-      localStorage.setItem(`monthlyGoals_${user.id}_${currentYear}`, JSON.stringify(updated));
-    }
+    persistPlan({ monthlyPlan: updated });
   };
 
   const resetToEvenDistribution = () => {
     const newGoals = createDefaultMonthlyGoals(annualGoals.deals_goal, annualGoals.gci_goal);
     setMonthlyGoals(newGoals);
-    if (user) {
-      localStorage.setItem(`monthlyGoals_${user.id}_${currentYear}`, JSON.stringify(newGoals));
-    }
+    persistPlan({ monthlyPlan: newGoals });
     toast({ title: 'Goals reset to even distribution' });
   };
 
