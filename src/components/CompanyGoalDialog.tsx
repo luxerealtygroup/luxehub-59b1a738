@@ -136,6 +136,7 @@ const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved, suggestedConvers
       annual_volume_goal: num(annualVolume),
       annual_revenue_goal: num(annualRevenue),
       monthly_goals: JSON.parse(JSON.stringify(quarterly ? { monthly, quarterly } : { monthly })),
+      conversion_rate: conversionEntered ? Math.round((conversionValue / 100) * 10000) / 10000 : null,
       created_by: user.id,
     };
 
