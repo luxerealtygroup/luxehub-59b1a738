@@ -91,8 +91,17 @@ const pctFmt = (num: number, den: number): string => {
   return ((num / den) * 100).toFixed(1) + '%';
 };
 
-const CURRENT_YEAR = 2026;
+const CURRENT_YEAR = new Date().getFullYear();
 const CURRENT_QUARTER = Math.ceil((new Date().getMonth() + 1) / 3);
+const QUARTER_END_DATE: Record<number, string> = {
+  1: `${CURRENT_YEAR}-03-31`,
+  2: `${CURRENT_YEAR}-06-30`,
+  3: `${CURRENT_YEAR}-09-30`,
+  4: `${CURRENT_YEAR}-12-31`,
+};
+const QUARTER_RANGE_LABEL: Record<number, string> = {
+  1: 'Jan–Mar', 2: 'Apr–Jun', 3: 'Jul–Sep', 4: 'Oct–Dec',
+};
 
 // ── Component ────────────────────────────────────────────────────────────
 const CompanyBusinessPlanning = () => {
@@ -110,7 +119,8 @@ const CompanyBusinessPlanning = () => {
   const [companyDealGoal, setCompanyDealGoal] = useState(0);
   const [companyGciGoal, setCompanyGciGoal] = useState(0);
   const [quarterlyDealGoals, setQuarterlyDealGoals] = useState<{ q1: number; q2: number; q3: number; q4: number }>({ q1: 0, q2: 0, q3: 0, q4: 0 });
-  const [q1ClosedDeals, setQ1ClosedDeals] = useState(0);
+  // Actuals scoped to the elapsed period (Jan 1 → end of the CURRENT quarter)
+  const [periodActuals, setPeriodActuals] = useState<{ closed: number; pending: number; rawClosed: number; rawPending: number }>({ closed: 0, pending: 0, rawClosed: 0, rawPending: 0 });
   const [pipelineSummary, setPipelineSummary] = useState<PipelineSummary>({ totalClients: 0, buyers: 0, sellers: 0, projectedGci: 0, weightedTotal: 0, leaseCount: 0 });
   const [conversionTotals, setConversionTotals] = useState<ConversionTotals>({ contacts_made: 0, dials: 0, appointments_set: 0, appointments_held: 0, pipeline_additions: 0, contracts_signed: 0, firm_deals: 0 });
   const [recruiting, setRecruiting] = useState<RecruitingData>({
@@ -178,13 +188,23 @@ const CompanyBusinessPlanning = () => {
         })).filter(d => d.date)
       );
 
-      // Count Q1 closed deals for carryover calculation (weighted)
-      const q1End = `${CURRENT_YEAR}-03-31`;
-      const q1Closed = closedDeals.filter(d => {
+      // Actuals for the elapsed period only: Jan 1 → end of the CURRENT quarter.
+      // Both closed and pending are date-filtered so the carryover gap compares
+      // like-for-like against the goals for those same quarters.
+      const periodStart = `${CURRENT_YEAR}-01-01`;
+      const periodEnd = QUARTER_END_DATE[CURRENT_QUARTER];
+      const inPeriod = (d: FUBDeal) => {
         const cd = (d as any).closedDate || (d as any).closeDate || d.projectedCloseDate || '';
-        return cd && cd <= q1End;
+        return !!cd && cd >= periodStart && cd <= periodEnd;
+      };
+      const periodClosed = closedDeals.filter(inPeriod);
+      const periodPending = pendingDeals.filter(inPeriod);
+      setPeriodActuals({
+        closed: Math.round(sumWeightedDeals(periodClosed, dealMetadataMap) * 100) / 100,
+        pending: Math.round(sumWeightedDeals(periodPending, dealMetadataMap) * 100) / 100,
+        rawClosed: periodClosed.length,
+        rawPending: periodPending.length,
       });
-      setQ1ClosedDeals(Math.round(sumWeightedDeals(q1Closed, dealMetadataMap) * 100) / 100);
 
       setMetrics({
         closedDeals: closedDeals.length,
@@ -390,24 +410,46 @@ const CompanyBusinessPlanning = () => {
   const conversionRate = 1 - FALLOUT_RATE; // 0.30
   const quarter = CURRENT_QUARTER;
 
-  // Step 1: Q1 goal (in deal units)
-  const q1Goal = quarterlyDealGoals.q1;
-  // Step 2: Company production WEIGHTED (closed + pending)
-  const companyProductionWeighted = weightedClosedTotal + weightedPendingTotal;
-  const companyProductionRaw = (metrics?.closedDeals || 0) + (metrics?.pendingDeals || 0);
-  // Step 3: Carryover from Q1 (weighted)
-  const q1Carryover = quarter >= 2 ? Math.max(0, Math.round((q1Goal - companyProductionWeighted) * 100) / 100) : 0;
-  // Step 4: Q2 goal
-  const q2Goal = quarterlyDealGoals.q2;
-  // Step 5: Total closings required
-  const currentQGoal = quarter === 1 ? q1Goal : q2Goal;
-  const totalClosingsNeeded = quarter === 1 ? q1Goal : Math.round((q1Carryover + q2Goal) * 100) / 100;
-  // Step 6-7: Required pipeline (in weighted units)
+  // ── Period-correct model ──
+  // Elapsed period = Q1 … current quarter. Goals and actuals both cover that window.
+  const elapsedQuarters = Array.from({ length: quarter }, (_, i) => i + 1);
+  const elapsedGoal = Math.round(
+    elapsedQuarters.reduce((sum, q) => sum + (quarterlyDealGoals[`q${q}` as 'q1' | 'q2' | 'q3' | 'q4'] || 0), 0) * 100,
+  ) / 100;
+  const elapsedLabel = quarter === 1 ? 'Q1 (Jan–Mar)' : `Q1–Q${quarter} (Jan–${QUARTER_RANGE_LABEL[quarter].split('–')[1]})`;
+  const elapsedShort = quarter === 1 ? 'Q1' : `Q1–Q${quarter}`;
+  const periodEndLabel = QUARTER_RANGE_LABEL[quarter].split('–')[1];
+
+  // Actuals for that same window (weighted): closed + pending expected to close by quarter end
+  const periodProductionWeighted = Math.round((periodActuals.closed + periodActuals.pending) * 100) / 100;
+  const periodProductionRaw = periodActuals.rawClosed + periodActuals.rawPending;
+
+  // Cumulative carryover gap — positive = behind, negative = ahead
+  const carryoverGap = Math.round((elapsedGoal - periodProductionWeighted) * 100) / 100;
+  const carryoverDeficit = Math.max(0, carryoverGap);
+  const carryoverSurplus = Math.max(0, -carryoverGap);
+
+  // Next quarter to plan for
+  const nextQuarter = quarter < 4 ? quarter + 1 : 1;
+  const nextQuarterIsNextYear = quarter === 4;
+  const nextQuarterGoal = nextQuarterIsNextYear
+    ? 0
+    : quarterlyDealGoals[`q${nextQuarter}` as 'q1' | 'q2' | 'q3' | 'q4'] || 0;
+  const nextQuarterLabel = nextQuarterIsNextYear
+    ? `Q1 ${CURRENT_YEAR + 1}`
+    : `Q${nextQuarter} (${QUARTER_RANGE_LABEL[nextQuarter]})`;
+
+  const currentQGoal = quarterlyDealGoals[`q${quarter}` as 'q1' | 'q2' | 'q3' | 'q4'] || 0;
+  const totalClosingsNeeded = Math.round((nextQuarterGoal + carryoverDeficit) * 100) / 100;
+
+  // Required pipeline (weighted units) and deficit/surplus
   const requiredPipelineDeals = totalClosingsNeeded > 0 ? Math.ceil(totalClosingsNeeded / conversionRate) : 0;
-  // Step 8-9: Deficit or surplus (compare weighted pipeline)
   const currentPipelineWeighted = pipelineSummary.weightedTotal;
   const pipelineDeficit = Math.max(0, Math.round((requiredPipelineDeals - currentPipelineWeighted) * 100) / 100);
   const pipelineSurplus = Math.max(0, Math.round((currentPipelineWeighted - requiredPipelineDeals) * 100) / 100);
+
+  // Year-to-date totals (still used by other sections of the page)
+  const companyProductionRaw = (metrics?.closedDeals || 0) + (metrics?.pendingDeals || 0);
 
   // Keep old calc for other sections
   const closedAndPending = companyProductionRaw;
@@ -525,39 +567,43 @@ const CompanyBusinessPlanning = () => {
                 ) : (
                   <>
                     <div className="rounded-lg border border-border bg-card p-4 space-y-2 font-mono text-sm">
-                      {/* Q1 Goal */}
+                      {/* Goal for every elapsed quarter */}
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Q1 Goal</span>
-                        <span className="font-bold text-foreground">{q1Goal} deal units</span>
+                        <span className="text-muted-foreground">Goal {elapsedLabel}</span>
+                        <span className="font-bold text-foreground">{formatWeightedDeals(elapsedGoal)} deal units</span>
                       </div>
-                      {/* Actual Closed + Pending (weighted) */}
+                      {/* Actuals for that SAME period */}
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Actual Closed + Pending (weighted)</span>
-                        <span className="font-bold text-foreground">{formatWeightedDeals(companyProductionWeighted)} deal units</span>
+                        <span className="text-muted-foreground">Closed + Pending {elapsedLabel} (weighted)</span>
+                        <span className="font-bold text-foreground">{formatWeightedDeals(periodProductionWeighted)} deal units</span>
                       </div>
-                      {companyProductionRaw !== Math.round(companyProductionWeighted) && (
-                        <div className="flex items-center justify-between text-muted-foreground text-xs">
-                          <span>Raw: {companyProductionRaw} deals ({metrics?.leasesClosed || 0} leases closed, {metrics?.leasesPending || 0} leases pending)</span>
-                        </div>
-                      )}
-                      {/* Carryover (only show for Q2+) */}
-                      {quarter >= 2 && (
-                        <div className="flex items-center justify-between text-amber-600">
-                          <span>Carryover (Q1 Gap)</span>
-                          <span className="font-bold">{q1Carryover > 0 ? `+${formatWeightedDeals(q1Carryover)}` : '0'} deal units</span>
-                        </div>
-                      )}
-                      {/* Q2 Goal */}
-                      {quarter >= 2 && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground">Q2 Goal</span>
-                          <span className="font-bold text-foreground">{q2Goal} deal units</span>
-                        </div>
-                      )}
+                      <div className="flex items-center justify-between text-muted-foreground text-xs">
+                        <span>
+                          Raw: {periodProductionRaw} deals ({periodActuals.rawClosed} closed, {periodActuals.rawPending} pending due by end of {periodEndLabel})
+                        </span>
+                      </div>
+                      {/* Cumulative carryover — may be a deficit or a surplus */}
+                      <div className={`flex items-center justify-between ${carryoverDeficit > 0 ? 'text-amber-600' : 'text-green-600'}`}>
+                        <span>Carryover ({elapsedShort} gap)</span>
+                        <span className="font-bold">
+                          {carryoverDeficit > 0
+                            ? `+${formatWeightedDeals(carryoverDeficit)}`
+                            : carryoverSurplus > 0
+                              ? `−${formatWeightedDeals(carryoverSurplus)} (ahead)`
+                              : '0'} deal units
+                        </span>
+                      </div>
+                      {/* Next quarter goal */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Goal {nextQuarterLabel}</span>
+                        <span className="font-bold text-foreground">
+                          {nextQuarterIsNextYear ? 'not set' : `${formatWeightedDeals(nextQuarterGoal)} deal units`}
+                        </span>
+                      </div>
                       <Separator />
                       {/* Total Closings Needed */}
                       <div className="flex items-center justify-between font-bold">
-                        <span className="text-foreground">Total Closings Needed</span>
+                        <span className="text-foreground">Total Closings Needed ({nextQuarterLabel}{carryoverDeficit > 0 ? ' + carryover' : ''})</span>
                         <span className="text-foreground">{formatWeightedDeals(totalClosingsNeeded)} deal units</span>
                       </div>
                       {/* Conversion Rate */}
@@ -568,12 +614,12 @@ const CompanyBusinessPlanning = () => {
                       <Separator />
                       {/* Required Pipeline */}
                       <div className="flex items-center justify-between font-bold">
-                        <span className="text-foreground">Required Pipeline</span>
+                        <span className="text-foreground">Required Pipeline (for {nextQuarterLabel})</span>
                         <span className="text-foreground">{requiredPipelineDeals} deal units</span>
                       </div>
                       {/* Current Pipeline (weighted) */}
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Current Pipeline (weighted)</span>
+                        <span className="text-muted-foreground">Current Pipeline today (weighted)</span>
                         <span className="font-bold text-foreground">{formatWeightedDeals(currentPipelineWeighted)} deal units</span>
                       </div>
                       {pipelineSummary.leaseCount > 0 && (
