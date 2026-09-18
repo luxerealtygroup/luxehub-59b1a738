@@ -606,22 +606,24 @@ const CompanyBusinessPlanning = () => {
               <CardContent className="space-y-3">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <MetricCard
-                    label="Qualified pipeline (weighted)"
+                    label={`Pipeline (weighted) — everyone entered ${CURRENT_YEAR}`}
                     value={formatWeightedDeals(pipelineSummary.qualifiedWeighted)}
                     icon={<Users className="h-4 w-4 text-blue-500" />}
                     sub={pipelineSummary.qualifiedLeases > 0
-                      ? `${pipelineSummary.qualifiedClients} qualified · ${pipelineSummary.qualifiedLeases} leases`
-                      : `${pipelineSummary.qualifiedClients} qualified`}
+                      ? `${pipelineSummary.qualifiedClients} live records · ${pipelineSummary.qualifiedLeases} leases`
+                      : `${pipelineSummary.qualifiedClients} live records`}
                   />
-                  <MetricCard label="Buyers (qualified)" value={pipelineSummary.qualifiedBuyers} icon={<Users className="h-4 w-4 text-emerald-500" />} />
-                  <MetricCard label="Sellers (qualified)" value={pipelineSummary.qualifiedSellers} icon={<Building2 className="h-4 w-4 text-amber-500" />} />
-                  <MetricCard label="Projected GCI (qualified)" value={formatCurrency(pipelineSummary.qualifiedGci)} icon={<DollarSign className="h-4 w-4 text-gold" />} />
+                  <MetricCard label="Buyers in pipeline" value={pipelineSummary.qualifiedBuyers} icon={<Users className="h-4 w-4 text-emerald-500" />} />
+                  <MetricCard label="Sellers in pipeline" value={pipelineSummary.qualifiedSellers} icon={<Building2 className="h-4 w-4 text-amber-500" />} />
+                  <MetricCard label="Projected GCI — pipeline, not yet closed" value={formatCurrency(pipelineSummary.qualifiedGci)} icon={<DollarSign className="h-4 w-4 text-gold" />} />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Qualified = signed agreement or live deal (Active on MLS, Exclusive Listing, BRA Signed, Appointment Held/Set,
-                  Showing, Offer, Pending). {pipelineSummary.qualifiedClients} of {pipelineSummary.totalClients} client records
-                  {pipelineSummary.leadCount > 0 ? ` · ${pipelineSummary.leadCount} leads excluded` : ''}
-                  {pipelineSummary.finishedCount > 0 ? ` · ${pipelineSummary.finishedCount} finished excluded` : ''}.
+                  Pipeline = everyone entered into the pipeline in {CURRENT_YEAR}, Leads included — the conversion rate is measured
+                  over that same population, so lead fallout is already priced into the rate.
+                  {' '}{pipelineSummary.qualifiedClients} of {pipelineSummary.enteredThisYear} records entered this year
+                  {pipelineSummary.leadCount > 0 ? ` · includes ${pipelineSummary.leadCount} leads` : ''}
+                  {pipelineSummary.finishedCount > 0 ? ` · ${pipelineSummary.finishedCount} finished (closed or dead) excluded` : ''}
+                  {pipelineSummary.priorYearCount > 0 ? ` · ${pipelineSummary.priorYearCount} entered before ${CURRENT_YEAR} excluded` : ''}.
                   Leases count as 0.33 deal units; no stage-probability weighting is applied.
                 </p>
               </CardContent>
