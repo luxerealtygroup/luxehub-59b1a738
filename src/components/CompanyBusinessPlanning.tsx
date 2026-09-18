@@ -394,16 +394,21 @@ const CompanyBusinessPlanning = () => {
 
   // ── 6. Team conversion rates ──
   const fetchConversions = async () => {
+    if (!orgId) return;
     const fromStr = format(startOfYear(new Date()), 'yyyy-MM-dd');
     const toStr = format(new Date(), 'yyyy-MM-dd');
     const { data } = await supabase
       .from('weekly_411')
-      .select('contacts_made, dials, appointments_set, appointments_held, pipeline_additions, contracts_signed, firm_deals, calls_actual, appointments_actual, contracts_actual')
+      .select('week_start_date, user_id, contacts_made, dials, appointments_set, appointments_held, pipeline_additions, contracts_signed, firm_deals, calls_actual, appointments_actual, contracts_actual')
+      .eq('org_id', orgId)
       .gte('week_start_date', fromStr)
       .lte('week_start_date', toStr);
 
+    const rows = (data || []) as Weekly411Raw[];
+    setWeeklyRows(rows);
+
     const totals: ConversionTotals = { contacts_made: 0, dials: 0, appointments_set: 0, appointments_held: 0, pipeline_additions: 0, contracts_signed: 0, firm_deals: 0 };
-    (data || []).forEach(row => {
+    rows.forEach(row => {
       const n = normalize411Row(row);
       totals.contacts_made += n.contacts_made;
       totals.dials += n.dials;
@@ -414,6 +419,17 @@ const CompanyBusinessPlanning = () => {
       totals.firm_deals += n.firm_deals;
     });
     setConversionTotals(totals);
+  };
+
+  // ── 6b. Active producing agents (operations, clients and admins excluded) ──
+  const fetchActiveAgents = async () => {
+    if (!orgId) return;
+    const { count } = await supabase
+      .from('profiles')
+      .select('id', { count: 'exact', head: true })
+      .eq('org_id', orgId)
+      .eq('member_type', 'agent');
+    setActiveAgentCount(count || 0);
   };
 
   const saveRecruiting = async () => {
