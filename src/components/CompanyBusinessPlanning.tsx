@@ -158,6 +158,11 @@ const CompanyBusinessPlanning = () => {
   // Company conversion rate: null until this team sets one, then the platform default applies.
   const [companyConversionRate, setCompanyConversionRate] = useState<number | null>(null);
   const [conversionTotals, setConversionTotals] = useState<ConversionTotals>({ contacts_made: 0, dials: 0, appointments_set: 0, appointments_held: 0, pipeline_additions: 0, contracts_signed: 0, firm_deals: 0 });
+  // Raw weekly rows, kept so rates can be measured on a paired basis (see funnelRates).
+  const [weeklyRows, setWeeklyRows] = useState<Weekly411Raw[]>([]);
+  const [activeAgentCount, setActiveAgentCount] = useState(0);
+  // Team's own funnel assumptions, null per-field until an owner sets one.
+  const [funnelAssumptions, setFunnelAssumptions] = useState<FunnelAssumptions>({});
   const [recruiting, setRecruiting] = useState<RecruitingData>({
     year: CURRENT_YEAR,
     quarter: CURRENT_QUARTER,
