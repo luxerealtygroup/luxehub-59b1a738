@@ -28,8 +28,8 @@ A rate failing any check displays "Not enough data" with a one-line reason ("app
 New card on Goal Coverage, below the deficit analysis. Starts from the same pipeline gap the deficit panel already produces and works backwards:
 
 ```text
-Pipeline units needed        -> from the deficit panel
-  / Contact -> Pipeline      => conversations needed
+Pipeline units needed        -> from the deficit panel (everyone entered this year)
+  / Contact -> Pipeline      => conversations needed (population: everyone entered)
   / Dials  -> Contact        => dials needed
   x Contact -> Appt Set      => appointments needed
 ```
