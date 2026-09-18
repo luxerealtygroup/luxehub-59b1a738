@@ -574,7 +574,7 @@ const CompanyBusinessPlanning = () => {
               <MetricCard label="Active Listings" value={metrics?.activeListings || 0} icon={<Building2 className="h-4 w-4 text-blue-500" />} />
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              <MetricCard label="Pipeline (weighted)" value={formatWeightedDeals(metrics?.weightedPipeline || 0)} icon={<Users className="h-4 w-4 text-purple-500" />} sub={`${metrics?.totalPipeline || 0} raw deals`} />
+              <MetricCard label="Live FUB deals (weighted)" value={formatWeightedDeals(metrics?.weightedPipeline || 0)} icon={<Users className="h-4 w-4 text-purple-500" />} sub={`${metrics?.totalPipeline || 0} open deals in Follow Up Boss`} />
               <MetricCard label="Projected Year-End (weighted)" value={formatWeightedDeals(projectedClosings)} icon={<TrendingUp className="h-4 w-4 text-amber-500" />} sub={`Based on ${monthsElapsed} months pace`} />
               <MetricCard label="Projected Year-End GCI" value={formatCurrency(projectedGci)} icon={<DollarSign className="h-4 w-4 text-amber-500" />} sub={`Based on ${monthsElapsed} months pace`} />
             </div>
@@ -588,11 +588,25 @@ const CompanyBusinessPlanning = () => {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <MetricCard label="Pipeline (weighted)" value={formatWeightedDeals(pipelineSummary.weightedTotal)} icon={<Users className="h-4 w-4 text-blue-500" />} sub={pipelineSummary.leaseCount > 0 ? `${pipelineSummary.totalClients} raw · ${pipelineSummary.leaseCount} leases` : `${pipelineSummary.totalClients} raw`} />
-                  <MetricCard label="Buyers" value={pipelineSummary.buyers} icon={<Users className="h-4 w-4 text-emerald-500" />} />
-                  <MetricCard label="Sellers" value={pipelineSummary.sellers} icon={<Building2 className="h-4 w-4 text-amber-500" />} />
-                  <MetricCard label="Projected Pipeline GCI" value={formatCurrency(pipelineSummary.projectedGci)} icon={<DollarSign className="h-4 w-4 text-gold" />} />
+                  <MetricCard
+                    label="Qualified pipeline (weighted)"
+                    value={formatWeightedDeals(pipelineSummary.qualifiedWeighted)}
+                    icon={<Users className="h-4 w-4 text-blue-500" />}
+                    sub={pipelineSummary.qualifiedLeases > 0
+                      ? `${pipelineSummary.qualifiedClients} qualified · ${pipelineSummary.qualifiedLeases} leases`
+                      : `${pipelineSummary.qualifiedClients} qualified`}
+                  />
+                  <MetricCard label="Buyers (qualified)" value={pipelineSummary.qualifiedBuyers} icon={<Users className="h-4 w-4 text-emerald-500" />} />
+                  <MetricCard label="Sellers (qualified)" value={pipelineSummary.qualifiedSellers} icon={<Building2 className="h-4 w-4 text-amber-500" />} />
+                  <MetricCard label="Projected GCI (qualified)" value={formatCurrency(pipelineSummary.qualifiedGci)} icon={<DollarSign className="h-4 w-4 text-gold" />} />
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Qualified = signed agreement or live deal (Active on MLS, Exclusive Listing, BRA Signed, Appointment Held/Set,
+                  Showing, Offer, Pending). {pipelineSummary.qualifiedClients} of {pipelineSummary.totalClients} client records
+                  {pipelineSummary.leadCount > 0 ? ` · ${pipelineSummary.leadCount} leads excluded` : ''}
+                  {pipelineSummary.finishedCount > 0 ? ` · ${pipelineSummary.finishedCount} finished excluded` : ''}.
+                  Leases count as 0.33 deal units; no stage-probability weighting is applied.
+                </p>
               </CardContent>
             </Card>
 
@@ -658,25 +672,37 @@ const CompanyBusinessPlanning = () => {
                       </div>
                       {/* Conversion Rate */}
                       <div className="flex items-center justify-between text-muted-foreground">
-                        <span>÷ Conversion Rate ({Math.round(conversionRate * 100)}%)</span>
-                        <span className="text-xs">(100% − {Math.round(FALLOUT_RATE * 100)}% fallout)</span>
+                        <span>÷ Conversion Rate ({(conversionRate * 100).toFixed(conversionRate * 100 % 1 === 0 ? 0 : 1)}%)</span>
+                        <span className="text-xs">
+                          ({Math.round(FALLOUT_RATE * 1000) / 10}% fallout · {usingDefaultConversion ? 'platform default' : 'company setting'})
+                        </span>
                       </div>
+                      {usingDefaultConversion && (
+                        <div className="text-xs text-muted-foreground">
+                          Your team has not set a conversion rate yet, so the platform default of {Math.round(DEFAULT_CONVERSION_RATE * 100)}% is used.
+                          {measuredConversionPct != null && ` Your measured rate this year is ${measuredConversionPct}%.`}
+                          {isAdmin && ' Set your own under “Edit company goal”.'}
+                        </div>
+                      )}
                       <Separator />
                       {/* Required Pipeline */}
                       <div className="flex items-center justify-between font-bold">
                         <span className="text-foreground">Required Pipeline (for {nextQuarterLabel})</span>
                         <span className="text-foreground">{requiredPipelineDeals} deal units</span>
                       </div>
-                      {/* Current Pipeline (weighted) */}
+                      {/* Current qualified pipeline (weighted) */}
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Current Pipeline today (weighted)</span>
+                        <span className="text-muted-foreground">Qualified Pipeline today (weighted)</span>
                         <span className="font-bold text-foreground">{formatWeightedDeals(currentPipelineWeighted)} deal units</span>
                       </div>
-                      {pipelineSummary.leaseCount > 0 && (
-                        <div className="flex items-center justify-between text-muted-foreground text-xs">
-                          <span>Raw: {pipelineSummary.totalClients} clients ({pipelineSummary.leaseCount} leases)</span>
-                        </div>
-                      )}
+                      <div className="flex items-center justify-between text-muted-foreground text-xs">
+                        <span>
+                          {pipelineSummary.qualifiedClients} qualified of {pipelineSummary.totalClients} client records
+                          {pipelineSummary.leadCount > 0 ? ` · ${pipelineSummary.leadCount} leads excluded` : ''}
+                          {pipelineSummary.finishedCount > 0 ? ` · ${pipelineSummary.finishedCount} finished excluded` : ''}
+                          {pipelineSummary.qualifiedLeases > 0 ? ` · ${pipelineSummary.qualifiedLeases} leases` : ''}
+                        </span>
+                      </div>
                       <Separator />
                       {/* Deficit or Surplus */}
                       <div className="flex items-center justify-between">
