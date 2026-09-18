@@ -74,7 +74,29 @@ interface PipelineSummary {
   projectedGci: number;
   weightedTotal: number;
   leaseCount: number;
+  /** Client records with a signed agreement or a live deal (stages 2–9). */
+  qualifiedClients: number;
+  qualifiedWeighted: number;
+  qualifiedBuyers: number;
+  qualifiedSellers: number;
+  qualifiedLeases: number;
+  qualifiedGci: number;
+  leadCount: number;
+  finishedCount: number;
 }
+
+/**
+ * Pipeline stages that represent a real prospect of closing: a signed
+ * agreement or a deal already in progress. Stage 1 (Lead) has no commitment
+ * and stage 10+ is already finished, so neither belongs in "pipeline".
+ *  2 Active on MLS · 3 Exclusive Listing · 4 BRA Signed · 5 Appointment Held
+ *  6 Appointment Set · 7 Showing · 8 Offer · 9 Pending
+ */
+const QUALIFIED_PIPELINE_STAGES = [2, 3, 4, 5, 6, 7, 8, 9];
+const LEAD_STAGE = 1;
+
+/** Used when a team has not set its own conversion rate. */
+const DEFAULT_CONVERSION_RATE = 0.30;
 
 interface ConversionTotals {
   contacts_made: number;
@@ -121,7 +143,9 @@ const CompanyBusinessPlanning = () => {
   const [quarterlyDealGoals, setQuarterlyDealGoals] = useState<{ q1: number; q2: number; q3: number; q4: number }>({ q1: 0, q2: 0, q3: 0, q4: 0 });
   // Actuals scoped to the elapsed period (Jan 1 → end of the CURRENT quarter)
   const [periodActuals, setPeriodActuals] = useState<{ closed: number; pending: number; rawClosed: number; rawPending: number }>({ closed: 0, pending: 0, rawClosed: 0, rawPending: 0 });
-  const [pipelineSummary, setPipelineSummary] = useState<PipelineSummary>({ totalClients: 0, buyers: 0, sellers: 0, projectedGci: 0, weightedTotal: 0, leaseCount: 0 });
+  const [pipelineSummary, setPipelineSummary] = useState<PipelineSummary>({ totalClients: 0, buyers: 0, sellers: 0, projectedGci: 0, weightedTotal: 0, leaseCount: 0, qualifiedClients: 0, qualifiedWeighted: 0, qualifiedBuyers: 0, qualifiedSellers: 0, qualifiedLeases: 0, qualifiedGci: 0, leadCount: 0, finishedCount: 0 });
+  // Company conversion rate: null until this team sets one, then the platform default applies.
+  const [companyConversionRate, setCompanyConversionRate] = useState<number | null>(null);
   const [conversionTotals, setConversionTotals] = useState<ConversionTotals>({ contacts_made: 0, dials: 0, appointments_set: 0, appointments_held: 0, pipeline_additions: 0, contracts_signed: 0, firm_deals: 0 });
   const [recruiting, setRecruiting] = useState<RecruitingData>({
     year: CURRENT_YEAR,
@@ -259,11 +283,13 @@ const CompanyBusinessPlanning = () => {
     if (!orgId) return;
     const { data } = await supabase
       .from('company_goals')
-      .select('annual_deals_goal, annual_gci_goal, monthly_goals')
+      .select('annual_deals_goal, annual_gci_goal, monthly_goals, conversion_rate')
       .eq('org_id', orgId)
       .eq('year', CURRENT_YEAR)
       .maybeSingle();
     setHasCompanyGoal(!!data);
+    const storedRate = data && data.conversion_rate != null ? Number(data.conversion_rate) : null;
+    setCompanyConversionRate(storedRate != null && storedRate > 0 ? storedRate : null);
     if (!data) {
       setCompanyDealGoal(0);
       setCompanyGciGoal(0);
@@ -317,19 +343,36 @@ const CompanyBusinessPlanning = () => {
 
   // ── 5. Team pipeline ──
   const fetchPipeline = async () => {
-    const { data } = await supabase.from('pipeline_clients').select('client_type, projected_gci, deal_category');
+    if (!orgId) return;
+    const { data } = await supabase
+      .from('pipeline_clients')
+      .select('client_type, projected_gci, deal_category, stage')
+      .eq('org_id', orgId);
     const clients = data || [];
     const isLeaseLike = (c: any) =>
       c.deal_category === 'lease' || c.client_type === 'tenant' || c.client_type === 'landlord';
-    const leases = clients.filter(isLeaseLike);
-    const weightedTotal = clients.reduce((sum, c) => sum + (isLeaseLike(c) ? 1 / 3 : 1), 0);
+    const weigh = (list: any[]) =>
+      Math.round(list.reduce((sum, c) => sum + (isLeaseLike(c) ? 1 / 3 : 1), 0) * 100) / 100;
+
+    // Qualified = signed agreement or live deal. Leads and finished records excluded.
+    const qualified = clients.filter(c => QUALIFIED_PIPELINE_STAGES.includes(Number(c.stage)));
+    const leads = clients.filter(c => Number(c.stage) === LEAD_STAGE);
+
     setPipelineSummary({
       totalClients: clients.length,
       buyers: clients.filter(c => c.client_type === 'buyer').length,
       sellers: clients.filter(c => c.client_type === 'seller').length,
       projectedGci: clients.reduce((s, c) => s + Number(c.projected_gci || 0), 0),
-      weightedTotal: Math.round(weightedTotal * 100) / 100,
-      leaseCount: leases.length,
+      weightedTotal: weigh(clients),
+      leaseCount: clients.filter(isLeaseLike).length,
+      qualifiedClients: qualified.length,
+      qualifiedWeighted: weigh(qualified),
+      qualifiedBuyers: qualified.filter(c => c.client_type === 'buyer').length,
+      qualifiedSellers: qualified.filter(c => c.client_type === 'seller').length,
+      qualifiedLeases: qualified.filter(isLeaseLike).length,
+      qualifiedGci: qualified.reduce((s, c) => s + Number(c.projected_gci || 0), 0),
+      leadCount: leads.length,
+      finishedCount: clients.length - qualified.length - leads.length,
     });
   };
 
@@ -406,8 +449,14 @@ const CompanyBusinessPlanning = () => {
   const projectedGci = monthsElapsed > 0 ? Math.round(((metrics?.grossGciClosed || 0) / monthsElapsed) * 12) : 0;
 
   // Pipeline deficit analysis (mirrors agent pipeline planning model) — ALL WEIGHTED
-  const FALLOUT_RATE = 0.70;
-  const conversionRate = 1 - FALLOUT_RATE; // 0.30
+  // Conversion rate: the team's own setting if it has one, otherwise the platform default.
+  const usingDefaultConversion = companyConversionRate == null;
+  const conversionRate = companyConversionRate ?? DEFAULT_CONVERSION_RATE;
+  const FALLOUT_RATE = 1 - conversionRate;
+  // Suggested rate measured from this team's own 4-1-1 history — never applied automatically.
+  const measuredConversionPct = conversionTotals.pipeline_additions > 0
+    ? Math.round((conversionTotals.firm_deals / conversionTotals.pipeline_additions) * 1000) / 10
+    : null;
   const quarter = CURRENT_QUARTER;
 
   // ── Period-correct model ──
@@ -444,7 +493,8 @@ const CompanyBusinessPlanning = () => {
 
   // Required pipeline (weighted units) and deficit/surplus
   const requiredPipelineDeals = totalClosingsNeeded > 0 ? Math.ceil(totalClosingsNeeded / conversionRate) : 0;
-  const currentPipelineWeighted = pipelineSummary.weightedTotal;
+  // Qualified pipeline only — signed agreements and live deals, never Leads.
+  const currentPipelineWeighted = pipelineSummary.qualifiedWeighted;
   const pipelineDeficit = Math.max(0, Math.round((requiredPipelineDeals - currentPipelineWeighted) * 100) / 100);
   const pipelineSurplus = Math.max(0, Math.round((currentPipelineWeighted - requiredPipelineDeals) * 100) / 100);
 
@@ -485,6 +535,7 @@ const CompanyBusinessPlanning = () => {
           onOpenChange={setGoalDialogOpen}
           year={CURRENT_YEAR}
           onSaved={fetchCompanyGoals}
+          suggestedConversionPct={measuredConversionPct}
         />
         {!hasCompanyGoal && (
           <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
@@ -524,7 +575,7 @@ const CompanyBusinessPlanning = () => {
               <MetricCard label="Active Listings" value={metrics?.activeListings || 0} icon={<Building2 className="h-4 w-4 text-blue-500" />} />
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              <MetricCard label="Pipeline (weighted)" value={formatWeightedDeals(metrics?.weightedPipeline || 0)} icon={<Users className="h-4 w-4 text-purple-500" />} sub={`${metrics?.totalPipeline || 0} raw deals`} />
+              <MetricCard label="Live FUB deals (weighted)" value={formatWeightedDeals(metrics?.weightedPipeline || 0)} icon={<Users className="h-4 w-4 text-purple-500" />} sub={`${metrics?.totalPipeline || 0} open deals in Follow Up Boss`} />
               <MetricCard label="Projected Year-End (weighted)" value={formatWeightedDeals(projectedClosings)} icon={<TrendingUp className="h-4 w-4 text-amber-500" />} sub={`Based on ${monthsElapsed} months pace`} />
               <MetricCard label="Projected Year-End GCI" value={formatCurrency(projectedGci)} icon={<DollarSign className="h-4 w-4 text-amber-500" />} sub={`Based on ${monthsElapsed} months pace`} />
             </div>
@@ -538,11 +589,25 @@ const CompanyBusinessPlanning = () => {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <MetricCard label="Pipeline (weighted)" value={formatWeightedDeals(pipelineSummary.weightedTotal)} icon={<Users className="h-4 w-4 text-blue-500" />} sub={pipelineSummary.leaseCount > 0 ? `${pipelineSummary.totalClients} raw · ${pipelineSummary.leaseCount} leases` : `${pipelineSummary.totalClients} raw`} />
-                  <MetricCard label="Buyers" value={pipelineSummary.buyers} icon={<Users className="h-4 w-4 text-emerald-500" />} />
-                  <MetricCard label="Sellers" value={pipelineSummary.sellers} icon={<Building2 className="h-4 w-4 text-amber-500" />} />
-                  <MetricCard label="Projected Pipeline GCI" value={formatCurrency(pipelineSummary.projectedGci)} icon={<DollarSign className="h-4 w-4 text-gold" />} />
+                  <MetricCard
+                    label="Qualified pipeline (weighted)"
+                    value={formatWeightedDeals(pipelineSummary.qualifiedWeighted)}
+                    icon={<Users className="h-4 w-4 text-blue-500" />}
+                    sub={pipelineSummary.qualifiedLeases > 0
+                      ? `${pipelineSummary.qualifiedClients} qualified · ${pipelineSummary.qualifiedLeases} leases`
+                      : `${pipelineSummary.qualifiedClients} qualified`}
+                  />
+                  <MetricCard label="Buyers (qualified)" value={pipelineSummary.qualifiedBuyers} icon={<Users className="h-4 w-4 text-emerald-500" />} />
+                  <MetricCard label="Sellers (qualified)" value={pipelineSummary.qualifiedSellers} icon={<Building2 className="h-4 w-4 text-amber-500" />} />
+                  <MetricCard label="Projected GCI (qualified)" value={formatCurrency(pipelineSummary.qualifiedGci)} icon={<DollarSign className="h-4 w-4 text-gold" />} />
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Qualified = signed agreement or live deal (Active on MLS, Exclusive Listing, BRA Signed, Appointment Held/Set,
+                  Showing, Offer, Pending). {pipelineSummary.qualifiedClients} of {pipelineSummary.totalClients} client records
+                  {pipelineSummary.leadCount > 0 ? ` · ${pipelineSummary.leadCount} leads excluded` : ''}
+                  {pipelineSummary.finishedCount > 0 ? ` · ${pipelineSummary.finishedCount} finished excluded` : ''}.
+                  Leases count as 0.33 deal units; no stage-probability weighting is applied.
+                </p>
               </CardContent>
             </Card>
 
@@ -608,25 +673,37 @@ const CompanyBusinessPlanning = () => {
                       </div>
                       {/* Conversion Rate */}
                       <div className="flex items-center justify-between text-muted-foreground">
-                        <span>÷ Conversion Rate ({Math.round(conversionRate * 100)}%)</span>
-                        <span className="text-xs">(100% − {Math.round(FALLOUT_RATE * 100)}% fallout)</span>
+                        <span>÷ Conversion Rate ({(conversionRate * 100).toFixed(conversionRate * 100 % 1 === 0 ? 0 : 1)}%)</span>
+                        <span className="text-xs">
+                          ({Math.round(FALLOUT_RATE * 1000) / 10}% fallout · {usingDefaultConversion ? 'platform default' : 'company setting'})
+                        </span>
                       </div>
+                      {usingDefaultConversion && (
+                        <div className="text-xs text-muted-foreground">
+                          Your team has not set a conversion rate yet, so the platform default of {Math.round(DEFAULT_CONVERSION_RATE * 100)}% is used.
+                          {measuredConversionPct != null && ` Your measured rate this year is ${measuredConversionPct}%.`}
+                          {isAdmin && ' Set your own under “Edit company goal”.'}
+                        </div>
+                      )}
                       <Separator />
                       {/* Required Pipeline */}
                       <div className="flex items-center justify-between font-bold">
                         <span className="text-foreground">Required Pipeline (for {nextQuarterLabel})</span>
                         <span className="text-foreground">{requiredPipelineDeals} deal units</span>
                       </div>
-                      {/* Current Pipeline (weighted) */}
+                      {/* Current qualified pipeline (weighted) */}
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Current Pipeline today (weighted)</span>
+                        <span className="text-muted-foreground">Qualified Pipeline today (weighted)</span>
                         <span className="font-bold text-foreground">{formatWeightedDeals(currentPipelineWeighted)} deal units</span>
                       </div>
-                      {pipelineSummary.leaseCount > 0 && (
-                        <div className="flex items-center justify-between text-muted-foreground text-xs">
-                          <span>Raw: {pipelineSummary.totalClients} clients ({pipelineSummary.leaseCount} leases)</span>
-                        </div>
-                      )}
+                      <div className="flex items-center justify-between text-muted-foreground text-xs">
+                        <span>
+                          {pipelineSummary.qualifiedClients} qualified of {pipelineSummary.totalClients} client records
+                          {pipelineSummary.leadCount > 0 ? ` · ${pipelineSummary.leadCount} leads excluded` : ''}
+                          {pipelineSummary.finishedCount > 0 ? ` · ${pipelineSummary.finishedCount} finished excluded` : ''}
+                          {pipelineSummary.qualifiedLeases > 0 ? ` · ${pipelineSummary.qualifiedLeases} leases` : ''}
+                        </span>
+                      </div>
                       <Separator />
                       {/* Deficit or Surplus */}
                       <div className="flex items-center justify-between">

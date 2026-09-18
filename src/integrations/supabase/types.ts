@@ -1718,6 +1718,7 @@ export type Database = {
           annual_gci_goal: number | null
           annual_revenue_goal: number | null
           annual_volume_goal: number | null
+          conversion_rate: number | null
           created_at: string
           created_by: string
           id: string
@@ -1732,6 +1733,7 @@ export type Database = {
           annual_gci_goal?: number | null
           annual_revenue_goal?: number | null
           annual_volume_goal?: number | null
+          conversion_rate?: number | null
           created_at?: string
           created_by: string
           id?: string
@@ -1746,6 +1748,7 @@ export type Database = {
           annual_gci_goal?: number | null
           annual_revenue_goal?: number | null
           annual_volume_goal?: number | null
+          conversion_rate?: number | null
           created_at?: string
           created_by?: string
           id?: string

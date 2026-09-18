@@ -14,7 +14,12 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   year: number;
   onSaved?: () => void;
+  /** Rate measured from the team's own history, offered as a suggestion only. */
+  suggestedConversionPct?: number | null;
 }
+
+/** Used when a team has not set its own conversion rate. */
+const DEFAULT_CONVERSION_PCT = 30;
 
 interface Quarters {
   q1: string;
@@ -29,7 +34,7 @@ const emptyQuarters: Quarters = { q1: '', q2: '', q3: '', q4: '' };
  * Owner/admin editor for the company (tenant) annual goal.
  * Always scoped to the signed-in person's own team.
  */
-const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved }: Props) => {
+const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved, suggestedConversionPct }: Props) => {
   const { user } = useAuth();
   const { orgId } = useTenant();
   const [loading, setLoading] = useState(false);
@@ -39,6 +44,7 @@ const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved }: Props) => {
   const [annualGci, setAnnualGci] = useState('');
   const [annualVolume, setAnnualVolume] = useState('');
   const [annualRevenue, setAnnualRevenue] = useState('');
+  const [conversionPct, setConversionPct] = useState('');
   const [quarters, setQuarters] = useState<Quarters>(emptyQuarters);
 
   useEffect(() => {
@@ -58,6 +64,9 @@ const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved }: Props) => {
         setAnnualGci(String(data.annual_gci_goal ?? ''));
         setAnnualVolume(String(data.annual_volume_goal ?? ''));
         setAnnualRevenue(String(data.annual_revenue_goal ?? ''));
+        setConversionPct(
+          data.conversion_rate != null ? String(Math.round(Number(data.conversion_rate) * 1000) / 10) : '',
+        );
         const raw = data.monthly_goals as any;
         const q = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw.quarterly : null;
         if (Array.isArray(q)) {
@@ -77,6 +86,7 @@ const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved }: Props) => {
         setAnnualGci('');
         setAnnualVolume('');
         setAnnualRevenue('');
+        setConversionPct('');
         setQuarters(emptyQuarters);
       }
       setLoading(false);
@@ -91,12 +101,19 @@ const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved }: Props) => {
 
   const quarterTotal = num(quarters.q1) + num(quarters.q2) + num(quarters.q3) + num(quarters.q4);
   const anyQuarter = [quarters.q1, quarters.q2, quarters.q3, quarters.q4].some((v) => v.trim() !== '');
+  const conversionEntered = conversionPct.trim() !== '';
+  const conversionValue = num(conversionPct);
+  const conversionValid = !conversionEntered || (conversionValue > 0 && conversionValue <= 100);
 
   const handleSave = async () => {
     if (!user || !orgId) return;
     const deals = anyQuarter ? quarterTotal : num(annualDeals);
     if (deals <= 0) {
       toast.error('Enter an annual deal goal, or a per-quarter breakdown.');
+      return;
+    }
+    if (!conversionValid) {
+      toast.error('Conversion rate must be between 1 and 100.');
       return;
     }
     setSaving(true);
@@ -119,6 +136,7 @@ const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved }: Props) => {
       annual_volume_goal: num(annualVolume),
       annual_revenue_goal: num(annualRevenue),
       monthly_goals: JSON.parse(JSON.stringify(quarterly ? { monthly, quarterly } : { monthly })),
+      conversion_rate: conversionEntered ? Math.round((conversionValue / 100) * 10000) / 10000 : null,
       created_by: user.id,
     };
 
@@ -194,6 +212,43 @@ const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved }: Props) => {
                   </div>
                 ))}
               </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="cg-conversion">Conversion rate (%)</Label>
+              <Input
+                id="cg-conversion"
+                type="number"
+                min={1}
+                max={100}
+                placeholder={String(DEFAULT_CONVERSION_PCT)}
+                value={conversionPct}
+                onChange={(e) => setConversionPct(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                {conversionEntered && conversionValid
+                  ? `Fallout ${Math.round((100 - conversionValue) * 10) / 10}%. Used to work out how much pipeline your goal needs.`
+                  : `Leave blank to use the platform default of ${DEFAULT_CONVERSION_PCT}% (${100 - DEFAULT_CONVERSION_PCT}% fallout).`}
+              </p>
+              {!conversionValid && (
+                <p className="text-xs text-destructive">Enter a number between 1 and 100.</p>
+              )}
+              {suggestedConversionPct != null && suggestedConversionPct > 0 && (
+                <div className="flex items-center gap-2 pt-1">
+                  <p className="text-xs text-muted-foreground">
+                    Your team’s measured rate this year: {suggestedConversionPct}%
+                  </p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-6 px-2 text-xs"
+                    onClick={() => setConversionPct(String(suggestedConversionPct))}
+                  >
+                    Use this
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         )}
