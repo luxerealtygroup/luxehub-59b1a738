@@ -9,6 +9,13 @@ import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
+/** Measured funnel rates offered as suggestions — null when unreliable. */
+export interface FunnelSuggestions {
+  contact_to_pipeline_pct?: number | null;
+  dials_to_contact_pct?: number | null;
+  contact_to_appt_set_pct?: number | null;
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -16,7 +23,15 @@ interface Props {
   onSaved?: () => void;
   /** Rate measured from the team's own history, offered as a suggestion only. */
   suggestedConversionPct?: number | null;
+  /** Funnel-step rates measured from the team's own weekly records, suggestions only. */
+  funnelSuggestions?: FunnelSuggestions;
 }
+
+const FUNNEL_FIELDS: { key: keyof FunnelSuggestions; label: string; help: string }[] = [
+  { key: 'contact_to_pipeline_pct', label: 'Conversation → pipeline (%)', help: 'Share of conversations that become a new pipeline client.' },
+  { key: 'dials_to_contact_pct', label: 'Dial → conversation (%)', help: 'Share of dials that reach a real conversation.' },
+  { key: 'contact_to_appt_set_pct', label: 'Conversation → appointment set (%)', help: 'Share of conversations that produce an appointment.' },
+];
 
 /** Used when a team has not set its own conversion rate. */
 /** Blended rate over everyone entered into the pipeline: 20% convert, 80% fall out. */
