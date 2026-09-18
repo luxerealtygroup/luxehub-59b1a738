@@ -9,7 +9,7 @@ import { classifyStage, isActiveListingDeal } from '@/hooks/useFubDealMetrics';
 import { sumWeightedDeals, buildWeightedDebug, formatWeightedDeals, WeightedDebugInfo, inferDealCategory, DealMetadataMap } from '@/lib/utils/dealWeight';
 import { useDealMetadata } from '@/hooks/useDealMetadata';
 import { normalize411Row } from '@/lib/utils/weekly411Fallback';
-import { computeFunnelRate, totalMetric, FunnelRate, Weekly411Raw } from '@/lib/funnelRates';
+import { computeFunnelRate, totalMetric, FunnelRate, Weekly411Raw, MIN_PAIRED_WEEKS, MIN_DENOMINATOR } from '@/lib/funnelRates';
 import { format, startOfYear, startOfWeek, addWeeks, isBefore, parseISO, getWeek } from 'date-fns';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend, ReferenceLine } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -189,7 +189,7 @@ const CompanyBusinessPlanning = () => {
 
   const fetchAll = async () => {
     setLoading(true);
-    await Promise.all([fetchFubMetrics(), fetchAgentGoals(), fetchCompanyGoals(), fetchRecruiting(), fetchPipeline(), fetchConversions()]);
+    await Promise.all([fetchFubMetrics(), fetchAgentGoals(), fetchCompanyGoals(), fetchRecruiting(), fetchPipeline(), fetchConversions(), fetchActiveAgents()]);
     setLoading(false);
   };
 
