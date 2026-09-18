@@ -601,7 +601,7 @@ const CompanyBusinessPlanning = () => {
                       <Separator />
                       {/* Total Closings Needed */}
                       <div className="flex items-center justify-between font-bold">
-                        <span className="text-foreground">Total Closings Needed</span>
+                        <span className="text-foreground">Total Closings Needed ({nextQuarterLabel}{carryoverDeficit > 0 ? ' + carryover' : ''})</span>
                         <span className="text-foreground">{formatWeightedDeals(totalClosingsNeeded)} deal units</span>
                       </div>
                       {/* Conversion Rate */}
@@ -612,12 +612,12 @@ const CompanyBusinessPlanning = () => {
                       <Separator />
                       {/* Required Pipeline */}
                       <div className="flex items-center justify-between font-bold">
-                        <span className="text-foreground">Required Pipeline</span>
+                        <span className="text-foreground">Required Pipeline (for {nextQuarterLabel})</span>
                         <span className="text-foreground">{requiredPipelineDeals} deal units</span>
                       </div>
                       {/* Current Pipeline (weighted) */}
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Current Pipeline (weighted)</span>
+                        <span className="text-muted-foreground">Current Pipeline today (weighted)</span>
                         <span className="font-bold text-foreground">{formatWeightedDeals(currentPipelineWeighted)} deal units</span>
                       </div>
                       {pipelineSummary.leaseCount > 0 && (
