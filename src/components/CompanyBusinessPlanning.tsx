@@ -449,8 +449,14 @@ const CompanyBusinessPlanning = () => {
   const projectedGci = monthsElapsed > 0 ? Math.round(((metrics?.grossGciClosed || 0) / monthsElapsed) * 12) : 0;
 
   // Pipeline deficit analysis (mirrors agent pipeline planning model) — ALL WEIGHTED
-  const FALLOUT_RATE = 0.70;
-  const conversionRate = 1 - FALLOUT_RATE; // 0.30
+  // Conversion rate: the team's own setting if it has one, otherwise the platform default.
+  const usingDefaultConversion = companyConversionRate == null;
+  const conversionRate = companyConversionRate ?? DEFAULT_CONVERSION_RATE;
+  const FALLOUT_RATE = 1 - conversionRate;
+  // Suggested rate measured from this team's own 4-1-1 history — never applied automatically.
+  const measuredConversionPct = conversionTotals.pipeline_additions > 0
+    ? Math.round((conversionTotals.firm_deals / conversionTotals.pipeline_additions) * 1000) / 10
+    : null;
   const quarter = CURRENT_QUARTER;
 
   // ── Period-correct model ──
@@ -487,7 +493,8 @@ const CompanyBusinessPlanning = () => {
 
   // Required pipeline (weighted units) and deficit/surplus
   const requiredPipelineDeals = totalClosingsNeeded > 0 ? Math.ceil(totalClosingsNeeded / conversionRate) : 0;
-  const currentPipelineWeighted = pipelineSummary.weightedTotal;
+  // Qualified pipeline only — signed agreements and live deals, never Leads.
+  const currentPipelineWeighted = pipelineSummary.qualifiedWeighted;
   const pipelineDeficit = Math.max(0, Math.round((requiredPipelineDeals - currentPipelineWeighted) * 100) / 100);
   const pipelineSurplus = Math.max(0, Math.round((currentPipelineWeighted - requiredPipelineDeals) * 100) / 100);
 
