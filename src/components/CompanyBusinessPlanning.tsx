@@ -110,6 +110,13 @@ const DEFAULT_CONVERSION_RATE = 0.20;
 /** Which population the conversion rate describes — shown beside the rate. */
 const CONVERSION_POPULATION = 'everyone entered into the pipeline';
 
+/** Optional per-team overrides for the funnel steps. Percentages, 0–100. */
+export interface FunnelAssumptions {
+  contact_to_pipeline_pct?: number | null;
+  dials_to_contact_pct?: number | null;
+  contact_to_appt_set_pct?: number | null;
+}
+
 interface ConversionTotals {
   contacts_made: number;
   dials: number;
