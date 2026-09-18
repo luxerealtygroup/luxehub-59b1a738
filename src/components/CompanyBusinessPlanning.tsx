@@ -154,7 +154,7 @@ const CompanyBusinessPlanning = () => {
   const [quarterlyDealGoals, setQuarterlyDealGoals] = useState<{ q1: number; q2: number; q3: number; q4: number }>({ q1: 0, q2: 0, q3: 0, q4: 0 });
   // Actuals scoped to the elapsed period (Jan 1 → end of the CURRENT quarter)
   const [periodActuals, setPeriodActuals] = useState<{ closed: number; pending: number; rawClosed: number; rawPending: number }>({ closed: 0, pending: 0, rawClosed: 0, rawPending: 0 });
-  const [pipelineSummary, setPipelineSummary] = useState<PipelineSummary>({ totalClients: 0, buyers: 0, sellers: 0, projectedGci: 0, weightedTotal: 0, leaseCount: 0, qualifiedClients: 0, qualifiedWeighted: 0, qualifiedBuyers: 0, qualifiedSellers: 0, qualifiedLeases: 0, qualifiedGci: 0, leadCount: 0, finishedCount: 0 });
+  const [pipelineSummary, setPipelineSummary] = useState<PipelineSummary>({ totalClients: 0, buyers: 0, sellers: 0, projectedGci: 0, weightedTotal: 0, leaseCount: 0, qualifiedClients: 0, qualifiedWeighted: 0, qualifiedBuyers: 0, qualifiedSellers: 0, qualifiedLeases: 0, qualifiedGci: 0, leadCount: 0, finishedCount: 0, enteredThisYear: 0, priorYearCount: 0 });
   // Company conversion rate: null until this team sets one, then the platform default applies.
   const [companyConversionRate, setCompanyConversionRate] = useState<number | null>(null);
   const [conversionTotals, setConversionTotals] = useState<ConversionTotals>({ contacts_made: 0, dials: 0, appointments_set: 0, appointments_held: 0, pipeline_additions: 0, contracts_signed: 0, firm_deals: 0 });
