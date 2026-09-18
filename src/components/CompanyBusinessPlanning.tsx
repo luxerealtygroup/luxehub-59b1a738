@@ -672,6 +672,11 @@ const CompanyBusinessPlanning = () => {
           year={CURRENT_YEAR}
           onSaved={fetchCompanyGoals}
           suggestedConversionPct={measuredConversionPct}
+          funnelSuggestions={{
+            contact_to_pipeline_pct: measuredRates.contactToPipeline.ok ? measuredRates.contactToPipeline.pct : null,
+            dials_to_contact_pct: measuredRates.dialsToContact.ok ? measuredRates.dialsToContact.pct : null,
+            contact_to_appt_set_pct: measuredRates.contactToApptSet.ok ? measuredRates.contactToApptSet.pct : null,
+          }}
         />
         {!hasCompanyGoal && (
           <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
