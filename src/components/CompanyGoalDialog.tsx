@@ -62,6 +62,8 @@ const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved, suggestedConvers
   const [annualRevenue, setAnnualRevenue] = useState('');
   const [conversionPct, setConversionPct] = useState('');
   const [quarters, setQuarters] = useState<Quarters>(emptyQuarters);
+  // Funnel overrides, as typed strings. Blank means "use the measured rate".
+  const [funnel, setFunnel] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!open || !orgId) return;
