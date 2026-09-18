@@ -91,8 +91,17 @@ const pctFmt = (num: number, den: number): string => {
   return ((num / den) * 100).toFixed(1) + '%';
 };
 
-const CURRENT_YEAR = 2026;
+const CURRENT_YEAR = new Date().getFullYear();
 const CURRENT_QUARTER = Math.ceil((new Date().getMonth() + 1) / 3);
+const QUARTER_END_DATE: Record<number, string> = {
+  1: `${CURRENT_YEAR}-03-31`,
+  2: `${CURRENT_YEAR}-06-30`,
+  3: `${CURRENT_YEAR}-09-30`,
+  4: `${CURRENT_YEAR}-12-31`,
+};
+const QUARTER_RANGE_LABEL: Record<number, string> = {
+  1: 'Jan–Mar', 2: 'Apr–Jun', 3: 'Jul–Sep', 4: 'Oct–Dec',
+};
 
 // ── Component ────────────────────────────────────────────────────────────
 const CompanyBusinessPlanning = () => {
@@ -110,7 +119,8 @@ const CompanyBusinessPlanning = () => {
   const [companyDealGoal, setCompanyDealGoal] = useState(0);
   const [companyGciGoal, setCompanyGciGoal] = useState(0);
   const [quarterlyDealGoals, setQuarterlyDealGoals] = useState<{ q1: number; q2: number; q3: number; q4: number }>({ q1: 0, q2: 0, q3: 0, q4: 0 });
-  const [q1ClosedDeals, setQ1ClosedDeals] = useState(0);
+  // Actuals scoped to the elapsed period (Jan 1 → end of the CURRENT quarter)
+  const [periodActuals, setPeriodActuals] = useState<{ closed: number; pending: number; rawClosed: number; rawPending: number }>({ closed: 0, pending: 0, rawClosed: 0, rawPending: 0 });
   const [pipelineSummary, setPipelineSummary] = useState<PipelineSummary>({ totalClients: 0, buyers: 0, sellers: 0, projectedGci: 0, weightedTotal: 0, leaseCount: 0 });
   const [conversionTotals, setConversionTotals] = useState<ConversionTotals>({ contacts_made: 0, dials: 0, appointments_set: 0, appointments_held: 0, pipeline_additions: 0, contracts_signed: 0, firm_deals: 0 });
   const [recruiting, setRecruiting] = useState<RecruitingData>({
@@ -178,13 +188,23 @@ const CompanyBusinessPlanning = () => {
         })).filter(d => d.date)
       );
 
-      // Count Q1 closed deals for carryover calculation (weighted)
-      const q1End = `${CURRENT_YEAR}-03-31`;
-      const q1Closed = closedDeals.filter(d => {
+      // Actuals for the elapsed period only: Jan 1 → end of the CURRENT quarter.
+      // Both closed and pending are date-filtered so the carryover gap compares
+      // like-for-like against the goals for those same quarters.
+      const periodStart = `${CURRENT_YEAR}-01-01`;
+      const periodEnd = QUARTER_END_DATE[CURRENT_QUARTER];
+      const inPeriod = (d: FUBDeal) => {
         const cd = (d as any).closedDate || (d as any).closeDate || d.projectedCloseDate || '';
-        return cd && cd <= q1End;
+        return !!cd && cd >= periodStart && cd <= periodEnd;
+      };
+      const periodClosed = closedDeals.filter(inPeriod);
+      const periodPending = pendingDeals.filter(inPeriod);
+      setPeriodActuals({
+        closed: Math.round(sumWeightedDeals(periodClosed, dealMetadataMap) * 100) / 100,
+        pending: Math.round(sumWeightedDeals(periodPending, dealMetadataMap) * 100) / 100,
+        rawClosed: periodClosed.length,
+        rawPending: periodPending.length,
       });
-      setQ1ClosedDeals(Math.round(sumWeightedDeals(q1Closed, dealMetadataMap) * 100) / 100);
 
       setMetrics({
         closedDeals: closedDeals.length,
