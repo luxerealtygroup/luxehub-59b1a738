@@ -132,6 +132,12 @@ const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved, suggestedConvers
   const conversionEntered = conversionPct.trim() !== '';
   const conversionValue = num(conversionPct);
   const conversionValid = !conversionEntered || (conversionValue > 0 && conversionValue <= 100);
+  const funnelValid = FUNNEL_FIELDS.every(f => {
+    const raw = (funnel[f.key] || '').trim();
+    if (raw === '') return true;
+    const v = num(raw);
+    return v > 0 && v <= 100;
+  });
 
   const handleSave = async () => {
     if (!user || !orgId) return;
@@ -142,6 +148,10 @@ const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved, suggestedConvers
     }
     if (!conversionValid) {
       toast.error('Conversion rate must be between 1 and 100.');
+      return;
+    }
+    if (!funnelValid) {
+      toast.error('Funnel rates must be between 1 and 100.');
       return;
     }
     setSaving(true);
@@ -156,6 +166,14 @@ const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved, suggestedConvers
       ? [1, 2, 3, 4].map((q) => ({ quarter: q, deals: num((quarters as any)[`q${q}`]) }))
       : null;
 
+    // Only the fields the team actually filled in are stored; blanks stay blank
+    // so the page keeps labelling them as measured or platform default.
+    const funnelPayload: Record<string, number> = {};
+    FUNNEL_FIELDS.forEach(f => {
+      const raw = (funnel[f.key] || '').trim();
+      if (raw !== '') funnelPayload[f.key] = num(raw);
+    });
+
     const payload: Record<string, unknown> = {
       year,
       org_id: orgId,
@@ -165,6 +183,7 @@ const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved, suggestedConvers
       annual_revenue_goal: num(annualRevenue),
       monthly_goals: JSON.parse(JSON.stringify(quarterly ? { monthly, quarterly } : { monthly })),
       conversion_rate: conversionEntered ? Math.round((conversionValue / 100) * 10000) / 10000 : null,
+      funnel_assumptions: Object.keys(funnelPayload).length ? funnelPayload : null,
       created_by: user.id,
     };
 
