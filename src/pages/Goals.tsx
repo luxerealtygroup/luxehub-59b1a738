@@ -448,10 +448,14 @@ const Goals = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-display font-bold text-foreground">
-            {isReadOnly ? `${viewingAgentName}'s ${currentYear} Goals` : `${currentYear} Goals`}
+            {isViewingAsAgent ? `${viewingAgentName}'s ${currentYear} Goals` : `${currentYear} Goals`}
           </h1>
           <p className="text-muted-foreground mt-1">
-            {isReadOnly ? 'Viewing agent goals (read-only)' : 'Track your annual targets'}
+            {isReadOnly
+              ? 'Viewing agent goals (read-only)'
+              : editingOnBehalf
+                ? `Editing ${viewingAgentName}'s goals — changes are recorded in their goal history`
+                : 'Track your annual targets'}
           </p>
         </div>
         {!isReadOnly && (
@@ -466,10 +470,28 @@ const Goals = () => {
       </div>
 
       {/* Goal Setup Dialog */}
-      <Dialog open={!isReadOnly && (showSetup || !hasGoalsSet)} onOpenChange={setShowSetup}>
+      {auditEntries.length > 0 && (
+        <div className="rounded-lg border border-border bg-muted/20 p-3 text-sm">
+          <p className="font-medium text-foreground mb-1">Goal change history</p>
+          <ul className="space-y-1 text-muted-foreground text-xs">
+            {auditEntries.slice(0, 5).map((entry) => (
+              <li key={entry.id}>
+                {(AGENT_GOAL_FIELD_LABELS as Record<string, string>)[entry.field] || entry.field} set by{' '}
+                <span className="text-foreground">{entry.changed_by_name}</span> on{' '}
+                {new Date(entry.created_at).toLocaleDateString()}
+                {entry.new_value && entry.new_value !== 'updated' ? ` → ${entry.new_value}` : ''}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <Dialog open={!isReadOnly && (showSetup || (!hasGoalsSet && !isViewingAsAgent))} onOpenChange={setShowSetup}>
         <DialogContent className="border-gold/20 bg-card">
           <DialogHeader>
-            <DialogTitle className="text-gold font-display text-xl">Set Your {currentYear} Goals</DialogTitle>
+            <DialogTitle className="text-gold font-display text-xl">
+              {editingOnBehalf ? `Set ${viewingAgentName}'s ${currentYear} Goals` : `Set Your ${currentYear} Goals`}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-6 pt-4">
             {/* Calculation inputs section */}
