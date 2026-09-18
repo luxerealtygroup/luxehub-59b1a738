@@ -300,6 +300,56 @@ const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved, suggestedConvers
                 </div>
               )}
             </div>
+
+            {/* Funnel assumptions — drive the Required Activity panel */}
+            <div className="space-y-3 border-t border-border pt-4">
+              <div>
+                <Label className="text-sm">Funnel assumptions (optional)</Label>
+                <p className="text-xs text-muted-foreground">
+                  Used to turn a pipeline gap into dials, conversations and appointments. Leave blank to use your team's
+                  own measured rate where it is reliable — nothing is applied on its own.
+                </p>
+              </div>
+              {FUNNEL_FIELDS.map((f) => {
+                const suggestion = funnelSuggestions?.[f.key];
+                return (
+                  <div key={f.key} className="space-y-1">
+                    <Label htmlFor={f.key} className="text-xs">{f.label}</Label>
+                    <Input
+                      id={f.key}
+                      type="number"
+                      min={1}
+                      max={100}
+                      placeholder="Measured"
+                      value={funnel[f.key] || ''}
+                      onChange={(e) => setFunnel((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                    />
+                    <p className="text-xs text-muted-foreground">{f.help}</p>
+                    {suggestion != null && suggestion > 0 ? (
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs text-muted-foreground">Your measured rate: {suggestion}%</p>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => setFunnel((prev) => ({ ...prev, [f.key]: String(suggestion) }))}
+                        >
+                          Use this
+                        </Button>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        No reliable measured rate yet — set one here or this step will show “not enough data”.
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+              {!funnelValid && (
+                <p className="text-xs text-destructive">Funnel rates must be between 1 and 100.</p>
+              )}
+            </div>
           </div>
         )}
 
