@@ -86,17 +86,24 @@ interface PipelineSummary {
 }
 
 /**
- * Pipeline stages that represent a real prospect of closing: a signed
- * agreement or a deal already in progress. Stage 1 (Lead) has no commitment
- * and stage 10+ is already finished, so neither belongs in "pipeline".
- *  2 Active on MLS · 3 Exclusive Listing · 4 BRA Signed · 5 Appointment Held
- *  6 Appointment Set · 7 Showing · 8 Offer · 9 Pending
+ * Pipeline = everyone entered into the pipeline this year and still live,
+ * Leads included. The conversion rate is measured over that same population,
+ * so the fallout of leads that never convert is already priced into the rate;
+ * excluding Leads here and then applying the rate would double-count fallout.
+ * Stage 10+ is finished (closed or dead) and is no longer pipeline.
+ *  1 Lead · 2 Active on MLS · 3 Exclusive Listing · 4 BRA Signed
+ *  5 Appointment Held · 6 Appointment Set · 7 Showing · 8 Offer · 9 Pending
  */
-const QUALIFIED_PIPELINE_STAGES = [2, 3, 4, 5, 6, 7, 8, 9];
+const ACTIVE_PIPELINE_STAGES = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 const LEAD_STAGE = 1;
 
-/** Used when a team has not set its own conversion rate. */
-const DEFAULT_CONVERSION_RATE = 0.30;
+/**
+ * Used when a team has not set its own conversion rate. Measured over the
+ * everyone-entered population, so it is the blended rate: 20% convert, 80% fall out.
+ */
+const DEFAULT_CONVERSION_RATE = 0.20;
+/** Which population the conversion rate describes — shown beside the rate. */
+const CONVERSION_POPULATION = 'everyone entered into the pipeline';
 
 interface ConversionTotals {
   contacts_made: number;
