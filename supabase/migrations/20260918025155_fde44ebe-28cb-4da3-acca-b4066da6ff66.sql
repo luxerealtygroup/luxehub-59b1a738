@@ -1,0 +1,1 @@
+ALTER TABLE public.company_goals ADD COLUMN IF NOT EXISTS funnel_assumptions jsonb;

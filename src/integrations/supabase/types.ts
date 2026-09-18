@@ -1721,6 +1721,7 @@ export type Database = {
           conversion_rate: number | null
           created_at: string
           created_by: string
+          funnel_assumptions: Json | null
           id: string
           monthly_goals: Json | null
           notes: string | null
@@ -1736,6 +1737,7 @@ export type Database = {
           conversion_rate?: number | null
           created_at?: string
           created_by: string
+          funnel_assumptions?: Json | null
           id?: string
           monthly_goals?: Json | null
           notes?: string | null
@@ -1751,6 +1753,7 @@ export type Database = {
           conversion_rate?: number | null
           created_at?: string
           created_by?: string
+          funnel_assumptions?: Json | null
           id?: string
           monthly_goals?: Json | null
           notes?: string | null

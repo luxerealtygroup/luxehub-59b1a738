@@ -9,6 +9,13 @@ import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
+/** Measured funnel rates offered as suggestions — null when unreliable. */
+export interface FunnelSuggestions {
+  contact_to_pipeline_pct?: number | null;
+  dials_to_contact_pct?: number | null;
+  contact_to_appt_set_pct?: number | null;
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -16,7 +23,15 @@ interface Props {
   onSaved?: () => void;
   /** Rate measured from the team's own history, offered as a suggestion only. */
   suggestedConversionPct?: number | null;
+  /** Funnel-step rates measured from the team's own weekly records, suggestions only. */
+  funnelSuggestions?: FunnelSuggestions;
 }
+
+const FUNNEL_FIELDS: { key: keyof FunnelSuggestions; label: string; help: string }[] = [
+  { key: 'contact_to_pipeline_pct', label: 'Conversation → pipeline (%)', help: 'Share of conversations that become a new pipeline client.' },
+  { key: 'dials_to_contact_pct', label: 'Dial → conversation (%)', help: 'Share of dials that reach a real conversation.' },
+  { key: 'contact_to_appt_set_pct', label: 'Conversation → appointment set (%)', help: 'Share of conversations that produce an appointment.' },
+];
 
 /** Used when a team has not set its own conversion rate. */
 /** Blended rate over everyone entered into the pipeline: 20% convert, 80% fall out. */
@@ -35,7 +50,7 @@ const emptyQuarters: Quarters = { q1: '', q2: '', q3: '', q4: '' };
  * Owner/admin editor for the company (tenant) annual goal.
  * Always scoped to the signed-in person's own team.
  */
-const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved, suggestedConversionPct }: Props) => {
+const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved, suggestedConversionPct, funnelSuggestions }: Props) => {
   const { user } = useAuth();
   const { orgId } = useTenant();
   const [loading, setLoading] = useState(false);
@@ -47,6 +62,8 @@ const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved, suggestedConvers
   const [annualRevenue, setAnnualRevenue] = useState('');
   const [conversionPct, setConversionPct] = useState('');
   const [quarters, setQuarters] = useState<Quarters>(emptyQuarters);
+  // Funnel overrides, as typed strings. Blank means "use the measured rate".
+  const [funnel, setFunnel] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!open || !orgId) return;
@@ -81,6 +98,15 @@ const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved, suggestedConvers
         } else {
           setQuarters(emptyQuarters);
         }
+        const fa = (data as any).funnel_assumptions;
+        const next: Record<string, string> = {};
+        if (fa && typeof fa === 'object' && !Array.isArray(fa)) {
+          FUNNEL_FIELDS.forEach(f => {
+            const v = fa[f.key];
+            if (v != null) next[f.key] = String(v);
+          });
+        }
+        setFunnel(next);
       } else {
         setGoalId(null);
         setAnnualDeals('');
@@ -89,6 +115,7 @@ const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved, suggestedConvers
         setAnnualRevenue('');
         setConversionPct('');
         setQuarters(emptyQuarters);
+        setFunnel({});
       }
       setLoading(false);
     };
@@ -105,6 +132,12 @@ const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved, suggestedConvers
   const conversionEntered = conversionPct.trim() !== '';
   const conversionValue = num(conversionPct);
   const conversionValid = !conversionEntered || (conversionValue > 0 && conversionValue <= 100);
+  const funnelValid = FUNNEL_FIELDS.every(f => {
+    const raw = (funnel[f.key] || '').trim();
+    if (raw === '') return true;
+    const v = num(raw);
+    return v > 0 && v <= 100;
+  });
 
   const handleSave = async () => {
     if (!user || !orgId) return;
@@ -115,6 +148,10 @@ const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved, suggestedConvers
     }
     if (!conversionValid) {
       toast.error('Conversion rate must be between 1 and 100.');
+      return;
+    }
+    if (!funnelValid) {
+      toast.error('Funnel rates must be between 1 and 100.');
       return;
     }
     setSaving(true);
@@ -129,6 +166,14 @@ const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved, suggestedConvers
       ? [1, 2, 3, 4].map((q) => ({ quarter: q, deals: num((quarters as any)[`q${q}`]) }))
       : null;
 
+    // Only the fields the team actually filled in are stored; blanks stay blank
+    // so the page keeps labelling them as measured or platform default.
+    const funnelPayload: Record<string, number> = {};
+    FUNNEL_FIELDS.forEach(f => {
+      const raw = (funnel[f.key] || '').trim();
+      if (raw !== '') funnelPayload[f.key] = num(raw);
+    });
+
     const payload: Record<string, unknown> = {
       year,
       org_id: orgId,
@@ -138,6 +183,7 @@ const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved, suggestedConvers
       annual_revenue_goal: num(annualRevenue),
       monthly_goals: JSON.parse(JSON.stringify(quarterly ? { monthly, quarterly } : { monthly })),
       conversion_rate: conversionEntered ? Math.round((conversionValue / 100) * 10000) / 10000 : null,
+      funnel_assumptions: Object.keys(funnelPayload).length ? funnelPayload : null,
       created_by: user.id,
     };
 
@@ -252,6 +298,56 @@ const CompanyGoalDialog = ({ open, onOpenChange, year, onSaved, suggestedConvers
                     Use this
                   </Button>
                 </div>
+              )}
+            </div>
+
+            {/* Funnel assumptions — drive the Required Activity panel */}
+            <div className="space-y-3 border-t border-border pt-4">
+              <div>
+                <Label className="text-sm">Funnel assumptions (optional)</Label>
+                <p className="text-xs text-muted-foreground">
+                  Used to turn a pipeline gap into dials, conversations and appointments. Leave blank to use your team's
+                  own measured rate where it is reliable — nothing is applied on its own.
+                </p>
+              </div>
+              {FUNNEL_FIELDS.map((f) => {
+                const suggestion = funnelSuggestions?.[f.key];
+                return (
+                  <div key={f.key} className="space-y-1">
+                    <Label htmlFor={f.key} className="text-xs">{f.label}</Label>
+                    <Input
+                      id={f.key}
+                      type="number"
+                      min={1}
+                      max={100}
+                      placeholder="Measured"
+                      value={funnel[f.key] || ''}
+                      onChange={(e) => setFunnel((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                    />
+                    <p className="text-xs text-muted-foreground">{f.help}</p>
+                    {suggestion != null && suggestion > 0 ? (
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs text-muted-foreground">Your measured rate: {suggestion}%</p>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => setFunnel((prev) => ({ ...prev, [f.key]: String(suggestion) }))}
+                        >
+                          Use this
+                        </Button>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        No reliable measured rate yet — set one here or this step will show “not enough data”.
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+              {!funnelValid && (
+                <p className="text-xs text-destructive">Funnel rates must be between 1 and 100.</p>
               )}
             </div>
           </div>

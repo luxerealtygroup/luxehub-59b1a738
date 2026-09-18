@@ -9,6 +9,7 @@ import { classifyStage, isActiveListingDeal } from '@/hooks/useFubDealMetrics';
 import { sumWeightedDeals, buildWeightedDebug, formatWeightedDeals, WeightedDebugInfo, inferDealCategory, DealMetadataMap } from '@/lib/utils/dealWeight';
 import { useDealMetadata } from '@/hooks/useDealMetadata';
 import { normalize411Row } from '@/lib/utils/weekly411Fallback';
+import { computeFunnelRate, totalMetric, FunnelRate, Weekly411Raw, MIN_PAIRED_WEEKS, MIN_DENOMINATOR } from '@/lib/funnelRates';
 import { format, startOfYear, startOfWeek, addWeeks, isBefore, parseISO, getWeek } from 'date-fns';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend, ReferenceLine } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -109,6 +110,13 @@ const DEFAULT_CONVERSION_RATE = 0.20;
 /** Which population the conversion rate describes — shown beside the rate. */
 const CONVERSION_POPULATION = 'everyone entered into the pipeline';
 
+/** Optional per-team overrides for the funnel steps. Percentages, 0–100. */
+export interface FunnelAssumptions {
+  contact_to_pipeline_pct?: number | null;
+  dials_to_contact_pct?: number | null;
+  contact_to_appt_set_pct?: number | null;
+}
+
 interface ConversionTotals {
   contacts_made: number;
   dials: number;
@@ -158,6 +166,11 @@ const CompanyBusinessPlanning = () => {
   // Company conversion rate: null until this team sets one, then the platform default applies.
   const [companyConversionRate, setCompanyConversionRate] = useState<number | null>(null);
   const [conversionTotals, setConversionTotals] = useState<ConversionTotals>({ contacts_made: 0, dials: 0, appointments_set: 0, appointments_held: 0, pipeline_additions: 0, contracts_signed: 0, firm_deals: 0 });
+  // Raw weekly rows, kept so rates can be measured on a paired basis (see funnelRates).
+  const [weeklyRows, setWeeklyRows] = useState<Weekly411Raw[]>([]);
+  const [activeAgentCount, setActiveAgentCount] = useState(0);
+  // Team's own funnel assumptions, null per-field until an owner sets one.
+  const [funnelAssumptions, setFunnelAssumptions] = useState<FunnelAssumptions>({});
   const [recruiting, setRecruiting] = useState<RecruitingData>({
     year: CURRENT_YEAR,
     quarter: CURRENT_QUARTER,
@@ -176,7 +189,7 @@ const CompanyBusinessPlanning = () => {
 
   const fetchAll = async () => {
     setLoading(true);
-    await Promise.all([fetchFubMetrics(), fetchAgentGoals(), fetchCompanyGoals(), fetchRecruiting(), fetchPipeline(), fetchConversions()]);
+    await Promise.all([fetchFubMetrics(), fetchAgentGoals(), fetchCompanyGoals(), fetchRecruiting(), fetchPipeline(), fetchConversions(), fetchActiveAgents()]);
     setLoading(false);
   };
 
@@ -294,13 +307,15 @@ const CompanyBusinessPlanning = () => {
     if (!orgId) return;
     const { data } = await supabase
       .from('company_goals')
-      .select('annual_deals_goal, annual_gci_goal, monthly_goals, conversion_rate')
+      .select('annual_deals_goal, annual_gci_goal, monthly_goals, conversion_rate, funnel_assumptions')
       .eq('org_id', orgId)
       .eq('year', CURRENT_YEAR)
       .maybeSingle();
     setHasCompanyGoal(!!data);
     const storedRate = data && data.conversion_rate != null ? Number(data.conversion_rate) : null;
     setCompanyConversionRate(storedRate != null && storedRate > 0 ? storedRate : null);
+    const fa = (data as any)?.funnel_assumptions;
+    setFunnelAssumptions(fa && typeof fa === 'object' && !Array.isArray(fa) ? fa as FunnelAssumptions : {});
     if (!data) {
       setCompanyDealGoal(0);
       setCompanyGciGoal(0);
@@ -394,16 +409,21 @@ const CompanyBusinessPlanning = () => {
 
   // ── 6. Team conversion rates ──
   const fetchConversions = async () => {
+    if (!orgId) return;
     const fromStr = format(startOfYear(new Date()), 'yyyy-MM-dd');
     const toStr = format(new Date(), 'yyyy-MM-dd');
     const { data } = await supabase
       .from('weekly_411')
-      .select('contacts_made, dials, appointments_set, appointments_held, pipeline_additions, contracts_signed, firm_deals, calls_actual, appointments_actual, contracts_actual')
+      .select('week_start_date, user_id, contacts_made, dials, appointments_set, appointments_held, pipeline_additions, contracts_signed, firm_deals, calls_actual, appointments_actual, contracts_actual')
+      .eq('org_id', orgId)
       .gte('week_start_date', fromStr)
       .lte('week_start_date', toStr);
 
+    const rows = (data || []) as Weekly411Raw[];
+    setWeeklyRows(rows);
+
     const totals: ConversionTotals = { contacts_made: 0, dials: 0, appointments_set: 0, appointments_held: 0, pipeline_additions: 0, contracts_signed: 0, firm_deals: 0 };
-    (data || []).forEach(row => {
+    rows.forEach(row => {
       const n = normalize411Row(row);
       totals.contacts_made += n.contacts_made;
       totals.dials += n.dials;
@@ -414,6 +434,17 @@ const CompanyBusinessPlanning = () => {
       totals.firm_deals += n.firm_deals;
     });
     setConversionTotals(totals);
+  };
+
+  // ── 6b. Active producing agents (operations, clients and admins excluded) ──
+  const fetchActiveAgents = async () => {
+    if (!orgId) return;
+    const { count } = await supabase
+      .from('profiles')
+      .select('id', { count: 'exact', head: true })
+      .eq('org_id', orgId)
+      .eq('member_type', 'agent');
+    setActiveAgentCount(count || 0);
   };
 
   const saveRecruiting = async () => {
@@ -521,6 +552,88 @@ const CompanyBusinessPlanning = () => {
   const pipelineDeficit = Math.max(0, Math.round((requiredPipelineDeals - currentPipelineWeighted) * 100) / 100);
   const pipelineSurplus = Math.max(0, Math.round((currentPipelineWeighted - requiredPipelineDeals) * 100) / 100);
 
+  // ── Required activity: turn the pipeline gap into dials, conversations, appointments ──
+  // Every rate goes through the reliability check first; a failed rate is never consumed.
+  const measuredRates = useMemo(() => ({
+    contactToPipeline: computeFunnelRate(weeklyRows, 'pipeline_additions', 'contacts_made'),
+    dialsToContact: computeFunnelRate(weeklyRows, 'contacts_made', 'dials'),
+    contactToApptSet: computeFunnelRate(weeklyRows, 'appointments_set', 'contacts_made'),
+    apptHeldToContract: computeFunnelRate(weeklyRows, 'contracts_signed', 'appointments_held'),
+    apptHeldToFirm: computeFunnelRate(weeklyRows, 'firm_deals', 'appointments_held'),
+    dialsToApptSet: computeFunnelRate(weeklyRows, 'appointments_set', 'dials'),
+    dialsToPipeline: computeFunnelRate(weeklyRows, 'pipeline_additions', 'dials'),
+  }), [weeklyRows]);
+
+  /** An override wins over the measured rate; otherwise the measured rate if it is reliable. */
+  const resolveRate = (override: number | null | undefined, measured: FunnelRate) => {
+    if (override != null && override > 0) {
+      return { rate: override / 100, source: 'company setting' as const, measured };
+    }
+    if (measured.ok && measured.rate) {
+      return { rate: measured.rate, source: 'measured' as const, measured };
+    }
+    return { rate: null, source: 'unavailable' as const, measured };
+  };
+
+  const rContactToPipeline = resolveRate(funnelAssumptions.contact_to_pipeline_pct, measuredRates.contactToPipeline);
+  const rDialsToContact = resolveRate(funnelAssumptions.dials_to_contact_pct, measuredRates.dialsToContact);
+  const rContactToApptSet = resolveRate(funnelAssumptions.contact_to_appt_set_pct, measuredRates.contactToApptSet);
+
+  // Whole weeks left in the current quarter, floored at 1 so the maths stays usable.
+  const weeksLeftInQuarter = Math.max(1, Math.floor(
+    (new Date(QUARTER_END_DATE[quarter]).getTime() - Date.now()) / (7 * 24 * 60 * 60 * 1000),
+  ));
+  const agentDivisor = Math.max(1, activeAgentCount);
+
+  // Actual pace over the last 8 weeks, from the same weekly records.
+  const PACE_WEEKS = 8;
+  const paceRows = useMemo(() => {
+    const cutoff = format(addWeeks(new Date(), -PACE_WEEKS), 'yyyy-MM-dd');
+    return weeklyRows.filter(r => (r.week_start_date || '') >= cutoff);
+  }, [weeklyRows]);
+  const pacePerWeek = (metric: Parameters<typeof totalMetric>[1]) =>
+    Math.round((totalMetric(paceRows, metric) / PACE_WEEKS) * 10) / 10;
+
+  const pipelineUnitsNeeded = pipelineDeficit;
+  const conversationsNeeded = rContactToPipeline.rate ? Math.ceil(pipelineUnitsNeeded / rContactToPipeline.rate) : null;
+  const dialsNeeded = conversationsNeeded != null && rDialsToContact.rate ? Math.ceil(conversationsNeeded / rDialsToContact.rate) : null;
+  const apptsNeeded = conversationsNeeded != null && rContactToApptSet.rate ? Math.ceil(conversationsNeeded * rContactToApptSet.rate) : null;
+
+  const activityRows = [
+    {
+      key: 'pipeline',
+      label: 'Pipeline additions',
+      needed: pipelineUnitsNeeded > 0 ? Math.ceil(pipelineUnitsNeeded) : 0,
+      pace: pacePerWeek('pipeline_additions'),
+      rate: null as null | typeof rContactToPipeline,
+      rateLabel: null as string | null,
+    },
+    {
+      key: 'conversations',
+      label: 'Conversations',
+      needed: conversationsNeeded,
+      pace: pacePerWeek('contacts_made'),
+      rate: rContactToPipeline,
+      rateLabel: 'Conversation → pipeline',
+    },
+    {
+      key: 'dials',
+      label: 'Dials',
+      needed: dialsNeeded,
+      pace: pacePerWeek('dials'),
+      rate: rDialsToContact,
+      rateLabel: 'Dial → conversation',
+    },
+    {
+      key: 'appointments',
+      label: 'Appointments set',
+      needed: apptsNeeded,
+      pace: pacePerWeek('appointments_set'),
+      rate: rContactToApptSet,
+      rateLabel: 'Conversation → appointment set',
+    },
+  ];
+
   // Year-to-date totals (still used by other sections of the page)
   const companyProductionRaw = (metrics?.closedDeals || 0) + (metrics?.pendingDeals || 0);
 
@@ -559,6 +672,11 @@ const CompanyBusinessPlanning = () => {
           year={CURRENT_YEAR}
           onSaved={fetchCompanyGoals}
           suggestedConversionPct={measuredConversionPct}
+          funnelSuggestions={{
+            contact_to_pipeline_pct: measuredRates.contactToPipeline.ok ? measuredRates.contactToPipeline.pct : null,
+            dials_to_contact_pct: measuredRates.dialsToContact.ok ? measuredRates.dialsToContact.pct : null,
+            contact_to_appt_set_pct: measuredRates.contactToApptSet.ok ? measuredRates.contactToApptSet.pct : null,
+          }}
         />
         {!hasCompanyGoal && (
           <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
@@ -763,6 +881,94 @@ const CompanyBusinessPlanning = () => {
               </CardContent>
             </Card>
 
+            {/* Required Activity */}
+            <Card className="border-border">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Crosshair className="h-4 w-4 text-gold" /> Required Activity to Close the Gap
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {pipelineDeficit <= 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No pipeline deficit for {nextQuarterLabel} at today's rates, so no catch-up activity is required.
+                    Keep the current pace.
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-xs text-muted-foreground">
+                      Working backwards from the {formatWeightedDeals(pipelineDeficit)} deal units of pipeline still needed,
+                      through the team's own funnel. Per-agent figures divide by {activeAgentCount} producing
+                      agent{activeAgentCount === 1 ? '' : 's'} (operations staff and clients excluded);
+                      weekly figures divide by {weeksLeftInQuarter} whole week{weeksLeftInQuarter === 1 ? '' : 's'} left in
+                      Q{quarter}.
+                    </p>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Activity</TableHead>
+                            <TableHead className="text-right">Needed (rest of Q{quarter})</TableHead>
+                            <TableHead className="text-right">Per week</TableHead>
+                            <TableHead className="text-right">Per agent / week</TableHead>
+                            <TableHead className="text-right">Current pace (per week, last 8 wks)</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {activityRows.map(row => {
+                            if (row.needed == null) {
+                              return (
+                                <TableRow key={row.key}>
+                                  <TableCell className="font-medium">{row.label}</TableCell>
+                                  <TableCell colSpan={3} className="text-sm text-muted-foreground">
+                                    Cannot calculate — {row.rate?.measured.reason || 'not enough data for this rate'}
+                                  </TableCell>
+                                  <TableCell className="text-right">{formatNumber(row.pace)}</TableCell>
+                                </TableRow>
+                              );
+                            }
+                            const perWeek = Math.ceil(row.needed / weeksLeftInQuarter);
+                            const perAgentWeek = Math.round((perWeek / agentDivisor) * 10) / 10;
+                            const shortfall = Math.round((perWeek - row.pace) * 10) / 10;
+                            return (
+                              <TableRow key={row.key}>
+                                <TableCell className="font-medium">
+                                  {row.label}
+                                  {row.rateLabel && row.rate?.rate != null && (
+                                    <span className="block text-xs text-muted-foreground">
+                                      {row.rateLabel} {Math.round(row.rate.rate * 1000) / 10}%
+                                      {' · '}
+                                      {row.rate.source === 'company setting' ? 'company setting' : 'measured'}
+                                      {row.rate.source === 'measured' && row.rate.measured.unverified ? ' · unverified' : ''}
+                                    </span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-right">{formatNumber(row.needed)}</TableCell>
+                                <TableCell className="text-right">{formatNumber(perWeek)}</TableCell>
+                                <TableCell className="text-right">{perAgentWeek}</TableCell>
+                                <TableCell className="text-right">
+                                  {formatNumber(row.pace)}
+                                  <span className={`block text-xs ${shortfall > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                                    {shortfall > 0 ? `${formatNumber(shortfall)} short` : `${formatNumber(Math.abs(shortfall))} ahead`}
+                                  </span>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    {isAdmin && (
+                      <p className="text-xs text-muted-foreground">
+                        Set your own funnel assumptions under “Edit company goal”. Blank fields use the team's measured rate
+                        where it is reliable.
+                      </p>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Team Conversion Rates */}
             <Card className="border-border">
               <CardHeader className="pb-3">
@@ -773,20 +979,38 @@ const CompanyBusinessPlanning = () => {
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                   {[
-                    { label: 'Contact → Appt Set', val: pctFmt(conversionTotals.appointments_set, conversionTotals.contacts_made), sub: `${conversionTotals.appointments_set}/${conversionTotals.contacts_made}` },
-                    { label: 'Dials → Appt Set', val: pctFmt(conversionTotals.appointments_set, conversionTotals.dials), sub: `${conversionTotals.appointments_set}/${conversionTotals.dials}` },
-                    { label: 'Contact → Pipeline', val: pctFmt(conversionTotals.pipeline_additions, conversionTotals.contacts_made), sub: `${conversionTotals.pipeline_additions}/${conversionTotals.contacts_made}` },
-                    { label: 'Appt Held → Contract', val: pctFmt(conversionTotals.contracts_signed, conversionTotals.appointments_held), sub: `${conversionTotals.contracts_signed}/${conversionTotals.appointments_held}` },
-                    { label: 'Appt Held → Firm Deal', val: pctFmt(conversionTotals.firm_deals, conversionTotals.appointments_held), sub: `${conversionTotals.firm_deals}/${conversionTotals.appointments_held}` },
-                    { label: 'Dials → Pipeline', val: pctFmt(conversionTotals.pipeline_additions, conversionTotals.dials), sub: `${conversionTotals.pipeline_additions}/${conversionTotals.dials}` },
+                    { label: 'Contact → Appt Set', r: measuredRates.contactToApptSet },
+                    { label: 'Dials → Appt Set', r: measuredRates.dialsToApptSet },
+                    { label: 'Contact → Pipeline', r: measuredRates.contactToPipeline },
+                    { label: 'Appt Held → Contract', r: measuredRates.apptHeldToContract },
+                    { label: 'Appt Held → Firm Deal', r: measuredRates.apptHeldToFirm },
+                    { label: 'Dials → Pipeline', r: measuredRates.dialsToPipeline },
                   ].map(m => (
                     <div key={m.label} className="text-center p-3 rounded-lg border border-border bg-muted/20">
-                      <p className="text-xl font-bold text-foreground">{m.val}</p>
-                      <p className="text-xs text-muted-foreground leading-tight mt-1">{m.label}</p>
-                      <p className="text-xs text-muted-foreground">{m.sub}</p>
+                      {m.r.ok ? (
+                        <>
+                          <p className="text-xl font-bold text-foreground">{m.r.pct}%</p>
+                          <p className="text-xs text-muted-foreground leading-tight mt-1">{m.label}</p>
+                          <p className="text-xs text-muted-foreground">{formatNumber(m.r.numerator)}/{formatNumber(m.r.denominator)} over {m.r.pairedWeeks} weeks</p>
+                          {m.r.unverified && (
+                            <p className="text-xs text-amber-600 leading-tight mt-1">Unverified — {m.r.unverifiedReason}</p>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-sm font-semibold text-muted-foreground">Not enough data</p>
+                          <p className="text-xs text-muted-foreground leading-tight mt-1">{m.label}</p>
+                          <p className="text-xs text-muted-foreground leading-tight">{m.r.reason}</p>
+                        </>
+                      )}
                     </div>
                   ))}
                 </div>
+                <p className="text-xs text-muted-foreground mt-3">
+                  Each rate is measured only over weeks where both figures were recorded, needs at least {MIN_PAIRED_WEEKS} such
+                  weeks and {MIN_DENOMINATOR} on the bottom of the fraction, and is suppressed entirely if it exceeds 100% —
+                  which means the bottom figure is being under-logged rather than the rate being real.
+                </p>
               </CardContent>
             </Card>
 
