@@ -515,7 +515,8 @@ const CompanyBusinessPlanning = () => {
 
   // Required pipeline (weighted units) and deficit/surplus
   const requiredPipelineDeals = totalClosingsNeeded > 0 ? Math.ceil(totalClosingsNeeded / conversionRate) : 0;
-  // Qualified pipeline only — signed agreements and live deals, never Leads.
+  // Everyone entered into the pipeline this year and still live, Leads included —
+  // the same population the conversion rate is measured over.
   const currentPipelineWeighted = pipelineSummary.qualifiedWeighted;
   const pipelineDeficit = Math.max(0, Math.round((requiredPipelineDeals - currentPipelineWeighted) * 100) / 100);
   const pipelineSurplus = Math.max(0, Math.round((currentPipelineWeighted - requiredPipelineDeals) * 100) / 100);
