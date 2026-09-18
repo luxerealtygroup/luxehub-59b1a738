@@ -126,8 +126,8 @@ const CompanyBusinessPlanning = () => {
   const [savingRecruiting, setSavingRecruiting] = useState(false);
 
   useEffect(() => {
-    if (!metaLoading) fetchAll();
-  }, [metaLoading]);
+    if (!metaLoading && orgId) fetchAll();
+  }, [metaLoading, orgId]);
 
   const fetchAll = async () => {
     setLoading(true);
