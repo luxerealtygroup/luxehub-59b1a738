@@ -357,7 +357,7 @@ const CompanyBusinessPlanning = () => {
     if (!orgId) return;
     const { data } = await supabase
       .from('pipeline_clients')
-      .select('client_type, projected_gci, deal_category, stage')
+      .select('client_type, projected_gci, deal_category, stage, created_at')
       .eq('org_id', orgId);
     const clients = data || [];
     const isLeaseLike = (c: any) =>
@@ -365,9 +365,12 @@ const CompanyBusinessPlanning = () => {
     const weigh = (list: any[]) =>
       Math.round(list.reduce((sum, c) => sum + (isLeaseLike(c) ? 1 / 3 : 1), 0) * 100) / 100;
 
-    // Qualified = signed agreement or live deal. Leads and finished records excluded.
-    const qualified = clients.filter(c => QUALIFIED_PIPELINE_STAGES.includes(Number(c.stage)));
-    const leads = clients.filter(c => Number(c.stage) === LEAD_STAGE);
+    // Pipeline = everyone entered this year, Leads included, minus records already
+    // finished (closed or dead). The conversion rate covers the same population.
+    const yearStart = new Date(CURRENT_YEAR, 0, 1);
+    const enteredThisYear = clients.filter(c => new Date(c.created_at) >= yearStart);
+    const active = enteredThisYear.filter(c => ACTIVE_PIPELINE_STAGES.includes(Number(c.stage)));
+    const leads = active.filter(c => Number(c.stage) === LEAD_STAGE);
 
     setPipelineSummary({
       totalClients: clients.length,
@@ -376,14 +379,16 @@ const CompanyBusinessPlanning = () => {
       projectedGci: clients.reduce((s, c) => s + Number(c.projected_gci || 0), 0),
       weightedTotal: weigh(clients),
       leaseCount: clients.filter(isLeaseLike).length,
-      qualifiedClients: qualified.length,
-      qualifiedWeighted: weigh(qualified),
-      qualifiedBuyers: qualified.filter(c => c.client_type === 'buyer').length,
-      qualifiedSellers: qualified.filter(c => c.client_type === 'seller').length,
-      qualifiedLeases: qualified.filter(isLeaseLike).length,
-      qualifiedGci: qualified.reduce((s, c) => s + Number(c.projected_gci || 0), 0),
+      qualifiedClients: active.length,
+      qualifiedWeighted: weigh(active),
+      qualifiedBuyers: active.filter(c => c.client_type === 'buyer').length,
+      qualifiedSellers: active.filter(c => c.client_type === 'seller').length,
+      qualifiedLeases: active.filter(isLeaseLike).length,
+      qualifiedGci: active.reduce((s, c) => s + Number(c.projected_gci || 0), 0),
       leadCount: leads.length,
-      finishedCount: clients.length - qualified.length - leads.length,
+      finishedCount: enteredThisYear.length - active.length,
+      enteredThisYear: enteredThisYear.length,
+      priorYearCount: clients.length - enteredThisYear.length,
     });
   };
 
