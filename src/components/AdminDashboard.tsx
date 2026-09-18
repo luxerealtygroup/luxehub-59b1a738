@@ -73,7 +73,10 @@ interface CompanyStats {
   totalDeals: number;
   closedDeals: number;
   activeDeals: number;
+  /** Weighted qualified pipeline: stages 2–9 only, leases at 0.33. */
   totalPipelineClients: number;
+  allPipelineClientRecords: number;
+  qualifiedPipelineClientRecords: number;
   totalPipelineGci: number;
   agents: AgentData[];
 }
@@ -690,8 +693,13 @@ const AdminDashboard = () => {
         };
       });
 
-      // Calculate total pipeline GCI
-      const totalPipelineGci = (pipelineClients || [])
+      // Qualified pipeline only — signed agreement or live deal (stages 2–9).
+      // Stage 1 (Lead) has no commitment and stage 10+ is finished, so neither
+      // counts as pipeline. Same definition as Company Business Planning.
+      const qualifiedPipelineClients = (pipelineClients || []).filter(
+        (c: any) => Number(c.stage) >= 2 && Number(c.stage) <= 9,
+      );
+      const totalPipelineGci = qualifiedPipelineClients
         .reduce((sum, p) => sum + Number(p.projected_gci || 0), 0);
 
       const companyStats: CompanyStats = {
@@ -702,11 +710,14 @@ const AdminDashboard = () => {
         closedDeals: (deals || []).filter(d => d.stage === 'closed').length,
         activeDeals: (deals || []).filter(d => ['lead', 'contacted', 'showing', 'offer', 'under_contract'].includes(d.stage)).length,
         totalPipelineClients: Math.round(
-          (pipelineClients || []).reduce(
-            (s: number, c: any) => s + (c.client_type === 'tenant' || c.client_type === 'landlord' ? 1 / 3 : 1),
+          qualifiedPipelineClients.reduce(
+            (s: number, c: any) =>
+              s + (c.client_type === 'tenant' || c.client_type === 'landlord' || c.deal_category === 'lease' ? 1 / 3 : 1),
             0,
           ) * 100,
         ) / 100,
+        allPipelineClientRecords: (pipelineClients || []).length,
+        qualifiedPipelineClientRecords: qualifiedPipelineClients.length,
         totalPipelineGci,
         agents: agentData
           .filter(a => a.full_name && a.full_name !== 'Unknown Agent') // Exclude unknown agents
