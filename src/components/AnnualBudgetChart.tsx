@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useTenant } from '@/hooks/useTenant';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, TrendingUp } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ReferenceLine } from 'recharts';
@@ -12,19 +13,22 @@ interface MonthlyData {
 }
 
 const AnnualBudgetChart = () => {
+  const { orgId } = useTenant();
   const [data, setData] = useState<MonthlyData[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchAnnualBudget = async () => {
+      if (!orgId) return;
       setLoading(true);
       try {
         const currentYear = new Date().getFullYear();
 
-        // Fetch expenses from company_budget_expenses
+        // Fetch expenses from company_budget_expenses (scoped to this tenant)
         const { data: expenses, error: expError } = await supabase
           .from('company_budget_expenses')
           .select('*')
+          .eq('org_id', orgId)
           .eq('year', currentYear)
           .order('month', { ascending: true });
 
@@ -32,10 +36,11 @@ const AnnualBudgetChart = () => {
           console.error('Error fetching budget expenses:', expError);
         }
 
-        // Fetch company goals for revenue projections
+        // Fetch company goals for revenue projections (scoped to this tenant)
         const { data: goals } = await supabase
           .from('company_goals')
           .select('*')
+          .eq('org_id', orgId)
           .eq('year', currentYear)
           .maybeSingle();
 
