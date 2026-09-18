@@ -74,7 +74,7 @@ const AnnualBudgetChart = () => {
     };
 
     fetchAnnualBudget();
-  }, []);
+  }, [orgId]);
 
   if (loading) {
     return (
