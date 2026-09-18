@@ -410,24 +410,44 @@ const CompanyBusinessPlanning = () => {
   const conversionRate = 1 - FALLOUT_RATE; // 0.30
   const quarter = CURRENT_QUARTER;
 
-  // Step 1: Q1 goal (in deal units)
-  const q1Goal = quarterlyDealGoals.q1;
-  // Step 2: Company production WEIGHTED (closed + pending)
-  const companyProductionWeighted = weightedClosedTotal + weightedPendingTotal;
-  const companyProductionRaw = (metrics?.closedDeals || 0) + (metrics?.pendingDeals || 0);
-  // Step 3: Carryover from Q1 (weighted)
-  const q1Carryover = quarter >= 2 ? Math.max(0, Math.round((q1Goal - companyProductionWeighted) * 100) / 100) : 0;
-  // Step 4: Q2 goal
-  const q2Goal = quarterlyDealGoals.q2;
-  // Step 5: Total closings required
-  const currentQGoal = quarter === 1 ? q1Goal : q2Goal;
-  const totalClosingsNeeded = quarter === 1 ? q1Goal : Math.round((q1Carryover + q2Goal) * 100) / 100;
-  // Step 6-7: Required pipeline (in weighted units)
+  // ── Period-correct model ──
+  // Elapsed period = Q1 … current quarter. Goals and actuals both cover that window.
+  const elapsedQuarters = Array.from({ length: quarter }, (_, i) => i + 1);
+  const elapsedGoal = Math.round(
+    elapsedQuarters.reduce((sum, q) => sum + (quarterlyDealGoals[`q${q}` as 'q1' | 'q2' | 'q3' | 'q4'] || 0), 0) * 100,
+  ) / 100;
+  const elapsedLabel = `Q1–Q${quarter} (Jan–${QUARTER_RANGE_LABEL[quarter].split('–')[1]})`;
+
+  // Actuals for that same window (weighted): closed + pending expected to close by quarter end
+  const periodProductionWeighted = Math.round((periodActuals.closed + periodActuals.pending) * 100) / 100;
+  const periodProductionRaw = periodActuals.rawClosed + periodActuals.rawPending;
+
+  // Cumulative carryover gap — positive = behind, negative = ahead
+  const carryoverGap = Math.round((elapsedGoal - periodProductionWeighted) * 100) / 100;
+  const carryoverDeficit = Math.max(0, carryoverGap);
+  const carryoverSurplus = Math.max(0, -carryoverGap);
+
+  // Next quarter to plan for
+  const nextQuarter = quarter < 4 ? quarter + 1 : 1;
+  const nextQuarterIsNextYear = quarter === 4;
+  const nextQuarterGoal = nextQuarterIsNextYear
+    ? 0
+    : quarterlyDealGoals[`q${nextQuarter}` as 'q1' | 'q2' | 'q3' | 'q4'] || 0;
+  const nextQuarterLabel = nextQuarterIsNextYear
+    ? `Q1 ${CURRENT_YEAR + 1}`
+    : `Q${nextQuarter} (${QUARTER_RANGE_LABEL[nextQuarter]})`;
+
+  const currentQGoal = quarterlyDealGoals[`q${quarter}` as 'q1' | 'q2' | 'q3' | 'q4'] || 0;
+  const totalClosingsNeeded = Math.round((nextQuarterGoal + carryoverDeficit) * 100) / 100;
+
+  // Required pipeline (weighted units) and deficit/surplus
   const requiredPipelineDeals = totalClosingsNeeded > 0 ? Math.ceil(totalClosingsNeeded / conversionRate) : 0;
-  // Step 8-9: Deficit or surplus (compare weighted pipeline)
   const currentPipelineWeighted = pipelineSummary.weightedTotal;
   const pipelineDeficit = Math.max(0, Math.round((requiredPipelineDeals - currentPipelineWeighted) * 100) / 100);
   const pipelineSurplus = Math.max(0, Math.round((currentPipelineWeighted - requiredPipelineDeals) * 100) / 100);
+
+  // Year-to-date totals (still used by other sections of the page)
+  const companyProductionRaw = (metrics?.closedDeals || 0) + (metrics?.pendingDeals || 0);
 
   // Keep old calc for other sections
   const closedAndPending = companyProductionRaw;
