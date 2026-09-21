@@ -425,6 +425,21 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
         </Button>
       </div>
 
+      <Dialog open={!!pdfPreviewUrl} onOpenChange={closePdfPreview}>
+        <DialogContent className="max-w-6xl h-[90vh] p-0 overflow-hidden">
+          <DialogHeader className="px-6 py-4 border-b">
+            <DialogTitle>Client PDF preview</DialogTitle>
+          </DialogHeader>
+          {pdfPreviewUrl && (
+            <iframe
+              title="Client PDF preview"
+              src={pdfPreviewUrl}
+              className="h-[calc(90vh-73px)] w-full bg-background"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
       {portalSentAt && (
         <p className="print:hidden -mt-4 mb-6 text-right text-xs text-muted-foreground">
           Sent to the client portal on {new Date(portalSentAt).toLocaleString()}.
