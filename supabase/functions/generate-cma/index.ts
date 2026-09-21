@@ -400,7 +400,6 @@ function clientReadyList(items: unknown, empty: string): string {
   const values = Array.isArray(items)
     ? items.map(cleanText).filter((item) => {
       if (!item) return false;
-      if (/pricing band of \$[\d,]+[–-]\$?\1/i.test(item)) return false;
       if (/\b0 matching,\s*0 non-matching\b/i.test(item)) return false;
       if (/yielding a pricing band/i.test(item)) return false;
       return true;
