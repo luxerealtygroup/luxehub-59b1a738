@@ -477,7 +477,11 @@ Deno.serve(async (req) => {
     // analysis straight from the report row so the client document can never
     // disagree with the audit view. A caller-supplied `analysis` is a fallback.
     const requestedReportId = body?.reportId ?? body?.report_id ?? null;
-    let analysis: any = body?.analysis ?? null;
+    if (!requestedReportId) {
+      return jsonResponse({ success: false, error: "A saved CMA report is required before generating the client document." }, 400);
+    }
+
+    let analysis: any = null;
     let reportPayload: Record<string, unknown> = {};
     let pendingCount = 0;
     if (requestedReportId) {
