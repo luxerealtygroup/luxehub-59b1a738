@@ -235,6 +235,67 @@ function stripFences(text: string): string {
     .trimStart();
 }
 
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function money(value: unknown): string {
+  const amount = Number(value);
+  return Number.isFinite(amount)
+    ? new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 }).format(amount)
+    : "Not provided";
+}
+
+function list(items: unknown, empty = "No material concerns were identified."): string {
+  const values = Array.isArray(items) ? items.filter(Boolean) : [];
+  if (!values.length) return `<p class="muted">${escapeHtml(empty)}</p>`;
+  return `<ul>${values.map((item) => `<li>${escapeHtml(typeof item === "string" ? item : JSON.stringify(item))}</li>`).join("")}</ul>`;
+}
+
+function buildAuditedCmaHtml(payload: any, analysis: any): string {
+  const subject = payload?.subjectProperty ?? {};
+  const address = subject.address || "Subject Property";
+  const comparables = Array.isArray(payload?.comparables) ? payload.comparables : [];
+  const scenarios = analysis?.valuation_scenarios ?? {};
+  const adjustments = Array.isArray(analysis?.feature_adjustments) ? analysis.feature_adjustments : [];
+  const crossCheck = analysis?.price_per_sqft_cross_check ?? {};
+  const date = new Intl.DateTimeFormat("en-CA", { dateStyle: "long", timeZone: "America/Toronto" }).format(new Date());
+  const scenarioEntries = Array.isArray(scenarios)
+    ? scenarios
+    : Object.entries(scenarios).map(([name, value]: [string, any]) => ({ name, ...(typeof value === "object" ? value : { price: value }) }));
+
+  const compCards = comparables.length
+    ? comparables.map((comp: any) => {
+      const price = comp.soldPrice ?? comp.sold_price ?? comp.listPrice ?? comp.list_price;
+      return `<article class="card"><span class="badge">${escapeHtml(comp.status || comp.comp_category || "Comparable")}</span><h3>${escapeHtml(comp.address || "Address not provided")}</h3><div class="price">${money(price)}</div><p>${escapeHtml(comp.beds ?? "—")} beds · ${escapeHtml(comp.baths ?? "—")} baths · ${escapeHtml(comp.sqFt ?? comp.sq_ft ?? "—")} sq ft · ${escapeHtml(comp.dom ?? "—")} DOM</p><p class="muted">${escapeHtml(comp.notes || comp.agent_note || "")}</p></article>`;
+    }).join("")
+    : `<p class="muted">Comparable details are contained in the approved analysis.</p>`;
+
+  const scenarioCards = scenarioEntries.length
+    ? scenarioEntries.map((scenario: any) => `<article class="card"><p class="eyebrow">${escapeHtml(scenario.name || scenario.label || scenario.scenario || "Scenario")}</p><div class="price">${money(scenario.price ?? scenario.value)}</div><p>${escapeHtml(scenario.rationale || scenario.description || "")}</p></article>`).join("")
+    : `<article class="card"><p class="eyebrow">Recommended value</p><div class="price">${money(analysis.pricing_band_recommended)}</div></article>`;
+
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Home Evaluation — ${escapeHtml(address)}</title><style>
+  :root{--ivory:#F6F1EA;--ink:#1C1C1C;--bronze:#B38A5A;--taupe:#C7B8A6;--paper:#FFFFFF}*{box-sizing:border-box}body{margin:0;background:var(--ivory);color:var(--ink);font:15px/1.65 Arial,sans-serif}main{max-width:1050px;margin:auto;background:var(--paper)}section{padding:56px 7%}section+section{border-top:1px solid var(--taupe)}h1,h2,h3{font-family:Georgia,serif;font-weight:400;margin:0 0 18px}h1{font-size:56px;line-height:1.05}h2{font-size:34px;border-bottom:2px solid var(--bronze);padding-bottom:12px}.cover{min-height:720px;display:flex;flex-direction:column;justify-content:center;background:var(--ink);color:var(--ivory)}.eyebrow{color:var(--bronze);font-weight:700;text-transform:uppercase;letter-spacing:.08em}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.card{border:1px solid var(--taupe);padding:22px;break-inside:avoid}.badge{display:inline-block;color:var(--bronze);font-weight:700;text-transform:uppercase}.price{font:36px Georgia,serif;margin:8px 0}.value{font:64px Georgia,serif;color:var(--bronze);line-height:1}.muted{color:#655f58}ul{padding-left:20px}.opinion{text-align:center;background:var(--ink);color:var(--ivory)}.opinion h2{border:0}.fine{font-size:11px}@media(max-width:700px){h1{font-size:40px}.grid{grid-template-columns:1fr}.value{font-size:48px}section{padding:40px 6%}}@media print{body{background:#fff}section{break-inside:avoid}.cover{break-after:page}}
+  </style></head><body><main>
+  <section class="cover"><p class="eyebrow">Home Evaluation</p><h1>${escapeHtml(address)}</h1><p>Prepared exclusively for ${escapeHtml(payload?.clientName || "our client")}</p><p>${escapeHtml(payload?.agentName || "Luxe Realty Group")} · ${escapeHtml(date)}</p></section>
+  <section><h2>Property Snapshot</h2><div class="grid"><article class="card"><p class="eyebrow">Bedrooms</p><div class="price">${escapeHtml(subject.bedrooms || "—")}</div></article><article class="card"><p class="eyebrow">Bathrooms</p><div class="price">${escapeHtml(subject.bathrooms || "—")}</div></article><article class="card"><p class="eyebrow">Finished area</p><div class="price">${escapeHtml(subject.totalFinishedSqFt || subject.aboveGradeSqFt || "—")}</div><p>square feet</p></article><article class="card"><p class="eyebrow">Garage</p><h3>${escapeHtml(subject.garage || "Not provided")}</h3></article><article class="card"><p class="eyebrow">Property type</p><h3>${escapeHtml(subject.propertyType || "Not provided")}</h3></article><article class="card"><p class="eyebrow">Year built</p><h3>${escapeHtml(subject.buildYear || "Not provided")}</h3></article></div></section>
+  <section><h2>Market Pulse</h2><p>${escapeHtml(analysis.market_narrative || "Market conditions were considered in the approved pricing analysis.")}</p><div class="grid"><article class="card"><p class="eyebrow">Market condition</p><h3>${escapeHtml(analysis.market_classification || "See analysis")}</h3></article><article class="card"><p class="eyebrow">Pricing confidence</p><h3>${escapeHtml(analysis.pricing_confidence || "Not stated")}</h3></article><article class="card"><p class="eyebrow">CMA grade</p><h3>${escapeHtml(analysis.cma_grade || "Not stated")}</h3></article></div></section>
+  <section><h2>Comparable Properties</h2><div class="grid">${compCards}</div></section>
+  <section><h2>Value Drivers</h2><div class="grid"><article class="card"><h3>Adjustments considered</h3>${adjustments.length ? `<ul>${adjustments.map((a: any) => `<li><strong>${escapeHtml(a.feature || a.name)}</strong>: ${money(a.adjustment_low)}–${money(a.adjustment_high)}. ${escapeHtml(a.rationale || "")}</li>`).join("")}</ul>` : `<p class="muted">No separate adjustment grid was supplied.</p>`}</article><article class="card"><h3>Points to consider</h3>${list(analysis.risk_flags)}</article><article class="card"><h3>Comparable cautions</h3>${list(analysis.weak_comp_alerts)}</article></div></section>
+  <section><h2>Pricing Analysis</h2><div class="grid"><article class="card"><p class="eyebrow">Low</p><div class="price">${money(analysis.pricing_band_low)}</div></article><article class="card"><p class="eyebrow">Recommended</p><div class="price">${money(analysis.pricing_band_recommended)}</div></article><article class="card"><p class="eyebrow">High</p><div class="price">${money(analysis.pricing_band_high)}</div></article></div><article class="card" style="margin-top:18px"><h3>Price-per-square-foot cross-check</h3><p>${money(crossCheck.implied_low)}–${money(crossCheck.implied_high)} · ${escapeHtml(crossCheck.verdict || "See approved analysis")}</p><p>${escapeHtml(crossCheck.commentary || "")}</p></article></section>
+  <section><h2>Valuation Scenarios</h2><div class="grid">${scenarioCards}</div></section>
+  <section class="opinion"><p class="eyebrow">Evaluator's Opinion of Value</p><div class="value">${money(analysis.pricing_band_recommended)}</div><p>${escapeHtml(analysis.strategy_recommendation || analysis.market_narrative || "The approved analysis supports this recommended market position.")}</p></section>
+  <section><h2>Strategy & Next Steps</h2><div class="grid"><article class="card"><h3>Preparation</h3>${list(analysis.adjustment_observations, "Prepare the property to highlight its strongest value drivers.")}</article><article class="card"><h3>Marketing</h3>${list(analysis.talking_points, "Lead with the property's strongest differentiators.")}</article><article class="card"><h3>Launch</h3><p>${escapeHtml(analysis.strategy_recommendation || "Launch at the approved recommended price and monitor buyer response.")}</p></article></div><p class="price" style="margin-top:42px"><em>Every home has a story. Our job is to ensure buyers see its value.</em></p><p>Luxe Realty Group · luxerealtygroup.ca</p></section>
+  <section><p class="fine">This CMA is a side-by-side comparison of homes for sale and recently sold in the same neighbourhood and price range. It is prepared for informational and listing strategy purposes. Information is sourced from MLS data and is deemed reliable but not guaranteed. All values represent professional opinion only and do not constitute a regulated MPAC assessment or a formal CREA appraisal. Prepared by Luxe Realty Group | luxerealtygroup.ca</p></section>
+  </main></body></html>`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -316,39 +377,33 @@ Deno.serve(async (req) => {
     const recommended = Number(analysis?.pricing_band_recommended);
     const payload = { ...body, analysis: analysis ?? undefined };
 
-    const messages: any[] = [
-      { role: "user", content: JSON.stringify(payload) },
-    ];
-
-    // Text emitted in earlier rounds that were cut off by max_tokens. The CMA
-    // document is long, so a response can hit the output cap; we ask the model
-    // to continue and stitch the pieces back together.
-    let carriedHtml = "";
-    let done = false;
-    for (let i = 0; i < 4; i++) {
-      const { text, stop } = await callAnthropic(messages);
-      console.log(`generate-cma: round ${i} stop_reason=${stop} chars=${text.length}`);
-      carriedHtml += stripFences(text);
-
-      if (stop !== "max_tokens") {
-        done = true;
-        break;
+    let rawHtml = "";
+    if (analysis && Number.isFinite(recommended)) {
+      // The pricing audit is already approved. Rendering it deterministically
+      // avoids another long model call, preserves every approved figure, and
+      // makes report generation complete well inside the request limit.
+      rawHtml = buildAuditedCmaHtml(payload, analysis);
+      console.log("generate-cma: rendered approved analysis without another model call");
+    } else {
+      const messages: any[] = [{ role: "user", content: JSON.stringify(payload) }];
+      let carriedHtml = "";
+      let done = false;
+      for (let i = 0; i < 4; i++) {
+        const { text, stop } = await callAnthropic(messages);
+        console.log(`generate-cma: round ${i} stop_reason=${stop} chars=${text.length}`);
+        carriedHtml += stripFences(text);
+        if (stop !== "max_tokens") {
+          done = true;
+          break;
+        }
+        messages.push({
+          role: "user",
+          content: "Your previous output was cut off. Continue the HTML document from exactly where it stops. Output only the remaining markup.",
+        });
       }
-
-      // Truncated mid-document: ask for the remainder in a fresh user turn
-      // (this model rejects assistant prefill).
-      messages.push({
-        role: "user",
-        content:
-          "Your previous output was cut off. Here is everything produced so far:\n\n" +
-          carriedHtml +
-          "\n\nContinue the HTML document from exactly where it stops, outputting ONLY the remaining markup. Do not repeat any of the above and do not use markdown code fences.",
-      });
+      if (!done) console.warn("generate-cma: document still truncated after continuations");
+      rawHtml = carriedHtml.trim();
     }
-
-    if (!done) console.warn("generate-cma: document still truncated after continuations");
-
-    const rawHtml = carriedHtml.trim();
     if (!rawHtml || !/<[a-z!]/i.test(rawHtml)) {
       console.error("generate-cma: no HTML in final response");
       throw new Error("Model did not return HTML");
