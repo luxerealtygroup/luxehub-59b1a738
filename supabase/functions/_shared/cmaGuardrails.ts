@@ -69,15 +69,37 @@ export function stripUnsupportedPendingClaims<T>(value: T, pendingCount: number)
   return walkStrings(value, stripUnsupportedPendingClaimsString, true);
 }
 
+function stripStaleCmaPricingTextString(s: string): string {
+  return s
+    .split(/(?<=[.!?])\s+/)
+    .filter((sentence) => !/\b0 matching,\s*0 non[-\s]matching\b/i.test(sentence))
+    .filter((sentence) => !/basement[-\s]finish segmentation is unclassified/i.test(sentence))
+    .filter((sentence) => !/pricing band of\s*\$?\d[\d,]*\s*[–—-]\s*\$?\d[\d,]*/i.test(sentence))
+    .filter((sentence) => !/yielding a pricing band/i.test(sentence))
+    .join(' ')
+    .trim();
+}
+
 // ---- HTML variants (generate-cma) ----------------------------------------
 // Applied to rendered HTML: branding + recommended-price normalization are safe
 // string-level operations. Pending-claim scrubbing is applied to text nodes only
 // so markup is never destroyed.
 export function applyHtmlGuardrails(
   html: string,
-  opts: { pendingCount?: number } = {},
+  opts: { pendingCount?: number; recommended?: number | null } = {},
 ): string {
-  let out = cleanBrandingString(html);
+  let out = cleanBrandingString(html)
+    .replace(/\$\/\s*sq\.?\s*ft\.?\b/gi, 'price per square foot')
+    .replace(/(\$\d[\d,]*(?:\.\d+)?)\/\s*sq\.?\s*ft\.?\b/gi, '$1 per square foot')
+    .replace(/\bsq\.?\s*ft\.?\b/gi, 'square feet')
+    .replace(/\$\/\s*square feet\b/gi, 'price per square foot')
+    .replace(/(\$\d[\d,]*(?:\.\d+)?)\/\s*square feet\b/gi, '$1 per square foot')
+    .replace(/price-per-square feet/gi, 'price-per-square-foot')
+    .replace(/--+/g, '—');
+  out = out.replace(/>([^<]+)</g, (full, text: string) => {
+    const scrubbed = stripStaleCmaPricingTextString(text);
+    return scrubbed === text ? full : `>${scrubbed}<`;
+  });
   if ((opts.pendingCount ?? 0) === 0) {
     // Scrub pending sentences inside text nodes between tags only.
     out = out.replace(/>([^<]+)</g, (full, text: string) => {

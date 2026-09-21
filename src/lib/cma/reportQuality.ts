@@ -31,6 +31,15 @@ export type DuplicatePriceAnomaly = {
   soldCount: number;
 };
 
+export type CmaMarketStats = {
+  median_sale_price: number | null;
+  avg_days_on_market: number | null;
+  sale_to_list_ratio: number | null;
+  months_of_inventory: number | null;
+  active_listings: number | null;
+  sold_listings: number | null;
+};
+
 export const toCleanNumber = (value: unknown): number | null => {
   if (value == null || value === '') return null;
   const n = typeof value === 'string' ? Number(value.replace(/[^0-9.-]/g, '')) : Number(value);
@@ -54,7 +63,12 @@ const cleanScalarText = (value: unknown): string =>
     .replace(/\bfi\s+eld\b/gi, 'field')
     .replace(/\bfi\s+nished\b/gi, 'finished')
     .replace(/\bfi\s+replace\b/gi, 'fireplace')
+    .replace(/\$\/\s*sq\.?\s*ft\.?\b/gi, 'price per square foot')
+    .replace(/(\$\d[\d,]*(?:\.\d+)?)\/\s*sq\.?\s*ft\.?\b/gi, '$1 per square foot')
     .replace(/\bsq\.?\s*ft\.?\b/gi, 'square feet')
+    .replace(/\$\/\s*square feet\b/gi, 'price per square foot')
+    .replace(/(\$\d[\d,]*(?:\.\d+)?)\/\s*square feet\b/gi, '$1 per square foot')
+    .replace(/price-per-square feet/gi, 'price-per-square-foot')
     .replace(/\s+—\s+—\s+/g, ' — ')
     .replace(/--+/g, '—')
     .replace(/\s+/g, ' ')
@@ -106,6 +120,25 @@ export const money = (value: unknown, empty = 'Not reported'): string => {
   return `$${Math.round(n).toLocaleString('en-US')}`;
 };
 
+export const formatWholeNumber = (value: unknown, empty = 'Not reported'): string => {
+  const n = toCleanNumber(value);
+  if (n == null || !Number.isFinite(n)) return empty;
+  return Math.round(n).toLocaleString('en-US');
+};
+
+export const formatPercent = (value: unknown, empty = 'Not reported'): string => {
+  const n = toCleanNumber(value);
+  if (n == null || !Number.isFinite(n) || n <= 0) return empty;
+  const pct = n <= 1.5 ? n * 100 : n;
+  return `${(Math.round(pct * 10) / 10).toLocaleString('en-US')}%`;
+};
+
+export const formatStatNumber = (value: unknown, empty = 'Not reported'): string => {
+  const n = toCleanNumber(value);
+  if (n == null || !Number.isFinite(n)) return empty;
+  return (Math.round(n * 10) / 10).toLocaleString('en-US');
+};
+
 export const compactMoney = (value: unknown, empty = 'Not reported'): string => {
   const n = toCleanNumber(value);
   if (n == null || !Number.isFinite(n) || n <= 0) return empty;
@@ -135,6 +168,61 @@ export const shouldShowAdjustment = (adjustment: { adjustment_low?: unknown; adj
   const h = toCleanNumber(adjustment.adjustment_high);
   if (l == null && h == null) return Boolean(cleanText(adjustment.rationale));
   return Math.round(l || 0) !== 0 || Math.round(h || 0) !== 0;
+};
+
+export const isStaleCmaClientLine = (value: unknown): boolean => {
+  const text = cleanText(value);
+  if (!text) return true;
+  if (/\b0 matching,\s*0 non[-\s]matching\b/i.test(text)) return true;
+  if (/basement[-\s]finish segmentation is unclassified/i.test(text)) return true;
+  if (/pricing band of\s*\$?\d[\d,]*\s*[–—-]\s*\$?\d[\d,]*/i.test(text)) return true;
+  if (/yielding a pricing band/i.test(text)) return true;
+  return false;
+};
+
+export const clientReadyText = (value: unknown): string => {
+  const text = cleanText(value);
+  if (!text || isStaleCmaClientLine(text)) return '';
+  return text
+    .split(/(?<=[.!?])\s+/)
+    .filter((sentence) => !isStaleCmaClientLine(sentence))
+    .join(' ')
+    .trim();
+};
+
+export const normalizeMarketStats = (stats: Record<string, unknown> | null | undefined): CmaMarketStats => {
+  const source = stats || {};
+  const counts = source.comp_counts && typeof source.comp_counts === 'object'
+    ? source.comp_counts as Record<string, unknown>
+    : {};
+  const ratio = toCleanNumber(
+    source.sale_to_list_ratio
+      ?? source.avg_sale_to_list_ratio_pct
+      ?? source.sale_to_list_ratio_pct
+      ?? source.median_sale_to_list_ratio_pct,
+  );
+  return {
+    median_sale_price: toPositiveNumber(source.median_sale_price ?? source.median_sold_price),
+    avg_days_on_market: toCleanNumber(source.avg_days_on_market ?? source.average_days_on_market),
+    sale_to_list_ratio: ratio == null ? null : Math.round((ratio <= 1.5 ? ratio * 100 : ratio) * 10) / 10,
+    months_of_inventory: toCleanNumber(source.months_of_inventory),
+    active_listings: toPositiveNumber(source.active_listings ?? counts.active),
+    sold_listings: toPositiveNumber(source.sold_listings ?? counts.sold),
+  };
+};
+
+export const shouldShowPricePerSqftCrossCheck = (crossCheck: unknown): boolean => {
+  if (!crossCheck || typeof crossCheck !== 'object') return false;
+  const cross = crossCheck as Record<string, unknown>;
+  const low = toPositiveNumber(cross.implied_low);
+  const high = toPositiveNumber(cross.implied_high);
+  if (!low || !high || low >= high) return false;
+  const verdict = cleanText(cross.verdict).toLowerCase();
+  const commentary = cleanText(cross.commentary).toLowerCase();
+  if (verdict === 'challenges' && /(double-count|mechanistic|far above|not reliable|more reliable valuation anchor)/i.test(commentary)) {
+    return false;
+  }
+  return true;
 };
 
 export const sqftLabel = (value: unknown): string => {

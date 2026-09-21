@@ -3,14 +3,20 @@ import autoTable from 'jspdf-autotable';
 import { tenant } from '@/config/tenant';
 import {
   cleanText,
+  clientReadyText,
   compPrice,
   compSqftLabel,
   compStatus,
   formatAdjustmentRange,
+  formatPercent,
+  formatStatNumber,
+  formatWholeNumber,
   humanizeLabel,
   money,
+  normalizeMarketStats,
   normalizeAddress,
   shouldShowAdjustment,
+  shouldShowPricePerSqftCrossCheck,
   sqftLabel,
   toPositiveNumber,
 } from '@/lib/cma/reportQuality';
@@ -104,7 +110,7 @@ function setFill(doc: jsPDF, color: Point) { doc.setFillColor(color[0], color[1]
 function setStroke(doc: jsPDF, color: Point) { doc.setDrawColor(color[0], color[1], color[2]); }
 
 function writeWrapped(doc: jsPDF, text: unknown, x: number, y: number, maxWidth: number, opts: { size?: number; style?: 'normal' | 'bold' | 'italic'; color?: Point; lineHeight?: number; maxLines?: number } = {}) {
-  const body = cleanText(text);
+  const body = clientReadyText(text);
   if (!body) return y;
   doc.setFont('helvetica', opts.style || 'normal');
   doc.setFontSize(opts.size || 10);
@@ -189,7 +195,8 @@ export function buildCmaClientPdf(input: CmaPdfInput): jsPDF {
   const comps = input.comps.filter(c => !c.is_weak).slice(0, 10);
   const adjustments = (input.featureAdjustments || []).filter(shouldShowAdjustment);
   const scenarios = scenarioEntries(input);
-  const stats = input.marketStats || {};
+  const stats = normalizeMarketStats(input.marketStats);
+  const cross = shouldShowPricePerSqftCrossCheck(input.pricePerSqftCrossCheck) ? input.pricePerSqftCrossCheck : null;
 
   // 1. Cover
   setFill(doc, INK);
@@ -240,13 +247,13 @@ export function buildCmaClientPdf(input: CmaPdfInput): jsPDF {
   y = addPageTitle(doc, 3, 'Market Snapshot');
   statBox(doc, M, y, 160, 'CMA grade', cleanText(input.cmaGrade) || 'Not stated', true);
   statBox(doc, M + 178, y, 160, 'Confidence', cleanText(input.pricingConfidence) || 'Not stated');
-  statBox(doc, M + 356, y, 160, 'Sale-to-list', stats.sale_to_list_ratio != null ? `${stats.sale_to_list_ratio}%` : 'Not reported');
+  statBox(doc, M + 356, y, 160, 'Sale-to-list', formatPercent(stats.sale_to_list_ratio));
   y += 104;
   y = writeWrapped(doc, input.marketConditions, M, y, CONTENT_W, { size: 10, color: INK, lineHeight: 15, maxLines: 24 });
   if (stats.avg_days_on_market || stats.median_sale_price) {
     y += 18;
     statBox(doc, M, y, 246, 'Median sale price', money(stats.median_sale_price));
-    statBox(doc, M + 270, y, 246, 'Days on market', stats.avg_days_on_market != null ? String(stats.avg_days_on_market) : 'Not reported');
+    statBox(doc, M + 270, y, 246, 'Days on market', formatStatNumber(stats.avg_days_on_market));
   }
 
   // 4. Comparison table
@@ -297,7 +304,7 @@ export function buildCmaClientPdf(input: CmaPdfInput): jsPDF {
     autoTable(doc, {
       startY: y,
       head: [['Feature', 'Adjustment', 'Rationale']],
-      body: adjustments.slice(0, 8).map(a => [cleanText(a.feature), formatAdjustmentRange(a.adjustment_low, a.adjustment_high), cleanText(a.rationale)]),
+      body: adjustments.slice(0, 8).map(a => [cleanText(a.feature), formatAdjustmentRange(a.adjustment_low, a.adjustment_high), clientReadyText(a.rationale)]),
       theme: 'grid',
       styles: { fontSize: 8.5, cellPadding: 5, lineColor: TAUPE as any, lineWidth: 0.4 },
       headStyles: { fillColor: GOLD as any, textColor: WHITE as any },
@@ -327,7 +334,6 @@ export function buildCmaClientPdf(input: CmaPdfInput): jsPDF {
     });
   }
   y = ((doc as any).lastAutoTable?.finalY || y) + 22;
-  const cross = input.pricePerSqftCrossCheck;
   if (cross) {
     doc.setFont('helvetica', 'bold'); doc.setFontSize(12); setColor(doc, INK); doc.text('Price-per-square-foot cross-check', M, y); y += 18;
     y = writeWrapped(doc, `${money(cross.implied_low)} to ${money(cross.implied_high)} · ${humanizeLabel(cross.verdict) || 'Inconclusive'}`, M, y, CONTENT_W, { size: 10, style: 'bold', color: GOLD, lineHeight: 14 });
