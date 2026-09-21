@@ -54,6 +54,7 @@ const cleanScalarText = (value: unknown): string =>
     .replace(/\bfi\s+eld\b/gi, 'field')
     .replace(/\bfi\s+nished\b/gi, 'finished')
     .replace(/\bfi\s+replace\b/gi, 'fireplace')
+    .replace(/\bsq\.?\s*ft\.?\b/gi, 'square feet')
     .replace(/\s+—\s+—\s+/g, ' — ')
     .replace(/--+/g, '—')
     .replace(/\s+/g, ' ')
@@ -63,7 +64,7 @@ export const humanizeLabel = (value: unknown): string => {
   const text = cleanScalarText(value)
     .replace(/_/g, ' ')
     .replace(/\bmost probable\b/i, 'Most probable')
-    .replace(/\bprice per sqft\b/i, 'Price per sq ft');
+    .replace(/\bprice per sqft\b/i, 'Price per square foot');
   if (!text) return '';
   return text.charAt(0).toUpperCase() + text.slice(1);
 };
@@ -138,17 +139,17 @@ export const shouldShowAdjustment = (adjustment: { adjustment_low?: unknown; adj
 
 export const sqftLabel = (value: unknown): string => {
   const n = toPositiveNumber(value);
-  return n ? `${n.toLocaleString('en-US')} sq ft` : 'Sq ft not reported';
+  return n ? `${n.toLocaleString('en-US')} square feet` : 'Square footage not reported';
 };
 
 export const compSqftLabel = (comp: CmaCompLike): string => {
   const ag = toPositiveNumber(comp.ag_sqft ?? comp.above_grade_sqft);
   const bg = toPositiveNumber(comp.bg_sqft ?? comp.finished_basement_sqft);
   const total = toPositiveNumber(comp.sqft ?? comp.sqFt ?? comp.sq_ft);
-  if (ag && bg) return `${ag.toLocaleString('en-US')} AG + ${bg.toLocaleString('en-US')} BG sq ft`;
-  if (ag) return `${ag.toLocaleString('en-US')} above-grade sq ft`;
-  if (total) return `${total.toLocaleString('en-US')} sq ft reported`;
-  return 'Sq ft not reported';
+  if (ag && bg) return `${ag.toLocaleString('en-US')} AG + ${bg.toLocaleString('en-US')} BG square feet`;
+  if (ag) return `${ag.toLocaleString('en-US')} above-grade square feet`;
+  if (total) return `${total.toLocaleString('en-US')} square feet reported`;
+  return 'Square footage not reported';
 };
 
 export const compPrice = (comp: CmaCompLike, mode: 'primary' | 'list' | 'sold' = 'primary'): string => {
