@@ -476,18 +476,20 @@ Deno.serve(async (req) => {
     // cma-analyze owns pricing. When a reportId is supplied we load the audited
     // analysis straight from the report row so the client document can never
     // disagree with the audit view. A caller-supplied `analysis` is a fallback.
+    const requestedReportId = body?.reportId ?? body?.report_id ?? null;
     let analysis: any = body?.analysis ?? null;
+    let reportPayload: Record<string, unknown> = {};
     let pendingCount = 0;
-    if (body?.reportId) {
+    if (requestedReportId) {
       if (!callerUserId || !callerOrgId) {
         return jsonResponse({ success: false, error: "Sign in before generating this CMA." }, 401);
       }
       const { data: r, error: rErr } = await admin
         .from("cma_reports")
         .select(
-          "org_id, user_id, cma_grade, pricing_band_low, pricing_band_recommended, pricing_band_high, pricing_confidence, strategy_recommendation, risk_flags, weak_comp_alerts, adjustment_observations, feature_adjustments, price_per_sqft_cross_check, valuation_scenarios, talking_points, seller_objections, market_narrative, extracted_comps, ai_raw_response",
+          "org_id, user_id, property_address, city_area, property_type, bedrooms, bathrooms, approx_sqft, above_grade_sqft, finished_basement_sqft, garage, build_year, condition, key_features, fub_person_name, agent_notes, approved_executive_summary, approved_price_narrative, approved_strategy, approved_market_conditions, cma_grade, pricing_band_low, pricing_band_recommended, pricing_band_high, pricing_confidence, strategy_recommendation, risk_flags, weak_comp_alerts, adjustment_observations, feature_adjustments, price_per_sqft_cross_check, valuation_scenarios, talking_points, seller_objections, market_narrative, active_listings, sold_listings, median_sale_price, avg_days_on_market, sale_to_list_ratio, months_of_inventory, extracted_comps, ai_raw_response",
         )
-        .eq("id", body.reportId)
+        .eq("id", requestedReportId)
         .maybeSingle();
       if (rErr) console.error("generate-cma: report load failed", rErr);
       if (rErr) return jsonResponse({ success: false, error: "Could not load this CMA report." }, 500);
@@ -531,6 +533,45 @@ Deno.serve(async (req) => {
         pendingCount = comps.filter(
           (c: any) => String(c?.comp_category || "").toLowerCase() === "pending",
         ).length;
+        reportPayload = {
+          clientName: body?.clientName ?? (r as any).fub_person_name ?? "our client",
+          subjectProperty: body?.subjectProperty ?? {
+            address: (r as any).property_address,
+            propertyType: (r as any).property_type,
+            aboveGradeSqFt: (r as any).above_grade_sqft ?? null,
+            finishedBasementSqFt: (r as any).finished_basement_sqft ?? null,
+            totalFinishedSqFt: (r as any).approx_sqft ?? null,
+            bedrooms: (r as any).bedrooms ?? null,
+            bathrooms: (r as any).bathrooms ?? null,
+            garage: (r as any).garage ?? null,
+            keyFeatures: Array.isArray((r as any).key_features) ? (r as any).key_features : [],
+            buildYear: (r as any).build_year ?? null,
+            condition: (r as any).condition ?? null,
+          },
+          comparables: body?.comparables ?? comps.map((c: any) => ({
+            address: c?.address,
+            status: c?.comp_category ?? c?.status,
+            beds: c?.beds ?? null,
+            baths: c?.baths ?? null,
+            sqFt: c?.sqft ?? c?.sqFt ?? null,
+            ag_sqft: c?.ag_sqft ?? c?.above_grade_sqft ?? null,
+            bg_sqft: c?.bg_sqft ?? c?.finished_basement_sqft ?? null,
+            listPrice: c?.list_price ?? c?.listPrice ?? null,
+            soldPrice: c?.sold_price ?? c?.soldPrice ?? null,
+            dom: c?.days_on_market ?? c?.dom ?? null,
+            sale_date: c?.sale_date ?? null,
+            notes: [c?.notes, c?.area, c?.is_weak ? `Weak: ${c?.weak_reason || ""}` : ""].filter(Boolean).join(" — "),
+          })),
+          marketStats: body?.marketStats ?? {
+            active_listings: (r as any).active_listings ?? null,
+            sold_listings: (r as any).sold_listings ?? null,
+            median_sale_price: (r as any).median_sale_price ?? null,
+            avg_days_on_market: (r as any).avg_days_on_market ?? null,
+            sale_to_list_ratio: (r as any).sale_to_list_ratio ?? null,
+            months_of_inventory: (r as any).months_of_inventory ?? null,
+          },
+          agentNotes: body?.agentNotes ?? (r as any).agent_notes ?? null,
+        };
       }
     }
     if (!pendingCount && Array.isArray(body?.comparables)) {
@@ -540,7 +581,7 @@ Deno.serve(async (req) => {
     }
 
     const recommended = Number(analysis?.pricing_band_recommended);
-    const payload = { ...body, analysis: analysis ?? undefined };
+    const payload = { ...body, ...reportPayload, analysis: analysis ?? undefined };
 
     let rawHtml = "";
     if (analysis && Number.isFinite(recommended)) {
