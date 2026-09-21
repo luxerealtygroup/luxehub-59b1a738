@@ -227,12 +227,12 @@ async function callAnthropic(
   return { text, stop };
 }
 
-function extractFinalHtml(content: any[]): string {
-  const textBlocks = (content || []).filter((b: any) => b.type === "text").map((b: any) => b.text || "");
-  let text = textBlocks.join("\n").trim();
-  // Strip markdown fences if any
-  text = text.replace(/^```html\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
-  return text;
+function stripFences(text: string): string {
+  return (text || "")
+    .replace(/^```html\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/```\s*$/i, "")
+    .trimStart();
 }
 
 Deno.serve(async (req) => {
