@@ -311,8 +311,8 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
     comps: report.extracted_comps,
   };
 
-  const canBuildClientPdf = () => {
-    if (!isApproved) return false;
+  const canBuildClientPdf = (requireApproval: boolean) => {
+    if (requireApproval && !isApproved) return false;
     const anomaly = detectDuplicateSoldPriceAnomaly(cmaPdfInput.comps || []);
     if (anomaly.hasAnomaly && !cmaPdfInput.compPriceAnomalyConfirmedAt) {
       toast.error('Confirm the repeated comparable sold prices before exporting this CMA.', { description: anomalyMessage(anomaly) });
@@ -322,7 +322,7 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
   };
 
   const handlePreviewPdf = async () => {
-    if (!canBuildClientPdf()) {
+    if (!canBuildClientPdf(false)) {
       return;
     }
 
@@ -350,7 +350,7 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
   };
 
   const handleDownloadPdf = async () => {
-    if (!canBuildClientPdf()) return;
+    if (!canBuildClientPdf(true)) return;
 
     setSavingPdf(true);
     try {
@@ -403,7 +403,7 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
             pdfInput={cmaPdfInput}
           />
         )}
-        <Button variant="outline" onClick={handlePreviewPdf} disabled={!isApproved || previewingPdf}>
+        <Button variant="outline" onClick={handlePreviewPdf} disabled={previewingPdf}>
           {previewingPdf ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Eye className="h-4 w-4 mr-2" />}
           Preview Client PDF
         </Button>
