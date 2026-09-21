@@ -394,6 +394,13 @@ function scenarioEntries(scenarios: unknown, analysis: any): Array<{ label: stri
   }).filter((entry) => entry.price != null || entry.rationale);
 }
 
+function jsonResponse(body: Record<string, unknown>, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
 function buildAuditedCmaHtml(payload: any, analysis: any): string {
   const subject = payload?.subjectProperty ?? {};
   const address = normalizeAddress(subject.address || "Subject Property");
@@ -472,15 +479,33 @@ Deno.serve(async (req) => {
     let analysis: any = body?.analysis ?? null;
     let pendingCount = 0;
     if (body?.reportId) {
+      if (!callerUserId || !callerOrgId) {
+        return jsonResponse({ success: false, error: "Sign in before generating this CMA." }, 401);
+      }
       const { data: r, error: rErr } = await admin
         .from("cma_reports")
         .select(
-          "cma_grade, pricing_band_low, pricing_band_recommended, pricing_band_high, pricing_confidence, strategy_recommendation, risk_flags, weak_comp_alerts, adjustment_observations, feature_adjustments, price_per_sqft_cross_check, valuation_scenarios, talking_points, seller_objections, market_narrative, extracted_comps, ai_raw_response",
+          "org_id, user_id, cma_grade, pricing_band_low, pricing_band_recommended, pricing_band_high, pricing_confidence, strategy_recommendation, risk_flags, weak_comp_alerts, adjustment_observations, feature_adjustments, price_per_sqft_cross_check, valuation_scenarios, talking_points, seller_objections, market_narrative, extracted_comps, ai_raw_response",
         )
         .eq("id", body.reportId)
         .maybeSingle();
       if (rErr) console.error("generate-cma: report load failed", rErr);
+      if (rErr) return jsonResponse({ success: false, error: "Could not load this CMA report." }, 500);
+      if (!r) return jsonResponse({ success: false, error: "CMA report not found." }, 404);
       if (r) {
+        const { data: roleRows, error: rolesErr } = await admin
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", callerUserId)
+          .in("role", ["owner", "admin", "operations"]);
+        if (rolesErr) console.error("generate-cma: role load failed", rolesErr);
+        const elevated = Array.isArray(roleRows) && roleRows.length > 0;
+        const reportOrgId = (r as any).org_id ?? null;
+        const sameOrg = reportOrgId && reportOrgId === callerOrgId;
+        const ownsReport = (r as any).user_id === callerUserId;
+        if (!sameOrg || (!ownsReport && !elevated)) {
+          return jsonResponse({ success: false, error: "You do not have access to this CMA report." }, 403);
+        }
         const raw = (r as any).ai_raw_response || {};
         analysis = {
           cma_grade: r.cma_grade,
