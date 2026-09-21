@@ -14,6 +14,17 @@ import CMAEditApprove from './CMAEditApprove';
 import CMAImprovements, { type ImprovementItem } from './CMAImprovements';
 import CMAAnalysisFailedBanner from './CMAAnalysisFailedBanner';
 import { getAnalysisState } from '@/lib/cma/analysisState';
+import {
+  anomalyMessage,
+  cleanText,
+  compPrice,
+  compSqftLabel,
+  detectDuplicateSoldPriceAnomaly,
+  formatAdjustmentRange as safeAdjustmentRange,
+  humanizeLabel,
+  money,
+  normalizeAddress,
+} from '@/lib/cma/reportQuality';
 
 interface Comp {
   address: string;
@@ -31,6 +42,8 @@ interface Comp {
   confidence?: number;
   _manual_edit?: boolean;
   sqft?: number | null;
+  ag_sqft?: number | null;
+  bg_sqft?: number | null;
   notes?: string | null;
 }
 
@@ -138,6 +151,9 @@ interface CMAReportFull {
   approved_talking_points: string | null;
   approved_risk_flags: string | null;
   approved_objections: string | null;
+  comp_price_anomaly_confirmed_at: string | null;
+  comp_price_anomaly_confirmed_by: string | null;
+  comp_price_anomaly_note: string | null;
 }
 
 const CMAAuditView = ({ reportId }: { reportId: string }) => {
@@ -275,7 +291,7 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
   }
 
 
-  const fmt = (n: number | null) => n != null ? `$${n.toLocaleString()}` : '—';
+  const fmt = (n: number | null) => money(n, 'Not reported');
   const gradeColors: Record<string, string> = {
     A: 'text-emerald-500 border-emerald-500', B: 'text-green-500 border-green-500',
     C: 'text-amber-500 border-amber-500', D: 'text-orange-500 border-orange-500',
@@ -283,6 +299,8 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
   };
 
   const isApproved = ['approved', 'exported', 'pushed', 'converted'].includes(report.approval_status);
+  const duplicateAnomaly = detectDuplicateSoldPriceAnomaly(report.extracted_comps);
+  const compPriceAnomalyConfirmed = Boolean(report.comp_price_anomaly_confirmed_at);
 
   const approvalBadgeColors: Record<string, string> = {
     draft: 'bg-muted text-muted-foreground border-muted',
@@ -320,6 +338,25 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
           <span className="text-xs text-amber-500">⚠ Approve before exporting PDF or pushing to FUB</span>
         )}
       </div>
+      {duplicateAnomaly.hasAnomaly && (
+        <Card className="border-destructive/30 bg-destructive/5">
+          <CardContent className="pt-4 space-y-2">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-destructive">Repeated sold-price check</p>
+                <p className="text-xs text-muted-foreground">{anomalyMessage(duplicateAnomaly)}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Status: {compPriceAnomalyConfirmed ? 'Confirmed by the agent and saved to the audit record.' : 'Not confirmed. Approval, portal export, and client PDF export are blocked.'}
+                </p>
+                {report.comp_price_anomaly_note && (
+                  <p className="text-xs text-muted-foreground mt-1">Note: {cleanText(report.comp_price_anomaly_note)}</p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       {/* Market Shift Alert */}
       <CMAMarketShiftAlert
         reportId={report.id}
@@ -568,6 +605,8 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
         approvalStatus={report.approval_status}
         onUpdate={fetchReport}
         soldCompsCount={report.extracted_comps.filter(c => c.comp_category === 'sold' || (c.sold_price != null && c.sold_price > 0)).length}
+        duplicateSoldPriceAnomaly={duplicateAnomaly}
+        compPriceAnomalyConfirmed={compPriceAnomalyConfirmed}
         purchasePrice={report.purchase_price}
         purchaseDate={report.purchase_date}
         improvementsTotal={report.improvements_invested}
@@ -651,7 +690,8 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
                   <th className="text-center py-2 px-2 text-xs text-muted-foreground font-medium">Type</th>
                   <th className="text-center py-2 px-2 text-xs text-muted-foreground font-medium">Beds</th>
                   <th className="text-center py-2 px-2 text-xs text-muted-foreground font-medium">Baths</th>
-                  <th className="text-center py-2 px-2 text-xs text-muted-foreground font-medium">SqFt</th>
+                  <th className="text-center py-2 px-2 text-xs text-muted-foreground font-medium">AG/BG Sq Ft</th>
+                  <th className="text-center py-2 px-2 text-xs text-muted-foreground font-medium">Total Sq Ft</th>
                   <th className="text-right py-2 px-2 text-xs text-muted-foreground font-medium">List</th>
                   <th className="text-right py-2 px-2 text-xs text-muted-foreground font-medium">Sold</th>
                   <th className="text-center py-2 px-2 text-xs text-muted-foreground font-medium">DOM</th>
@@ -674,17 +714,18 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
                   return (
                     <tr key={i} className={`border-b border-border/50 ${comp.is_weak ? 'bg-amber-500/5' : ''} ${comp._manual_edit ? 'bg-gold/5' : ''}`}>
                       <td className="py-2 px-2 font-medium">
-                        {comp.address}
+                        {normalizeAddress(comp.address)}
                         {comp._manual_edit && <span className="ml-1 text-[9px] text-gold">✏️</span>}
                       </td>
-                      <td className={`py-2 px-2 text-center text-[10px] font-medium uppercase ${catColor}`}>{comp.comp_category || '—'}</td>
-                      <td className="py-2 px-2 text-center">{comp.beds ?? '—'}</td>
-                      <td className="py-2 px-2 text-center">{comp.baths ?? '—'}</td>
-                      <td className="py-2 px-2 text-center">{comp.sqft ? comp.sqft.toLocaleString() : '—'}</td>
-                      <td className="py-2 px-2 text-right">{comp.list_price ? `$${comp.list_price.toLocaleString()}` : '—'}</td>
-                      <td className="py-2 px-2 text-right">{comp.sold_price ? `$${comp.sold_price.toLocaleString()}` : '—'}</td>
-                      <td className="py-2 px-2 text-center">{comp.days_on_market ?? '—'}</td>
-                      <td className="py-2 px-2 text-center text-muted-foreground text-[10px]">{comp.source_page ?? '—'}</td>
+                      <td className={`py-2 px-2 text-center text-[10px] font-medium uppercase ${catColor}`}>{humanizeLabel(comp.comp_category || 'Not reported')}</td>
+                      <td className="py-2 px-2 text-center">{comp.beds ?? 'Not reported'}</td>
+                      <td className="py-2 px-2 text-center">{comp.baths ?? 'Not reported'}</td>
+                      <td className="py-2 px-2 text-center text-xs">{compSqftLabel(comp)}</td>
+                      <td className="py-2 px-2 text-center">{comp.sqft ? comp.sqft.toLocaleString() : 'Not reported'}</td>
+                      <td className="py-2 px-2 text-right">{compPrice(comp, 'list')}</td>
+                      <td className="py-2 px-2 text-right">{compPrice(comp, 'sold')}</td>
+                      <td className="py-2 px-2 text-center">{comp.days_on_market ?? 'Not reported'}</td>
+                      <td className="py-2 px-2 text-center text-muted-foreground text-[10px]">{comp.source_page ?? 'Not reported'}</td>
                       <td className={`py-2 px-2 text-center text-[10px] font-medium ${confColor}`}>{confPct}%</td>
                       <td className="py-2 px-2 text-center">
                         {comp.is_weak ? (
@@ -733,11 +774,11 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
                 <div className="flex items-start justify-between gap-3">
                   <span className="text-sm font-medium">{fa.feature}</span>
                   <span className="text-sm font-semibold text-gold whitespace-nowrap">
-                    {formatAdjustmentRange(fa.adjustment_low, fa.adjustment_high)}
+                    {safeAdjustmentRange(fa.adjustment_low, fa.adjustment_high)}
                   </span>
                 </div>
                 {fa.rationale && (
-                  <p className="mt-1 text-xs text-muted-foreground">{fa.rationale}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{cleanText(fa.rationale)}</p>
                 )}
               </div>
             ))}
@@ -758,30 +799,30 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
                 <span className="text-muted-foreground">Implied value range: </span>
                 <span className="font-semibold">
                   {report.price_per_sqft_cross_check.implied_low
-                    ? `$${Math.round(report.price_per_sqft_cross_check.implied_low).toLocaleString()}`
-                    : '—'}
+                    ? money(report.price_per_sqft_cross_check.implied_low)
+                    : 'Not reported'}
                   {' – '}
                   {report.price_per_sqft_cross_check.implied_high
-                    ? `$${Math.round(report.price_per_sqft_cross_check.implied_high).toLocaleString()}`
-                    : '—'}
+                    ? money(report.price_per_sqft_cross_check.implied_high)
+                    : 'Not reported'}
                 </span>
               </div>
             )}
             {report.price_per_sqft_cross_check.verdict && (
               <div>
                 <span className="text-muted-foreground">Verdict: </span>
-                <span className="font-medium">{report.price_per_sqft_cross_check.verdict}</span>
+                <span className="font-medium">{humanizeLabel(report.price_per_sqft_cross_check.verdict)}</span>
               </div>
             )}
             {report.price_per_sqft_cross_check.commentary && (
               <p className="text-muted-foreground">
-                {report.price_per_sqft_cross_check.commentary}
+                {cleanText(report.price_per_sqft_cross_check.commentary)}
               </p>
             )}
             {Array.isArray(report.price_per_sqft_cross_check.comps_used) &&
               report.price_per_sqft_cross_check.comps_used.length > 0 && (
                 <p className="text-xs text-muted-foreground">
-                  Comps used: {report.price_per_sqft_cross_check.comps_used.join(', ')}
+                  Comps used: {report.price_per_sqft_cross_check.comps_used.map(normalizeAddress).join(', ')}
                 </p>
               )}
           </CardContent>
@@ -804,10 +845,10 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
                 <div key={label} className="rounded-md border border-border/60 p-3">
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
                   <p className="mt-1 text-lg font-semibold text-gold">
-                    {sc.price ? `$${Math.round(sc.price).toLocaleString()}` : '—'}
+                    {money(sc.price, 'Not reported')}
                   </p>
                   {sc.rationale && (
-                    <p className="mt-1 text-xs text-muted-foreground">{sc.rationale}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{cleanText(sc.rationale)}</p>
                   )}
                 </div>
               ) : null,
@@ -824,7 +865,7 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
             <CardTitle className="text-base">Market Analysis</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground leading-relaxed">{report.market_narrative}</p>
+            <p className="text-sm text-muted-foreground leading-relaxed">{cleanText(report.market_narrative)}</p>
           </CardContent>
         </Card>
       )}
@@ -842,7 +883,7 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
               {report.talking_points.map((tp, i) => (
                 <li key={i} className="text-sm flex items-start gap-2">
                   <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-gold shrink-0" />
-                  {tp}
+                  {cleanText(tp)}
                 </li>
               ))}
             </ul>
@@ -861,8 +902,8 @@ const CMAAuditView = ({ reportId }: { reportId: string }) => {
           <CardContent className="space-y-4">
             {report.seller_objections.map((obj, i) => (
               <div key={i} className="space-y-1">
-                <p className="text-sm font-medium text-foreground">"{obj.objection}"</p>
-                <p className="text-sm text-muted-foreground pl-4 border-l-2 border-gold/30">{obj.response}</p>
+                <p className="text-sm font-medium text-foreground">"{cleanText(obj.objection)}"</p>
+                <p className="text-sm text-muted-foreground pl-4 border-l-2 border-gold/30">{cleanText(obj.response)}</p>
               </div>
             ))}
           </CardContent>
