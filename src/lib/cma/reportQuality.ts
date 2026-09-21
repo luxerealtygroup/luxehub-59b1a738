@@ -151,7 +151,13 @@ export const compSqftLabel = (comp: CmaCompLike): string => {
   return 'Sq ft not reported';
 };
 
-export const compPrice = (comp: CmaCompLike): number | null =>
+export const compPrice = (comp: CmaCompLike, mode: 'primary' | 'list' | 'sold' = 'primary'): string => {
+  if (mode === 'list') return money(comp.list_price ?? comp.listPrice);
+  if (mode === 'sold') return money(comp.sold_price ?? comp.soldPrice);
+  return money(toPositiveNumber(comp.sold_price ?? comp.soldPrice) ?? toPositiveNumber(comp.list_price ?? comp.listPrice));
+};
+
+export const compPriceNumber = (comp: CmaCompLike): number | null =>
   toPositiveNumber(comp.sold_price ?? comp.soldPrice) ?? toPositiveNumber(comp.list_price ?? comp.listPrice);
 
 export const compStatus = (comp: CmaCompLike): string => {
