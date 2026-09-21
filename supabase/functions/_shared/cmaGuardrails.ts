@@ -86,7 +86,7 @@ function stripStaleCmaPricingTextString(s: string): string {
 // so markup is never destroyed.
 export function applyHtmlGuardrails(
   html: string,
-  opts: { pendingCount?: number } = {},
+  opts: { pendingCount?: number; recommended?: number | null } = {},
 ): string {
   let out = cleanBrandingString(html)
     .replace(/\bsq\.?\s*ft\.?\b/gi, 'square feet')

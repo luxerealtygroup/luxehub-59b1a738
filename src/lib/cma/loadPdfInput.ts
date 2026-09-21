@@ -55,7 +55,7 @@ export async function loadCmaPdfInput(reportId: string): Promise<LoadedCmaSend> 
       executiveSummary: r.approved_executive_summary ?? null,
       priceNarrative: r.approved_price_narrative ?? null,
       marketConditions: r.approved_market_conditions ?? r.market_narrative ?? null,
-      strategy: r.approved_strategy ?? strategyFromTalkingPoints || null,
+      strategy: r.approved_strategy ?? (strategyFromTalkingPoints || null),
       pricingBandLow: r.pricing_band_low,
       pricingBandRecommended: r.pricing_band_recommended,
       pricingBandHigh: r.pricing_band_high,
