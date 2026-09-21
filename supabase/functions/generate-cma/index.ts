@@ -266,7 +266,7 @@ function escapeHtml(value: unknown): string {
 function humanizeLabel(value: unknown): string {
   const text = cleanText(value).replace(/_/g, " ");
   if (!text) return "";
-  return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase().replace(/\b\w/g, (m) => m.toUpperCase());
+  return text.toLowerCase().replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
 function toNumber(value: unknown): number | null {
@@ -326,7 +326,7 @@ function normalizeAddress(value: unknown): string {
 
 function sqftLabel(value: unknown): string {
   const n = toPositiveNumber(value);
-  return n ? `${n.toLocaleString("en-US")} sq ft` : "Sq ft not reported";
+  return n ? `${n.toLocaleString("en-US")} square feet` : "Square footage not reported";
 }
 
 function compSqftLabel(comp: any): string {
@@ -334,9 +334,9 @@ function compSqftLabel(comp: any): string {
   const bg = toPositiveNumber(comp?.bg_sqft ?? comp?.finished_basement_sqft);
   const total = toPositiveNumber(comp?.sqFt ?? comp?.sqft ?? comp?.sq_ft);
   if (ag && bg) return `${ag.toLocaleString("en-US")} AG + ${bg.toLocaleString("en-US")} BG sq ft`;
-  if (ag) return `${ag.toLocaleString("en-US")} above-grade sq ft`;
-  if (total) return `${total.toLocaleString("en-US")} sq ft reported`;
-  return "Sq ft not reported";
+  if (ag) return `${ag.toLocaleString("en-US")} above-grade square feet`;
+  if (total) return `${total.toLocaleString("en-US")} square feet reported`;
+  return "Square footage not reported";
 }
 
 function compStatus(comp: any): string {
@@ -394,6 +394,19 @@ function list(items: unknown, empty = "No material concerns were identified."): 
   const values = Array.isArray(items) ? items.map(cleanText).filter(Boolean) : [];
   if (!values.length) return `<p class="muted">${escapeHtml(empty)}</p>`;
   return `<ul>${values.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+}
+
+function clientReadyList(items: unknown, empty: string): string {
+  const values = Array.isArray(items)
+    ? items.map(cleanText).filter((item) => {
+      if (!item) return false;
+      if (/pricing band of \$[\d,]+[–-]\$?\1/i.test(item)) return false;
+      if (/\b0 matching,\s*0 non-matching\b/i.test(item)) return false;
+      if (/yielding a pricing band/i.test(item)) return false;
+      return true;
+    })
+    : [];
+  return list(values, empty);
 }
 
 function scenarioEntries(scenarios: unknown, analysis: any): Array<{ label: string; price: number | null; rationale: string }> {
@@ -461,7 +474,7 @@ function buildAuditedCmaHtml(payload: any, analysis: any): string {
   <section><h2>Pricing Analysis</h2><div class="ladder"><article class="card"><p class="eyebrow">Low</p><div class="price">${money(analysis.pricing_band_low)}</div></article><article class="card"><p class="eyebrow">Recommended</p><div class="price">${money(analysis.pricing_band_recommended)}</div></article><article class="card"><p class="eyebrow">High</p><div class="price">${money(analysis.pricing_band_high)}</div></article></div><article class="card" style="margin-top:18px"><h3>Price-per-square-foot cross-check</h3><p>${money(crossCheck.implied_low)} to ${money(crossCheck.implied_high)} · ${escapeHtml(humanizeLabel(crossCheck.verdict) || "See approved analysis")}</p><p>${escapeHtml(crossCheck.commentary || "")}</p>${crossUsed.length ? `<p class="muted">Comps used: ${escapeHtml(crossUsed.map((c: any) => typeof c === "string" ? normalizeAddress(c) : normalizeAddress(c?.address)).join(", "))}</p>` : ""}</article></section>
   <section><h2>Valuation Scenarios</h2><div class="grid">${scenarioCards}</div></section>
   <section class="opinion"><p class="eyebrow">Evaluator's Opinion of Value</p><div class="value">${money(analysis.pricing_band_recommended)}</div><p>${escapeHtml(analysis.approved_price_narrative || analysis.approved_executive_summary || analysis.market_narrative || "The approved analysis supports this recommended market position.")}</p></section>
-  <section><h2>Strategy & Next Steps</h2><div class="grid"><article class="card"><h3>Preparation</h3>${list(analysis.adjustment_observations, "Prepare the property to highlight its strongest value drivers.")}</article><article class="card"><h3>Marketing</h3>${list(analysis.talking_points, "Lead with the property's strongest differentiators.")}</article>${launchText ? `<article class="card"><h3>Launch</h3><p>${escapeHtml(launchText)}</p></article>` : ""}</div><p class="price" style="margin-top:42px"><em>Every home has a story. Our job is to ensure buyers see its value.</em></p><p>Luxe Realty Group · luxerealtygroup.ca</p></section>
+  <section><h2>Strategy & Next Steps</h2><div class="grid"><article class="card"><h3>Preparation</h3>${clientReadyList(analysis.adjustment_observations, "Prepare the property to highlight its strongest value drivers.")}</article><article class="card"><h3>Marketing</h3>${clientReadyList(analysis.talking_points, "Lead with the property's strongest differentiators.")}</article>${launchText ? `<article class="card"><h3>Launch</h3><p>${escapeHtml(launchText)}</p></article>` : ""}</div><p class="price" style="margin-top:42px"><em>Every home has a story. Our job is to ensure buyers see its value.</em></p><p>Luxe Realty Group · luxerealtygroup.ca</p></section>
   <section><p class="fine">This CMA is a side-by-side comparison of homes for sale and recently sold in the same neighbourhood and price range. It is prepared for informational and listing strategy purposes. Information is sourced from MLS data and is deemed reliable but not guaranteed. All values represent professional opinion only and do not constitute a regulated MPAC assessment or a formal CREA appraisal. Prepared by Luxe Realty Group | luxerealtygroup.ca</p></section>
   </main></body></html>`;
 }
