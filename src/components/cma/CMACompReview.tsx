@@ -7,6 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertTriangle, Plus, RotateCcw, Trash2, Eye, EyeOff, Loader2, CheckCircle, Info, FileSearch } from 'lucide-react';
 import { toast } from 'sonner';
+import { Checkbox } from '@/components/ui/checkbox';
+import { anomalyMessage, detectDuplicateSoldPriceAnomaly, money } from '@/lib/cma/reportQuality';
 
 export interface ReviewComp {
   id: string;
@@ -19,6 +21,8 @@ export interface ReviewComp {
   beds: number | null;
   baths: number | null;
   sqft: number | null;
+  ag_sqft?: number | null;
+  bg_sqft?: number | null;
   notes: string | null;
   excluded: boolean;
   _manual_edit: boolean;
@@ -58,6 +62,10 @@ interface CMACompReviewProps {
   confirmLabel?: string;
   backLabel?: string;
   submittingLabel?: string;
+  compPriceAnomalyConfirmed?: boolean;
+  compPriceAnomalyNote?: string;
+  onCompPriceAnomalyConfirmedChange?: (confirmed: boolean) => void;
+  onCompPriceAnomalyNoteChange?: (note: string) => void;
 }
 
 const emptyComp = (): ReviewComp => ({
@@ -71,6 +79,8 @@ const emptyComp = (): ReviewComp => ({
   beds: null,
   baths: null,
   sqft: null,
+  ag_sqft: null,
+  bg_sqft: null,
   notes: null,
   excluded: false,
   _manual_edit: true,
@@ -96,6 +106,10 @@ const CMACompReview = ({
   confirmLabel,
   backLabel,
   submittingLabel,
+  compPriceAnomalyConfirmed = false,
+  compPriceAnomalyNote = '',
+  onCompPriceAnomalyConfirmedChange,
+  onCompPriceAnomalyNoteChange,
 }: CMACompReviewProps) => {
   const [overrideReason, setOverrideReason] = useState('');
   const [showOverride, setShowOverride] = useState(false);
@@ -105,6 +119,8 @@ const CMACompReview = ({
   const needsOverride = soldCount < 3;
   const needsReviewComps = comps.filter(c => c.needs_review);
   const partialComps = comps.filter(c => (c.confidence ?? 1) < 0.8 && (c.confidence ?? 1) >= 0.3);
+  const duplicateAnomaly = detectDuplicateSoldPriceAnomaly(includedComps);
+  const needsAnomalyConfirmation = duplicateAnomaly.hasAnomaly && !compPriceAnomalyConfirmed;
 
   const updateComp = (id: string, field: keyof ReviewComp, value: any) => {
     onCompsChange(
@@ -133,7 +149,7 @@ const CMACompReview = ({
     );
   };
 
-  const canConfirm = !needsOverride || (showOverride && overrideReason.trim().length > 0);
+  const canConfirm = (!needsOverride || (showOverride && overrideReason.trim().length > 0)) && !needsAnomalyConfirmation;
 
   return (
     <div className="space-y-4 max-w-6xl">
@@ -205,6 +221,38 @@ const CMACompReview = ({
         </Card>
       )}
 
+      {duplicateAnomaly.hasAnomaly && (
+        <Card className="border-destructive/30 bg-destructive/5">
+          <CardContent className="pt-4 pb-3 space-y-3">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-destructive">Sold-price extraction needs confirmation</p>
+                <p className="text-xs text-muted-foreground">
+                  {anomalyMessage(duplicateAnomaly)} This usually means the importer copied the subject recommendation into multiple comps.
+                </p>
+              </div>
+            </div>
+            <label className="flex items-start gap-2 text-xs text-foreground">
+              <Checkbox
+                checked={compPriceAnomalyConfirmed}
+                onCheckedChange={(checked) => onCompPriceAnomalyConfirmedChange?.(checked === true)}
+              />
+              <span>
+                I reviewed the source CMA/MLS sheets and confirm the repeated sold price of {money(duplicateAnomaly.price)} is correct.
+              </span>
+            </label>
+            <Textarea
+              value={compPriceAnomalyNote}
+              onChange={(e) => onCompPriceAnomalyNoteChange?.(e.target.value)}
+              rows={2}
+              placeholder="Optional note for the audit record, e.g. verified against MLS page numbers."
+              className="text-xs"
+            />
+          </CardContent>
+        </Card>
+      )}
+
       <Card className="border-gold/20">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between flex-wrap gap-2">
@@ -248,7 +296,9 @@ const CMACompReview = ({
                   <th className="text-center py-2 px-1 text-[10px] text-muted-foreground font-medium w-[80px]">DOM</th>
                   <th className="text-center py-2 px-1 text-[10px] text-muted-foreground font-medium w-[70px] min-w-[40px]">Bd</th>
                   <th className="text-center py-2 px-1 text-[10px] text-muted-foreground font-medium w-[70px] min-w-[40px]">Ba</th>
-                  <th className="text-center py-2 px-1 text-[10px] text-muted-foreground font-medium w-[115px] min-w-[115px]">SqFt</th>
+                  <th className="text-center py-2 px-1 text-[10px] text-muted-foreground font-medium w-[92px] min-w-[92px]">AG Sq Ft</th>
+                  <th className="text-center py-2 px-1 text-[10px] text-muted-foreground font-medium w-[92px] min-w-[92px]">BG Sq Ft</th>
+                  <th className="text-center py-2 px-1 text-[10px] text-muted-foreground font-medium w-[100px] min-w-[100px]">Total Sq Ft</th>
                   <th className="text-left py-2 px-1 text-[10px] text-muted-foreground font-medium min-w-[120px]">Notes</th>
                   <th className="text-center py-2 px-1 text-[10px] text-muted-foreground font-medium w-[60px]">Actions</th>
                 </tr>
@@ -346,13 +396,31 @@ const CMACompReview = ({
                         placeholder="0"
                       />
                     </td>
-                    <td className="py-1 px-0.5 min-w-[115px]">
+                    <td className="py-1 px-0.5 min-w-[92px]">
+                      <Input
+                        type="number"
+                        value={comp.ag_sqft ?? ''}
+                        onChange={e => updateComp(comp.id, 'ag_sqft', e.target.value ? Number(e.target.value) : null)}
+                        className="h-7 px-0.5 text-xs text-center no-spin"
+                        placeholder="AG"
+                      />
+                    </td>
+                    <td className="py-1 px-0.5 min-w-[92px]">
+                      <Input
+                        type="number"
+                        value={comp.bg_sqft ?? ''}
+                        onChange={e => updateComp(comp.id, 'bg_sqft', e.target.value ? Number(e.target.value) : null)}
+                        className="h-7 px-0.5 text-xs text-center no-spin"
+                        placeholder="BG"
+                      />
+                    </td>
+                    <td className="py-1 px-0.5 min-w-[100px]">
                       <Input
                         type="number"
                         value={comp.sqft ?? ''}
                         onChange={e => updateComp(comp.id, 'sqft', e.target.value ? Number(e.target.value) : null)}
                         className="h-7 px-0.5 text-xs text-center no-spin"
-                        placeholder="0"
+                        placeholder="Total"
                       />
                     </td>
                     <td className="py-1 px-1">
@@ -451,6 +519,11 @@ const CMACompReview = ({
         {needsReviewComps.length > 0 && (
           <Badge variant="outline" className="text-[10px] border-amber-500 text-amber-500">
             Needs Review: {needsReviewComps.length}
+          </Badge>
+        )}
+        {duplicateAnomaly.hasAnomaly && (
+          <Badge variant="outline" className="text-[10px] border-destructive text-destructive">
+            Repeated sold price: {duplicateAnomaly.count}/{duplicateAnomaly.soldCount}
           </Badge>
         )}
       </div>

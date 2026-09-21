@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, RotateCcw, CheckCircle, Edit3, AlertTriangle, XCircle, Wand2 } from 'lucide-react';
+import type { DuplicatePriceAnomaly } from '@/lib/cma/reportQuality';
+import { anomalyMessage } from '@/lib/cma/reportQuality';
 
 interface Objection {
   objection: string;
@@ -37,6 +39,8 @@ interface CMAEditApproveProps {
   pricingChanged?: boolean;
   // Validation data
   soldCompsCount: number;
+  duplicateSoldPriceAnomaly?: DuplicatePriceAnomaly;
+  compPriceAnomalyConfirmed?: boolean;
   purchasePrice: number | null;
   purchaseDate: string | null;
   improvementsTotal: number;
@@ -90,6 +94,8 @@ const CMAEditApprove = ({
   onUpdate,
   pricingChanged,
   soldCompsCount,
+  duplicateSoldPriceAnomaly,
+  compPriceAnomalyConfirmed,
   purchasePrice,
   purchaseDate,
   improvementsTotal,
@@ -111,6 +117,10 @@ const CMAEditApprove = ({
       issues.push({ type: 'error', message: `Only ${soldCompsCount} sold comp${soldCompsCount !== 1 ? 's' : ''} found — at least 3 required, or provide an override reason below.` });
     }
 
+    if (duplicateSoldPriceAnomaly?.hasAnomaly && !compPriceAnomalyConfirmed) {
+      issues.push({ type: 'error', message: anomalyMessage(duplicateSoldPriceAnomaly) });
+    }
+
     if (!purchasePrice || purchasePrice <= 0) {
       issues.push({ type: 'error', message: 'Purchase price is required for equity calculations.' });
     }
@@ -127,7 +137,7 @@ const CMAEditApprove = ({
     }
 
     return issues;
-  }, [soldCompsCount, compsOverrideReason, purchasePrice, purchaseDate, equityGainLow, improvementsTotal]);
+  }, [soldCompsCount, compsOverrideReason, duplicateSoldPriceAnomaly, compPriceAnomalyConfirmed, purchasePrice, purchaseDate, equityGainLow, improvementsTotal]);
 
   const hasBlockingErrors = validationIssues.some(i => i.type === 'error');
 

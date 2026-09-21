@@ -50,6 +50,14 @@ function normalizeScenarioRationale(existing: any, fallback: string): string {
   return typeof existing?.rationale === 'string' && existing.rationale.trim() ? existing.rationale.trim() : fallback;
 }
 
+function normalizeScenarioPrice(value: number | null, recommended: number | null, direction: 'low' | 'high') {
+  if (value != null && recommended != null) {
+    if (direction === 'low' && value >= recommended) return roundTo(recommended * 0.96);
+    if (direction === 'high' && value <= recommended) return roundTo(recommended * 1.04);
+  }
+  return value;
+}
+
 export function computeAdjustedPricing(comps: any[], analysis: any, subjectProperty: any = {}) {
   const soldPrices = (Array.isArray(comps) ? comps : [])
     .filter((c) => String(c?.comp_category || c?.status || '').toLowerCase().includes('sold') || positiveNumber(c?.sold_price ?? c?.soldPrice))
@@ -108,7 +116,7 @@ export function normalizePricingFields(analysis: any, comps: any[], subjectPrope
     };
     out.valuation_scenarios = {
       conservative: {
-        price: pricing.low,
+        price: normalizeScenarioPrice(pricing.low, pricing.recommended, 'low'),
         rationale: normalizeScenarioRationale(out.valuation_scenarios?.conservative, 'Conservative case based on the lower quartile of adjusted sold comparable support.'),
       },
       most_probable: {
@@ -116,7 +124,7 @@ export function normalizePricingFields(analysis: any, comps: any[], subjectPrope
         rationale: normalizeScenarioRationale(out.valuation_scenarios?.most_probable, pricing.override ? 'Most probable reflects the agent-reviewed target price override.' : 'Most probable reflects the median of adjusted sold comparable support.'),
       },
       optimistic: {
-        price: pricing.high,
+        price: normalizeScenarioPrice(pricing.high, pricing.recommended, 'high'),
         rationale: normalizeScenarioRationale(out.valuation_scenarios?.optimistic, 'Optimistic case based on the upper quartile of adjusted sold comparable support.'),
       },
     };
@@ -125,13 +133,13 @@ export function normalizePricingFields(analysis: any, comps: any[], subjectPrope
 }
 
 export function computeAboveGradeCrossCheck(comps: any[], subjectProperty: any, recommended?: number | null) {
-  const subjectAbove = positiveNumber(subjectProperty?.aboveGradeSqFt ?? subjectProperty?.above_grade_sqft ?? subjectProperty?.ag_sqft ?? subjectProperty?.sqft);
+  const subjectAbove = positiveNumber(subjectProperty?.aboveGradeSqFt ?? subjectProperty?.above_grade_sqft ?? subjectProperty?.ag_sqft);
   const soldComps = (Array.isArray(comps) ? comps : []).filter(
     (c) => String(c?.comp_category || c?.status || '').toLowerCase().includes('sold') || positiveNumber(c?.sold_price ?? c?.soldPrice),
   );
   const rows = soldComps
     .map((c) => {
-      const ag = positiveNumber(c?.ag_sqft ?? c?.above_grade_sqft ?? c?.sqft ?? c?.sqFt ?? c?.sq_ft);
+      const ag = positiveNumber(c?.ag_sqft ?? c?.above_grade_sqft);
       const price = positiveNumber(c?.sold_price ?? c?.soldPrice);
       if (!ag || !price) return null;
       return {
