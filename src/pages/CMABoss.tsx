@@ -81,9 +81,9 @@ const CMABoss = () => {
         if (prof?.full_name) agentName = prof.full_name;
       }
 
-      const above = (r as any).above_grade_sqft ?? r.approx_sqft ?? 0;
-      const basement = (r as any).finished_basement_sqft ?? 0;
-      const total = r.approx_sqft ?? (above + basement);
+      const above = (r as any).above_grade_sqft ?? null;
+      const basement = (r as any).finished_basement_sqft ?? null;
+      const total = r.approx_sqft ?? (above && basement ? above + basement : above);
       const comps = Array.isArray(r.extracted_comps) ? r.extracted_comps : [];
 
       const payload = {
@@ -115,10 +115,10 @@ const CMABoss = () => {
             : (c.sold_price ? 'sold' : 'active'),
           beds: c.beds != null ? String(c.beds) : '',
           baths: c.baths != null ? String(c.baths) : '',
-          sqFt: c.sqft ?? 0,
-          listPrice: c.list_price ?? 0,
+          sqFt: c.sqft ?? c.sqFt ?? null,
+          listPrice: c.list_price ?? null,
           soldPrice: c.sold_price ?? null,
-          dom: c.days_on_market ?? 0,
+          dom: c.days_on_market ?? null,
           notes: [c.notes, c.area, c.is_weak ? `Weak: ${c.weak_reason || ''}` : ''].filter(Boolean).join(' — '),
         })),
         agentNotes: (r as any).agent_notes || null,
