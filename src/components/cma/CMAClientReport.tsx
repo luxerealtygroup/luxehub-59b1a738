@@ -8,7 +8,7 @@ import CMAFubPush from './CMAFubPush';
 import { CMASendToPortal } from './CMASendToPortal';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
-import { buildCmaClientPdf, CmaPdfInput } from '@/lib/cma/clientPdf';
+import { buildCmaClientPdf, type CmaPdfInput } from '@/lib/cma/clientPdf';
 import { safeFileName } from '@/lib/portalDelivery';
 import {
   anomalyMessage,

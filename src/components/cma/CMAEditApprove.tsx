@@ -206,7 +206,7 @@ const CMAEditApprove = ({
 
       const r = report as any;
       const payload = {
-        report_id: reportId,
+        reportId,
         property: {
           address: r.property_address || propertyAddress,
           city_area: r.city_area || cityArea,
