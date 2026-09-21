@@ -498,7 +498,9 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     }
 
     const { data: fnData, error: fnError } = await supabase.functions.invoke('cma-analyze', {
-      body: buildRequestBody(pdfText, reviewComps),
+      // Comp extraction only: skip the long analysis pass so big PDFs don't
+      // blow past the platform request timeout and come back as a non-2xx.
+      body: { ...buildRequestBody(pdfText, reviewComps), extractOnly: true },
     });
     if (fnError || !fnData?.success || !fnData.analysis?.extracted_comps) {
       const msg = fnError?.message || fnData?.error || 'Extraction failed';

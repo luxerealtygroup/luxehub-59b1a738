@@ -944,7 +944,7 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const { pdfText, subjectProperty, purchaseHistory, marketStats, existingManualComps, reviewedComps } = await req.json();
+    const { pdfText, subjectProperty, purchaseHistory, marketStats, existingManualComps, reviewedComps, extractOnly } = await req.json();
 
     // If agent already reviewed comps, skip extraction and go straight to analysis
     if (reviewedComps && Array.isArray(reviewedComps) && reviewedComps.length > 0) {
@@ -1200,6 +1200,22 @@ Extract any properties you find, even with minimal data.`;
       const manualAddresses = new Set(manualComps.map((c: any) => (c.address || '').toLowerCase().trim()));
       const newAiComps = allComps.filter((c: any) => !manualAddresses.has((c.address || '').toLowerCase().trim()));
       allComps = [...manualComps, ...newAiComps];
+    }
+
+    // Comp-extraction-only request (the review step in the wizard): return the
+    // comps immediately. Running the full analysis here as well pushed long
+    // PDFs past the request timeout, which surfaced as a non-2xx error.
+    if (extractOnly) {
+      return new Response(JSON.stringify({
+        success: true,
+        analysis: {
+          extracted_comps: allComps,
+          extraction_summary: extractionSummary,
+        },
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Now run the analysis pass with the extracted comps
