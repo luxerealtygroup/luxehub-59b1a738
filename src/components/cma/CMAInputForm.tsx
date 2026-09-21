@@ -13,6 +13,7 @@ import { Upload, Loader2, Home, DollarSign, BarChart3, FileUp, Users, Link2, Pen
 import { FUBContactTypeahead } from '@/components/FUBContactTypeahead';
 import { useHasFUB } from '@/hooks/useHasFUB';
 import CMACompReview, { type ReviewComp, type ExtractionSummary } from './CMACompReview';
+import { detectDuplicateSoldPriceAnomaly } from '@/lib/cma/reportQuality';
 
 type ExtractionOutcome = { comps: ReviewComp[]; summary: ExtractionSummary | null; error?: string | null };
 
@@ -116,6 +117,8 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
   // Review comps
   const [reviewComps, setReviewComps] = useState<ReviewComp[]>([]);
   const [extractionSummary, setExtractionSummary] = useState<ExtractionSummary | null>(null);
+  const [compPriceAnomalyConfirmed, setCompPriceAnomalyConfirmed] = useState(false);
+  const [compPriceAnomalyNote, setCompPriceAnomalyNote] = useState('');
 
   // Subject photos
   const [subjectPhotos, setSubjectPhotos] = useState<File[]>([]);
@@ -260,6 +263,8 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
           beds: sanitizeInteger(c.beds),
           baths: sanitizeInteger(c.baths),
           sqft: sanitizeInteger(c.sqft ?? c.square_feet ?? c.sq_ft),
+          ag_sqft: sanitizeInteger(c.ag_sqft ?? c.above_grade_sqft),
+          bg_sqft: sanitizeInteger(c.bg_sqft ?? c.finished_basement_sqft),
           notes: c.notes || null,
           excluded: c.excluded || false,
           _manual_edit: c._manual_edit || false,
@@ -270,6 +275,8 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
           weak_reason: c.weak_reason || null,
         })));
       }
+      setCompPriceAnomalyConfirmed(!!r.comp_price_anomaly_confirmed_at);
+      setCompPriceAnomalyNote(r.comp_price_anomaly_note || '');
     } catch (err) {
       console.error('Failed to load CMA for editing:', err);
       toast.error('Failed to load CMA data');
@@ -426,6 +433,32 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
     return 'other';
   };
 
+  const serializeComps = (source: ReviewComp[]) => source
+    .filter(c => !c.excluded)
+    .map(c => ({
+      address: c.address,
+      area: c.area || '',
+      beds: c.beds,
+      baths: c.baths,
+      list_price: c.list_price,
+      sold_price: c.sold_price,
+      days_on_market: c.days_on_market,
+      sale_date: c.sale_date,
+      is_weak: c.is_weak || false,
+      weak_reason: c.weak_reason || null,
+      comp_category: c.comp_category,
+      source_page: c.source_page ?? null,
+      confidence: c.confidence ?? 1,
+      _manual_edit: c._manual_edit,
+      sqft: c.sqft,
+      ag_sqft: c.ag_sqft ?? null,
+      bg_sqft: c.bg_sqft ?? null,
+      notes: c.notes,
+    }));
+
+  const currentCompPriceAnomaly = detectDuplicateSoldPriceAnomaly(reviewComps.filter(c => !c.excluded));
+  const compPriceAnomalyIsBlocking = currentCompPriceAnomaly.hasAnomaly && !compPriceAnomalyConfirmed;
+
   const buildRequestBody = (pdfText: string, manualComps: ReviewComp[]) => ({
     pdfText,
     subjectProperty: {
@@ -557,6 +590,8 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
       beds: sanitizeInteger(c.beds),
       baths: sanitizeInteger(c.baths),
       sqft: sanitizeInteger(c.sqft ?? c.square_feet ?? c.sq_ft),
+      ag_sqft: sanitizeInteger(c.ag_sqft ?? c.above_grade_sqft),
+      bg_sqft: sanitizeInteger(c.bg_sqft ?? c.finished_basement_sqft),
       notes: c.notes ?? null,
       excluded: false,
       _manual_edit: !!c._manual_edit,
@@ -638,6 +673,8 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
       beds: sanitizeInteger(c.beds),
       baths: sanitizeInteger(c.baths),
       sqft: sanitizeInteger(c.sqft ?? c.square_feet ?? c.sq_ft),
+      ag_sqft: sanitizeInteger(c.ag_sqft ?? c.above_grade_sqft),
+      bg_sqft: sanitizeInteger(c.bg_sqft ?? c.finished_basement_sqft),
       notes: c.notes ?? null,
       excluded: false,
       _manual_edit: false,
@@ -675,6 +712,8 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
       c => !c._manual_edit && !manualAddresses.has(c.address.toLowerCase().trim())
     );
     setReviewComps([...manualComps, ...newAiComps]);
+    setCompPriceAnomalyConfirmed(false);
+    setCompPriceAnomalyNote('');
     setExtractionSummary(summary);
     const reviewCount = newAiComps.filter(c => c.needs_review).length;
     toast.success(
@@ -767,27 +806,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
         setUploading(false);
       }
 
-      // Build final comps (only non-excluded)
-      const finalComps = reviewComps
-        .filter(c => !c.excluded)
-        .map(c => ({
-          address: c.address,
-          area: c.area || '',
-          beds: c.beds,
-          baths: c.baths,
-          list_price: c.list_price,
-          sold_price: c.sold_price,
-          days_on_market: c.days_on_market,
-          sale_date: c.sale_date,
-          is_weak: c.is_weak || false,
-          weak_reason: c.weak_reason || null,
-          comp_category: c.comp_category,
-          source_page: c.source_page ?? null,
-          confidence: c.confidence ?? 1,
-          _manual_edit: c._manual_edit,
-          sqft: c.sqft,
-          notes: c.notes,
-        }));
+      const finalComps = serializeComps(reviewComps);
 
       // Upload photos
       setUploading(true);
@@ -835,6 +854,9 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
         extracted_comps: finalComps,
         last_edited_by: user.id,
         cma_source_url: cmaSourceUrl || null,
+        comp_price_anomaly_confirmed_at: currentCompPriceAnomaly.hasAnomaly && compPriceAnomalyConfirmed ? new Date().toISOString() : null,
+        comp_price_anomaly_confirmed_by: currentCompPriceAnomaly.hasAnomaly && compPriceAnomalyConfirmed ? user.id : null,
+        comp_price_anomaly_note: currentCompPriceAnomaly.hasAnomaly && compPriceAnomalyConfirmed ? (compPriceAnomalyNote.trim() || null) : null,
       };
 
       // Handle photos: only update if new photos were uploaded
@@ -970,6 +992,8 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
       const photoPaths = await uploadPhotos();
       setUploading(false);
 
+      const finalComps = serializeComps(reviewComps);
+
       const draftData: Record<string, unknown> = {
         property_address: propertyAddress,
         city_area: cityArea,
@@ -1008,6 +1032,10 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
         analysis_status: 'draft',
         last_edited_by: user.id,
         cma_source_url: cmaSourceUrl || null,
+        extracted_comps: finalComps,
+        comp_price_anomaly_confirmed_at: currentCompPriceAnomaly.hasAnomaly && compPriceAnomalyConfirmed ? new Date().toISOString() : null,
+        comp_price_anomaly_confirmed_by: currentCompPriceAnomaly.hasAnomaly && compPriceAnomalyConfirmed ? user.id : null,
+        comp_price_anomaly_note: currentCompPriceAnomaly.hasAnomaly && compPriceAnomalyConfirmed ? (compPriceAnomalyNote.trim() || null) : null,
       };
 
       if (photoPaths.length > 0) {
@@ -1111,6 +1139,10 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
       if (included.length === 0) w.push('No comparables added — the CMA needs comps to produce a defensible price band');
       else if (included.filter(c => c.comp_category === 'sold').length < 3) {
         w.push('Fewer than 3 sold comparables — pricing confidence will be limited');
+      }
+      const anomaly = detectDuplicateSoldPriceAnomaly(included);
+      if (anomaly.hasAnomaly && !compPriceAnomalyConfirmed) {
+        w.push('Repeated sold comp price must be confirmed before generating or exporting');
       }
     }
     if (n === 5) {
@@ -1491,7 +1523,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
 
           <CMACompReview
             comps={reviewComps}
-            onCompsChange={setReviewComps}
+            onCompsChange={(next) => { setReviewComps(next); setCompPriceAnomalyConfirmed(false); }}
             onReRunExtraction={handleReRunExtraction}
             isExtracting={extracting}
             onConfirm={() => nextStep()}
@@ -1500,6 +1532,10 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
             extractionSummary={extractionSummary}
             confirmLabel="Continue to Agent Notes"
             backLabel="Back"
+            compPriceAnomalyConfirmed={compPriceAnomalyConfirmed}
+            compPriceAnomalyNote={compPriceAnomalyNote}
+            onCompPriceAnomalyConfirmedChange={setCompPriceAnomalyConfirmed}
+            onCompPriceAnomalyNoteChange={setCompPriceAnomalyNote}
           />
           <StepWarnings step={4} />
         </div>
