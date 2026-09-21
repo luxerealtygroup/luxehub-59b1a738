@@ -103,8 +103,27 @@ function setColor(doc: jsPDF, color: Point) { doc.setTextColor(color[0], color[1
 function setFill(doc: jsPDF, color: Point) { doc.setFillColor(color[0], color[1], color[2]); }
 function setStroke(doc: jsPDF, color: Point) { doc.setDrawColor(color[0], color[1], color[2]); }
 
-function writeWrapped(doc: jsPDF, text: unknown, x: number, y: number, maxWidth: number, opts: { size?: number; style?: 'normal' | 'bold' | 'italic'; color?: Point; lineHeight?: number; maxLines?: number } = {}) {
+function isStaleClientLine(text: string): boolean {
+  if (!text) return true;
+  if (/\b0 matching,\s*0 non[-\s]matching\b/i.test(text)) return true;
+  if (/pricing band of\s*\$?\d[\d,]*\s*[–—-]\s*\$?\d[\d,]*/i.test(text)) return true;
+  if (/yielding a pricing band/i.test(text)) return true;
+  if (/basement[-\s]finish segmentation is unclassified/i.test(text)) return true;
+  return false;
+}
+
+function clientReadyText(text: unknown): string {
   const body = cleanText(text);
+  if (!body || isStaleClientLine(body)) return '';
+  return body
+    .split(/(?<=[.!?])\s+/)
+    .filter((sentence) => !isStaleClientLine(sentence))
+    .join(' ')
+    .trim();
+}
+
+function writeWrapped(doc: jsPDF, text: unknown, x: number, y: number, maxWidth: number, opts: { size?: number; style?: 'normal' | 'bold' | 'italic'; color?: Point; lineHeight?: number; maxLines?: number } = {}) {
+  const body = clientReadyText(text);
   if (!body) return y;
   doc.setFont('helvetica', opts.style || 'normal');
   doc.setFontSize(opts.size || 10);
@@ -297,7 +316,7 @@ export function buildCmaClientPdf(input: CmaPdfInput): jsPDF {
     autoTable(doc, {
       startY: y,
       head: [['Feature', 'Adjustment', 'Rationale']],
-      body: adjustments.slice(0, 8).map(a => [cleanText(a.feature), formatAdjustmentRange(a.adjustment_low, a.adjustment_high), cleanText(a.rationale)]),
+      body: adjustments.slice(0, 8).map(a => [cleanText(a.feature), formatAdjustmentRange(a.adjustment_low, a.adjustment_high), clientReadyText(a.rationale)]),
       theme: 'grid',
       styles: { fontSize: 8.5, cellPadding: 5, lineColor: TAUPE as any, lineWidth: 0.4 },
       headStyles: { fillColor: GOLD as any, textColor: WHITE as any },

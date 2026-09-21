@@ -265,6 +265,10 @@ function escapeHtml(value: unknown): string {
 }
 
 function humanizeLabel(value: unknown): string {
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return humanizeLabel(record.label ?? record.classification ?? record.verdict ?? record.name ?? record.value);
+  }
   const text = cleanText(value).replace(/_/g, " ");
   if (!text) return "";
   return text.toLowerCase().replace(/\b\w/g, (m) => m.toUpperCase());
@@ -400,10 +404,7 @@ function list(items: unknown, empty = "No material concerns were identified."): 
 function clientReadyList(items: unknown, empty: string): string {
   const values = Array.isArray(items)
     ? items.map(cleanText).filter((item) => {
-      if (!item) return false;
-      if (/\b0 matching,\s*0 non-matching\b/i.test(item)) return false;
-      if (/yielding a pricing band/i.test(item)) return false;
-      return true;
+      return !isStalePricingLine(item);
     })
     : [];
   return list(values, empty);
@@ -412,9 +413,10 @@ function clientReadyList(items: unknown, empty: string): string {
 function isStalePricingLine(value: unknown): boolean {
   const item = cleanText(value);
   if (!item) return true;
-  if (/\b0 matching,\s*0 non-matching\b/i.test(item)) return true;
+  if (/\b0 matching,\s*0 non[-\s]matching\b/i.test(item)) return true;
   if (/pricing band of\s*\$?\d[\d,]*\s*[–—-]\s*\$?\d[\d,]*/i.test(item)) return true;
   if (/yielding a pricing band/i.test(item)) return true;
+  if (/basement[-\s]finish segmentation is unclassified/i.test(item)) return true;
   return false;
 }
 
@@ -478,7 +480,7 @@ function buildAuditedCmaHtml(payload: any, analysis: any): string {
 
   const keyFeatures = Array.isArray(subject.keyFeatures) ? subject.keyFeatures.map(cleanText).filter(Boolean) : [];
   const addsValue = keyFeatures.length ? list(keyFeatures, "") : clientReadyList(analysis.adjustment_observations, "The property will be positioned around the strongest comparable evidence.");
-  const buyerConsiderations = list(analysis.risk_flags, "No material buyer concerns were identified in the approved review.");
+  const buyerConsiderations = clientReadyList(analysis.risk_flags, "No material buyer concerns were identified in the approved review.");
   const crossUsed = Array.isArray(crossCheck?.comps_used) ? crossCheck.comps_used : [];
 
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Home Evaluation — ${escapeHtml(address)}</title><style>
@@ -488,7 +490,7 @@ function buildAuditedCmaHtml(payload: any, analysis: any): string {
   <section><h2>Property Snapshot</h2><div class="grid"><article class="card"><p class="eyebrow">Bedrooms</p><div class="price">${escapeHtml(subject.bedrooms || "Not reported")}</div></article><article class="card"><p class="eyebrow">Bathrooms</p><div class="price">${escapeHtml(subject.bathrooms || "Not reported")}</div></article><article class="card"><p class="eyebrow">Finished area</p><div class="price">${escapeHtml(sqftLabel(subject.totalFinishedSqFt || subject.aboveGradeSqFt))}</div></article><article class="card"><p class="eyebrow">Above grade</p><h3>${escapeHtml(sqftLabel(subject.aboveGradeSqFt))}</h3></article><article class="card"><p class="eyebrow">Garage</p><h3>${escapeHtml(humanizeLabel(subject.garage) || "Not reported")}</h3></article><article class="card"><p class="eyebrow">Property type</p><h3>${escapeHtml(humanizeLabel(subject.propertyType) || "Not reported")}</h3></article></div></section>
   <section><h2>Market Pulse</h2><p class="lead">${escapeHtml(clientReadyText(analysis.approved_market_conditions || analysis.market_narrative) || "Market conditions were considered in the approved pricing analysis.")}</p><div class="grid"><article class="card"><p class="eyebrow">Market condition</p><h3>${escapeHtml(humanizeLabel(analysis.market_classification) || "See analysis")}</h3></article><article class="card"><p class="eyebrow">Avg days on market</p><h3>${escapeHtml(cleanText(marketStats.avg_days_on_market ?? analysis.avg_days_on_market) || "Not reported")}</h3></article><article class="card"><p class="eyebrow">Sale-to-list ratio</p><h3>${escapeHtml(percentLabel(marketStats.sale_to_list_ratio ?? analysis.sale_to_list_ratio))}</h3></article></div></section>
   <section><h2>Comparable Properties</h2><div class="grid">${compCards}</div></section>
-  <section><h2>Value Drivers</h2><div class="grid two"><article class="card"><h3>What Adds Value</h3>${addsValue}</article><article class="card"><h3>What Buyers May Consider</h3>${buyerConsiderations}</article></div>${adjustments.length ? `<div class="grid" style="margin-top:18px">${adjustments.slice(0,6).map((a: any) => `<article class="card"><p class="eyebrow">${escapeHtml(a.feature || a.name || "Adjustment")}</p><h3>${escapeHtml(adjustmentRange(a.adjustment_low, a.adjustment_high))}</h3><p class="muted">${escapeHtml(a.rationale || "")}</p></article>`).join("")}</div>` : ""}</section>
+  <section><h2>Value Drivers</h2><div class="grid two"><article class="card"><h3>What Adds Value</h3>${addsValue}</article><article class="card"><h3>What Buyers May Consider</h3>${buyerConsiderations}</article></div>${adjustments.length ? `<div class="grid" style="margin-top:18px">${adjustments.slice(0,6).map((a: any) => `<article class="card"><p class="eyebrow">${escapeHtml(a.feature || a.name || "Adjustment")}</p><h3>${escapeHtml(adjustmentRange(a.adjustment_low, a.adjustment_high))}</h3><p class="muted">${escapeHtml(clientReadyText(a.rationale))}</p></article>`).join("")}</div>` : ""}</section>
   <section><h2>Pricing Analysis</h2><div class="ladder"><article class="card"><p class="eyebrow">Low</p><div class="price">${money(analysis.pricing_band_low)}</div></article><article class="card"><p class="eyebrow">Recommended</p><div class="price">${money(analysis.pricing_band_recommended)}</div></article><article class="card"><p class="eyebrow">High</p><div class="price">${money(analysis.pricing_band_high)}</div></article></div><article class="card" style="margin-top:18px"><h3>Price-per-square-foot cross-check</h3><p>${money(crossCheck.implied_low)} to ${money(crossCheck.implied_high)} · ${escapeHtml(humanizeLabel(crossCheck.verdict) || "See approved analysis")}</p><p>${escapeHtml(crossCheck.commentary || "")}</p>${crossUsed.length ? `<p class="muted">Comps used: ${escapeHtml(crossUsed.map((c: any) => typeof c === "string" ? normalizeAddress(c) : normalizeAddress(c?.address)).join(", "))}</p>` : ""}</article></section>
   <section><h2>Valuation Scenarios</h2><div class="grid">${scenarioCards}</div></section>
   <section class="opinion"><p class="eyebrow">Evaluator's Opinion of Value</p><div class="value">${money(analysis.pricing_band_recommended)}</div><p>${escapeHtml(clientReadyText(analysis.approved_price_narrative || analysis.approved_executive_summary || analysis.market_narrative) || "The approved analysis supports this recommended market position.")}</p></section>
