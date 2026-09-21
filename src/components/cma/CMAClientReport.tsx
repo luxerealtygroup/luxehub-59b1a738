@@ -8,6 +8,16 @@ import CMAFubPush from './CMAFubPush';
 import { CMASendToPortal } from './CMASendToPortal';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
+import {
+  cleanText,
+  compPrice,
+  compStatus,
+  humanizeLabel,
+  money,
+  normalizeAddress,
+  sqftLabel,
+  toPositiveNumber,
+} from '@/lib/cma/reportQuality';
 
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
