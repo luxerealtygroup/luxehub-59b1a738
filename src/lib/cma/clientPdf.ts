@@ -3,14 +3,19 @@ import autoTable from 'jspdf-autotable';
 import { tenant } from '@/config/tenant';
 import {
   cleanText,
+  clientReadyText,
   compPrice,
   compSqftLabel,
   compStatus,
   formatAdjustmentRange,
+  formatPercent,
+  formatWholeNumber,
   humanizeLabel,
   money,
+  normalizeMarketStats,
   normalizeAddress,
   shouldShowAdjustment,
+  shouldShowPricePerSqftCrossCheck,
   sqftLabel,
   toPositiveNumber,
 } from '@/lib/cma/reportQuality';
@@ -103,25 +108,6 @@ function setColor(doc: jsPDF, color: Point) { doc.setTextColor(color[0], color[1
 function setFill(doc: jsPDF, color: Point) { doc.setFillColor(color[0], color[1], color[2]); }
 function setStroke(doc: jsPDF, color: Point) { doc.setDrawColor(color[0], color[1], color[2]); }
 
-function isStaleClientLine(text: string): boolean {
-  if (!text) return true;
-  if (/\b0 matching,\s*0 non[-\s]matching\b/i.test(text)) return true;
-  if (/pricing band of\s*\$?\d[\d,]*\s*[–—-]\s*\$?\d[\d,]*/i.test(text)) return true;
-  if (/yielding a pricing band/i.test(text)) return true;
-  if (/basement[-\s]finish segmentation is unclassified/i.test(text)) return true;
-  return false;
-}
-
-function clientReadyText(text: unknown): string {
-  const body = cleanText(text);
-  if (!body || isStaleClientLine(body)) return '';
-  return body
-    .split(/(?<=[.!?])\s+/)
-    .filter((sentence) => !isStaleClientLine(sentence))
-    .join(' ')
-    .trim();
-}
-
 function writeWrapped(doc: jsPDF, text: unknown, x: number, y: number, maxWidth: number, opts: { size?: number; style?: 'normal' | 'bold' | 'italic'; color?: Point; lineHeight?: number; maxLines?: number } = {}) {
   const body = clientReadyText(text);
   if (!body) return y;
@@ -208,7 +194,8 @@ export function buildCmaClientPdf(input: CmaPdfInput): jsPDF {
   const comps = input.comps.filter(c => !c.is_weak).slice(0, 10);
   const adjustments = (input.featureAdjustments || []).filter(shouldShowAdjustment);
   const scenarios = scenarioEntries(input);
-  const stats = input.marketStats || {};
+  const stats = normalizeMarketStats(input.marketStats);
+  const cross = shouldShowPricePerSqftCrossCheck(input.pricePerSqftCrossCheck) ? input.pricePerSqftCrossCheck : null;
 
   // 1. Cover
   setFill(doc, INK);
@@ -259,13 +246,13 @@ export function buildCmaClientPdf(input: CmaPdfInput): jsPDF {
   y = addPageTitle(doc, 3, 'Market Snapshot');
   statBox(doc, M, y, 160, 'CMA grade', cleanText(input.cmaGrade) || 'Not stated', true);
   statBox(doc, M + 178, y, 160, 'Confidence', cleanText(input.pricingConfidence) || 'Not stated');
-  statBox(doc, M + 356, y, 160, 'Sale-to-list', stats.sale_to_list_ratio != null ? `${stats.sale_to_list_ratio}%` : 'Not reported');
+  statBox(doc, M + 356, y, 160, 'Sale-to-list', formatPercent(stats.sale_to_list_ratio));
   y += 104;
   y = writeWrapped(doc, input.marketConditions, M, y, CONTENT_W, { size: 10, color: INK, lineHeight: 15, maxLines: 24 });
   if (stats.avg_days_on_market || stats.median_sale_price) {
     y += 18;
     statBox(doc, M, y, 246, 'Median sale price', money(stats.median_sale_price));
-    statBox(doc, M + 270, y, 246, 'Days on market', stats.avg_days_on_market != null ? String(stats.avg_days_on_market) : 'Not reported');
+    statBox(doc, M + 270, y, 246, 'Days on market', formatWholeNumber(stats.avg_days_on_market));
   }
 
   // 4. Comparison table
@@ -346,7 +333,6 @@ export function buildCmaClientPdf(input: CmaPdfInput): jsPDF {
     });
   }
   y = ((doc as any).lastAutoTable?.finalY || y) + 22;
-  const cross = input.pricePerSqftCrossCheck;
   if (cross) {
     doc.setFont('helvetica', 'bold'); doc.setFontSize(12); setColor(doc, INK); doc.text('Price-per-square-foot cross-check', M, y); y += 18;
     y = writeWrapped(doc, `${money(cross.implied_low)} to ${money(cross.implied_high)} · ${humanizeLabel(cross.verdict) || 'Inconclusive'}`, M, y, CONTENT_W, { size: 10, style: 'bold', color: GOLD, lineHeight: 14 });

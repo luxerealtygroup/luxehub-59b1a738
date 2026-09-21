@@ -14,11 +14,15 @@ import { safeFileName } from '@/lib/portalDelivery';
 import {
   anomalyMessage,
   cleanText,
+  clientReadyText,
   compPrice,
   compStatus,
   detectDuplicateSoldPriceAnomaly,
+  formatPercent,
+  formatWholeNumber,
   humanizeLabel,
   money,
+  normalizeMarketStats,
   normalizeAddress,
   sqftLabel,
   toPositiveNumber,
@@ -107,6 +111,7 @@ interface CMAReportFull {
   user_id?: string | null;
   portal_document_id?: string | null;
   portal_sent_at?: string | null;
+  ai_raw_response?: Record<string, unknown> | null;
 }
 
 const CMAClientReport = ({ reportId }: { reportId: string }) => {
@@ -264,9 +269,18 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
   // Approved text with fallbacks
   const executiveSummary = cleanText(report.approved_executive_summary) ||
     `Based on an analysis of the comparable properties in this report and current conditions in ${cleanText(report.city_area)}, we recommend a listing price of ${recommendedPriceText} for ${normalizeAddress(report.property_address)}. The recommended price band ranges from ${fmt(report.pricing_band_low)} to ${fmt(report.pricing_band_high)}, with a ${cleanText(report.pricing_confidence).toLowerCase() || 'moderate'} confidence level.`;
-  const marketConditionsText = cleanText(report.approved_market_conditions || report.market_narrative);
-  const strategyText = cleanText(report.approved_strategy) || `Strategy: ${humanizeLabel(report.strategy_recommendation)}\n\n${report.talking_points.map((tp, i) => `${i + 1}. ${cleanText(tp)}`).join('\n')}`;
+  const marketConditionsText = clientReadyText(report.approved_market_conditions || report.market_narrative);
+  const strategyFromTalkingPoints = report.talking_points.map((tp) => clientReadyText(tp)).filter(Boolean).join('\n');
+  const strategyText = clientReadyText(report.approved_strategy) || strategyFromTalkingPoints;
   const priceNarrativeText = cleanText(report.approved_price_narrative);
+  const marketStats = normalizeMarketStats((report.ai_raw_response as any)?.market_stats_derived ?? {
+    median_sale_price: report.median_sale_price,
+    avg_days_on_market: report.avg_days_on_market,
+    sale_to_list_ratio: report.sale_to_list_ratio,
+    months_of_inventory: report.months_of_inventory,
+    active_listings: report.active_listings,
+    sold_listings: report.sold_listings,
+  });
 
   const strongComps = report.extracted_comps.filter(c => !c.is_weak);
   const topComps = strongComps.slice(0, 6);
@@ -283,8 +297,8 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
 
   // Market chart data
   const marketComparisonData = [
-    { name: 'Active', value: report.active_listings || 0, fill: 'hsl(var(--gold))' },
-    { name: 'Sold', value: report.sold_listings || 0, fill: 'hsl(var(--primary))' },
+    { name: 'Active', value: marketStats.active_listings || 0, fill: 'hsl(var(--gold))' },
+    { name: 'Sold', value: marketStats.sold_listings || 0, fill: 'hsl(var(--primary))' },
   ];
 
   // Equity chart data is shown only when purchase history is available.
@@ -352,14 +366,7 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
     featureAdjustments: report.feature_adjustments || [],
     pricePerSqftCrossCheck: report.price_per_sqft_cross_check ?? null,
     valuationScenarios: report.valuation_scenarios ?? null,
-    marketStats: {
-      median_sale_price: report.median_sale_price,
-      avg_days_on_market: report.avg_days_on_market,
-      sale_to_list_ratio: report.sale_to_list_ratio,
-      months_of_inventory: report.months_of_inventory,
-      active_listings: report.active_listings,
-      sold_listings: report.sold_listings,
-    },
+    marketStats,
     compPriceAnomalyConfirmedAt: report.comp_price_anomaly_confirmed_at ?? null,
     comps: report.extracted_comps,
   };
@@ -574,22 +581,22 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
 
           {/* Key indicators */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-            {report.median_sale_price != null && (
-              <StatCard label="Median Sale Price" value={fmt(report.median_sale_price)} />
+            {marketStats.median_sale_price != null && (
+              <StatCard label="Median Sale Price" value={fmt(marketStats.median_sale_price)} />
             )}
-            {report.avg_days_on_market != null && (
-              <StatCard label="Avg Days on Market" value={`${report.avg_days_on_market}`} />
+            {marketStats.avg_days_on_market != null && (
+              <StatCard label="Avg Days on Market" value={formatWholeNumber(marketStats.avg_days_on_market)} />
             )}
-            {report.sale_to_list_ratio != null && (
-              <StatCard label="Sale-to-List Ratio" value={`${report.sale_to_list_ratio}%`} />
+            {marketStats.sale_to_list_ratio != null && (
+              <StatCard label="Sale-to-List Ratio" value={formatPercent(marketStats.sale_to_list_ratio)} />
             )}
-            {report.months_of_inventory != null && (
-              <StatCard label="Months of Inventory" value={`${report.months_of_inventory}`} />
+            {marketStats.months_of_inventory != null && (
+              <StatCard label="Months of Inventory" value={formatWholeNumber(marketStats.months_of_inventory)} />
             )}
           </div>
 
           {/* Active vs Sold mini chart */}
-          {(report.active_listings || report.sold_listings) ? (
+          {(marketStats.active_listings || marketStats.sold_listings) ? (
             <Card className="border-border/50">
               <CardContent className="pt-5 pb-4">
                 <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-3">Active vs Sold Listings</p>
