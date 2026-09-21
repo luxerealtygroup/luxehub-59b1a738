@@ -117,6 +117,7 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
   const [savingPdf, setSavingPdf] = useState(false);
   const [previewingPdf, setPreviewingPdf] = useState(false);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [pdfPreviewPages, setPdfPreviewPages] = useState<string[]>([]);
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [agentName, setAgentName] = useState<string>('');
   const [portalSentAt, setPortalSentAt] = useState<string | null>(null);
@@ -180,6 +181,50 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
   useEffect(() => {
     return () => {
       if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
+    };
+  }, [pdfPreviewUrl]);
+
+  useEffect(() => {
+    if (!pdfPreviewUrl) {
+      setPdfPreviewPages([]);
+      return;
+    }
+
+    let cancelled = false;
+    setPdfPreviewPages([]);
+
+    const renderPdfPreview = async () => {
+      try {
+        const pdfjsLib = await import('pdfjs-dist');
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+        const data = await fetch(pdfPreviewUrl).then((res) => res.arrayBuffer());
+        const pdf = await pdfjsLib.getDocument({ data }).promise;
+        const pageImages: string[] = [];
+
+        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+          if (cancelled) return;
+          const page = await pdf.getPage(pageNumber);
+          const viewport = page.getViewport({ scale: 1.25 });
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
+          if (!context) continue;
+          canvas.width = Math.floor(viewport.width);
+          canvas.height = Math.floor(viewport.height);
+          await page.render({ canvasContext: context, viewport }).promise;
+          pageImages.push(canvas.toDataURL('image/png'));
+          if (!cancelled) setPdfPreviewPages([...pageImages]);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error('CMA PDF preview render failed', err);
+          toast.error('Could not display the PDF preview');
+        }
+      }
+    };
+
+    renderPdfPreview();
+    return () => {
+      cancelled = true;
     };
   }, [pdfPreviewUrl]);
 
@@ -431,11 +476,25 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
             <DialogTitle>Client PDF preview</DialogTitle>
           </DialogHeader>
           {pdfPreviewUrl && (
-            <iframe
-              title="Client PDF preview"
-              src={pdfPreviewUrl}
-              className="h-[calc(90vh-73px)] w-full bg-background"
-            />
+            <div className="h-[calc(90vh-73px)] overflow-y-auto bg-muted/30 p-6">
+              {pdfPreviewPages.length === 0 ? (
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Preparing preview
+                </div>
+              ) : (
+                <div className="mx-auto flex max-w-3xl flex-col gap-6">
+                  {pdfPreviewPages.map((src, index) => (
+                    <img
+                      key={src}
+                      src={src}
+                      alt={`Client PDF page ${index + 1}`}
+                      className="w-full rounded border border-border bg-background shadow-sm"
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </DialogContent>
       </Dialog>
