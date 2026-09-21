@@ -285,6 +285,10 @@ Deno.serve(async (req) => {
     ];
 
     let final: any = null;
+    // Text emitted in earlier rounds that were cut off by max_tokens. The CMA
+    // document is long, so a single response can hit the output cap; we ask the
+    // model to continue and stitch the pieces back together.
+    let carriedHtml = "";
     for (let i = 0; i < 10; i++) {
       const resp = await callAnthropic(messages);
       const stop = resp.stop_reason;
@@ -303,6 +307,24 @@ Deno.serve(async (req) => {
         final = resp;
         break;
       }
+
+      if (stop === "max_tokens") {
+        // The document was truncated mid-stream. Keep what we have, drop the
+        // truncated assistant turn (the API rejects a prefill that ends in
+        // whitespace, and this model rejects prefill entirely) and ask for the
+        // remainder in a fresh user turn.
+        carriedHtml += extractFinalHtml(resp.content || []);
+        messages.pop();
+        messages.push({
+          role: "user",
+          content:
+            "Your previous output was cut off. Here is everything produced so far:\n\n" +
+            carriedHtml +
+            "\n\nContinue the HTML document from exactly where it stops, outputting ONLY the remaining markup. Do not repeat any of the above, do not restate the document, and do not use markdown code fences.",
+        });
+        continue;
+      }
+
 
       // Handle any client-side tool_use (none defined here, but guard anyway)
       const clientToolUses = (resp.content || []).filter(
