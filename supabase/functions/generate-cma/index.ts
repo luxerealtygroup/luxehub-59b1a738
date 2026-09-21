@@ -320,68 +320,37 @@ Deno.serve(async (req) => {
       { role: "user", content: JSON.stringify(payload) },
     ];
 
-    let final: any = null;
     // Text emitted in earlier rounds that were cut off by max_tokens. The CMA
-    // document is long, so a single response can hit the output cap; we ask the
-    // model to continue and stitch the pieces back together.
+    // document is long, so a response can hit the output cap; we ask the model
+    // to continue and stitch the pieces back together.
     let carriedHtml = "";
-    for (let i = 0; i < 10; i++) {
-      const resp = await callAnthropic(messages);
-      const stop = resp.stop_reason;
-      const blockTypes = (resp.content || []).map((b: any) => b.type);
-      console.log(`generate-cma: round ${i} stop_reason=${stop} blocks=${blockTypes.join(",")}`);
+    let done = false;
+    for (let i = 0; i < 4; i++) {
+      const { text, stop } = await callAnthropic(messages);
+      console.log(`generate-cma: round ${i} stop_reason=${stop} chars=${text.length}`);
+      carriedHtml += stripFences(text);
 
-      // Append assistant turn
-      messages.push({ role: "assistant", content: resp.content });
-
-      // Server-side web_search: Anthropic executes the tool inline and returns
-      // server_tool_use + web_search_tool_result blocks in the assistant turn.
-      // If stop_reason is "pause_turn" or "tool_use" (with only server tools),
-      // we must re-call the API with the assistant turn as-is so Claude
-      // continues generating. Only "end_turn" / "stop_sequence" are final.
-      if (stop === "end_turn" || stop === "stop_sequence") {
-        final = resp;
+      if (stop !== "max_tokens") {
+        done = true;
         break;
       }
 
-      if (stop === "max_tokens") {
-        // The document was truncated mid-stream. Keep what we have, drop the
-        // truncated assistant turn (the API rejects a prefill that ends in
-        // whitespace, and this model rejects prefill entirely) and ask for the
-        // remainder in a fresh user turn.
-        carriedHtml += extractFinalHtml(resp.content || []);
-        messages.pop();
-        messages.push({
-          role: "user",
-          content:
-            "Your previous output was cut off. Here is everything produced so far:\n\n" +
-            carriedHtml +
-            "\n\nContinue the HTML document from exactly where it stops, outputting ONLY the remaining markup. Do not repeat any of the above, do not restate the document, and do not use markdown code fences.",
-        });
-        continue;
-      }
-
-
-      // Handle any client-side tool_use (none defined here, but guard anyway)
-      const clientToolUses = (resp.content || []).filter(
-        (b: any) => b.type === "tool_use"
-      );
-      if (clientToolUses.length > 0) {
-        const toolResults = clientToolUses.map((tu: any) => ({
-          type: "tool_result",
-          tool_use_id: tu.id,
-          content: "ok",
-        }));
-        messages.push({ role: "user", content: toolResults });
-      }
-      // Otherwise (pause_turn or server-only tool_use), loop and let Claude continue.
+      // Truncated mid-document: ask for the remainder in a fresh user turn
+      // (this model rejects assistant prefill).
+      messages.push({
+        role: "user",
+        content:
+          "Your previous output was cut off. Here is everything produced so far:\n\n" +
+          carriedHtml +
+          "\n\nContinue the HTML document from exactly where it stops, outputting ONLY the remaining markup. Do not repeat any of the above and do not use markdown code fences.",
+      });
     }
 
-    if (!final) throw new Error("No final response from Anthropic");
+    if (!done) console.warn("generate-cma: document still truncated after continuations");
 
-    const rawHtml = (carriedHtml + extractFinalHtml(final.content || [])).trim();
+    const rawHtml = carriedHtml.trim();
     if (!rawHtml || !/<[a-z!]/i.test(rawHtml)) {
-      console.error("generate-cma: no HTML in final response", final);
+      console.error("generate-cma: no HTML in final response");
       throw new Error("Model did not return HTML");
     }
 
