@@ -19,6 +19,7 @@ import {
   compStatus,
   detectDuplicateSoldPriceAnomaly,
   formatPercent,
+  formatStatNumber,
   formatWholeNumber,
   humanizeLabel,
   money,
@@ -585,7 +586,7 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
               <StatCard label="Median Sale Price" value={fmt(marketStats.median_sale_price)} />
             )}
             {marketStats.avg_days_on_market != null && (
-              <StatCard label="Avg Days on Market" value={formatWholeNumber(marketStats.avg_days_on_market)} />
+              <StatCard label="Avg Days on Market" value={formatStatNumber(marketStats.avg_days_on_market)} />
             )}
             {marketStats.sale_to_list_ratio != null && (
               <StatCard label="Sale-to-List Ratio" value={formatPercent(marketStats.sale_to_list_ratio)} />

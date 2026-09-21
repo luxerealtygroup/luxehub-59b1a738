@@ -89,7 +89,12 @@ export function applyHtmlGuardrails(
   opts: { pendingCount?: number; recommended?: number | null } = {},
 ): string {
   let out = cleanBrandingString(html)
+    .replace(/\$\/\s*sq\.?\s*ft\.?\b/gi, 'price per square foot')
+    .replace(/(\$\d[\d,]*(?:\.\d+)?)\/\s*sq\.?\s*ft\.?\b/gi, '$1 per square foot')
     .replace(/\bsq\.?\s*ft\.?\b/gi, 'square feet')
+    .replace(/\$\/\s*square feet\b/gi, 'price per square foot')
+    .replace(/(\$\d[\d,]*(?:\.\d+)?)\/\s*square feet\b/gi, '$1 per square foot')
+    .replace(/price-per-square feet/gi, 'price-per-square-foot')
     .replace(/--+/g, '—');
   out = out.replace(/>([^<]+)</g, (full, text: string) => {
     const scrubbed = stripStaleCmaPricingTextString(text);

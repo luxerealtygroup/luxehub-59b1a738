@@ -9,6 +9,7 @@ import {
   compStatus,
   formatAdjustmentRange,
   formatPercent,
+  formatStatNumber,
   formatWholeNumber,
   humanizeLabel,
   money,
@@ -252,7 +253,7 @@ export function buildCmaClientPdf(input: CmaPdfInput): jsPDF {
   if (stats.avg_days_on_market || stats.median_sale_price) {
     y += 18;
     statBox(doc, M, y, 246, 'Median sale price', money(stats.median_sale_price));
-    statBox(doc, M + 270, y, 246, 'Days on market', formatWholeNumber(stats.avg_days_on_market));
+    statBox(doc, M + 270, y, 246, 'Days on market', formatStatNumber(stats.avg_days_on_market));
   }
 
   // 4. Comparison table

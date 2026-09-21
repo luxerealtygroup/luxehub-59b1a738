@@ -248,8 +248,11 @@ function cleanText(value: unknown): string {
     .replace(/\bfi\s+nished\b/gi, "finished")
     .replace(/\bfi\s+replace\b/gi, "fireplace")
     .replace(/\$\/\s*sq\.?\s*ft\.?\b/gi, "price per square foot")
+    .replace(/(\$\d[\d,]*(?:\.\d+)?)\/\s*sq\.?\s*ft\.?\b/gi, "$1 per square foot")
     .replace(/\bsq\.?\s*ft\.?\b/gi, "square feet")
     .replace(/\$\/\s*square feet\b/gi, "price per square foot")
+    .replace(/(\$\d[\d,]*(?:\.\d+)?)\/\s*square feet\b/gi, "$1 per square foot")
+    .replace(/price-per-square feet/gi, "price-per-square-foot")
     .replace(/MOST_PROBABLE/g, "Most probable")
     .replace(/most_probable/gi, "Most probable")
     .replace(/--+/g, "—")
@@ -396,12 +399,12 @@ function percentLabel(value: unknown): string {
   const n = toNumber(value);
   if (n == null || n <= 0) return "Not reported";
   const pct = n <= 1.5 ? n * 100 : n;
-  return `${Math.round(pct).toLocaleString("en-US")}%`;
+  return `${(Math.round(pct * 10) / 10).toLocaleString("en-US")}%`;
 }
 
 function numberLabel(value: unknown): string {
   const n = toNumber(value);
-  return n == null ? "Not reported" : Math.round(n).toLocaleString("en-US");
+  return n == null ? "Not reported" : (Math.round(n * 10) / 10).toLocaleString("en-US");
 }
 
 function normalizeMarketStats(stats: any): Record<string, number | null> {

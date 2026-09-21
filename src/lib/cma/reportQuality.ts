@@ -64,8 +64,11 @@ const cleanScalarText = (value: unknown): string =>
     .replace(/\bfi\s+nished\b/gi, 'finished')
     .replace(/\bfi\s+replace\b/gi, 'fireplace')
     .replace(/\$\/\s*sq\.?\s*ft\.?\b/gi, 'price per square foot')
+    .replace(/(\$\d[\d,]*(?:\.\d+)?)\/\s*sq\.?\s*ft\.?\b/gi, '$1 per square foot')
     .replace(/\bsq\.?\s*ft\.?\b/gi, 'square feet')
     .replace(/\$\/\s*square feet\b/gi, 'price per square foot')
+    .replace(/(\$\d[\d,]*(?:\.\d+)?)\/\s*square feet\b/gi, '$1 per square foot')
+    .replace(/price-per-square feet/gi, 'price-per-square-foot')
     .replace(/\s+—\s+—\s+/g, ' — ')
     .replace(/--+/g, '—')
     .replace(/\s+/g, ' ')
@@ -127,7 +130,13 @@ export const formatPercent = (value: unknown, empty = 'Not reported'): string =>
   const n = toCleanNumber(value);
   if (n == null || !Number.isFinite(n) || n <= 0) return empty;
   const pct = n <= 1.5 ? n * 100 : n;
-  return `${Math.round(pct).toLocaleString('en-US')}%`;
+  return `${(Math.round(pct * 10) / 10).toLocaleString('en-US')}%`;
+};
+
+export const formatStatNumber = (value: unknown, empty = 'Not reported'): string => {
+  const n = toCleanNumber(value);
+  if (n == null || !Number.isFinite(n)) return empty;
+  return (Math.round(n * 10) / 10).toLocaleString('en-US');
 };
 
 export const compactMoney = (value: unknown, empty = 'Not reported'): string => {
