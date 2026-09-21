@@ -475,7 +475,7 @@ Deno.serve(async (req) => {
     // ---- Single source of truth -------------------------------------------
     // cma-analyze owns pricing. When a reportId is supplied we load the audited
     // analysis straight from the report row so the client document can never
-    // disagree with the audit view. A caller-supplied `analysis` is a fallback.
+    // disagree with the audit view or trust caller-supplied pricing.
     const requestedReportId = body?.reportId ?? body?.report_id ?? null;
     if (!requestedReportId) {
       return jsonResponse({ success: false, error: "A saved CMA report is required before generating the client document." }, 400);
