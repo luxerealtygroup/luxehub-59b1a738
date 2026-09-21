@@ -944,7 +944,7 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const { pdfText, subjectProperty, purchaseHistory, marketStats, existingManualComps, reviewedComps } = await req.json();
+    const { pdfText, subjectProperty, purchaseHistory, marketStats, existingManualComps, reviewedComps, extractOnly } = await req.json();
 
     // If agent already reviewed comps, skip extraction and go straight to analysis
     if (reviewedComps && Array.isArray(reviewedComps) && reviewedComps.length > 0) {
