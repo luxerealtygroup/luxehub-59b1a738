@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Download, Eye, Loader2, TrendingUp, BarChart3, Home, Target, ArrowRight, Phone } from 'lucide-react';
 import CMAFubPush from './CMAFubPush';
 import { CMASendToPortal } from './CMASendToPortal';
@@ -115,6 +116,7 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
   const [loading, setLoading] = useState(true);
   const [savingPdf, setSavingPdf] = useState(false);
   const [previewingPdf, setPreviewingPdf] = useState(false);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [agentName, setAgentName] = useState<string>('');
   const [portalSentAt, setPortalSentAt] = useState<string | null>(null);
@@ -174,6 +176,12 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
     };
     fetchReport();
   }, [reportId]);
+
+  useEffect(() => {
+    return () => {
+      if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
+    };
+  }, [pdfPreviewUrl]);
 
   const isApproved = report ? ['approved', 'exported', 'pushed', 'converted'].includes(report.approval_status) : false;
   // The agent who owns the CMA, plus admins, Operations and the owner.
@@ -327,16 +335,31 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
     }
 
     setPreviewingPdf(true);
-    let url: string | null = null;
     try {
       const doc = buildCmaClientPdf(cmaPdfInput);
       const blob = doc.output('blob') as Blob;
-      url = URL.createObjectURL(blob);
-      const previewWindow = window.open(url, '_blank');
-      if (!previewWindow) {
-        URL.revokeObjectURL(url);
-        toast.error('Allow pop-ups to preview the client PDF.');
-        return;
+      const nextUrl = URL.createObjectURL(blob);
+      setPdfPreviewUrl((currentUrl) => {
+        if (currentUrl) URL.revokeObjectURL(currentUrl);
+        return nextUrl;
+      });
+      toast.success('Client PDF preview opened');
+    } catch (err) {
+      console.error('CMA PDF preview failed', err);
+      toast.error('Could not preview the PDF');
+    } finally {
+      setPreviewingPdf(false);
+    }
+  };
+
+  const closePdfPreview = (open: boolean) => {
+    if (!open) {
+      setPdfPreviewUrl((currentUrl) => {
+        if (currentUrl) URL.revokeObjectURL(currentUrl);
+        return null;
+      });
+    }
+  };
       }
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
       toast.success('Client PDF preview opened');
