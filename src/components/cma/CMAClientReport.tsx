@@ -192,54 +192,40 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
     return <p className="text-muted-foreground">Report not available.</p>;
   }
 
-  const fmt = (n: number | null | undefined) => n != null ? `$${n.toLocaleString()}` : '—';
+  const fmt = (n: number | null | undefined) => money(n);
 
   // ── SINGLE SOURCE OF TRUTH for the recommended price ──
   // Computed once and referenced by every slot (summary, price card, strategy, next steps).
   const recommendedPrice = report.pricing_band_recommended;
   const recommendedPriceText = fmt(recommendedPrice);
 
-  // Any dollar figure in AI-authored prose that drifts within 5% of the canonical
-  // recommended price is rewritten to it, so the report can never contradict itself.
-  const reconcilePrice = (text: string | null | undefined): string | null => {
-    if (!text) return text ?? null;
-    if (recommendedPrice == null) return text;
-    return text.replace(/\$\s?([\d,]{4,})(?:\.\d{2})?/g, (full, digits: string) => {
-      const n = Number(String(digits).replace(/,/g, ''));
-      if (!Number.isFinite(n) || n <= 0) return full;
-      const drift = Math.abs(n - recommendedPrice) / recommendedPrice;
-      return drift > 0 && drift <= 0.05 ? recommendedPriceText : full;
-    });
-  };
-
   const compStatusLabel = (c: Comp) => {
-    const cat = (c.comp_category || '').toLowerCase();
-    if (cat === 'pending') return { label: 'Pending', tone: 'amber' as const };
-    if (cat === 'active') return { label: 'Active', tone: 'muted' as const };
-    if (cat === 'expired') return { label: 'Expired', tone: 'muted' as const };
-    if (cat === 'sold' || c.sold_price) return { label: 'Closed', tone: 'emerald' as const };
-    return { label: '—', tone: 'muted' as const };
+    const label = compStatus(c);
+    if (label === 'Pending') return { label, tone: 'amber' as const };
+    if (label === 'Sold') return { label: 'Closed', tone: 'emerald' as const };
+    return { label, tone: 'muted' as const };
   };
   const fmtDate = (d: string | null) =>
     d ? new Date(`${d}T00:00:00`).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' }) : null;
 
   // Approved text with fallbacks
-  const executiveSummary = reconcilePrice(report.approved_executive_summary) ||
-    `Based on an analysis of the comparable properties in this report and current conditions in ${report.city_area}, we recommend a listing price of ${recommendedPriceText} for ${report.property_address}. The recommended price band ranges from ${fmt(report.pricing_band_low)} to ${fmt(report.pricing_band_high)}, with a ${report.pricing_confidence?.toLowerCase() || 'moderate'} confidence level.`;
-  const marketConditionsText = reconcilePrice(report.approved_market_conditions || report.market_narrative);
-  const strategyText = reconcilePrice(report.approved_strategy) || `Strategy: ${report.strategy_recommendation}\n\n${report.talking_points.map((tp, i) => `${i + 1}. ${tp}`).join('\n')}`;
-  const priceNarrativeText = reconcilePrice(report.approved_price_narrative);
+  const executiveSummary = cleanText(report.approved_executive_summary) ||
+    `Based on an analysis of the comparable properties in this report and current conditions in ${cleanText(report.city_area)}, we recommend a listing price of ${recommendedPriceText} for ${normalizeAddress(report.property_address)}. The recommended price band ranges from ${fmt(report.pricing_band_low)} to ${fmt(report.pricing_band_high)}, with a ${cleanText(report.pricing_confidence).toLowerCase() || 'moderate'} confidence level.`;
+  const marketConditionsText = cleanText(report.approved_market_conditions || report.market_narrative);
+  const strategyText = cleanText(report.approved_strategy) || `Strategy: ${humanizeLabel(report.strategy_recommendation)}\n\n${report.talking_points.map((tp, i) => `${i + 1}. ${cleanText(tp)}`).join('\n')}`;
+  const priceNarrativeText = cleanText(report.approved_price_narrative);
 
   const strongComps = report.extracted_comps.filter(c => !c.is_weak);
   const topComps = strongComps.slice(0, 6);
 
   // Comps summary stats
-  const soldComps = topComps.filter(c => c.sold_price != null && c.sold_price > 0);
-  const avgSoldPrice = soldComps.length > 0 ? Math.round(soldComps.reduce((s, c) => s + (c.sold_price || 0), 0) / soldComps.length) : null;
-  const avgDOM = soldComps.length > 0 ? Math.round(soldComps.reduce((s, c) => s + (c.days_on_market || 0), 0) / soldComps.length) : null;
-  const priceRange = soldComps.length > 0 ? {
-    low: Math.min(...soldComps.map(c => c.sold_price!)),
-    high: Math.max(...soldComps.map(c => c.sold_price!)),
+  const soldPrices = topComps.map((c) => toPositiveNumber(c.sold_price)).filter((n): n is number => n != null);
+  const avgSoldPrice = soldPrices.length > 0 ? Math.round(soldPrices.reduce((s, price) => s + price, 0) / soldPrices.length) : null;
+  const domValues = topComps.map((c) => toPositiveNumber(c.days_on_market)).filter((n): n is number => n != null);
+  const avgDOM = domValues.length > 0 ? Math.round(domValues.reduce((s, dom) => s + dom, 0) / domValues.length) : null;
+  const priceRange = soldPrices.length > 0 ? {
+    low: Math.min(...soldPrices),
+    high: Math.max(...soldPrices),
   } : null;
 
   // Market chart data
