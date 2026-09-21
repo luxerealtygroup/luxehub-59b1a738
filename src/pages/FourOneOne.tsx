@@ -725,17 +725,17 @@ const FourOneOne = () => {
       })()}
 
       <Tabs defaultValue="weekly" className="space-y-6">
-        <TabsList className="bg-muted">
-          <TabsTrigger value="weekly" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+        <TabsList className="bg-muted flex h-auto w-full flex-wrap justify-start gap-1">
+          <TabsTrigger value="weekly" className="flex-1 min-w-[7rem] data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <Target className="h-4 w-4 mr-2" /> Weekly
           </TabsTrigger>
-          <TabsTrigger value="scorecard" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+          <TabsTrigger value="scorecard" className="flex-1 min-w-[7rem] data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <Trophy className="h-4 w-4 mr-2" /> Scorecard
           </TabsTrigger>
-          <TabsTrigger value="monthly" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+          <TabsTrigger value="monthly" className="flex-1 min-w-[7rem] data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <TrendingUp className="h-4 w-4 mr-2" /> Monthly
           </TabsTrigger>
-          <TabsTrigger value="practice" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+          <TabsTrigger value="practice" className="flex-1 min-w-[7rem] data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <Mic className="h-4 w-4 mr-2" /> Practice
           </TabsTrigger>
 
