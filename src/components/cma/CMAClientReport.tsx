@@ -1,17 +1,21 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, Printer, TrendingUp, BarChart3, Home, Target, FileText, ArrowRight, Phone } from 'lucide-react';
+import { Download, Loader2, TrendingUp, BarChart3, Home, Target, ArrowRight, Phone } from 'lucide-react';
 import CMAFubPush from './CMAFubPush';
 import { CMASendToPortal } from './CMASendToPortal';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
+import { buildCmaClientPdf, CmaPdfInput } from '@/lib/cma/clientPdf';
+import { safeFileName } from '@/lib/portalDelivery';
 import {
+  anomalyMessage,
   cleanText,
   compPrice,
   compStatus,
+  detectDuplicateSoldPriceAnomaly,
   humanizeLabel,
   money,
   normalizeAddress,
@@ -109,10 +113,10 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
   const { isAdmin } = useUserRole();
   const [report, setReport] = useState<CMAReportFull | null>(null);
   const [loading, setLoading] = useState(true);
+  const [savingPdf, setSavingPdf] = useState(false);
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [agentName, setAgentName] = useState<string>('');
   const [portalSentAt, setPortalSentAt] = useState<string | null>(null);
-  const printRef = useRef<HTMLDivElement>(null);
 
 
   useEffect(() => {
@@ -169,11 +173,6 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
     };
     fetchReport();
   }, [reportId]);
-
-  const handlePrint = () => {
-    supabase.from('cma_reports').update({ approval_status: 'exported' } as any).eq('id', reportId);
-    window.print();
-  };
 
   const isApproved = report ? ['approved', 'exported', 'pushed', 'converted'].includes(report.approval_status) : false;
   // The agent who owns the CMA, plus admins, Operations and the owner.
@@ -234,39 +233,105 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
     { name: 'Sold', value: report.sold_listings || 0, fill: 'hsl(var(--primary))' },
   ];
 
-  // Equity chart data
-  const purchaseDate = new Date(report.purchase_date);
-  const today = new Date();
-  const equityData = [
-    {
-      date: purchaseDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-      value: report.purchase_price,
-      low: report.purchase_price,
-      high: report.purchase_price,
-    },
-  ];
-  const yearsDiff = (today.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24 * 365);
-  if (yearsDiff > 1) {
-    const mid = new Date((purchaseDate.getTime() + today.getTime()) / 2);
-    const midLow = report.purchase_price + ((report.pricing_band_low || report.purchase_price) - report.purchase_price) * 0.5;
-    const midHigh = report.purchase_price + ((report.pricing_band_high || report.purchase_price) - report.purchase_price) * 0.5;
+  // Equity chart data is shown only when purchase history is available.
+  const purchasePrice = toPositiveNumber(report.purchase_price);
+  const improvementsInvested = toPositiveNumber(report.improvements_invested) ?? 0;
+  const totalCost = purchasePrice != null ? purchasePrice + improvementsInvested : null;
+  const equityLow = report.equity_gain_low == null ? null : Math.round(Number(report.equity_gain_low));
+  const equityHigh = report.equity_gain_high == null ? null : Math.round(Number(report.equity_gain_high));
+  const equityData: Array<{ date: string; value: number; low: number; high: number }> = [];
+  if (purchasePrice != null) {
+    const purchaseDate = new Date(report.purchase_date);
+    const validPurchaseDate = Number.isFinite(purchaseDate.getTime());
+    const today = new Date();
     equityData.push({
-      date: mid.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-      value: (midLow + midHigh) / 2,
-      low: midLow,
-      high: midHigh,
+      date: validPurchaseDate ? purchaseDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'Purchase',
+      value: purchasePrice,
+      low: purchasePrice,
+      high: purchasePrice,
+    });
+    const yearsDiff = validPurchaseDate ? (today.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24 * 365) : 0;
+    if (yearsDiff > 1) {
+      const mid = new Date((purchaseDate.getTime() + today.getTime()) / 2);
+      const midLow = purchasePrice + ((report.pricing_band_low || purchasePrice) - purchasePrice) * 0.5;
+      const midHigh = purchasePrice + ((report.pricing_band_high || purchasePrice) - purchasePrice) * 0.5;
+      equityData.push({
+        date: mid.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+        value: (midLow + midHigh) / 2,
+        low: midLow,
+        high: midHigh,
+      });
+    }
+    equityData.push({
+      date: 'Today',
+      value: report.pricing_band_recommended || purchasePrice,
+      low: report.pricing_band_low || purchasePrice,
+      high: report.pricing_band_high || purchasePrice,
     });
   }
-  equityData.push({
-    date: 'Today',
-    value: report.pricing_band_recommended || report.purchase_price,
-    low: report.pricing_band_low || report.purchase_price,
-    high: report.pricing_band_high || report.purchase_price,
-  });
 
-  const equityLow = report.equity_gain_low ?? 0;
-  const equityHigh = report.equity_gain_high ?? 0;
-  const totalCost = report.purchase_price + (report.improvements_invested || 0);
+  const cmaPdfInput: CmaPdfInput = {
+    propertyAddress: report.property_address,
+    cityArea: report.city_area,
+    propertyType: report.property_type,
+    createdAt: report.created_at,
+    agentName,
+    clientName: report.fub_person_name,
+    executiveSummary,
+    priceNarrative: priceNarrativeText,
+    marketConditions: marketConditionsText,
+    strategy: strategyText,
+    pricingBandLow: report.pricing_band_low,
+    pricingBandRecommended: report.pricing_band_recommended,
+    pricingBandHigh: report.pricing_band_high,
+    pricingConfidence: report.pricing_confidence,
+    cmaGrade: report.cma_grade,
+    bedrooms: report.bedrooms,
+    bathrooms: report.bathrooms,
+    aboveGradeSqFt: report.above_grade_sqft ?? null,
+    finishedBasementSqFt: report.finished_basement_sqft ?? null,
+    approxSqFt: report.approx_sqft,
+    garage: report.garage,
+    buildYear: report.build_year,
+    condition: report.condition,
+    keyFeatures: report.key_features || [],
+    featureAdjustments: report.feature_adjustments || [],
+    pricePerSqftCrossCheck: report.price_per_sqft_cross_check ?? null,
+    valuationScenarios: report.valuation_scenarios ?? null,
+    marketStats: {
+      median_sale_price: report.median_sale_price,
+      avg_days_on_market: report.avg_days_on_market,
+      sale_to_list_ratio: report.sale_to_list_ratio,
+      months_of_inventory: report.months_of_inventory,
+      active_listings: report.active_listings,
+      sold_listings: report.sold_listings,
+    },
+    compPriceAnomalyConfirmedAt: report.comp_price_anomaly_confirmed_at ?? null,
+    comps: report.extracted_comps,
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!isApproved) return;
+    const anomaly = detectDuplicateSoldPriceAnomaly(cmaPdfInput.comps || []);
+    if (anomaly.hasAnomaly && !cmaPdfInput.compPriceAnomalyConfirmedAt) {
+      toast.error('Confirm the repeated comparable sold prices before exporting this CMA.', { description: anomalyMessage(anomaly) });
+      return;
+    }
+
+    setSavingPdf(true);
+    try {
+      const doc = buildCmaClientPdf(cmaPdfInput);
+      doc.save(safeFileName(`Home Evaluation - ${normalizeAddress(report.property_address)}`));
+      const { error } = await supabase.from('cma_reports').update({ approval_status: 'exported' } as any).eq('id', reportId);
+      if (error) console.error('Failed to mark CMA exported', error);
+      toast.success('Client PDF downloaded');
+    } catch (err) {
+      console.error('CMA PDF export failed', err);
+      toast.error('Could not create the PDF');
+    } finally {
+      setSavingPdf(false);
+    }
+  };
 
   return (
     <div>
@@ -301,49 +366,12 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
             previousDocumentId={report.portal_document_id}
             previousSentAt={report.portal_sent_at}
             onSent={() => setPortalSentAt(new Date().toISOString())}
-            pdfInput={{
-              propertyAddress: report.property_address,
-              cityArea: report.city_area,
-              propertyType: report.property_type,
-              createdAt: report.created_at,
-              agentName,
-              clientName: report.fub_person_name,
-              executiveSummary: executiveSummary,
-              priceNarrative: priceNarrativeText,
-              marketConditions: marketConditionsText,
-              strategy: strategyText,
-              pricingBandLow: report.pricing_band_low,
-              pricingBandRecommended: report.pricing_band_recommended,
-              pricingBandHigh: report.pricing_band_high,
-              pricingConfidence: report.pricing_confidence,
-              cmaGrade: report.cma_grade,
-              bedrooms: report.bedrooms,
-              bathrooms: report.bathrooms,
-              aboveGradeSqFt: report.above_grade_sqft ?? null,
-              finishedBasementSqFt: report.finished_basement_sqft ?? null,
-              approxSqFt: report.approx_sqft,
-              garage: report.garage,
-              buildYear: report.build_year,
-              condition: report.condition,
-              keyFeatures: report.key_features || [],
-              featureAdjustments: report.feature_adjustments || [],
-              pricePerSqftCrossCheck: report.price_per_sqft_cross_check ?? null,
-              valuationScenarios: report.valuation_scenarios ?? null,
-              marketStats: {
-                median_sale_price: report.median_sale_price,
-                avg_days_on_market: report.avg_days_on_market,
-                sale_to_list_ratio: report.sale_to_list_ratio,
-                months_of_inventory: report.months_of_inventory,
-                active_listings: report.active_listings,
-                sold_listings: report.sold_listings,
-              },
-              compPriceAnomalyConfirmedAt: report.comp_price_anomaly_confirmed_at ?? null,
-              comps: report.extracted_comps,
-            }}
+            pdfInput={cmaPdfInput}
           />
         )}
-        <Button onClick={handlePrint} disabled={!isApproved} className="bg-gold hover:bg-gold/90 text-gold-foreground">
-          <Printer className="h-4 w-4 mr-2" /> Print / Save PDF
+        <Button onClick={handleDownloadPdf} disabled={!isApproved || savingPdf} className="bg-gold hover:bg-gold/90 text-gold-foreground">
+          {savingPdf ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+          Download Client PDF
         </Button>
       </div>
 
@@ -354,7 +382,7 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
       )}
 
 
-      <div ref={printRef} className="max-w-4xl mx-auto print:max-w-none">
+      <div className="max-w-4xl mx-auto print:max-w-none">
 
         {/* ═══════════════════════════════════════════
             SECTION 1 — COVER
@@ -564,8 +592,8 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
 
           {/* Summary row */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-            <StatCard label="Purchase Price" value={fmt(report.purchase_price)} />
-            <StatCard label="Improvements" value={fmt(report.improvements_invested)} />
+            <StatCard label="Purchase Price" value={fmt(purchasePrice)} />
+            <StatCard label="Improvements" value={improvementsInvested > 0 ? fmt(improvementsInvested) : 'Not reported'} />
             <StatCard label="Total Invested" value={fmt(totalCost)} />
             <StatCard
               label="Current Value Range"
@@ -588,7 +616,7 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
                   ))}
                   <div className="flex justify-between text-sm font-bold border-t border-border pt-2 mt-1">
                     <span>Total</span>
-                    <span className="text-gold tabular-nums">${report.improvements_invested.toLocaleString()}</span>
+                    <span className="text-gold tabular-nums">{fmt(improvementsInvested)}</span>
                   </div>
                 </div>
               </CardContent>
@@ -596,59 +624,74 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
           )}
 
           {/* Equity growth chart */}
-          <Card className="border-border/50">
-            <CardContent className="pt-5 pb-4">
-              <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-1">Estimated Equity Growth</p>
-              <p className="text-[10px] text-muted-foreground/60 italic mb-4">
-                Based on recommended price range
-              </p>
-              <div className="h-56">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={equityData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                    <YAxis
-                      tick={{ fontSize: 11 }}
-                      tickFormatter={(v) => `$${(v / 1000).toFixed(0)}K`}
-                    />
-                    <Tooltip
-                      formatter={(value: number) => [`$${value.toLocaleString()}`, '']}
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--background))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                        fontSize: '12px',
-                      }}
-                    />
-                    <Area type="monotone" dataKey="high" stroke="hsl(var(--gold))" fill="hsl(var(--gold))" fillOpacity={0.12} strokeWidth={2} name="High Estimate" />
-                    <Area type="monotone" dataKey="low" stroke="hsl(var(--gold))" fill="hsl(var(--background))" fillOpacity={1} strokeWidth={1} strokeDasharray="4 4" name="Low Estimate" />
-                    <ReferenceLine y={totalCost} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" label={{ value: 'Total Invested', fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-
-              {/* Gain summary */}
-              <div className="flex items-center justify-center gap-8 mt-4 pt-4 border-t border-border">
-                <div className="text-center">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Est. Gain (Low)</p>
-                  <p className={`text-lg font-bold ${equityLow >= 0 ? 'text-emerald-500' : 'text-destructive'}`}>
-                    {equityLow >= 0 ? '+' : ''}{fmt(equityLow)}
-                  </p>
+          {purchasePrice != null ? (
+            <Card className="border-border/50">
+              <CardContent className="pt-5 pb-4">
+                <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-1">Estimated Equity Growth</p>
+                <p className="text-[10px] text-muted-foreground/60 italic mb-4">
+                  Based on recommended price range
+                </p>
+                <div className="h-56">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={equityData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                      <YAxis
+                        tick={{ fontSize: 11 }}
+                        tickFormatter={(v) => `$${(v / 1000).toFixed(0)}K`}
+                      />
+                      <Tooltip
+                        formatter={(value: number) => [`$${value.toLocaleString()}`, '']}
+                        contentStyle={{
+                          backgroundColor: 'hsl(var(--background))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                        }}
+                      />
+                      <Area type="monotone" dataKey="high" stroke="hsl(var(--gold))" fill="hsl(var(--gold))" fillOpacity={0.12} strokeWidth={2} name="High Estimate" />
+                      <Area type="monotone" dataKey="low" stroke="hsl(var(--gold))" fill="hsl(var(--background))" fillOpacity={1} strokeWidth={1} strokeDasharray="4 4" name="Low Estimate" />
+                      {totalCost != null && <ReferenceLine y={totalCost} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" label={{ value: 'Total Invested', fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />}
+                    </AreaChart>
+                  </ResponsiveContainer>
                 </div>
-                <div className="text-2xl text-muted-foreground/30 font-light">–</div>
-                <div className="text-center">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Est. Gain (High)</p>
-                  <p className={`text-lg font-bold ${equityHigh >= 0 ? 'text-emerald-500' : 'text-destructive'}`}>
-                    {equityHigh >= 0 ? '+' : ''}{fmt(equityHigh)}
-                  </p>
-                </div>
-              </div>
 
-              <p className="text-[10px] text-muted-foreground/50 mt-3 italic text-center">
-                This is an estimate and does not constitute a formal appraisal.
-              </p>
-            </CardContent>
-          </Card>
+                {(equityLow != null || equityHigh != null) && (
+                  <div className="flex items-center justify-center gap-8 mt-4 pt-4 border-t border-border">
+                    {equityLow != null && (
+                      <div className="text-center">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Est. Gain (Low)</p>
+                        <p className={`text-lg font-bold ${equityLow >= 0 ? 'text-emerald-500' : 'text-destructive'}`}>
+                          {equityLow >= 0 ? '+' : ''}{fmt(equityLow)}
+                        </p>
+                      </div>
+                    )}
+                    {equityLow != null && equityHigh != null && <div className="text-2xl text-muted-foreground/30 font-light">–</div>}
+                    {equityHigh != null && (
+                      <div className="text-center">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Est. Gain (High)</p>
+                        <p className={`text-lg font-bold ${equityHigh >= 0 ? 'text-emerald-500' : 'text-destructive'}`}>
+                          {equityHigh >= 0 ? '+' : ''}{fmt(equityHigh)}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <p className="text-[10px] text-muted-foreground/50 mt-3 italic text-center">
+                  This is an estimate and does not constitute a formal appraisal.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border-border/50">
+              <CardContent className="pt-5 pb-4">
+                <p className="text-sm text-muted-foreground text-center">
+                  Purchase history was not provided, so gain calculations are not shown.
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </section>
 
         {/* ═══════════════════════════════════════════
