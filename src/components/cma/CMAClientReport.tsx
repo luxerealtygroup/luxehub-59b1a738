@@ -8,6 +8,16 @@ import CMAFubPush from './CMAFubPush';
 import { CMASendToPortal } from './CMASendToPortal';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
+import {
+  cleanText,
+  compPrice,
+  compStatus,
+  humanizeLabel,
+  money,
+  normalizeAddress,
+  sqftLabel,
+  toPositiveNumber,
+} from '@/lib/cma/reportQuality';
 
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -27,6 +37,11 @@ interface Comp {
   comp_category?: string | null;
   is_weak: boolean;
   weak_reason: string | null;
+  sqft?: number | string | null;
+  sqFt?: number | string | null;
+  ag_sqft?: number | string | null;
+  bg_sqft?: number | string | null;
+  notes?: string | null;
 }
 
 interface CMAReportFull {
@@ -37,6 +52,12 @@ interface CMAReportFull {
   bedrooms: number | null;
   bathrooms: number | null;
   approx_sqft: number | null;
+  above_grade_sqft?: number | null;
+  finished_basement_sqft?: number | null;
+  garage?: string | null;
+  build_year?: number | string | null;
+  condition?: string | null;
+  key_features?: string[];
   target_list_price: number | null;
   purchase_price: number;
   purchase_date: string;
@@ -74,6 +95,10 @@ interface CMAReportFull {
   approved_price_narrative: string | null;
   approved_strategy: string | null;
   approved_market_conditions: string | null;
+  feature_adjustments?: Array<{ feature?: string; adjustment_low?: number | null; adjustment_high?: number | null; rationale?: string | null }>;
+  price_per_sqft_cross_check?: any;
+  valuation_scenarios?: any;
+  comp_price_anomaly_confirmed_at?: string | null;
   user_id?: string | null;
   portal_document_id?: string | null;
   portal_sent_at?: string | null;
@@ -167,54 +192,40 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
     return <p className="text-muted-foreground">Report not available.</p>;
   }
 
-  const fmt = (n: number | null | undefined) => n != null ? `$${n.toLocaleString()}` : '—';
+  const fmt = (n: number | null | undefined) => money(n);
 
   // ── SINGLE SOURCE OF TRUTH for the recommended price ──
   // Computed once and referenced by every slot (summary, price card, strategy, next steps).
   const recommendedPrice = report.pricing_band_recommended;
   const recommendedPriceText = fmt(recommendedPrice);
 
-  // Any dollar figure in AI-authored prose that drifts within 5% of the canonical
-  // recommended price is rewritten to it, so the report can never contradict itself.
-  const reconcilePrice = (text: string | null | undefined): string | null => {
-    if (!text) return text ?? null;
-    if (recommendedPrice == null) return text;
-    return text.replace(/\$\s?([\d,]{4,})(?:\.\d{2})?/g, (full, digits: string) => {
-      const n = Number(String(digits).replace(/,/g, ''));
-      if (!Number.isFinite(n) || n <= 0) return full;
-      const drift = Math.abs(n - recommendedPrice) / recommendedPrice;
-      return drift > 0 && drift <= 0.05 ? recommendedPriceText : full;
-    });
-  };
-
   const compStatusLabel = (c: Comp) => {
-    const cat = (c.comp_category || '').toLowerCase();
-    if (cat === 'pending') return { label: 'Pending', tone: 'amber' as const };
-    if (cat === 'active') return { label: 'Active', tone: 'muted' as const };
-    if (cat === 'expired') return { label: 'Expired', tone: 'muted' as const };
-    if (cat === 'sold' || c.sold_price) return { label: 'Closed', tone: 'emerald' as const };
-    return { label: '—', tone: 'muted' as const };
+    const label = compStatus(c);
+    if (label === 'Pending') return { label, tone: 'amber' as const };
+    if (label === 'Sold') return { label: 'Closed', tone: 'emerald' as const };
+    return { label, tone: 'muted' as const };
   };
   const fmtDate = (d: string | null) =>
     d ? new Date(`${d}T00:00:00`).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' }) : null;
 
   // Approved text with fallbacks
-  const executiveSummary = reconcilePrice(report.approved_executive_summary) ||
-    `Based on an analysis of the comparable properties in this report and current conditions in ${report.city_area}, we recommend a listing price of ${recommendedPriceText} for ${report.property_address}. The recommended price band ranges from ${fmt(report.pricing_band_low)} to ${fmt(report.pricing_band_high)}, with a ${report.pricing_confidence?.toLowerCase() || 'moderate'} confidence level.`;
-  const marketConditionsText = reconcilePrice(report.approved_market_conditions || report.market_narrative);
-  const strategyText = reconcilePrice(report.approved_strategy) || `Strategy: ${report.strategy_recommendation}\n\n${report.talking_points.map((tp, i) => `${i + 1}. ${tp}`).join('\n')}`;
-  const priceNarrativeText = reconcilePrice(report.approved_price_narrative);
+  const executiveSummary = cleanText(report.approved_executive_summary) ||
+    `Based on an analysis of the comparable properties in this report and current conditions in ${cleanText(report.city_area)}, we recommend a listing price of ${recommendedPriceText} for ${normalizeAddress(report.property_address)}. The recommended price band ranges from ${fmt(report.pricing_band_low)} to ${fmt(report.pricing_band_high)}, with a ${cleanText(report.pricing_confidence).toLowerCase() || 'moderate'} confidence level.`;
+  const marketConditionsText = cleanText(report.approved_market_conditions || report.market_narrative);
+  const strategyText = cleanText(report.approved_strategy) || `Strategy: ${humanizeLabel(report.strategy_recommendation)}\n\n${report.talking_points.map((tp, i) => `${i + 1}. ${cleanText(tp)}`).join('\n')}`;
+  const priceNarrativeText = cleanText(report.approved_price_narrative);
 
   const strongComps = report.extracted_comps.filter(c => !c.is_weak);
   const topComps = strongComps.slice(0, 6);
 
   // Comps summary stats
-  const soldComps = topComps.filter(c => c.sold_price != null && c.sold_price > 0);
-  const avgSoldPrice = soldComps.length > 0 ? Math.round(soldComps.reduce((s, c) => s + (c.sold_price || 0), 0) / soldComps.length) : null;
-  const avgDOM = soldComps.length > 0 ? Math.round(soldComps.reduce((s, c) => s + (c.days_on_market || 0), 0) / soldComps.length) : null;
-  const priceRange = soldComps.length > 0 ? {
-    low: Math.min(...soldComps.map(c => c.sold_price!)),
-    high: Math.max(...soldComps.map(c => c.sold_price!)),
+  const soldPrices = topComps.map((c) => toPositiveNumber(c.sold_price)).filter((n): n is number => n != null);
+  const avgSoldPrice = soldPrices.length > 0 ? Math.round(soldPrices.reduce((s, price) => s + price, 0) / soldPrices.length) : null;
+  const domValues = topComps.map((c) => toPositiveNumber(c.days_on_market)).filter((n): n is number => n != null);
+  const avgDOM = domValues.length > 0 ? Math.round(domValues.reduce((s, dom) => s + dom, 0) / domValues.length) : null;
+  const priceRange = soldPrices.length > 0 ? {
+    low: Math.min(...soldPrices),
+    high: Math.max(...soldPrices),
   } : null;
 
   // Market chart data
@@ -293,8 +304,10 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
             pdfInput={{
               propertyAddress: report.property_address,
               cityArea: report.city_area,
+              propertyType: report.property_type,
               createdAt: report.created_at,
               agentName,
+              clientName: report.fub_person_name,
               executiveSummary: executiveSummary,
               priceNarrative: priceNarrativeText,
               marketConditions: marketConditionsText,
@@ -303,6 +316,28 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
               pricingBandRecommended: report.pricing_band_recommended,
               pricingBandHigh: report.pricing_band_high,
               pricingConfidence: report.pricing_confidence,
+              cmaGrade: report.cma_grade,
+              bedrooms: report.bedrooms,
+              bathrooms: report.bathrooms,
+              aboveGradeSqFt: report.above_grade_sqft ?? null,
+              finishedBasementSqFt: report.finished_basement_sqft ?? null,
+              approxSqFt: report.approx_sqft,
+              garage: report.garage,
+              buildYear: report.build_year,
+              condition: report.condition,
+              keyFeatures: report.key_features || [],
+              featureAdjustments: report.feature_adjustments || [],
+              pricePerSqftCrossCheck: report.price_per_sqft_cross_check ?? null,
+              valuationScenarios: report.valuation_scenarios ?? null,
+              marketStats: {
+                median_sale_price: report.median_sale_price,
+                avg_days_on_market: report.avg_days_on_market,
+                sale_to_list_ratio: report.sale_to_list_ratio,
+                months_of_inventory: report.months_of_inventory,
+                active_listings: report.active_listings,
+                sold_listings: report.sold_listings,
+              },
+              compPriceAnomalyConfirmedAt: report.comp_price_anomaly_confirmed_at ?? null,
               comps: report.extracted_comps,
             }}
           />
@@ -342,10 +377,10 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
               {report.property_address}
             </h1>
             <p className="text-base text-muted-foreground">
-              {report.city_area} · {report.property_type}
+              {cleanText(report.city_area)} · {humanizeLabel(report.property_type)}
               {report.bedrooms && ` · ${report.bedrooms} Bed`}
               {report.bathrooms && ` / ${report.bathrooms} Bath`}
-              {report.approx_sqft && ` · ${report.approx_sqft.toLocaleString()} sqft`}
+              {report.approx_sqft && ` · ${sqftLabel(report.approx_sqft)}`}
             </p>
             <p className="text-sm text-muted-foreground/70 pt-2">
               Prepared {new Date(report.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
@@ -445,7 +480,7 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
               <div className="grid grid-cols-3 gap-3 mb-5">
                 <StatCard label="Comp Price Range" value={`${fmt(priceRange.low)} – ${fmt(priceRange.high)}`} />
                 <StatCard label="Avg Sold Price" value={fmt(avgSoldPrice)} />
-                <StatCard label="Avg Days on Market" value={avgDOM != null ? `${avgDOM}` : '—'} />
+                <StatCard label="Avg Days on Market" value={avgDOM != null ? `${avgDOM}` : 'Not reported'} />
               </div>
             )}
 
@@ -469,7 +504,7 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
                       const dateLabel = fmtDate(comp.sale_date);
                       return (
                       <tr key={i} className={`border-t border-border/40 ${i % 2 === 0 ? '' : 'bg-muted/20'}`}>
-                        <td className="py-3 px-4 font-medium text-foreground">{comp.address}</td>
+                        <td className="py-3 px-4 font-medium text-foreground">{normalizeAddress(comp.address)}</td>
                         <td className="py-3 px-3">
                           <span
                             className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
@@ -488,10 +523,10 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
                             </span>
                           )}
                         </td>
-                        <td className="py-3 px-3 text-center text-muted-foreground">{comp.beds ?? '—'} / {comp.baths ?? '—'}</td>
-                        <td className="py-3 px-3 text-right text-muted-foreground">{comp.list_price ? `$${comp.list_price.toLocaleString()}` : '—'}</td>
-                        <td className="py-3 px-3 text-right font-medium">{comp.sold_price ? `$${comp.sold_price.toLocaleString()}` : '—'}</td>
-                        <td className="py-3 px-4 text-center text-muted-foreground">{comp.days_on_market ?? '—'}</td>
+                        <td className="py-3 px-3 text-center text-muted-foreground">{cleanText(comp.beds) || 'Not reported'} / {cleanText(comp.baths) || 'Not reported'}</td>
+                        <td className="py-3 px-3 text-right text-muted-foreground">{compPrice(comp, 'list')}</td>
+                        <td className="py-3 px-3 text-right font-medium">{compPrice(comp, 'sold')}</td>
+                        <td className="py-3 px-4 text-center text-muted-foreground">{cleanText(comp.days_on_market) || 'Not reported'}</td>
                       </tr>
                       );
                     })}

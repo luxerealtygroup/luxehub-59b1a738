@@ -72,7 +72,7 @@ export const cleanText = (value: unknown): string => {
   if (value == null) return '';
   if (typeof value === 'object') {
     const entries = Object.entries(value as Record<string, unknown>)
-      .filter(([, v]) => v != null && cleanScalarText(v).trim() !== '')
+      .filter(([, v]) => v != null && (typeof v === 'object' ? cleanText(v) : cleanScalarText(v)).trim() !== '')
       .map(([k, v]) => `${humanizeLabel(k)}: ${typeof v === 'object' ? cleanText(v) : cleanScalarText(v)}`);
     return entries.join('; ');
   }

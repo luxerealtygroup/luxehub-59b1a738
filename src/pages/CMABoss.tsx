@@ -19,6 +19,7 @@ import { useCmaMonthlyUsage } from '@/hooks/useCmaMonthlyUsage';
 import { Link } from 'react-router-dom';
 import { tenant } from '@/config/tenant';
 import { getAnalysisState, analysisStateLabel } from '@/lib/cma/analysisState';
+import { anomalyMessage, detectDuplicateSoldPriceAnomaly } from '@/lib/cma/reportQuality';
 
 interface CMAReport {
   id: string;
@@ -81,10 +82,19 @@ const CMABoss = () => {
         if (prof?.full_name) agentName = prof.full_name;
       }
 
-      const above = (r as any).above_grade_sqft ?? r.approx_sqft ?? 0;
-      const basement = (r as any).finished_basement_sqft ?? 0;
-      const total = r.approx_sqft ?? (above + basement);
-      const comps = Array.isArray(r.extracted_comps) ? r.extracted_comps : [];
+      const above = (r as any).above_grade_sqft ?? null;
+      const basement = (r as any).finished_basement_sqft ?? null;
+      const total = r.approx_sqft ?? (above && basement ? above + basement : above);
+      const comps = Array.isArray(r.extracted_comps)
+        ? r.extracted_comps.filter((c) => Boolean(c) && typeof c === 'object' && !Array.isArray(c)) as any[]
+        : [];
+      const anomaly = detectDuplicateSoldPriceAnomaly(comps);
+      if (anomaly.hasAnomaly && !(r as any).comp_price_anomaly_confirmed_at) {
+        toast.error('Confirm the repeated comparable sold prices before generating the client CMA.', {
+          description: anomalyMessage(anomaly),
+        });
+        return;
+      }
 
       const payload = {
         // reportId lets generate-cma load the audited analysis as fixed input,
@@ -115,10 +125,12 @@ const CMABoss = () => {
             : (c.sold_price ? 'sold' : 'active'),
           beds: c.beds != null ? String(c.beds) : '',
           baths: c.baths != null ? String(c.baths) : '',
-          sqFt: c.sqft ?? 0,
-          listPrice: c.list_price ?? 0,
+          sqFt: c.sqft ?? c.sqFt ?? null,
+          ag_sqft: c.ag_sqft ?? c.above_grade_sqft ?? null,
+          bg_sqft: c.bg_sqft ?? c.finished_basement_sqft ?? null,
+          listPrice: c.list_price ?? null,
           soldPrice: c.sold_price ?? null,
-          dom: c.days_on_market ?? 0,
+          dom: c.days_on_market ?? null,
           notes: [c.notes, c.area, c.is_weak ? `Weak: ${c.weak_reason || ''}` : ''].filter(Boolean).join(' — '),
         })),
         agentNotes: (r as any).agent_notes || null,
