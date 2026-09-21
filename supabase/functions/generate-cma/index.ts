@@ -247,6 +247,7 @@ function cleanText(value: unknown): string {
     .replace(/\bfi\s+eld\b/gi, "field")
     .replace(/\bfi\s+nished\b/gi, "finished")
     .replace(/\bfi\s+replace\b/gi, "fireplace")
+    .replace(/\bsq\.?\s*ft\.?\b/gi, "square feet")
     .replace(/MOST_PROBABLE/g, "Most probable")
     .replace(/most_probable/gi, "Most probable")
     .replace(/--+/g, "—")
@@ -333,7 +334,7 @@ function compSqftLabel(comp: any): string {
   const ag = toPositiveNumber(comp?.ag_sqft ?? comp?.above_grade_sqft);
   const bg = toPositiveNumber(comp?.bg_sqft ?? comp?.finished_basement_sqft);
   const total = toPositiveNumber(comp?.sqFt ?? comp?.sqft ?? comp?.sq_ft);
-  if (ag && bg) return `${ag.toLocaleString("en-US")} AG + ${bg.toLocaleString("en-US")} BG sq ft`;
+  if (ag && bg) return `${ag.toLocaleString("en-US")} AG + ${bg.toLocaleString("en-US")} BG square feet`;
   if (ag) return `${ag.toLocaleString("en-US")} above-grade square feet`;
   if (total) return `${total.toLocaleString("en-US")} square feet reported`;
   return "Square footage not reported";
@@ -408,6 +409,24 @@ function clientReadyList(items: unknown, empty: string): string {
   return list(values, empty);
 }
 
+function isStalePricingLine(value: unknown): boolean {
+  const item = cleanText(value);
+  if (!item) return true;
+  if (/\b0 matching,\s*0 non-matching\b/i.test(item)) return true;
+  if (/pricing band of\s*\$?\d[\d,]*\s*[–—-]\s*\$?\d[\d,]*/i.test(item)) return true;
+  if (/yielding a pricing band/i.test(item)) return true;
+  return false;
+}
+
+function clientReadyText(value: unknown): string {
+  const text = cleanText(value);
+  if (!text || isStalePricingLine(text)) return "";
+  const sentences = text
+    .split(/(?<=[.!?])\s+/)
+    .filter((sentence) => !isStalePricingLine(sentence));
+  return sentences.join(" ").trim();
+}
+
 function scenarioEntries(scenarios: unknown, analysis: any): Array<{ label: string; price: number | null; rationale: string }> {
   const raw = scenarios && typeof scenarios === "object" && !Array.isArray(scenarios) ? scenarios as Record<string, unknown> : {};
   const fallback = {
@@ -445,7 +464,7 @@ function buildAuditedCmaHtml(payload: any, analysis: any): string {
   const crossCheck = analysis?.price_per_sqft_cross_check ?? {};
   const date = new Intl.DateTimeFormat("en-CA", { dateStyle: "long", timeZone: "America/Toronto" }).format(new Date());
   const marketStats = analysis?.market_stats_derived ?? payload?.marketStats ?? {};
-  const launchText = cleanText(analysis?.approved_strategy ?? analysis?.strategy_recommendation);
+  const launchText = clientReadyText(analysis?.approved_strategy ?? analysis?.strategy_recommendation);
 
   const compCards = comparables.length
     ? comparables.map((comp: any) => {
@@ -458,21 +477,21 @@ function buildAuditedCmaHtml(payload: any, analysis: any): string {
     : `<article class="card"><p class="eyebrow">Recommended value</p><div class="price">${money(analysis.pricing_band_recommended)}</div></article>`;
 
   const keyFeatures = Array.isArray(subject.keyFeatures) ? subject.keyFeatures.map(cleanText).filter(Boolean) : [];
-  const addsValue = keyFeatures.length ? list(keyFeatures, "") : list(analysis.adjustment_observations, "The property will be positioned around the strongest comparable evidence.");
+  const addsValue = keyFeatures.length ? list(keyFeatures, "") : clientReadyList(analysis.adjustment_observations, "The property will be positioned around the strongest comparable evidence.");
   const buyerConsiderations = list(analysis.risk_flags, "No material buyer concerns were identified in the approved review.");
   const crossUsed = Array.isArray(crossCheck?.comps_used) ? crossCheck.comps_used : [];
 
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Home Evaluation — ${escapeHtml(address)}</title><style>
-  :root{--ivory:#F6F1EA;--ink:#1C1C1C;--bronze:#B38A5A;--taupe:#C7B8A6;--paper:#FFFFFF}*{box-sizing:border-box}body{margin:0;background:var(--ivory);color:var(--ink);font:15px/1.65 Arial,sans-serif}main{max-width:1050px;margin:auto;background:var(--paper)}section{padding:56px 7%}section+section{border-top:1px solid var(--taupe)}h1,h2,h3{font-family:Georgia,serif;font-weight:400;margin:0 0 18px}h1{font-size:56px;line-height:1.05}h2{font-size:34px;border-bottom:2px solid var(--bronze);padding-bottom:12px}.cover{min-height:720px;display:flex;flex-direction:column;justify-content:center;background:var(--ink);color:var(--ivory)}.eyebrow{color:var(--bronze);font-weight:700;text-transform:uppercase;letter-spacing:.08em}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.two{grid-template-columns:repeat(2,1fr)}.card{border:1px solid var(--taupe);padding:22px;break-inside:avoid}.badge{display:inline-block;color:var(--bronze);font-weight:700;text-transform:uppercase}.price{font:36px Georgia,serif;margin:8px 0}.value{font:64px Georgia,serif;color:var(--bronze);line-height:1}.muted{color:#655f58}.lead{font-size:18px;line-height:1.7}.ladder{display:flex;gap:16px;align-items:stretch}.ladder .card{flex:1}ul{padding-left:20px}.opinion{text-align:center;background:var(--ink);color:var(--ivory)}.opinion h2{border:0}.fine{font-size:11px}@media(max-width:700px){h1{font-size:40px}.grid,.two{grid-template-columns:1fr}.ladder{display:block}.ladder .card{margin-bottom:14px}.value{font-size:48px}section{padding:40px 6%}}@media print{body{background:#fff}section{break-inside:avoid}.cover{break-after:page}}
+  *{box-sizing:border-box}body{margin:0;background:#F6F1EA;color:#1C1C1C;font:15px/1.65 Arial,sans-serif}main{max-width:1050px;margin:auto;background:#FFFFFF}section{padding:56px 7%}section+section{border-top:1px solid #C7B8A6}h1,h2,h3{font-family:Georgia,serif;font-weight:400;margin:0 0 18px}h1{font-size:56px;line-height:1.05}h2{font-size:34px;border-bottom:2px solid #B38A5A;padding-bottom:12px}.cover{min-height:720px;display:flex;flex-direction:column;justify-content:center;background:#1C1C1C;color:#F6F1EA}.eyebrow{color:#B38A5A;font-weight:700;text-transform:uppercase;letter-spacing:.08em}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.two{grid-template-columns:repeat(2,1fr)}.card{border:1px solid #C7B8A6;padding:22px;break-inside:avoid}.badge{display:inline-block;color:#B38A5A;font-weight:700;text-transform:uppercase}.price{font:36px Georgia,serif;margin:8px 0}.value{font:64px Georgia,serif;color:#B38A5A;line-height:1}.muted{color:#655f58}.lead{font-size:18px;line-height:1.7}.ladder{display:flex;gap:16px;align-items:stretch}.ladder .card{flex:1}ul{padding-left:20px}.opinion{text-align:center;background:#1C1C1C;color:#F6F1EA}.opinion h2{border:0}.fine{font-size:11px}@media(max-width:700px){h1{font-size:40px}.grid,.two{grid-template-columns:1fr}.ladder{display:block}.ladder .card{margin-bottom:14px}.value{font-size:48px}section{padding:40px 6%}}@media print{body{background:#fff}section{break-inside:avoid}.cover{break-after:page}}
   </style></head><body><main>
   <section class="cover"><p class="eyebrow">Home Evaluation</p><h1>${escapeHtml(address)}</h1><p>Prepared exclusively for ${escapeHtml(payload?.clientName || "our client")}</p><p>${escapeHtml(payload?.agentName || "Luxe Realty Group")} · ${escapeHtml(date)}</p></section>
   <section><h2>Property Snapshot</h2><div class="grid"><article class="card"><p class="eyebrow">Bedrooms</p><div class="price">${escapeHtml(subject.bedrooms || "Not reported")}</div></article><article class="card"><p class="eyebrow">Bathrooms</p><div class="price">${escapeHtml(subject.bathrooms || "Not reported")}</div></article><article class="card"><p class="eyebrow">Finished area</p><div class="price">${escapeHtml(sqftLabel(subject.totalFinishedSqFt || subject.aboveGradeSqFt))}</div></article><article class="card"><p class="eyebrow">Above grade</p><h3>${escapeHtml(sqftLabel(subject.aboveGradeSqFt))}</h3></article><article class="card"><p class="eyebrow">Garage</p><h3>${escapeHtml(humanizeLabel(subject.garage) || "Not reported")}</h3></article><article class="card"><p class="eyebrow">Property type</p><h3>${escapeHtml(humanizeLabel(subject.propertyType) || "Not reported")}</h3></article></div></section>
-  <section><h2>Market Pulse</h2><p class="lead">${escapeHtml(analysis.approved_market_conditions || analysis.market_narrative || "Market conditions were considered in the approved pricing analysis.")}</p><div class="grid"><article class="card"><p class="eyebrow">Market condition</p><h3>${escapeHtml(humanizeLabel(analysis.market_classification) || "See analysis")}</h3></article><article class="card"><p class="eyebrow">Avg days on market</p><h3>${escapeHtml(cleanText(marketStats.avg_days_on_market ?? analysis.avg_days_on_market) || "Not reported")}</h3></article><article class="card"><p class="eyebrow">Sale-to-list ratio</p><h3>${escapeHtml(percentLabel(marketStats.sale_to_list_ratio ?? analysis.sale_to_list_ratio))}</h3></article></div></section>
+  <section><h2>Market Pulse</h2><p class="lead">${escapeHtml(clientReadyText(analysis.approved_market_conditions || analysis.market_narrative) || "Market conditions were considered in the approved pricing analysis.")}</p><div class="grid"><article class="card"><p class="eyebrow">Market condition</p><h3>${escapeHtml(humanizeLabel(analysis.market_classification) || "See analysis")}</h3></article><article class="card"><p class="eyebrow">Avg days on market</p><h3>${escapeHtml(cleanText(marketStats.avg_days_on_market ?? analysis.avg_days_on_market) || "Not reported")}</h3></article><article class="card"><p class="eyebrow">Sale-to-list ratio</p><h3>${escapeHtml(percentLabel(marketStats.sale_to_list_ratio ?? analysis.sale_to_list_ratio))}</h3></article></div></section>
   <section><h2>Comparable Properties</h2><div class="grid">${compCards}</div></section>
   <section><h2>Value Drivers</h2><div class="grid two"><article class="card"><h3>What Adds Value</h3>${addsValue}</article><article class="card"><h3>What Buyers May Consider</h3>${buyerConsiderations}</article></div>${adjustments.length ? `<div class="grid" style="margin-top:18px">${adjustments.slice(0,6).map((a: any) => `<article class="card"><p class="eyebrow">${escapeHtml(a.feature || a.name || "Adjustment")}</p><h3>${escapeHtml(adjustmentRange(a.adjustment_low, a.adjustment_high))}</h3><p class="muted">${escapeHtml(a.rationale || "")}</p></article>`).join("")}</div>` : ""}</section>
   <section><h2>Pricing Analysis</h2><div class="ladder"><article class="card"><p class="eyebrow">Low</p><div class="price">${money(analysis.pricing_band_low)}</div></article><article class="card"><p class="eyebrow">Recommended</p><div class="price">${money(analysis.pricing_band_recommended)}</div></article><article class="card"><p class="eyebrow">High</p><div class="price">${money(analysis.pricing_band_high)}</div></article></div><article class="card" style="margin-top:18px"><h3>Price-per-square-foot cross-check</h3><p>${money(crossCheck.implied_low)} to ${money(crossCheck.implied_high)} · ${escapeHtml(humanizeLabel(crossCheck.verdict) || "See approved analysis")}</p><p>${escapeHtml(crossCheck.commentary || "")}</p>${crossUsed.length ? `<p class="muted">Comps used: ${escapeHtml(crossUsed.map((c: any) => typeof c === "string" ? normalizeAddress(c) : normalizeAddress(c?.address)).join(", "))}</p>` : ""}</article></section>
   <section><h2>Valuation Scenarios</h2><div class="grid">${scenarioCards}</div></section>
-  <section class="opinion"><p class="eyebrow">Evaluator's Opinion of Value</p><div class="value">${money(analysis.pricing_band_recommended)}</div><p>${escapeHtml(analysis.approved_price_narrative || analysis.approved_executive_summary || analysis.market_narrative || "The approved analysis supports this recommended market position.")}</p></section>
+  <section class="opinion"><p class="eyebrow">Evaluator's Opinion of Value</p><div class="value">${money(analysis.pricing_band_recommended)}</div><p>${escapeHtml(clientReadyText(analysis.approved_price_narrative || analysis.approved_executive_summary || analysis.market_narrative) || "The approved analysis supports this recommended market position.")}</p></section>
   <section><h2>Strategy & Next Steps</h2><div class="grid"><article class="card"><h3>Preparation</h3>${clientReadyList(analysis.adjustment_observations, "Prepare the property to highlight its strongest value drivers.")}</article><article class="card"><h3>Marketing</h3>${clientReadyList(analysis.talking_points, "Lead with the property's strongest differentiators.")}</article>${launchText ? `<article class="card"><h3>Launch</h3><p>${escapeHtml(launchText)}</p></article>` : ""}</div><p class="price" style="margin-top:42px"><em>Every home has a story. Our job is to ensure buyers see its value.</em></p><p>Luxe Realty Group · luxerealtygroup.ca</p></section>
   <section><p class="fine">This CMA is a side-by-side comparison of homes for sale and recently sold in the same neighbourhood and price range. It is prepared for informational and listing strategy purposes. Information is sourced from MLS data and is deemed reliable but not guaranteed. All values represent professional opinion only and do not constitute a regulated MPAC assessment or a formal CREA appraisal. Prepared by Luxe Realty Group | luxerealtygroup.ca</p></section>
   </main></body></html>`;
