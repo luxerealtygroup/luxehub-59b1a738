@@ -1202,6 +1202,22 @@ Extract any properties you find, even with minimal data.`;
       allComps = [...manualComps, ...newAiComps];
     }
 
+    // Comp-extraction-only request (the review step in the wizard): return the
+    // comps immediately. Running the full analysis here as well pushed long
+    // PDFs past the request timeout, which surfaced as a non-2xx error.
+    if (extractOnly) {
+      return new Response(JSON.stringify({
+        success: true,
+        analysis: {
+          extracted_comps: allComps,
+          extraction_summary: extractionSummary,
+        },
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Now run the analysis pass with the extracted comps
     const compStats = computeCompDerivedStats(allComps);
     const segmentation = computeBasementSegmentation(allComps, subjectProperty);
