@@ -85,7 +85,9 @@ const CMABoss = () => {
       const above = (r as any).above_grade_sqft ?? null;
       const basement = (r as any).finished_basement_sqft ?? null;
       const total = r.approx_sqft ?? (above && basement ? above + basement : above);
-      const comps = Array.isArray(r.extracted_comps) ? r.extracted_comps : [];
+      const comps = Array.isArray(r.extracted_comps)
+        ? r.extracted_comps.filter((c): c is Record<string, unknown> => Boolean(c) && typeof c === 'object' && !Array.isArray(c))
+        : [];
       const anomaly = detectDuplicateSoldPriceAnomaly(comps);
       if (anomaly.hasAnomaly && !(r as any).comp_price_anomaly_confirmed_at) {
         toast.error('Confirm the repeated comparable sold prices before generating the client CMA.', {
