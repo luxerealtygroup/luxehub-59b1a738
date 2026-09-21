@@ -326,22 +326,22 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
       return;
     }
 
-    const previewWindow = window.open('', '_blank', 'noopener,noreferrer');
-    if (!previewWindow) {
-      toast.error('Allow pop-ups to preview the client PDF.');
-      return;
-    }
-
     setPreviewingPdf(true);
+    let url: string | null = null;
     try {
       const doc = buildCmaClientPdf(cmaPdfInput);
       const blob = doc.output('blob') as Blob;
-      const url = URL.createObjectURL(blob);
-      previewWindow.location.href = url;
+      url = URL.createObjectURL(blob);
+      const previewWindow = window.open(url, '_blank');
+      if (!previewWindow) {
+        URL.revokeObjectURL(url);
+        toast.error('Allow pop-ups to preview the client PDF.');
+        return;
+      }
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
       toast.success('Client PDF preview opened');
     } catch (err) {
-      previewWindow.close();
+      if (url) URL.revokeObjectURL(url);
       console.error('CMA PDF preview failed', err);
       toast.error('Could not preview the PDF');
     } finally {
