@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Download, Loader2, TrendingUp, BarChart3, Home, Target, ArrowRight, Phone } from 'lucide-react';
+import { Download, Eye, Loader2, TrendingUp, BarChart3, Home, Target, ArrowRight, Phone } from 'lucide-react';
 import CMAFubPush from './CMAFubPush';
 import { CMASendToPortal } from './CMASendToPortal';
 import { useAuth } from '@/hooks/useAuth';
@@ -114,6 +114,7 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
   const [report, setReport] = useState<CMAReportFull | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingPdf, setSavingPdf] = useState(false);
+  const [previewingPdf, setPreviewingPdf] = useState(false);
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [agentName, setAgentName] = useState<string>('');
   const [portalSentAt, setPortalSentAt] = useState<string | null>(null);
@@ -310,13 +311,46 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
     comps: report.extracted_comps,
   };
 
-  const handleDownloadPdf = async () => {
-    if (!isApproved) return;
+  const canBuildClientPdf = () => {
+    if (!isApproved) return false;
     const anomaly = detectDuplicateSoldPriceAnomaly(cmaPdfInput.comps || []);
     if (anomaly.hasAnomaly && !cmaPdfInput.compPriceAnomalyConfirmedAt) {
       toast.error('Confirm the repeated comparable sold prices before exporting this CMA.', { description: anomalyMessage(anomaly) });
+      return false;
+    }
+    return true;
+  };
+
+  const handlePreviewPdf = async () => {
+    if (!canBuildClientPdf()) {
       return;
     }
+
+    const previewWindow = window.open('', '_blank', 'noopener,noreferrer');
+    if (!previewWindow) {
+      toast.error('Allow pop-ups to preview the client PDF.');
+      return;
+    }
+
+    setPreviewingPdf(true);
+    try {
+      const doc = buildCmaClientPdf(cmaPdfInput);
+      const blob = doc.output('blob') as Blob;
+      const url = URL.createObjectURL(blob);
+      previewWindow.location.href = url;
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      toast.success('Client PDF preview opened');
+    } catch (err) {
+      previewWindow.close();
+      console.error('CMA PDF preview failed', err);
+      toast.error('Could not preview the PDF');
+    } finally {
+      setPreviewingPdf(false);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!canBuildClientPdf()) return;
 
     setSavingPdf(true);
     try {
@@ -369,6 +403,10 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
             pdfInput={cmaPdfInput}
           />
         )}
+        <Button variant="outline" onClick={handlePreviewPdf} disabled={!isApproved || previewingPdf}>
+          {previewingPdf ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Eye className="h-4 w-4 mr-2" />}
+          Preview Client PDF
+        </Button>
         <Button onClick={handleDownloadPdf} disabled={!isApproved || savingPdf} className="bg-gold hover:bg-gold/90 text-gold-foreground">
           {savingPdf ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
           Download Client PDF
