@@ -37,6 +37,11 @@ interface Comp {
   comp_category?: string | null;
   is_weak: boolean;
   weak_reason: string | null;
+  sqft?: number | string | null;
+  sqFt?: number | string | null;
+  ag_sqft?: number | string | null;
+  bg_sqft?: number | string | null;
+  notes?: string | null;
 }
 
 interface CMAReportFull {
@@ -47,6 +52,12 @@ interface CMAReportFull {
   bedrooms: number | null;
   bathrooms: number | null;
   approx_sqft: number | null;
+  above_grade_sqft?: number | null;
+  finished_basement_sqft?: number | null;
+  garage?: string | null;
+  build_year?: number | string | null;
+  condition?: string | null;
+  key_features?: string[];
   target_list_price: number | null;
   purchase_price: number;
   purchase_date: string;
@@ -84,6 +95,10 @@ interface CMAReportFull {
   approved_price_narrative: string | null;
   approved_strategy: string | null;
   approved_market_conditions: string | null;
+  feature_adjustments?: Array<{ feature?: string; adjustment_low?: number | null; adjustment_high?: number | null; rationale?: string | null }>;
+  price_per_sqft_cross_check?: any;
+  valuation_scenarios?: any;
+  comp_price_anomaly_confirmed_at?: string | null;
   user_id?: string | null;
   portal_document_id?: string | null;
   portal_sent_at?: string | null;
