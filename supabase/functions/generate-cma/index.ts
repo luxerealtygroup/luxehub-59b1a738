@@ -165,7 +165,13 @@ Disclaimer — Small text, bottom of final page: This CMA is a side-by-side comp
 
 CRITICAL: Return ONLY the final HTML document as your response. No preamble, no explanation, no markdown code fences — just the raw HTML starting with <!DOCTYPE html> or the opening tag, ready to render or save directly.`;
 
-async function callAnthropic(messages: any[]): Promise<any> {
+// Streamed so a long document keeps the connection alive instead of hitting the
+// platform request timeout. The audited analysis is the source of truth for
+// every figure, so no web search is needed here — dropping it also removes the
+// pause/resume round trips that made generation drag.
+async function callAnthropic(
+  messages: any[],
+): Promise<{ text: string; stop: string }> {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -177,9 +183,7 @@ async function callAnthropic(messages: any[]): Promise<any> {
       model: "claude-sonnet-4-6",
       max_tokens: 16000,
       system: SYSTEM_PROMPT,
-      tools: [
-        { type: "web_search_20250305", name: "web_search", max_uses: 6 },
-      ],
+      stream: true,
       messages,
     }),
   });
@@ -188,7 +192,39 @@ async function callAnthropic(messages: any[]): Promise<any> {
     console.error("Anthropic error:", res.status, t);
     throw new Error(`Anthropic ${res.status}: ${t.slice(0, 500)}`);
   }
-  return await res.json();
+
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error("Anthropic returned no body");
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let text = "";
+  let stop = "end_turn";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+    for (const line of lines) {
+      if (!line.startsWith("data:")) continue;
+      const payload = line.slice(5).trim();
+      if (!payload || payload === "[DONE]") continue;
+      let evt: any;
+      try {
+        evt = JSON.parse(payload);
+      } catch {
+        continue;
+      }
+      if (evt.type === "content_block_delta" && evt.delta?.type === "text_delta") {
+        text += evt.delta.text || "";
+      } else if (evt.type === "message_delta" && evt.delta?.stop_reason) {
+        stop = evt.delta.stop_reason;
+      } else if (evt.type === "error") {
+        throw new Error(`Anthropic stream error: ${evt.error?.type || "unknown"}`);
+      }
+    }
+  }
+  return { text, stop };
 }
 
 function extractFinalHtml(content: any[]): string {
