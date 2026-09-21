@@ -784,6 +784,10 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
   // Step 2: Confirm comps & generate report
   const handleConfirmAndAnalyze = async () => {
     if (!user) return;
+    if (compPriceAnomalyIsBlocking) {
+      toast.error('Confirm the repeated sold comparable price before generating this CMA.');
+      return;
+    }
     setSaving(true);
     setAnalyzing(true);
     let savedReportId: string | null = null;
@@ -1718,7 +1722,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
           {wizardStep === 6 && (
             <Button
               onClick={handleConfirmAndAnalyze}
-              disabled={isProcessing}
+              disabled={isProcessing || compPriceAnomalyIsBlocking}
               className="bg-gold hover:bg-gold/90 text-gold-foreground"
             >
               {analyzing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Generating…</>
