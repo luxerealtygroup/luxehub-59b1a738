@@ -1253,6 +1253,9 @@ export type Database = {
           cma_pdf_name: string | null
           cma_pdf_path: string | null
           cma_source_url: string | null
+          comp_price_anomaly_confirmed_at: string | null
+          comp_price_anomaly_confirmed_by: string | null
+          comp_price_anomaly_note: string | null
           condition: string | null
           cover_photo_index: number | null
           created_at: string
@@ -1346,6 +1349,9 @@ export type Database = {
           cma_pdf_name?: string | null
           cma_pdf_path?: string | null
           cma_source_url?: string | null
+          comp_price_anomaly_confirmed_at?: string | null
+          comp_price_anomaly_confirmed_by?: string | null
+          comp_price_anomaly_note?: string | null
           condition?: string | null
           cover_photo_index?: number | null
           created_at?: string
@@ -1439,6 +1445,9 @@ export type Database = {
           cma_pdf_name?: string | null
           cma_pdf_path?: string | null
           cma_source_url?: string | null
+          comp_price_anomaly_confirmed_at?: string | null
+          comp_price_anomaly_confirmed_by?: string | null
+          comp_price_anomaly_note?: string | null
           condition?: string | null
           cover_photo_index?: number | null
           created_at?: string

@@ -75,12 +75,9 @@ export function stripUnsupportedPendingClaims<T>(value: T, pendingCount: number)
 // so markup is never destroyed.
 export function applyHtmlGuardrails(
   html: string,
-  opts: { recommended?: number | null; pendingCount?: number } = {},
+  opts: { pendingCount?: number } = {},
 ): string {
   let out = cleanBrandingString(html);
-  if (opts.recommended && Number.isFinite(opts.recommended)) {
-    out = normalizeRecommendedPriceString(out, Number(opts.recommended));
-  }
   if ((opts.pendingCount ?? 0) === 0) {
     // Scrub pending sentences inside text nodes between tags only.
     out = out.replace(/>([^<]+)</g, (full, text: string) => {
