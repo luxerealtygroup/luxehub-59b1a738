@@ -3,7 +3,6 @@ import autoTable from 'jspdf-autotable';
 import { tenant } from '@/config/tenant';
 import {
   cleanText,
-  compactMoney,
   compPrice,
   compSqftLabel,
   compStatus,
@@ -97,7 +96,7 @@ const PAGE_H = 792;
 const M = 48;
 const CONTENT_W = PAGE_W - M * 2;
 
-type Point = [number, number, number];
+type Point = readonly [number, number, number];
 
 function setColor(doc: jsPDF, color: Point) { doc.setTextColor(color[0], color[1], color[2]); }
 function setFill(doc: jsPDF, color: Point) { doc.setFillColor(color[0], color[1], color[2]); }
@@ -165,21 +164,17 @@ function footer(doc: jsPDF, input: CmaPdfInput) {
 
 function scenarioEntries(input: CmaPdfInput) {
   const raw = input.valuationScenarios || {};
-  return [
-    ['Conservative', raw.conservative],
-    ['Most probable', raw.most_probable],
-    ['Optimistic', raw.optimistic],
-  ].map(([label, value]) => ({
+  type ScenarioValue = { price?: number | null; rationale?: string | null } | number | null | undefined;
+  const entries: Array<[string, ScenarioValue]> = [
+    ['Conservative', raw.conservative as ScenarioValue],
+    ['Most probable', raw.most_probable as ScenarioValue],
+    ['Optimistic', raw.optimistic as ScenarioValue],
+  ];
+  return entries.map(([label, value]) => ({
     label,
     price: typeof value === 'number' ? value : value?.price ?? null,
     rationale: typeof value === 'object' && value ? cleanText(value.rationale) : '',
   })).filter((s) => s.price != null || s.rationale);
-}
-
-function statusPriceLabel(comp: CmaPdfComp) {
-  const status = compStatus(comp);
-  const price = status === 'Sold' ? money(comp.sold_price) : money(comp.list_price);
-  return `${status}: ${price}`;
 }
 
 export function buildCmaClientPdf(input: CmaPdfInput): jsPDF {
