@@ -187,7 +187,6 @@ export function buildCmaClientPdf(input: CmaPdfInput): jsPDF {
     ? subjectArea + (toPositiveNumber(input.finishedBasementSqFt) || 0)
     : toPositiveNumber(input.approxSqFt) || subjectArea;
   const comps = input.comps.filter(c => !c.is_weak).slice(0, 10);
-  const soldComps = comps.filter(c => toPositiveNumber(c.sold_price));
   const adjustments = (input.featureAdjustments || []).filter(shouldShowAdjustment);
   const scenarios = scenarioEntries(input);
   const stats = input.marketStats || {};
@@ -258,11 +257,11 @@ export function buildCmaClientPdf(input: CmaPdfInput): jsPDF {
     body: comps.map(c => [
       normalizeAddress(c.address),
       compStatus(c),
-      `${cleanText(c.beds) || '—'} / ${cleanText(c.baths) || '—'}`,
+      `${cleanText(c.beds) || 'Not reported'} / ${cleanText(c.baths) || 'Not reported'}`,
       compSqftLabel(c),
       money(c.list_price),
       money(c.sold_price),
-      cleanText(c.days_on_market) || '—',
+      cleanText(c.days_on_market) || 'Not reported',
     ]),
     theme: 'grid',
     styles: { fontSize: 8.4, cellPadding: 4, textColor: INK as any, lineColor: TAUPE as any, lineWidth: 0.4 },
@@ -286,8 +285,8 @@ export function buildCmaClientPdf(input: CmaPdfInput): jsPDF {
       setColor(doc, INK); doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.text(normalizeAddress(comp.address), x + 12, top + 40, { maxWidth: 222 });
       setColor(doc, GOLD); doc.setFont('times', 'bold'); doc.setFontSize(20); doc.text(compPrice(comp), x + 12, top + 72);
       setColor(doc, MUTED); doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
-      doc.text(`${cleanText(comp.beds) || '—'} bed · ${cleanText(comp.baths) || '—'} bath · ${compSqftLabel(comp)}`, x + 12, top + 94, { maxWidth: 222 });
-      doc.text(`List ${money(comp.list_price)} · Sold ${money(comp.sold_price)} · DOM ${cleanText(comp.days_on_market) || '—'}`, x + 12, top + 110, { maxWidth: 222 });
+      doc.text(`${cleanText(comp.beds) || 'Not reported'} bed · ${cleanText(comp.baths) || 'Not reported'} bath · ${compSqftLabel(comp)}`, x + 12, top + 94, { maxWidth: 222 });
+      doc.text(`List ${money(comp.list_price)} · Sold ${money(comp.sold_price)} · DOM ${cleanText(comp.days_on_market) || 'Not reported'}`, x + 12, top + 110, { maxWidth: 222 });
       writeWrapped(doc, comp.notes || comp.weak_reason || comp.area, x + 12, top + 132, 222, { size: 8.5, color: MUTED, lineHeight: 12, maxLines: 5 });
     });
   }
