@@ -4,6 +4,12 @@ import {
   normalizeRecommendedPrice,
   stripUnsupportedPendingClaims,
 } from "../_shared/cmaGuardrails.ts";
+import {
+  computeAboveGradeCrossCheck,
+  mean as sharedMean,
+  median as sharedMedian,
+  normalizePricingFields,
+} from "../_shared/cmaValuation.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -457,17 +463,8 @@ function preProcessCloudCMAText(text: string): string {
 }
 
 // ---------- Layer 1: comp-derived market stats (always runs) ----------
-function median(values: number[]): number | null {
-  if (!values.length) return null;
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
-}
-
-function mean(values: number[]): number | null {
-  if (!values.length) return null;
-  return Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 100) / 100;
-}
+const median = sharedMedian;
+const mean = sharedMean;
 
 function computeCompDerivedStats(comps: any[]) {
   const list = Array.isArray(comps) ? comps : [];
@@ -628,23 +625,17 @@ function computeBasementSegmentation(comps: any[], subjectProperty: any) {
   };
 }
 
-// ---------- Total finished area ($/sqft cross-check inputs) ----------
-function compTotalFinishedSqft(comp: any): number | null {
+// ---------- Above-grade area ($/sqft cross-check inputs) ----------
+function compAboveGradeSqft(comp: any): number | null {
   const ag = Number(comp?.ag_sqft);
-  const bg = Number(comp?.bg_sqft);
   const sqft = Number(comp?.sqft);
-  const above = Number.isFinite(ag) && ag > 0 ? ag : null;
-  const below = Number.isFinite(bg) && bg > 0 ? bg : 0;
-  if (above) return above + below;
+  if (Number.isFinite(ag) && ag > 0) return ag;
   return Number.isFinite(sqft) && sqft > 0 ? sqft : null;
 }
 
-function computeTotalFinishedAreaStats(comps: any[], subjectProperty: any) {
+function computeAboveGradeAreaStats(comps: any[], subjectProperty: any) {
   const above = Number(subjectProperty?.aboveGradeSqFt);
-  const basement = Number(subjectProperty?.finishedBasementSqFt);
   const subjectAbove = Number.isFinite(above) && above > 0 ? above : null;
-  const subjectBasement = Number.isFinite(basement) && basement > 0 ? basement : 0;
-  const subjectTotal = subjectAbove ? subjectAbove + subjectBasement : null;
 
   const soldComps = (Array.isArray(comps) ? comps : []).filter(
     (c) => String(c?.comp_category || '').toLowerCase() === 'sold',
@@ -652,7 +643,7 @@ function computeTotalFinishedAreaStats(comps: any[], subjectProperty: any) {
 
   const rows = soldComps
     .map((c) => {
-      const total = compTotalFinishedSqft(c);
+      const total = compAboveGradeSqft(c);
       const price = Number(c?.sold_price);
       if (!total || !Number.isFinite(price) || price <= 0) return null;
       return {
@@ -661,37 +652,39 @@ function computeTotalFinishedAreaStats(comps: any[], subjectProperty: any) {
         baths: c?.baths ?? null,
         above_grade_sqft: Number(c?.ag_sqft) || null,
         finished_basement_sqft: Number(c?.bg_sqft) || 0,
+        above_grade_area_used_sqft: total,
         total_finished_sqft: total,
         sold_price: Math.round(price),
         price_per_sqft: Math.round((price / total) * 100) / 100,
         sale_date: c?.sale_date ?? null,
-        sqft_delta_vs_subject: subjectTotal ? total - subjectTotal : null,
+        sqft_delta_vs_subject: subjectAbove ? total - subjectAbove : null,
       };
     })
     .filter(Boolean) as any[];
 
-  // Rank by closeness in total finished area to the subject so the model can pick
+  // Rank by closeness in above-grade area to the subject so the model can pick
   // the 2-3 most functionally similar comps without guessing.
-  const ranked = subjectTotal
+  const ranked = subjectAbove
     ? [...rows].sort(
         (a, b) => Math.abs(a.sqft_delta_vs_subject) - Math.abs(b.sqft_delta_vs_subject),
       )
     : rows;
 
   const ppsfValues = ranked.slice(0, 3).map((r) => r.price_per_sqft);
-  const impliedLow = subjectTotal && ppsfValues.length ? Math.round((subjectTotal * Math.min(...ppsfValues)) / 1000) * 1000 : null;
-  const impliedHigh = subjectTotal && ppsfValues.length ? Math.round((subjectTotal * Math.max(...ppsfValues)) / 1000) * 1000 : null;
+  const impliedLow = subjectAbove && ppsfValues.length ? Math.round((subjectAbove * Math.min(...ppsfValues)) / 1000) * 1000 : null;
+  const impliedHigh = subjectAbove && ppsfValues.length ? Math.round((subjectAbove * Math.max(...ppsfValues)) / 1000) * 1000 : null;
 
   return {
     subject_above_grade_sqft: subjectAbove,
-    subject_finished_basement_sqft: subjectBasement,
-    subject_total_finished_sqft: subjectTotal,
+    subject_total_finished_sqft: subjectAbove,
+    basis: 'above_grade_area_only',
     sold_comps_with_area_data: ranked.length,
     sold_comps_missing_area_data: soldComps.length - ranked.length,
+    most_similar_by_above_grade_area: ranked.slice(0, 3),
     most_similar_by_total_area: ranked.slice(0, 3),
     all_sold_comp_area_rows: ranked,
     computed_implied_range_from_top3: { low: impliedLow, high: impliedHigh },
-    usable: ranked.length >= 2 && !!subjectTotal,
+    usable: ranked.length >= 2 && !!subjectAbove,
   };
 }
 
@@ -762,11 +755,20 @@ function normalizeScenarios(value: any, recommended: number | null): any {
 }
 
 function finalizeAnalysis(analysis: any, compStats: any, extras: Record<string, unknown>) {
-  const recommended = Number(analysis?.pricing_band_recommended);
-  let out: any = { ...analysis };
+  const comps = Array.isArray((extras as any)?.extracted_comps) ? (extras as any).extracted_comps : [];
+  const subjectProperty = (extras as any)?.subject_property ?? {};
+  let out: any = normalizePricingFields({ ...analysis }, comps, subjectProperty);
+  const recommended = Number(out?.pricing_band_recommended);
   out = stripBannedBranding(out);
   out = stripUnsupportedPendingClaims(out, compStats?.comp_counts?.pending ?? 0);
-  out = normalizeRecommendedPrice(out, Number.isFinite(recommended) ? recommended : null);
+  const normalizedProse = normalizeRecommendedPrice({
+    market_narrative: out.market_narrative,
+    talking_points: out.talking_points,
+    adjustment_observations: out.adjustment_observations,
+    seller_objections: out.seller_objections,
+    strategy_recommendation: out.strategy_recommendation,
+  }, Number.isFinite(recommended) ? recommended : null) as any;
+  out = { ...out, ...normalizedProse };
   // One canonical recommended value, referenced by every template slot.
   out.recommended_price = Number.isFinite(recommended) ? Math.round(recommended) : null;
   out.pricing_band_recommended = out.recommended_price;
@@ -776,6 +778,8 @@ function finalizeAnalysis(analysis: any, compStats: any, extras: Record<string, 
     typeof out.price_per_sqft_cross_check === 'object'
     ? { ...EMPTY_CROSS_CHECK, ...out.price_per_sqft_cross_check }
     : null;
+  const computedCrossCheck = computeAboveGradeCrossCheck(comps, subjectProperty, out.recommended_price);
+  if (computedCrossCheck.comps_used.length >= 2) out.price_per_sqft_cross_check = computedCrossCheck;
   out.valuation_scenarios = normalizeScenarios(out.valuation_scenarios, out.recommended_price);
   return { ...out, ...extras };
 }
@@ -950,7 +954,7 @@ serve(async (req) => {
     if (reviewedComps && Array.isArray(reviewedComps) && reviewedComps.length > 0) {
       const compStats = computeCompDerivedStats(reviewedComps);
       const segmentation = computeBasementSegmentation(reviewedComps, subjectProperty);
-      const areaStats = computeTotalFinishedAreaStats(reviewedComps, subjectProperty);
+      const areaStats = computeAboveGradeAreaStats(reviewedComps, subjectProperty);
       const webContext = await fetchWebMarketContext(subjectProperty);
       const analysisPrompt = `Analyze this CMA data using the agent-reviewed comparable properties:
 
@@ -977,6 +981,7 @@ Provide your complete analysis as a JSON object.`;
           basement_segmentation: segmentation,
           total_finished_area_stats: areaStats,
           web_market_context: webContext,
+          subject_property: subjectProperty,
           extracted_comps: reviewedComps,
           extraction_summary: {
             total_comps_found: reviewedComps.length,
@@ -999,7 +1004,7 @@ Provide your complete analysis as a JSON object.`;
     if (!pdfText) {
       const compStats = computeCompDerivedStats([]);
       const segmentation = computeBasementSegmentation([], subjectProperty);
-      const areaStats = computeTotalFinishedAreaStats([], subjectProperty);
+      const areaStats = computeAboveGradeAreaStats([], subjectProperty);
       const webContext = await fetchWebMarketContext(subjectProperty);
       const analysisPrompt = `Analyze this CMA data (no PDF comps available):
 
@@ -1023,6 +1028,7 @@ There are no comparable properties extracted from a PDF. Provide analysis based 
           basement_segmentation: segmentation,
           total_finished_area_stats: areaStats,
           web_market_context: webContext,
+          subject_property: subjectProperty,
           extracted_comps: [],
           extraction_summary: {
             total_comps_found: 0, sold_count: 0, pending_count: 0, active_count: 0, expired_count: 0,
@@ -1221,7 +1227,7 @@ Extract any properties you find, even with minimal data.`;
     // Now run the analysis pass with the extracted comps
     const compStats = computeCompDerivedStats(allComps);
     const segmentation = computeBasementSegmentation(allComps, subjectProperty);
-    const areaStats = computeTotalFinishedAreaStats(allComps, subjectProperty);
+    const areaStats = computeAboveGradeAreaStats(allComps, subjectProperty);
     const webContext = await fetchWebMarketContext(subjectProperty);
     const analysisPrompt = `Analyze this CMA data with ${allComps.length} comparable properties:
 
@@ -1270,6 +1276,7 @@ Provide your complete analysis. Grade quality, generate pricing bands, flag risk
         basement_segmentation: segmentation,
         total_finished_area_stats: areaStats,
         web_market_context: webContext,
+        subject_property: subjectProperty,
         extracted_comps: allComps,
         extraction_summary: extractionSummary,
       }),
