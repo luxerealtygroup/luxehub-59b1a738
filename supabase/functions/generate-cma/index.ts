@@ -175,7 +175,7 @@ async function callAnthropic(messages: any[]): Promise<any> {
     },
     body: JSON.stringify({
       model: "claude-sonnet-4-6",
-      max_tokens: 8000,
+      max_tokens: 16000,
       system: SYSTEM_PROMPT,
       tools: [
         { type: "web_search_20250305", name: "web_search", max_uses: 6 },
@@ -285,6 +285,10 @@ Deno.serve(async (req) => {
     ];
 
     let final: any = null;
+    // Text emitted in earlier rounds that were cut off by max_tokens. The CMA
+    // document is long, so a single response can hit the output cap; we ask the
+    // model to continue and stitch the pieces back together.
+    let carriedHtml = "";
     for (let i = 0; i < 10; i++) {
       const resp = await callAnthropic(messages);
       const stop = resp.stop_reason;
@@ -304,6 +308,24 @@ Deno.serve(async (req) => {
         break;
       }
 
+      if (stop === "max_tokens") {
+        // The document was truncated mid-stream. Keep what we have, drop the
+        // truncated assistant turn (the API rejects a prefill that ends in
+        // whitespace, and this model rejects prefill entirely) and ask for the
+        // remainder in a fresh user turn.
+        carriedHtml += extractFinalHtml(resp.content || []);
+        messages.pop();
+        messages.push({
+          role: "user",
+          content:
+            "Your previous output was cut off. Here is everything produced so far:\n\n" +
+            carriedHtml +
+            "\n\nContinue the HTML document from exactly where it stops, outputting ONLY the remaining markup. Do not repeat any of the above, do not restate the document, and do not use markdown code fences.",
+        });
+        continue;
+      }
+
+
       // Handle any client-side tool_use (none defined here, but guard anyway)
       const clientToolUses = (resp.content || []).filter(
         (b: any) => b.type === "tool_use"
@@ -321,7 +343,7 @@ Deno.serve(async (req) => {
 
     if (!final) throw new Error("No final response from Anthropic");
 
-    const rawHtml = extractFinalHtml(final.content || []);
+    const rawHtml = (carriedHtml + extractFinalHtml(final.content || [])).trim();
     if (!rawHtml || !/<[a-z!]/i.test(rawHtml)) {
       console.error("generate-cma: no HTML in final response", final);
       throw new Error("Model did not return HTML");
