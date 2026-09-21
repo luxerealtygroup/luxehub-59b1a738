@@ -206,7 +206,7 @@ const CMAEditApprove = ({
 
       const r = report as any;
       const payload = {
-        report_id: reportId,
+        reportId,
         property: {
           address: r.property_address || propertyAddress,
           city_area: r.city_area || cityArea,
@@ -234,7 +234,6 @@ const CMAEditApprove = ({
         },
         comps: Array.isArray(r.extracted_comps) ? r.extracted_comps : [],
         agentNotes: (r as any).agent_notes || null,
-        reportId,
         analysis: {
           cma_grade: r.cma_grade,
           pricing_band_low: r.pricing_band_low,
