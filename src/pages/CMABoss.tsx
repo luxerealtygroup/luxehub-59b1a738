@@ -19,6 +19,7 @@ import { useCmaMonthlyUsage } from '@/hooks/useCmaMonthlyUsage';
 import { Link } from 'react-router-dom';
 import { tenant } from '@/config/tenant';
 import { getAnalysisState, analysisStateLabel } from '@/lib/cma/analysisState';
+import { anomalyMessage, detectDuplicateSoldPriceAnomaly } from '@/lib/cma/reportQuality';
 
 interface CMAReport {
   id: string;
@@ -85,6 +86,13 @@ const CMABoss = () => {
       const basement = (r as any).finished_basement_sqft ?? null;
       const total = r.approx_sqft ?? (above && basement ? above + basement : above);
       const comps = Array.isArray(r.extracted_comps) ? r.extracted_comps : [];
+      const anomaly = detectDuplicateSoldPriceAnomaly(comps);
+      if (anomaly.hasAnomaly && !(r as any).comp_price_anomaly_confirmed_at) {
+        toast.error('Confirm the repeated comparable sold prices before generating the client CMA.', {
+          description: anomalyMessage(anomaly),
+        });
+        return;
+      }
 
       const payload = {
         // reportId lets generate-cma load the audited analysis as fixed input,
@@ -116,6 +124,8 @@ const CMABoss = () => {
           beds: c.beds != null ? String(c.beds) : '',
           baths: c.baths != null ? String(c.baths) : '',
           sqFt: c.sqft ?? c.sqFt ?? null,
+          ag_sqft: c.ag_sqft ?? c.above_grade_sqft ?? null,
+          bg_sqft: c.bg_sqft ?? c.finished_basement_sqft ?? null,
           listPrice: c.list_price ?? null,
           soldPrice: c.sold_price ?? null,
           dom: c.days_on_market ?? null,
