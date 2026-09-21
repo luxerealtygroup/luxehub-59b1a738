@@ -343,7 +343,7 @@ Deno.serve(async (req) => {
 
     if (!final) throw new Error("No final response from Anthropic");
 
-    const rawHtml = extractFinalHtml(final.content || []);
+    const rawHtml = (carriedHtml + extractFinalHtml(final.content || [])).trim();
     if (!rawHtml || !/<[a-z!]/i.test(rawHtml)) {
       console.error("generate-cma: no HTML in final response", final);
       throw new Error("Model did not return HTML");
