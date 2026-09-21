@@ -360,17 +360,6 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
       });
     }
   };
-      }
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
-      toast.success('Client PDF preview opened');
-    } catch (err) {
-      if (url) URL.revokeObjectURL(url);
-      console.error('CMA PDF preview failed', err);
-      toast.error('Could not preview the PDF');
-    } finally {
-      setPreviewingPdf(false);
-    }
-  };
 
   const handleDownloadPdf = async () => {
     if (!canBuildClientPdf(true)) return;
