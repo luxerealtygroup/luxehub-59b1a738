@@ -628,9 +628,7 @@ function computeBasementSegmentation(comps: any[], subjectProperty: any) {
 // ---------- Above-grade area ($/sqft cross-check inputs) ----------
 function compAboveGradeSqft(comp: any): number | null {
   const ag = Number(comp?.ag_sqft);
-  const sqft = Number(comp?.sqft);
-  if (Number.isFinite(ag) && ag > 0) return ag;
-  return Number.isFinite(sqft) && sqft > 0 ? sqft : null;
+  return Number.isFinite(ag) && ag > 0 ? ag : null;
 }
 
 function computeAboveGradeAreaStats(comps: any[], subjectProperty: any) {
@@ -745,11 +743,11 @@ function normalizeScenarios(value: any, recommended: number | null): any {
   };
   const out: any = { conservative, most_probable: mp, optimistic };
   // Enforce conservative <= most_probable <= optimistic.
-  if (out.conservative?.price && mp.price && out.conservative.price > mp.price) {
-    out.conservative.price = mp.price;
+  if (out.conservative?.price && mp.price && out.conservative.price >= mp.price) {
+    out.conservative.price = Math.round(mp.price * 0.96);
   }
-  if (out.optimistic?.price && mp.price && out.optimistic.price < mp.price) {
-    out.optimistic.price = mp.price;
+  if (out.optimistic?.price && mp.price && out.optimistic.price <= mp.price) {
+    out.optimistic.price = Math.round(mp.price * 1.04);
   }
   return out;
 }

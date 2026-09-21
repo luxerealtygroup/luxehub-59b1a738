@@ -49,15 +49,8 @@ const titleWord = (word: string) => {
   return lower.charAt(0).toUpperCase() + lower.slice(1);
 };
 
-export const cleanText = (value: unknown): string => {
-  if (value == null) return '';
-  if (typeof value === 'object') {
-    const entries = Object.entries(value as Record<string, unknown>)
-      .filter(([, v]) => v != null && String(v).trim() !== '')
-      .map(([k, v]) => `${humanizeLabel(k)}: ${typeof v === 'object' ? cleanText(v) : String(v)}`);
-    return entries.join('; ');
-  }
-  return String(value)
+const cleanScalarText = (value: unknown): string =>
+  String(value ?? '')
     .replace(/\bfi\s+eld\b/gi, 'field')
     .replace(/\bfi\s+nished\b/gi, 'finished')
     .replace(/\bfi\s+replace\b/gi, 'fireplace')
@@ -65,6 +58,25 @@ export const cleanText = (value: unknown): string => {
     .replace(/--+/g, '—')
     .replace(/\s+/g, ' ')
     .trim();
+
+export const humanizeLabel = (value: unknown): string => {
+  const text = cleanScalarText(value)
+    .replace(/_/g, ' ')
+    .replace(/\bmost probable\b/i, 'Most probable')
+    .replace(/\bprice per sqft\b/i, 'Price per sq ft');
+  if (!text) return '';
+  return text.charAt(0).toUpperCase() + text.slice(1);
+};
+
+export const cleanText = (value: unknown): string => {
+  if (value == null) return '';
+  if (typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, v]) => v != null && cleanScalarText(v).trim() !== '')
+      .map(([k, v]) => `${humanizeLabel(k)}: ${typeof v === 'object' ? cleanText(v) : cleanScalarText(v)}`);
+    return entries.join('; ');
+  }
+  return cleanScalarText(value);
 };
 
 export const normalizeAddress = (value: unknown): string => {
@@ -86,14 +98,6 @@ export const normalizeAddress = (value: unknown): string => {
     .replace(/\bCrt\b/i, 'Crt');
 };
 
-export const humanizeLabel = (value: unknown): string => {
-  const text = cleanText(value || '')
-    .replace(/_/g, ' ')
-    .replace(/\bmost probable\b/i, 'Most probable')
-    .replace(/\bprice per sqft\b/i, 'Price per sq ft');
-  if (!text) return '';
-  return text.charAt(0).toUpperCase() + text.slice(1);
-};
 
 export const money = (value: unknown, empty = 'Not reported'): string => {
   const n = toCleanNumber(value);
@@ -181,3 +185,8 @@ export const detectDuplicateSoldPriceAnomaly = (comps: CmaCompLike[]): Duplicate
     soldCount: soldPrices.length,
   };
 };
+
+export const anomalyMessage = (anomaly: DuplicatePriceAnomaly): string =>
+  anomaly.hasAnomaly
+    ? `${anomaly.count} of ${anomaly.soldCount} sold comparables share the same sold price (${money(anomaly.price)}). Confirm those prices before approval or export.`
+    : '';
