@@ -354,6 +354,29 @@ function compPrice(comp: any, mode: "primary" | "list" | "sold" = "primary"): st
   return money(toPositiveNumber(comp?.soldPrice ?? comp?.sold_price) ?? toPositiveNumber(comp?.listPrice ?? comp?.list_price));
 }
 
+function duplicateSoldPriceAnomaly(comps: any[]): { hasAnomaly: boolean; price: number | null; count: number; soldCount: number } {
+  const soldPrices = comps
+    .filter((c) => String(c?.comp_category ?? c?.status ?? "").toLowerCase().includes("sold") || toPositiveNumber(c?.sold_price ?? c?.soldPrice))
+    .map((c) => toPositiveNumber(c?.sold_price ?? c?.soldPrice))
+    .filter((n): n is number => n != null);
+  const counts = new Map<number, number>();
+  soldPrices.forEach((price) => counts.set(price, (counts.get(price) || 0) + 1));
+  let price: number | null = null;
+  let count = 0;
+  counts.forEach((candidateCount, candidatePrice) => {
+    if (candidateCount > count) {
+      count = candidateCount;
+      price = candidatePrice;
+    }
+  });
+  return {
+    hasAnomaly: soldPrices.length >= 3 && count > soldPrices.length / 2,
+    price,
+    count,
+    soldCount: soldPrices.length,
+  };
+}
+
 function dateLabel(value: unknown): string {
   const text = cleanText(value);
   if (!text) return "";
@@ -491,7 +514,7 @@ Deno.serve(async (req) => {
       const { data: r, error: rErr } = await admin
         .from("cma_reports")
         .select(
-          "org_id, user_id, property_address, city_area, property_type, bedrooms, bathrooms, approx_sqft, above_grade_sqft, finished_basement_sqft, garage, build_year, condition, key_features, fub_person_name, agent_notes, approved_executive_summary, approved_price_narrative, approved_strategy, approved_market_conditions, cma_grade, pricing_band_low, pricing_band_recommended, pricing_band_high, pricing_confidence, strategy_recommendation, risk_flags, weak_comp_alerts, adjustment_observations, feature_adjustments, price_per_sqft_cross_check, valuation_scenarios, talking_points, seller_objections, market_narrative, active_listings, sold_listings, median_sale_price, avg_days_on_market, sale_to_list_ratio, months_of_inventory, extracted_comps, ai_raw_response",
+          "org_id, user_id, property_address, city_area, property_type, bedrooms, bathrooms, approx_sqft, above_grade_sqft, finished_basement_sqft, garage, build_year, condition, key_features, fub_person_name, agent_notes, approved_executive_summary, approved_price_narrative, approved_strategy, approved_market_conditions, cma_grade, pricing_band_low, pricing_band_recommended, pricing_band_high, pricing_confidence, strategy_recommendation, risk_flags, weak_comp_alerts, adjustment_observations, feature_adjustments, price_per_sqft_cross_check, valuation_scenarios, talking_points, seller_objections, market_narrative, active_listings, sold_listings, median_sale_price, avg_days_on_market, sale_to_list_ratio, months_of_inventory, extracted_comps, comp_price_anomaly_confirmed_at, ai_raw_response",
         )
         .eq("id", requestedReportId)
         .maybeSingle();
@@ -534,6 +557,10 @@ Deno.serve(async (req) => {
           web_market_context: raw.web_market_context ?? null,
         };
         const comps = Array.isArray(r.extracted_comps) ? r.extracted_comps : [];
+        const anomaly = duplicateSoldPriceAnomaly(comps);
+        if (anomaly.hasAnomaly && !(r as any).comp_price_anomaly_confirmed_at) {
+          return jsonResponse({ success: false, error: `Confirm the repeated comparable sold prices before generating this CMA. ${anomaly.count} of ${anomaly.soldCount} sold comparables share ${money(anomaly.price)}.` }, 409);
+        }
         pendingCount = comps.filter(
           (c: any) => String(c?.comp_category || "").toLowerCase() === "pending",
         ).length;
