@@ -76,6 +76,7 @@ export interface CmaPdfInput {
   } | null;
   valuationScenarios?: Record<string, { price?: number | null; rationale?: string | null } | number | null> | null;
   marketStats?: Record<string, unknown> | null;
+  compPriceAnomalyConfirmedAt?: string | null;
   comps: CmaPdfComp[];
 }
 
@@ -163,18 +164,20 @@ function footer(doc: jsPDF, input: CmaPdfInput) {
 }
 
 function scenarioEntries(input: CmaPdfInput) {
-  const raw = input.valuationScenarios || {};
-  type ScenarioValue = { price?: number | null; rationale?: string | null } | number | null | undefined;
-  const entries: Array<[string, ScenarioValue]> = [
-    ['Conservative', raw.conservative as ScenarioValue],
-    ['Most probable', raw.most_probable as ScenarioValue],
-    ['Optimistic', raw.optimistic as ScenarioValue],
+  const raw = (input.valuationScenarios || {}) as Record<string, unknown>;
+  const entries: Array<[string, unknown]> = [
+    ['Conservative', raw.conservative],
+    ['Most probable', raw.most_probable],
+    ['Optimistic', raw.optimistic],
   ];
-  return entries.map(([label, value]) => ({
-    label,
-    price: typeof value === 'number' ? value : value?.price ?? null,
-    rationale: typeof value === 'object' && value ? cleanText(value.rationale) : '',
-  })).filter((s) => s.price != null || s.rationale);
+  return entries.map(([label, value]) => {
+    const objectValue = value && typeof value === 'object' ? value as Record<string, unknown> : null;
+    return {
+      label,
+      price: typeof value === 'number' ? value : toPositiveNumber(objectValue?.price ?? value),
+      rationale: objectValue ? cleanText(objectValue.rationale) : '',
+    };
+  }).filter((s) => s.price != null || s.rationale);
 }
 
 export function buildCmaClientPdf(input: CmaPdfInput): jsPDF {
@@ -281,7 +284,7 @@ export function buildCmaClientPdf(input: CmaPdfInput): jsPDF {
       doc.roundedRect(x, top, 246, 210, 3, 3, 'FD');
       setColor(doc, GOLD); doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.text(compStatus(comp).toUpperCase(), x + 12, top + 18);
       setColor(doc, INK); doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.text(normalizeAddress(comp.address), x + 12, top + 40, { maxWidth: 222 });
-      setColor(doc, GOLD); doc.setFont('times', 'bold'); doc.setFontSize(20); doc.text(money(compPrice(comp)), x + 12, top + 72);
+      setColor(doc, GOLD); doc.setFont('times', 'bold'); doc.setFontSize(20); doc.text(compPrice(comp), x + 12, top + 72);
       setColor(doc, MUTED); doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
       doc.text(`${cleanText(comp.beds) || '—'} bed · ${cleanText(comp.baths) || '—'} bath · ${compSqftLabel(comp)}`, x + 12, top + 94, { maxWidth: 222 });
       doc.text(`List ${money(comp.list_price)} · Sold ${money(comp.sold_price)} · DOM ${cleanText(comp.days_on_market) || '—'}`, x + 12, top + 110, { maxWidth: 222 });
@@ -316,7 +319,7 @@ export function buildCmaClientPdf(input: CmaPdfInput): jsPDF {
     autoTable(doc, {
       startY: y,
       head: [['Scenario', 'Price', 'Rationale']],
-      body: scenarios.map(s => [s.label, money(s.price), s.rationale]),
+      body: scenarios.map(s => [s.label, money(s.price), cleanText(s.rationale)]),
       theme: 'plain',
       styles: { fontSize: 9, cellPadding: 5 },
       headStyles: { textColor: GOLD as any, fontStyle: 'bold' },
