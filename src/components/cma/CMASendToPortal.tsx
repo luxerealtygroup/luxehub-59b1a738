@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { SendToPortalDialog } from '@/components/portal/SendToPortalDialog';
 import { CmaPdfInput, buildCmaClientPdf, formatCmaDate } from '@/lib/cma/clientPdf';
 import { loadCmaPdfInput } from '@/lib/cma/loadPdfInput';
+import { anomalyMessage, detectDuplicateSoldPriceAnomaly } from '@/lib/cma/reportQuality';
 import { safeFileName } from '@/lib/portalDelivery';
 
 interface Props {
@@ -26,6 +27,7 @@ interface Props {
 
 const APPROVED_STATUSES = ['approved', 'exported', 'pushed', 'converted'];
 const NOT_APPROVED_REASON = 'Approve this CMA before sending it to the client portal.';
+const UNCONFIRMED_ANOMALY_REASON = 'Confirm the repeated comparable sold prices before sending this CMA.';
 
 /** "Send to client portal" for a finished CMA. The agent always presses it. */
 export function CMASendToPortal({
@@ -54,10 +56,23 @@ export function CMASendToPortal({
   const approved = approvalStatus == null ? true : APPROVED_STATUSES.includes(approvalStatus);
 
   const handleClick = async () => {
-    if (pdfInput) { setOpen(true); return; }
+    if (pdfInput) {
+      const anomaly = detectDuplicateSoldPriceAnomaly(pdfInput.comps || []);
+      if (anomaly.hasAnomaly && !pdfInput.compPriceAnomalyConfirmedAt) {
+        toast.error(UNCONFIRMED_ANOMALY_REASON, { description: anomalyMessage(anomaly) });
+        return;
+      }
+      setOpen(true);
+      return;
+    }
     setLoading(true);
     try {
       const result = await loadCmaPdfInput(reportId);
+      const anomaly = detectDuplicateSoldPriceAnomaly(result.input.comps || []);
+      if (anomaly.hasAnomaly && !result.input.compPriceAnomalyConfirmedAt) {
+        toast.error(UNCONFIRMED_ANOMALY_REASON, { description: anomalyMessage(anomaly) });
+        return;
+      }
       setLoaded(result);
       setOpen(true);
     } catch (err: any) {
