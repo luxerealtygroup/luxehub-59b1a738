@@ -304,8 +304,10 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
             pdfInput={{
               propertyAddress: report.property_address,
               cityArea: report.city_area,
+              propertyType: report.property_type,
               createdAt: report.created_at,
               agentName,
+              clientName: report.fub_person_name,
               executiveSummary: executiveSummary,
               priceNarrative: priceNarrativeText,
               marketConditions: marketConditionsText,
@@ -314,6 +316,28 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
               pricingBandRecommended: report.pricing_band_recommended,
               pricingBandHigh: report.pricing_band_high,
               pricingConfidence: report.pricing_confidence,
+              cmaGrade: report.cma_grade,
+              bedrooms: report.bedrooms,
+              bathrooms: report.bathrooms,
+              aboveGradeSqFt: report.above_grade_sqft ?? null,
+              finishedBasementSqFt: report.finished_basement_sqft ?? null,
+              approxSqFt: report.approx_sqft,
+              garage: report.garage,
+              buildYear: report.build_year,
+              condition: report.condition,
+              keyFeatures: report.key_features || [],
+              featureAdjustments: report.feature_adjustments || [],
+              pricePerSqftCrossCheck: report.price_per_sqft_cross_check ?? null,
+              valuationScenarios: report.valuation_scenarios ?? null,
+              marketStats: {
+                median_sale_price: report.median_sale_price,
+                avg_days_on_market: report.avg_days_on_market,
+                sale_to_list_ratio: report.sale_to_list_ratio,
+                months_of_inventory: report.months_of_inventory,
+                active_listings: report.active_listings,
+                sold_listings: report.sold_listings,
+              },
+              compPriceAnomalyConfirmedAt: report.comp_price_anomaly_confirmed_at ?? null,
               comps: report.extracted_comps,
             }}
           />
@@ -353,10 +377,10 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
               {report.property_address}
             </h1>
             <p className="text-base text-muted-foreground">
-              {report.city_area} · {report.property_type}
+              {cleanText(report.city_area)} · {humanizeLabel(report.property_type)}
               {report.bedrooms && ` · ${report.bedrooms} Bed`}
               {report.bathrooms && ` / ${report.bathrooms} Bath`}
-              {report.approx_sqft && ` · ${report.approx_sqft.toLocaleString()} sqft`}
+              {report.approx_sqft && ` · ${sqftLabel(report.approx_sqft)}`}
             </p>
             <p className="text-sm text-muted-foreground/70 pt-2">
               Prepared {new Date(report.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
@@ -456,7 +480,7 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
               <div className="grid grid-cols-3 gap-3 mb-5">
                 <StatCard label="Comp Price Range" value={`${fmt(priceRange.low)} – ${fmt(priceRange.high)}`} />
                 <StatCard label="Avg Sold Price" value={fmt(avgSoldPrice)} />
-                <StatCard label="Avg Days on Market" value={avgDOM != null ? `${avgDOM}` : '—'} />
+                <StatCard label="Avg Days on Market" value={avgDOM != null ? `${avgDOM}` : 'Not reported'} />
               </div>
             )}
 
@@ -480,7 +504,7 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
                       const dateLabel = fmtDate(comp.sale_date);
                       return (
                       <tr key={i} className={`border-t border-border/40 ${i % 2 === 0 ? '' : 'bg-muted/20'}`}>
-                        <td className="py-3 px-4 font-medium text-foreground">{comp.address}</td>
+                        <td className="py-3 px-4 font-medium text-foreground">{normalizeAddress(comp.address)}</td>
                         <td className="py-3 px-3">
                           <span
                             className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
@@ -499,10 +523,10 @@ const CMAClientReport = ({ reportId }: { reportId: string }) => {
                             </span>
                           )}
                         </td>
-                        <td className="py-3 px-3 text-center text-muted-foreground">{comp.beds ?? '—'} / {comp.baths ?? '—'}</td>
-                        <td className="py-3 px-3 text-right text-muted-foreground">{comp.list_price ? `$${comp.list_price.toLocaleString()}` : '—'}</td>
-                        <td className="py-3 px-3 text-right font-medium">{comp.sold_price ? `$${comp.sold_price.toLocaleString()}` : '—'}</td>
-                        <td className="py-3 px-4 text-center text-muted-foreground">{comp.days_on_market ?? '—'}</td>
+                        <td className="py-3 px-3 text-center text-muted-foreground">{cleanText(comp.beds) || 'Not reported'} / {cleanText(comp.baths) || 'Not reported'}</td>
+                        <td className="py-3 px-3 text-right text-muted-foreground">{compPrice(comp, 'list')}</td>
+                        <td className="py-3 px-3 text-right font-medium">{compPrice(comp, 'sold')}</td>
+                        <td className="py-3 px-4 text-center text-muted-foreground">{cleanText(comp.days_on_market) || 'Not reported'}</td>
                       </tr>
                       );
                     })}
