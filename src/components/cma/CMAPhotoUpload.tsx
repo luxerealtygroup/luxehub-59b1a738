@@ -1,10 +1,12 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Camera, X, Star, Upload } from 'lucide-react';
 import { toast } from 'sonner';
-import { ACCEPT_IMAGES, isImageFile } from '@/lib/uploads';
+import { checkFiles } from '@/lib/uploads';
+import { UploadPickers } from '@/components/uploads/UploadPickers';
+
 
 interface CMAPhotoUploadProps {
   photos: File[];
