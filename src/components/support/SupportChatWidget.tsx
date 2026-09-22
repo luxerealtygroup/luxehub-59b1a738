@@ -258,7 +258,7 @@ export function SupportChatWidget({ userType }: SupportChatWidgetProps) {
 
       {/* Panel */}
       {open && (
-        <div className="fixed bottom-5 right-5 z-50 w-[min(380px,calc(100vw-2.5rem))] h-[min(560px,calc(100vh-2.5rem))] flex flex-col rounded-2xl border border-border/70 bg-card shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4">
+        <div className="fixed bottom-5 right-5 z-50 w-[min(380px,calc(100vw-2.5rem))] h-[min(560px,calc(100dvh-2.5rem))] flex flex-col rounded-2xl border border-border/70 bg-card shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4">
           <header className="flex items-center gap-2 px-4 py-3 border-b border-border/70 bg-background/80">
             <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center ring-1 ring-primary/20">
               <Headset className="h-4 w-4" />

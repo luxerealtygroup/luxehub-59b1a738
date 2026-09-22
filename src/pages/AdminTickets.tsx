@@ -227,7 +227,7 @@ export default function AdminTickets() {
 
       <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-4">
         {/* List */}
-        <Card className="h-[calc(100vh-14rem)] flex flex-col">
+        <Card className="h-[calc(100dvh-14rem)] flex flex-col">
           <div className="p-3 border-b space-y-2">
             <Input
               placeholder="Search tickets…"
@@ -295,7 +295,7 @@ export default function AdminTickets() {
         </Card>
 
         {/* Detail */}
-        <Card className="h-[calc(100vh-14rem)] flex flex-col">
+        <Card className="h-[calc(100dvh-14rem)] flex flex-col">
           {!selectedTicket ? (
             <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground p-8 text-center">
               Select a ticket to view the conversation.
