@@ -1,10 +1,12 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Camera, X, Star, Upload } from 'lucide-react';
 import { toast } from 'sonner';
-import { ACCEPT_IMAGES, isImageFile } from '@/lib/uploads';
+import { checkFiles } from '@/lib/uploads';
+import { UploadPickers } from '@/components/uploads/UploadPickers';
+
 
 interface CMAPhotoUploadProps {
   photos: File[];
@@ -21,24 +23,24 @@ const CMAPhotoUpload = ({
   setCoverIndex,
   maxPhotos = 10,
 }: CMAPhotoUploadProps) => {
-  const inputRef = useRef<HTMLInputElement>(null);
   const [previews, setPreviews] = useState<string[]>([]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = Array.from(e.target.files || []);
-    const imageFiles = selected.filter(isImageFile);
+  const addPhotos = (selected: File[]) => {
+    const { accepted, errors } = checkFiles(selected, { maxSizeMB: 25, imagesOnly: true });
+    errors.forEach((message) => toast.error(message));
+    if (!accepted.length) return;
 
-    if (imageFiles.length !== selected.length) {
-      toast.error('Only photo files (JPG, PNG, WebP, HEIC) are accepted');
-    }
-
-    if (photos.length + imageFiles.length > maxPhotos) {
+    const room = maxPhotos - photos.length;
+    if (room <= 0) {
       toast.error(`Maximum ${maxPhotos} photos allowed`);
       return;
     }
+    const imageFiles = accepted.slice(0, room);
+    if (accepted.length > room) {
+      toast.error(`Only ${room} more photo${room === 1 ? '' : 's'} can be added (max ${maxPhotos}).`);
+    }
 
-    const newPhotos = [...photos, ...imageFiles];
-    setPhotos(newPhotos);
+    setPhotos([...photos, ...imageFiles]);
 
     // Generate previews for new files
     imageFiles.forEach(file => {
@@ -48,9 +50,8 @@ const CMAPhotoUpload = ({
       };
       reader.readAsDataURL(file);
     });
-
-    if (inputRef.current) inputRef.current.value = '';
   };
+
 
   const removePhoto = (index: number) => {
     const updated = photos.filter((_, i) => i !== index);
@@ -77,22 +78,17 @@ const CMAPhotoUpload = ({
       <CardContent className="space-y-3">
         {/* Upload zone */}
         <div
-          onClick={() => inputRef.current?.click()}
-          className="flex flex-col items-center justify-center w-full h-20 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors border-gold/20"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => { e.preventDefault(); addPhotos(Array.from(e.dataTransfer.files || [])); }}
+          className="flex flex-col items-center justify-center w-full gap-2 p-3 border-2 border-dashed rounded-lg hover:bg-muted/50 transition-colors border-gold/20"
         >
           <Upload className="h-5 w-5 text-muted-foreground" />
-          <span className="mt-1 text-xs text-muted-foreground">
-            Click to upload photos ({photos.length}/{maxPhotos})
+          <UploadPickers onFiles={addPhotos} disabled={photos.length >= maxPhotos} />
+          <span className="text-xs text-muted-foreground">
+            {photos.length}/{maxPhotos} photos
           </span>
-          <input
-            ref={inputRef}
-            type="file"
-            className="hidden"
-            multiple
-            accept={ACCEPT_IMAGES}
-            onChange={handleFileChange}
-          />
         </div>
+
 
         {/* Photo grid */}
         {photos.length > 0 && (

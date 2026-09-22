@@ -1,9 +1,11 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Upload, X, FileText, Image, File } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { ACCEPT_DOCUMENTS, checkFiles, formatFileSize as prettySize } from '@/lib/uploads';
+import { checkFiles, formatFileSize as prettySize } from '@/lib/uploads';
+import { UploadPickers } from '@/components/uploads/UploadPickers';
+
 
 interface FileUploadProps {
   files: File[];
@@ -12,8 +14,8 @@ interface FileUploadProps {
 }
 
 export function FileUpload({ files, setFiles, maxFiles = 10 }: FileUploadProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+
 
   const addFiles = (selectedFiles: File[]) => {
     if (!selectedFiles.length) return;
@@ -32,15 +34,6 @@ export function FileUpload({ files, setFiles, maxFiles = 10 }: FileUploadProps) 
     }
 
     setFiles([...files, ...accepted.slice(0, room)]);
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    addFiles(Array.from(e.target.files || []));
-
-    // Reset input so the same file can be selected again
-    if (inputRef.current) {
-      inputRef.current.value = '';
-    }
   };
 
   const removeFile = (index: number) => {
@@ -62,7 +55,6 @@ export function FileUpload({ files, setFiles, maxFiles = 10 }: FileUploadProps) 
   return (
     <div className="space-y-3">
       <div
-        onClick={() => inputRef.current?.click()}
         onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={(e) => {
@@ -70,24 +62,15 @@ export function FileUpload({ files, setFiles, maxFiles = 10 }: FileUploadProps) 
           setDragging(false);
           addFiles(Array.from(e.dataTransfer.files || []));
         }}
-        className={`flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${dragging ? 'bg-muted border-primary/60' : 'hover:bg-muted/50'}`}
+        className={`flex flex-col items-center justify-center w-full min-h-28 gap-2 p-3 border-2 border-dashed rounded-lg transition-colors ${dragging ? 'bg-muted border-primary/60' : 'hover:bg-muted/50'}`}
       >
         <Upload className="h-6 w-6 text-muted-foreground" />
-        <span className="mt-1 text-sm text-muted-foreground">
-          Click to upload files (max {maxFiles})
+        <UploadPickers onFiles={addFiles} disabled={files.length >= maxFiles} />
+        <span className="text-xs text-muted-foreground text-center">
+          PDF, Word, Excel, CSV, photos (incl. HEIC) — up to 25MB each, max {maxFiles} files
         </span>
-        <span className="text-xs text-muted-foreground">
-          PDF, Word, Excel, CSV, photos (incl. HEIC) — up to 25MB each
-        </span>
-        <input
-          ref={inputRef}
-          type="file"
-          className="hidden"
-          multiple
-          accept={ACCEPT_DOCUMENTS}
-          onChange={handleFileChange}
-        />
       </div>
+
 
       {files.length > 0 && (
         <div className="space-y-2">
