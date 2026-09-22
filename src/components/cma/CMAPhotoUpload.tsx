@@ -78,22 +78,17 @@ const CMAPhotoUpload = ({
       <CardContent className="space-y-3">
         {/* Upload zone */}
         <div
-          onClick={() => inputRef.current?.click()}
-          className="flex flex-col items-center justify-center w-full h-20 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors border-gold/20"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => { e.preventDefault(); addPhotos(Array.from(e.dataTransfer.files || [])); }}
+          className="flex flex-col items-center justify-center w-full gap-2 p-3 border-2 border-dashed rounded-lg hover:bg-muted/50 transition-colors border-gold/20"
         >
           <Upload className="h-5 w-5 text-muted-foreground" />
-          <span className="mt-1 text-xs text-muted-foreground">
-            Click to upload photos ({photos.length}/{maxPhotos})
+          <UploadPickers onFiles={addPhotos} disabled={photos.length >= maxPhotos} />
+          <span className="text-xs text-muted-foreground">
+            {photos.length}/{maxPhotos} photos
           </span>
-          <input
-            ref={inputRef}
-            type="file"
-            className="hidden"
-            multiple
-            accept={ACCEPT_IMAGES}
-            onChange={handleFileChange}
-          />
         </div>
+
 
         {/* Photo grid */}
         {photos.length > 0 && (
