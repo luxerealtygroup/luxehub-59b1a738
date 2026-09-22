@@ -17,6 +17,7 @@ import GoogleCalendarWidget from '@/components/GoogleCalendarWidget';
 import FUBSmartLists from '@/components/FUBSmartLists';
 import ClosingsCalendar from '@/components/admin/ClosingsCalendar';
 import { ActiveListingsCard } from '@/components/ActiveListingsCard';
+import QuarterlyPipelineSummary from '@/components/QuarterlyPipelineSummary';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -464,6 +465,13 @@ const Dashboard = () => {
             You're currently in <span className="font-semibold">Preview Mode</span>. Full {tenant.appName} access unlocks upon joining {tenant.shortName}.
           </p>
         </div>
+      )}
+
+      {effectiveUserId && (
+        <QuarterlyPipelineSummary
+          agentUserId={effectiveUserId}
+          title={isViewingAsAgent ? `${viewingAgentName ?? 'Agent'} — Pipeline Outlook` : 'My Pipeline Outlook'}
+        />
       )}
 
       {/* Quick Actions - TOP (hide restricted actions for planning-only) */}
