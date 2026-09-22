@@ -23,24 +23,24 @@ const CMAPhotoUpload = ({
   setCoverIndex,
   maxPhotos = 10,
 }: CMAPhotoUploadProps) => {
-  const inputRef = useRef<HTMLInputElement>(null);
   const [previews, setPreviews] = useState<string[]>([]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = Array.from(e.target.files || []);
-    const imageFiles = selected.filter(isImageFile);
+  const addPhotos = (selected: File[]) => {
+    const { accepted, errors } = checkFiles(selected, { maxSizeMB: 25, imagesOnly: true });
+    errors.forEach((message) => toast.error(message));
+    if (!accepted.length) return;
 
-    if (imageFiles.length !== selected.length) {
-      toast.error('Only photo files (JPG, PNG, WebP, HEIC) are accepted');
-    }
-
-    if (photos.length + imageFiles.length > maxPhotos) {
+    const room = maxPhotos - photos.length;
+    if (room <= 0) {
       toast.error(`Maximum ${maxPhotos} photos allowed`);
       return;
     }
+    const imageFiles = accepted.slice(0, room);
+    if (accepted.length > room) {
+      toast.error(`Only ${room} more photo${room === 1 ? '' : 's'} can be added (max ${maxPhotos}).`);
+    }
 
-    const newPhotos = [...photos, ...imageFiles];
-    setPhotos(newPhotos);
+    setPhotos([...photos, ...imageFiles]);
 
     // Generate previews for new files
     imageFiles.forEach(file => {
@@ -50,9 +50,8 @@ const CMAPhotoUpload = ({
       };
       reader.readAsDataURL(file);
     });
-
-    if (inputRef.current) inputRef.current.value = '';
   };
+
 
   const removePhoto = (index: number) => {
     const updated = photos.filter((_, i) => i !== index);
