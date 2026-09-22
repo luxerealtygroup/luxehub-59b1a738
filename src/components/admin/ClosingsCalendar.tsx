@@ -163,11 +163,11 @@ export function ClosingsCalendar({ year, agentNameByFubId, agentFubUserId, agent
           {title ?? `${year} Important Dates`}
         </CardTitle>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={prevMonth} disabled={selectedMonth === 0}>
+          <Button aria-label="Previous month" variant="outline" size="icon" onClick={prevMonth} disabled={selectedMonth === 0}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <span className="min-w-[140px] text-center font-medium">{MONTH_NAMES[selectedMonth]} {year}</span>
-          <Button variant="outline" size="icon" onClick={nextMonth} disabled={selectedMonth === 11}>
+          <Button aria-label="Next month" variant="outline" size="icon" onClick={nextMonth} disabled={selectedMonth === 11}>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
