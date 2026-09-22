@@ -1,9 +1,11 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Upload, X, FileText, Image, File } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { ACCEPT_DOCUMENTS, checkFiles, formatFileSize as prettySize } from '@/lib/uploads';
+import { checkFiles, formatFileSize as prettySize } from '@/lib/uploads';
+import { UploadPickers } from '@/components/uploads/UploadPickers';
+
 
 interface FileUploadProps {
   files: File[];
