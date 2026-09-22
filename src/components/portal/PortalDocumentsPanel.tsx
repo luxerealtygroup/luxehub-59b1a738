@@ -161,8 +161,8 @@ export function PortalDocumentsPanel({
     }
 
     setUploading(false);
-    if (inputRef.current) inputRef.current.value = '';
     load();
+
   };
 
   const signedUrl = async (path: string) => {
