@@ -551,10 +551,10 @@ const Pipeline = () => {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground font-display">Pipeline</h1>
+    <div className="container mx-auto max-w-full p-4 sm:p-6 space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground font-display">Pipeline</h1>
           <p className="text-muted-foreground">
             {canSeeTeam && teamScope ? "Every agent's clients on your team" : 'Manage your active clients and pipeline'}
           </p>
@@ -799,8 +799,8 @@ const Pipeline = () => {
                       <Badge variant="outline" className="text-xs">{m.clients.length} client{m.clients.length !== 1 ? 's' : ''}</Badge>
                       <span className="text-xs text-muted-foreground ml-auto">{formatCurrency(m.gci)} GCI</span>
                     </h4>
-                    <div className="rounded-lg border border-border overflow-hidden">
-                      <table className="w-full text-sm">
+                    <div className="rounded-lg border border-border overflow-x-auto [-webkit-overflow-scrolling:touch]">
+                      <table className="w-full min-w-[640px] text-sm">
                         <thead>
                           <tr className="bg-muted/50 text-left">
                             <th className="px-3 py-2 font-medium text-muted-foreground">Client</th>
@@ -839,8 +839,8 @@ const Pipeline = () => {
                       No Date Assigned
                       <Badge variant="outline" className="text-xs border-amber-500/50 text-amber-500">{unassigned.length} client{unassigned.length !== 1 ? 's' : ''}</Badge>
                     </h4>
-                    <div className="rounded-lg border border-amber-500/20 overflow-hidden">
-                      <table className="w-full text-sm">
+                    <div className="rounded-lg border border-amber-500/20 overflow-x-auto [-webkit-overflow-scrolling:touch]">
+                      <table className="w-full min-w-[640px] text-sm">
                         <thead>
                           <tr className="bg-amber-500/5 text-left">
                             <th className="px-3 py-2 font-medium text-muted-foreground">Client</th>
@@ -946,8 +946,8 @@ const Pipeline = () => {
         {filteredClients.map((client) => (
           <Card key={client.id} className="border-border/50 hover:border-gold/30 transition-colors">
             <CardContent className="p-4">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex-1">
+              <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
+                <div className="flex-1 min-w-0 break-words">
                   <div className="flex items-center gap-2 mb-1">
                     <h3 className="font-semibold text-foreground">{client.client_name}</h3>
                     <Badge variant={client.client_type === 'buyer' ? 'default' : 'secondary'}>{client.client_type}</Badge>
@@ -961,7 +961,7 @@ const Pipeline = () => {
                   )}
                   {client.source && <p className="text-xs text-muted-foreground">Source: {client.source}</p>}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2 shrink-0">
                   <AgentPortalDialog
                     clientName={client.client_name}
                     clientEmail={client.email}

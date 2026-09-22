@@ -439,7 +439,7 @@ const BusinessPlanning = () => {
 
       {/* Sub-navigation tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="w-full justify-start">
+        <TabsList className="flex w-full flex-wrap justify-start h-auto gap-1">
           <TabsTrigger value="performance" className="gap-2"><BarChart3 className="h-4 w-4" />Performance Reality</TabsTrigger>
           <TabsTrigger value="reflection" className="gap-2"><MessageSquare className="h-4 w-4" />Reflection & Mindset</TabsTrigger>
           <TabsTrigger value="strategy" className="gap-2"><Target className="h-4 w-4" />Q{quarter} Strategy & Goals</TabsTrigger>

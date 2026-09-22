@@ -410,7 +410,7 @@ const CMABoss = () => {
             </Button>
           </div>
         </div>
-        <div className="border border-gold/20 rounded-lg overflow-hidden bg-white" style={{ height: 'calc(100vh - 180px)' }}>
+        <div className="border border-gold/20 rounded-lg overflow-hidden bg-white" style={{ height: 'calc(100dvh - 180px)' }}>
           <iframe
             title="Editorial CMA"
             srcDoc={generatedHtml}
