@@ -93,7 +93,6 @@ export function PortalDocumentsPanel({
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<{ url: string; type: string; name: string } | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
   // Where new uploads land: defaults to the property currently being viewed.
   const [uploadTarget, setUploadTarget] = useState<string>(scopePropertyId(scope) ?? 'general');
   const [uploadInternal, setUploadInternal] = useState(false);
