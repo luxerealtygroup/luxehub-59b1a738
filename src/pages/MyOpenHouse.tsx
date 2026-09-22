@@ -174,7 +174,7 @@ export default function MyOpenHouse() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1">Track open houses, attendees, and feedback.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="ghost" size="sm" onClick={() => setShowHelp(true)}>
             <HelpCircle className="h-4 w-4 mr-1" /> Help
           </Button>

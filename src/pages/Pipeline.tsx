@@ -551,10 +551,10 @@ const Pipeline = () => {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground font-display">Pipeline</h1>
+    <div className="container mx-auto max-w-full p-4 sm:p-6 space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground font-display">Pipeline</h1>
           <p className="text-muted-foreground">
             {canSeeTeam && teamScope ? "Every agent's clients on your team" : 'Manage your active clients and pipeline'}
           </p>
