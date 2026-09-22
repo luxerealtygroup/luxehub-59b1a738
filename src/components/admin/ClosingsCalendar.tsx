@@ -76,6 +76,9 @@ export function ClosingsCalendar({ year, agentNameByFubId, agentFubUserId, agent
   }, [metadata]);
 
   const { deals: allDeals, loading } = useFubClosingsCalendar({ year, dealMetadataMap, agentNameByFubId });
+  const { dates: allImportantDates, agents, loading: datesLoading } = useImportantDatesCalendar(year);
+  const [typeFilter, setTypeFilter] = useState<ImportantDateType | 'all'>('all');
+  const [agentFilter, setAgentFilter] = useState('all');
   const deals = useMemo(() => {
     if (!companyView) {
       return agentFubUserId == null ? [] : allDeals.filter((d) => d.agentFubUserId === agentFubUserId);
@@ -87,9 +90,6 @@ export function ClosingsCalendar({ year, agentNameByFubId, agentFubUserId, agent
       ? []
       : allDeals.filter((d) => d.agentFubUserId === selectedDate.agentFubUserId);
   }, [agentFubUserId, agentFilter, agents, allDeals, allImportantDates, companyView]);
-  const { dates: allImportantDates, agents, loading: datesLoading } = useImportantDatesCalendar(year);
-  const [typeFilter, setTypeFilter] = useState<ImportantDateType | 'all'>('all');
-  const [agentFilter, setAgentFilter] = useState('all');
   const importantDates = useMemo(() => allImportantDates.filter((entry) => {
     if (!companyView && agentProfileId && entry.agentProfileId !== agentProfileId) return false;
     if (companyView && agentFilter !== 'all' && entry.agentProfileId !== agentFilter) return false;
