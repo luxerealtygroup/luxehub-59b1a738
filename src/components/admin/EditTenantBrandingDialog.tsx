@@ -305,7 +305,7 @@ export function EditTenantBrandingDialog({ org, onOpenChange, onSaved }: Props) 
             <Input
               ref={logoRef}
               type="file"
-              accept="image/*"
+              accept="image/*,.heic,.heif"
               onChange={(e) => {
                 setLogoFile(e.target.files?.[0] ?? null);
                 setRemoveLogo(false);
@@ -348,7 +348,7 @@ export function EditTenantBrandingDialog({ org, onOpenChange, onSaved }: Props) 
             <Input
               ref={markRef}
               type="file"
-              accept="image/*"
+              accept="image/*,.heic,.heif"
               onChange={(e) => {
                 setMarkFile(e.target.files?.[0] ?? null);
                 setRemoveMark(false);

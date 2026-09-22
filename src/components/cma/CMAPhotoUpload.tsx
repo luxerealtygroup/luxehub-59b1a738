@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Camera, X, Star, Upload } from 'lucide-react';
 import { toast } from 'sonner';
+import { ACCEPT_IMAGES, isImageFile } from '@/lib/uploads';
 
 interface CMAPhotoUploadProps {
   photos: File[];
@@ -25,10 +26,10 @@ const CMAPhotoUpload = ({
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
-    const imageFiles = selected.filter(f => f.type.startsWith('image/'));
+    const imageFiles = selected.filter(isImageFile);
 
     if (imageFiles.length !== selected.length) {
-      toast.error('Only image files (JPG, PNG, WebP) are accepted');
+      toast.error('Only photo files (JPG, PNG, WebP, HEIC) are accepted');
     }
 
     if (photos.length + imageFiles.length > maxPhotos) {
@@ -88,7 +89,7 @@ const CMAPhotoUpload = ({
             type="file"
             className="hidden"
             multiple
-            accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+            accept={ACCEPT_IMAGES}
             onChange={handleFileChange}
           />
         </div>

@@ -1621,7 +1621,7 @@ function UploadCurbHeroCsvDialog({
       <div className="space-y-4">
         <div>
           <Label className="text-xs">CSV file</Label>
-          <Input type="file" accept=".csv,text/csv" onChange={handleFile} className="mt-1" />
+          <Input type="file" accept=".csv,text/csv,text/plain,*/*" onChange={handleFile} className="mt-1" />
           {fileName && <p className="text-xs text-muted-foreground mt-1">{fileName}</p>}
         </div>
         {contacts.length > 0 && (

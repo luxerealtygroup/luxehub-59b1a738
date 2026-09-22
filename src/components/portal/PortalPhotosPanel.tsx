@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { ACCEPT_IMAGES } from '@/lib/uploads';
 import { supabase } from '@/integrations/supabase/client';
 import { blockPortalWrite, usePortalPreview } from '@/hooks/usePortalPreview';
 import { useToast } from '@/hooks/use-toast';
@@ -332,7 +333,7 @@ export function PortalPhotosPanel({ portalId, canManage: canManageProp, scope = 
             <span className="mt-1.5 text-xs font-medium text-foreground">
               Upload {category} photos
             </span>
-            <input ref={inputRef} type="file" multiple accept="image/*" className="hidden" onChange={onUpload} />
+            <input ref={inputRef} type="file" multiple accept={ACCEPT_IMAGES} className="hidden" onChange={onUpload} />
           </button>
         </div>
       )}

@@ -1302,7 +1302,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
                 <label className="inline-flex">
                   <input
                     type="file"
-                    accept="application/pdf"
+                    accept="application/pdf,.pdf,*/*"
                     className="hidden"
                     onChange={(e) => {
                       const f = e.target.files?.[0];
@@ -1483,7 +1483,7 @@ const CMAInputForm = ({ onCreated, onCancel, editReportId }: CMAInputFormProps) 
               </div>
               {importMethod === 'pdf' && (
                 <div className="border-2 border-dashed border-gold/20 rounded-lg p-6 text-center">
-                  <input type="file" accept=".pdf" id="cma-pdf-upload" className="hidden"
+                  <input type="file" accept="application/pdf,.pdf,*/*" id="cma-pdf-upload" className="hidden"
                     onChange={e => {
                       const file = e.target.files?.[0];
                       if (file) {
