@@ -268,23 +268,23 @@ export function PortalDocumentsPanel({
       )}
 
       {canManage && (
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          className="w-full flex flex-col items-center justify-center h-28 border-2 border-dashed border-primary/30 rounded-2xl bg-primary/[0.03] hover:bg-primary/[0.06] hover:border-primary/50 transition-all group"
+        <div
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => { e.preventDefault(); void onUpload(Array.from(e.dataTransfer.files || [])); }}
+          className="w-full flex flex-col items-center justify-center gap-2 p-4 border-2 border-dashed border-primary/30 rounded-2xl bg-primary/[0.03] hover:bg-primary/[0.06] hover:border-primary/50 transition-all"
         >
           {uploading ? (
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           ) : (
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-primary/20 group-hover:scale-105 transition-transform">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-primary/20">
               <Upload className="h-5 w-5" />
             </div>
           )}
-          <span className="mt-2 text-sm font-medium text-foreground">Upload documents</span>
-          <span className="text-xs text-muted-foreground">Drop files or click to browse</span>
-          <input ref={inputRef} type="file" multiple className="hidden" onChange={onUpload} />
-        </button>
+          <UploadPickers onFiles={(f) => void onUpload(f)} disabled={uploading} />
+          <span className="text-xs text-muted-foreground text-center">Drop files here, or use the buttons — up to 25MB each</span>
+        </div>
       )}
+
 
       {loading ? (
         <div className="grid gap-2">
