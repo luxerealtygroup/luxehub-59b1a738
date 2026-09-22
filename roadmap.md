@@ -1,4 +1,2 @@
-- Build: replace the Q3-only dashboard pipeline tool with rolling current-quarter, next-quarter, and combined summaries on agent and company dashboards.
-- Build: use the agreed current-year entered pipeline population, excluding finished stages, and assign records by expected or linked-deal closing date.
 - Urgent open-house backfill remains pending user approval before any live FUB backfill.
 - Next: finish CMA Studio PDF/data acceptance checks after urgent open-house work.

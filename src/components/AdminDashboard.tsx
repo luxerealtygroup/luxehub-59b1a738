@@ -34,6 +34,7 @@ import ConversionReport from './ConversionReport';
 import { CreateAgentDialog } from './CreateAgentDialog';
 import { SyncClaudeProfilesButton } from './SyncClaudeProfilesButton';
 import ClosingsCalendar from './admin/ClosingsCalendar';
+import QuarterlyPipelineSummary from '@/components/QuarterlyPipelineSummary';
 import { AgentPortalDialog } from '@/components/AgentPortalDialog';
 import { LayoutDashboard } from 'lucide-react';
 import { formatCurrency, formatNumber } from '@/lib/utils';
@@ -957,6 +958,8 @@ const AdminDashboard = () => {
       {showPipelineReport && (
         <PipelineReport onClose={() => setShowPipelineReport(false)} />
       )}
+
+      <QuarterlyPipelineSummary title="Company Pipeline Outlook" />
 
       {/* Company-wide Stats from FUB */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
