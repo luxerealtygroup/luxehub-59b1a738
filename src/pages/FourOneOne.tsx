@@ -11,6 +11,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import FubWeeklySyncStatus from '@/components/FubWeeklySyncStatus';
+
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
@@ -744,7 +746,12 @@ const FourOneOne = () => {
 
         {/* WEEKLY TAB */}
         <TabsContent value="weekly" className="space-y-6">
+          <FubWeeklySyncStatus
+            weekStart={format(currentWeek, 'yyyy-MM-dd')}
+            onSynced={() => { void fetchWeeklyData(); }}
+          />
           <div className="flex items-center justify-between">
+
             <Button variant="outline" size="sm" onClick={() => setCurrentWeek(subWeeks(currentWeek, 1))}>
               <ChevronLeft className="h-4 w-4 mr-1" /> Previous
             </Button>

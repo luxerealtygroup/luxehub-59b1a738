@@ -49,7 +49,12 @@ function addDays(iso: string, days: number) {
   return d.toISOString().slice(0, 10);
 }
 
-/** Most recently completed Monday-Sunday week in Toronto. */
+/**
+ * Most recently completed Monday-Sunday week in Toronto.
+ * Sunday still belongs to the week in progress, so a run on Sunday evening
+ * would return the week before last. The scheduled run therefore happens on
+ * Monday evening; the daily catch-up covers any missed Monday.
+ */
 function lastCompletedWeek(now = new Date()) {
   const { date } = torontoParts(now);
   const dow = new Date(`${date}T12:00:00Z`).getUTCDay(); // 0 Sun .. 6 Sat
@@ -58,6 +63,7 @@ function lastCompletedWeek(now = new Date()) {
   const week_start = addDays(thisMonday, -7);
   return { week_start, week_end: addDays(week_start, 6) };
 }
+
 
 // Toronto's offset shifts with daylight saving, so every window test compares
 // the record's local Toronto date string rather than a fixed UTC offset.
@@ -458,24 +464,67 @@ async function syncOrg(
     }, { onConflict: 'user_id,week_start_date' });
   }
 
-  await finish('ok', synced, unmatched.length);
-  return { org_id: orgId, status: 'ok', synced, unmatched: unmatched.length };
+  // A week where every matched agent shows nothing at all is almost always a
+  // broken pull rather than a genuinely silent team, so it is flagged.
+  const anyActivity = matched.some((p) => {
+    const t = totals.get(p.fub_user_id!);
+    return !!t && (t.calls_total + t.new_leads + t.texts_sent + t.appointments_set + t.appointments_held) > 0;
+  });
+  const zeroForEveryone = matched.length > 0 && !anyActivity;
+
+  await finish(
+    zeroForEveryone ? 'zero_activity' : 'ok',
+    synced,
+    unmatched.length,
+    zeroForEveryone ? 'Follow Up Boss returned no activity for any agent this week.' : undefined,
+  );
+  return {
+    org_id: orgId,
+    status: zeroForEveryone ? 'zero_activity' : 'ok',
+    synced,
+    unmatched: unmatched.length,
+  };
 }
 
+
 // ---------------------------------------------------------------------------
+
+/** Shared secret used by the scheduled job, same pattern as the open house sweep. */
+async function expectedJobSecret(): Promise<string | null> {
+  const env = Deno.env.get('FUB_WEEKLY_SYNC_SECRET')?.trim();
+  const { data } = await db()
+    .from('internal_job_secrets')
+    .select('value')
+    .eq('key', 'FUB_WEEKLY_SYNC_SECRET')
+    .maybeSingle();
+  const stored = (data as { value: string } | null)?.value?.trim() ?? '';
+  return stored || env || null;
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
-  const caller = await resolveCaller(req);
+  // The scheduled run authenticates with the job secret; people authenticate
+  // with their own session and must be an admin.
+  const suppliedSecret = req.headers.get('x-job-secret')?.trim() ?? '';
+  const jobSecret = suppliedSecret ? await expectedJobSecret() : null;
+  const isJob = Boolean(jobSecret && suppliedSecret === jobSecret);
+
+  const caller = isJob
+    ? ({ kind: 'service', userId: null, isAdmin: true, isStaff: true } as const)
+    : await resolveCaller(req);
   if (!caller) return json({ error: 'UNAUTHORIZED' }, 401);
   if (caller.kind !== 'service' && !caller.isAdmin) return json({ error: 'FORBIDDEN' }, 403);
 
-  let body: { week_start?: string; week_end?: string; cron?: boolean; org_id?: string } = {};
+
+  let body: {
+    week_start?: string; week_end?: string; cron?: boolean; catchup?: boolean; org_id?: string;
+  } = {};
   try { body = await req.json(); } catch { /* defaults */ }
 
   // The weekly cron fires twice (00:00 and 01:00 UTC) so 8pm Toronto stays exact
-  // across daylight saving. Only the 8pm local run does the work.
+  // across daylight saving. Only the 8pm local run does the work, and it runs on
+  // Monday evening so the Monday-Sunday week that just ended is complete.
   if (body.cron) {
     const { hour } = torontoParts(new Date());
     if (hour !== 20) return json({ skipped: true, reason: `Toronto hour is ${hour}` });
@@ -500,11 +549,32 @@ Deno.serve(async (req) => {
     orgIds = [orgId];
   }
 
+  // Daily safety net: only touch teams whose last completed week never finished
+  // successfully, so a missed or failed Monday run repairs itself.
+  if (body.catchup) {
+    const pending: string[] = [];
+    for (const orgId of orgIds) {
+      const { data } = await supa
+        .from('fub_weekly_sync_runs')
+        .select('id')
+        .eq('org_id', orgId)
+        .eq('week_start', week_start)
+        .eq('status', 'ok')
+        .limit(1);
+      if (!data || data.length === 0) pending.push(orgId);
+    }
+    if (pending.length === 0) {
+      return json({ week_start, week_end, skipped: true, reason: 'Every team already has this week.' });
+    }
+    orgIds = pending;
+  }
+
   const results: unknown[] = [];
   for (const orgId of orgIds) {
     try {
       results.push(await syncOrg(supa, orgId, week_start, week_end, caller.userId));
     } catch (e) {
+
       console.error(`sync failed for org ${orgId}:`, (e as Error).message);
       await supa.from('fub_weekly_sync_runs').insert({
         org_id: orgId, week_start, week_end, status: 'error',
