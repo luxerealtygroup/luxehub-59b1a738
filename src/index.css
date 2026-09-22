@@ -106,9 +106,20 @@
     @apply border-border;
   }
 
+  html, body, #root {
+    @apply max-w-full;
+  }
+
   body {
     @apply bg-background text-foreground font-body antialiased;
+    overflow-wrap: break-word;
   }
+
+  /* Long emails, URLs and unbroken names must never widen the page. */
+  a, p, span, td, th, li, h1, h2, h3, h4, h5, h6 {
+    overflow-wrap: anywhere;
+  }
+
 
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-display);

@@ -26,9 +26,9 @@ const ViewAsAgentControls = () => {
   if (!canViewAsAgent) return null;
 
   return (
-    <div className="flex items-center gap-3 ml-auto">
-      <div className="flex items-center gap-2">
-        <Eye className="h-4 w-4 text-muted-foreground" />
+    <div className="flex flex-wrap items-center gap-2 ml-auto min-w-0">
+      <div className="flex items-center gap-2 min-w-0">
+        <Eye className="h-4 w-4 text-muted-foreground shrink-0" />
         <Label htmlFor="view-as-agent" className="text-xs text-muted-foreground cursor-pointer whitespace-nowrap">
           View as Agent
         </Label>
@@ -41,7 +41,8 @@ const ViewAsAgentControls = () => {
       </div>
       {isViewingAsAgent && (
         <Select value={viewingAgentId || ''} onValueChange={setViewingAgentId}>
-          <SelectTrigger className="w-[180px] h-8 text-xs">
+          <SelectTrigger className="w-[150px] sm:w-[180px] max-w-full h-8 text-xs">
+
             <SelectValue placeholder="Select Agent" />
           </SelectTrigger>
           <SelectContent>
@@ -60,7 +61,7 @@ const DemoModeControls = () => {
   const { demoMode, setDemoMode } = useDemoMode();
   if (!isAdmin) return null;
   return (
-    <div className="flex items-center gap-2 ml-3 pl-3 border-l border-border">
+    <div className="flex items-center gap-2 pl-2 sm:pl-3 sm:ml-1 border-l border-border min-w-0">
       <Sparkles className={`h-4 w-4 ${demoMode ? 'text-gold' : 'text-muted-foreground'}`} />
       <Label htmlFor="demo-mode" className="text-xs text-muted-foreground cursor-pointer whitespace-nowrap">
         Demo Mode
@@ -103,25 +104,26 @@ const DashboardLayout = () => {
     <DemoModeProvider>
      <ViewAsAgentProvider>
       <SidebarProvider>
-        <div className="min-h-screen flex w-full bg-background">
+        <div className="min-h-[100dvh] flex w-full max-w-full bg-background">
           <AppSidebar />
-          <main className="flex-1 flex flex-col min-w-0">
-            <header className="h-14 border-b border-gold/10 flex items-center px-4 bg-background/50 backdrop-blur sticky top-0 z-10">
-              <SidebarTrigger className="text-muted-foreground hover:text-gold" />
-              <div className="ml-4">
-                <h2 className="font-display text-lg text-foreground">Agent Dashboard</h2>
+          <main className="flex-1 flex flex-col min-w-0 max-w-full">
+            <header className="min-h-14 border-b border-gold/10 flex flex-wrap items-center gap-y-1 gap-x-2 px-3 sm:px-4 py-1.5 bg-background/50 backdrop-blur sticky top-0 z-10 pt-[max(0.375rem,env(safe-area-inset-top))]">
+              <SidebarTrigger className="text-muted-foreground hover:text-gold shrink-0" />
+              <div className="min-w-0">
+                <h2 className="font-display text-base sm:text-lg text-foreground truncate">Agent Dashboard</h2>
               </div>
               <ViewAsAgentControls />
               <DemoModeControls />
-              <div className="ml-2">
+              <div className="shrink-0">
                 <NotificationsBell />
               </div>
             </header>
             <SetupBanner />
             <ViewAsAgentBanner />
-            <div className="flex-1 p-6">
+            <div className="flex-1 min-w-0 max-w-full p-4 sm:p-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
               <Outlet />
             </div>
+
             <SupportChatWidget userType="realtor" />
           </main>
         </div>
