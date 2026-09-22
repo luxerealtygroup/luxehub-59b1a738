@@ -14,8 +14,8 @@ interface FileUploadProps {
 }
 
 export function FileUpload({ files, setFiles, maxFiles = 10 }: FileUploadProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+
 
   const addFiles = (selectedFiles: File[]) => {
     if (!selectedFiles.length) return;
