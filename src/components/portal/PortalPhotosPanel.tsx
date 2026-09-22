@@ -321,23 +321,24 @@ export function PortalPhotosPanel({ portalId, canManage: canManageProp, scope = 
             </Select>
             <Input placeholder="Caption (optional)" value={caption} onChange={(e) => setCaption(e.target.value)} className="rounded-full" />
           </div>
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            className="w-full flex flex-col items-center justify-center h-24 border-2 border-dashed border-primary/30 rounded-xl bg-primary/[0.03] hover:bg-primary/[0.06] hover:border-primary/50 transition-all group"
+          <div
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => { e.preventDefault(); void onUpload(Array.from(e.dataTransfer.files || [])); }}
+            className="w-full flex flex-col items-center justify-center gap-2 p-3 border-2 border-dashed border-primary/30 rounded-xl bg-primary/[0.03] hover:bg-primary/[0.06] hover:border-primary/50 transition-all"
           >
             {uploading ? (
               <Loader2 className="h-5 w-5 animate-spin text-primary" />
             ) : (
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-primary/20 group-hover:scale-105 transition-transform">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-primary/20">
                 <Upload className="h-4 w-4" />
               </div>
             )}
-            <span className="mt-1.5 text-xs font-medium text-foreground">
+            <span className="text-xs font-medium text-foreground">
               Upload {category} photos
             </span>
-            <input ref={inputRef} type="file" multiple accept={ACCEPT_IMAGES} className="hidden" onChange={onUpload} />
-          </button>
+            <UploadPickers onFiles={(f) => void onUpload(f)} disabled={uploading} />
+          </div>
+
         </div>
       )}
 
