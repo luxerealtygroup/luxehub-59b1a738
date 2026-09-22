@@ -510,7 +510,7 @@ const Dashboard = () => {
 
       {/* 2026 Important Dates — agent-scoped */}
 
-      {hasEffectiveFUB && calendarFubUserId != null && (
+      {effectiveUserId && (
         <ClosingsCalendar
           year={2026}
           agentFubUserId={calendarFubUserId}

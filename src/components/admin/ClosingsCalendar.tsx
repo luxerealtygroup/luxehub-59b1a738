@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChevronLeft, ChevronRight, CalendarDays, Loader2, AlertTriangle } from 'lucide-react';
 import { useFubClosingsCalendar, ClosingEntry } from '@/hooks/useFubClosingsCalendar';
 import { ImportantDateEntry, ImportantDateType, useImportantDatesCalendar } from '@/hooks/useImportantDatesCalendar';
@@ -75,10 +76,17 @@ export function ClosingsCalendar({ year, agentNameByFubId, agentFubUserId, agent
   }, [metadata]);
 
   const { deals: allDeals, loading } = useFubClosingsCalendar({ year, dealMetadataMap, agentNameByFubId });
-  const deals = useMemo(
-    () => (agentFubUserId == null ? allDeals : allDeals.filter(d => d.agentFubUserId === agentFubUserId)),
-    [allDeals, agentFubUserId],
-  );
+  const deals = useMemo(() => {
+    if (!companyView) {
+      return agentFubUserId == null ? [] : allDeals.filter((d) => d.agentFubUserId === agentFubUserId);
+    }
+    if (agentFilter === 'all') return allDeals;
+    const selectedAgent = agents.find((agent) => agent.id === agentFilter);
+    const selectedDate = allImportantDates.find((entry) => entry.agentProfileId === selectedAgent?.id);
+    return selectedDate?.agentFubUserId == null
+      ? []
+      : allDeals.filter((d) => d.agentFubUserId === selectedDate.agentFubUserId);
+  }, [agentFubUserId, agentFilter, agents, allDeals, allImportantDates, companyView]);
   const { dates: allImportantDates, agents, loading: datesLoading } = useImportantDatesCalendar(year);
   const [typeFilter, setTypeFilter] = useState<ImportantDateType | 'all'>('all');
   const [agentFilter, setAgentFilter] = useState('all');
@@ -149,7 +157,7 @@ export function ClosingsCalendar({ year, agentNameByFubId, agentFubUserId, agent
 
   return (
     <Card className="border-border bg-card">
-      <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0">
+      <CardHeader className="flex flex-col items-start justify-between gap-4 space-y-0 sm:flex-row sm:items-center">
         <CardTitle className="flex items-center gap-2 font-display">
           <CalendarDays className="h-5 w-5 text-primary" />
           {title ?? `${year} Important Dates`}
@@ -172,24 +180,20 @@ export function ClosingsCalendar({ year, agentNameByFubId, agentFubUserId, agent
         ) : (
           <>
             <div className="mb-4 flex flex-wrap items-center gap-2">
-              <select
-                aria-label="Filter dates by type"
-                value={typeFilter}
-                onChange={(event) => setTypeFilter(event.target.value as ImportantDateType | 'all')}
-                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-              >
-                {Object.entries(TYPE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-              </select>
+              <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as ImportantDateType | 'all')}>
+                <SelectTrigger aria-label="Filter dates by type" className="h-9 w-[190px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(TYPE_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
+                </SelectContent>
+              </Select>
               {companyView && (
-                <select
-                  aria-label="Filter dates by agent"
-                  value={agentFilter}
-                  onChange={(event) => setAgentFilter(event.target.value)}
-                  className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  <option value="all">All agents</option>
-                  {agents.map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}
-                </select>
+                <Select value={agentFilter} onValueChange={setAgentFilter}>
+                  <SelectTrigger aria-label="Filter dates by agent" className="h-9 w-[190px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All agents</SelectItem>
+                    {agents.map((agent) => <SelectItem key={agent.id} value={agent.id}>{agent.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               )}
               <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
                 {(Object.keys(TYPE_CLASSES) as ImportantDateType[]).map((type) => (
@@ -287,9 +291,9 @@ export function ClosingsCalendar({ year, agentNameByFubId, agentFubUserId, agent
                     {overflow > 0 && (
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button className="text-[10px] text-muted-foreground hover:text-foreground text-left">
+                           <Button variant="ghost" size="sm" className="h-auto px-1 py-0 text-[10px] text-muted-foreground hover:text-foreground">
                             +{overflow} more
-                          </button>
+                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-72 text-sm space-y-2 max-h-80 overflow-auto">
                            <div className="font-semibold">{c.ymd} — {dayItems.length} dates</div>
