@@ -33,3 +33,10 @@ export function rollingCalendarQuarters(now = new Date()) {
     combinedLabel: `Q${current.quarter} + Q${next.quarter}`,
   };
 }
+
+export function quarterForDate(value: string, periods: ReturnType<typeof rollingCalendarQuarters>) {
+  const date = value.slice(0, 10);
+  if (date >= periods.current.start && date <= periods.current.end) return 'current' as const;
+  if (date >= periods.next.start && date <= periods.next.end) return 'next' as const;
+  return null;
+}

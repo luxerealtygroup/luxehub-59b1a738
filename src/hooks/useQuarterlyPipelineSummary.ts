@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useTenant } from '@/hooks/useTenant';
-import { CalendarQuarter, rollingCalendarQuarters } from '@/lib/pipelineQuarters';
+import { CalendarQuarter, quarterForDate, rollingCalendarQuarters } from '@/lib/pipelineQuarters';
 
 interface PipelineRow {
   id: string;
@@ -97,8 +97,7 @@ export function useQuarterlyPipelineSummary(agentUserId?: string | null) {
       .eq('org_id', orgId)
       .gte('created_at', `${periods.current.year}-01-01T00:00:00`)
       .lt('created_at', `${periods.current.year + 1}-01-01T00:00:00`)
-      .gte('stage', 1)
-      .lte('stage', 9);
+      .gte('stage', 1);
     if (agentUserId) query = query.eq('user_id', agentUserId);
 
     const { data, error } = await query;
@@ -112,13 +111,18 @@ export function useQuarterlyPipelineSummary(agentUserId?: string | null) {
     const current = emptyMetrics();
     const next = emptyMetrics();
     (data as PipelineRow[] | null)?.forEach((row) => {
+      const state = `${row.fub_deal_stage || ''} ${row.status || ''}`.toLowerCase();
+      const explicitlyDead = /lost|dead|cancelled|canceled|archived/.test(state);
+      const finishedWithoutAClosedResult = Number(row.stage) >= 10 && classifyRow(row) !== 'closed';
+      if (explicitlyDead || finishedWithoutAClosedResult) return;
       const closeDate = row.fub_deal_close_date || row.expected_pending_date;
       if (!closeDate) {
         current.undated += 1;
         return;
       }
-      if (closeDate >= periods.current.start && closeDate <= periods.current.end) addRow(current, row);
-      if (closeDate >= periods.next.start && closeDate <= periods.next.end) addRow(next, row);
+      const period = quarterForDate(closeDate, periods);
+      if (period === 'current') addRow(current, row);
+      if (period === 'next') addRow(next, row);
     });
 
     const roundedCurrent = roundMetrics(current);
