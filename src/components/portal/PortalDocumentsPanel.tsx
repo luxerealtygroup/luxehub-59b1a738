@@ -10,6 +10,9 @@ import { Check, Download, Eye, EyeOff, FileText, File, Image as ImageIcon, Histo
 import { Input } from '@/components/ui/input';
 import { format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { checkFiles } from '@/lib/uploads';
+import { UploadPickers } from '@/components/uploads/UploadPickers';
+
 import { PortalScope, matchesScope, scopePropertyId } from '@/lib/portalScope';
 import { PortalProperty, propertyLabel } from '@/hooks/usePortalProperties';
 
