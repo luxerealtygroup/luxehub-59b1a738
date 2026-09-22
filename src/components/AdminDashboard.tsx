@@ -1058,10 +1058,12 @@ const AdminDashboard = () => {
         </Card>
       </div>
 
-      {/* 2026 Closings Calendar */}
+      {/* 2026 Important Dates */}
       <ClosingsCalendar
         year={2026}
         agentNameByFubId={new Map(fubAgents.map(a => [a.id, a.name]))}
+        companyView
+        title="2026 Important Dates"
       />
 
       {/* Main Dashboard Sections */}

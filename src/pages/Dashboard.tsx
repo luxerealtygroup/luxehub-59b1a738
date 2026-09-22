@@ -508,13 +508,14 @@ const Dashboard = () => {
       {/* Active Listings — address list, agent-scoped */}
       {hasEffectiveFUB && <ActiveListingsCard />}
 
-      {/* My 2026 Closings Calendar — agent-scoped */}
+      {/* 2026 Important Dates — agent-scoped */}
 
-      {hasEffectiveFUB && calendarFubUserId != null && (
+      {effectiveUserId && (
         <ClosingsCalendar
           year={2026}
           agentFubUserId={calendarFubUserId}
-          title={isViewingAsAgent ? `${viewingAgentName ?? 'Agent'} — 2026 Closings` : 'My 2026 Closings'}
+          agentProfileId={effectiveUserId}
+          title={isViewingAsAgent ? `${viewingAgentName ?? 'Agent'} — 2026 Important Dates` : 'My 2026 Important Dates'}
         />
       )}
 
