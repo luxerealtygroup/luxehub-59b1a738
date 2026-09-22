@@ -120,11 +120,14 @@ export function PortalDocumentsPanel({
 
   useEffect(() => { load(); }, [portalId, source]);
 
-  const onUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onUpload = async (picked: File[]) => {
     if (blockPortalWrite('Uploading documents')) return;
-    const files = Array.from(e.target.files || []);
+    const { accepted, errors } = checkFiles(picked, { maxSizeMB: 25 });
+    errors.forEach((message) => toast({ title: 'File not added', description: message, variant: 'destructive' }));
+    const files = accepted;
     if (!files.length) return;
     setUploading(true);
+
     const { data: { user } } = await supabase.auth.getUser();
     for (const file of files) {
       const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
