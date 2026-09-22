@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { ACCEPT_IMAGES } from '@/lib/uploads';
+import { checkFiles } from '@/lib/uploads';
+import { UploadPickers } from '@/components/uploads/UploadPickers';
+
 import { supabase } from '@/integrations/supabase/client';
 import { blockPortalWrite, usePortalPreview } from '@/hooks/usePortalPreview';
 import { useToast } from '@/hooks/use-toast';
