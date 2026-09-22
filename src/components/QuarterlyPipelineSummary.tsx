@@ -13,18 +13,18 @@ function MetricPanel({ label, metrics }: { label: string; metrics: QuarterPipeli
   return (
     <div className="rounded-md border border-border bg-background/60 p-4">
       <p className="text-sm font-semibold text-foreground">{label}</p>
-      <div className="mt-3 grid grid-cols-3 gap-3">
-        <div>
+      <div className="mt-3 space-y-2">
+        <div className="flex items-baseline justify-between gap-3">
           <p className="text-xs text-muted-foreground">Units</p>
-          <p className="text-xl font-bold tabular-nums text-foreground">{formatWeightedDeals(metrics.units)}</p>
+          <p className="text-lg font-bold tabular-nums text-foreground">{formatWeightedDeals(metrics.units)}</p>
         </div>
-        <div>
+        <div className="flex items-baseline justify-between gap-3">
           <p className="text-xs text-muted-foreground">Volume</p>
-          <p className="text-base font-bold tabular-nums text-foreground">{formatCurrency(metrics.volume)}</p>
+          <p className="min-w-0 text-right text-base font-bold tabular-nums text-foreground">{formatCurrency(metrics.volume)}</p>
         </div>
-        <div>
+        <div className="flex items-baseline justify-between gap-3">
           <p className="text-xs text-muted-foreground">GCI</p>
-          <p className="text-base font-bold tabular-nums text-foreground">{formatCurrency(metrics.gci)}</p>
+          <p className="min-w-0 text-right text-base font-bold tabular-nums text-foreground">{formatCurrency(metrics.gci)}</p>
         </div>
       </div>
       <div className="mt-4 grid grid-cols-3 gap-2 border-t border-border pt-3 text-xs">
