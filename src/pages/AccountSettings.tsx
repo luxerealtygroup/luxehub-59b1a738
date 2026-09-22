@@ -155,7 +155,7 @@ const AccountSettings = () => {
               <input
                 ref={fileInput}
                 type="file"
-                accept="image/*"
+                accept="image/*,.heic,.heif"
                 className="hidden"
                 onChange={(e) => {
                   const f = e.target.files?.[0];

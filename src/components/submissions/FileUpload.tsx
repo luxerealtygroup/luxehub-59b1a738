@@ -1,8 +1,9 @@
-import { useState, useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Upload, X, FileText, Image, File } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { ACCEPT_DOCUMENTS, checkFiles, formatFileSize as prettySize } from '@/lib/uploads';
 
 interface FileUploadProps {
   files: File[];
@@ -12,17 +13,30 @@ interface FileUploadProps {
 
 export function FileUpload({ files, setFiles, maxFiles = 10 }: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = Array.from(e.target.files || []);
-    
-    if (files.length + selectedFiles.length > maxFiles) {
+  const addFiles = (selectedFiles: File[]) => {
+    if (!selectedFiles.length) return;
+
+    const { accepted, errors } = checkFiles(selectedFiles, { maxSizeMB: 25 });
+    errors.forEach((message) => toast.error(message));
+    if (!accepted.length) return;
+
+    const room = maxFiles - files.length;
+    if (room <= 0) {
       toast.error(`Maximum ${maxFiles} files allowed`);
       return;
     }
+    if (accepted.length > room) {
+      toast.error(`Only ${room} more file${room === 1 ? '' : 's'} can be added (max ${maxFiles}).`);
+    }
 
-    setFiles([...files, ...selectedFiles]);
-    
+    setFiles([...files, ...accepted.slice(0, room)]);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    addFiles(Array.from(e.target.files || []));
+
     // Reset input so the same file can be selected again
     if (inputRef.current) {
       inputRef.current.value = '';
@@ -43,31 +57,34 @@ export function FileUpload({ files, setFiles, maxFiles = 10 }: FileUploadProps) 
     return <File className="h-4 w-4 text-muted-foreground" />;
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-  };
+  const formatFileSize = prettySize;
 
   return (
     <div className="space-y-3">
       <div
         onClick={() => inputRef.current?.click()}
-        className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          addFiles(Array.from(e.dataTransfer.files || []));
+        }}
+        className={`flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${dragging ? 'bg-muted border-primary/60' : 'hover:bg-muted/50'}`}
       >
         <Upload className="h-6 w-6 text-muted-foreground" />
         <span className="mt-1 text-sm text-muted-foreground">
           Click to upload files (max {maxFiles})
         </span>
         <span className="text-xs text-muted-foreground">
-          PDF, images, documents accepted
+          PDF, Word, Excel, CSV, photos (incl. HEIC) — up to 25MB each
         </span>
         <input
           ref={inputRef}
           type="file"
           className="hidden"
           multiple
-          accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx"
+          accept={ACCEPT_DOCUMENTS}
           onChange={handleFileChange}
         />
       </div>
