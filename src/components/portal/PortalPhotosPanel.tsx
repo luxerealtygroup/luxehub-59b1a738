@@ -126,12 +126,15 @@ export function PortalPhotosPanel({ portalId, canManage: canManageProp, scope = 
 
   useEffect(() => { load(); }, [portalId]);
 
-  const onUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onUpload = async (picked: File[]) => {
     if (blockPortalWrite('Uploading photos')) return;
-    const files = Array.from(e.target.files || []);
+    const { accepted, errors } = checkFiles(picked, { maxSizeMB: 25, imagesOnly: true });
+    errors.forEach((message) => toast({ title: 'Photo not added', description: message, variant: 'destructive' }));
+    const files = accepted;
     if (!files.length) return;
     setUploading(true);
     setProgress({ done: 0, total: files.length });
+
     const { data: { user } } = await supabase.auth.getUser();
     const cap = caption.trim() || null;
     let failed = 0;
