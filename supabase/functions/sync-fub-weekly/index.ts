@@ -489,12 +489,33 @@ async function syncOrg(
 
 // ---------------------------------------------------------------------------
 
+/** Shared secret used by the scheduled job, same pattern as the open house sweep. */
+async function expectedJobSecret(): Promise<string | null> {
+  const env = Deno.env.get('FUB_WEEKLY_SYNC_SECRET')?.trim();
+  const { data } = await db()
+    .from('internal_job_secrets')
+    .select('value')
+    .eq('key', 'FUB_WEEKLY_SYNC_SECRET')
+    .maybeSingle();
+  const stored = (data as { value: string } | null)?.value?.trim() ?? '';
+  return stored || env || null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
-  const caller = await resolveCaller(req);
+  // The scheduled run authenticates with the job secret; people authenticate
+  // with their own session and must be an admin.
+  const suppliedSecret = req.headers.get('x-job-secret')?.trim() ?? '';
+  const jobSecret = suppliedSecret ? await expectedJobSecret() : null;
+  const isJob = Boolean(jobSecret && suppliedSecret === jobSecret);
+
+  const caller = isJob
+    ? ({ kind: 'service', userId: null, isAdmin: true, isStaff: true } as const)
+    : await resolveCaller(req);
   if (!caller) return json({ error: 'UNAUTHORIZED' }, 401);
   if (caller.kind !== 'service' && !caller.isAdmin) return json({ error: 'FORBIDDEN' }, 403);
+
 
   let body: {
     week_start?: string; week_end?: string; cron?: boolean; catchup?: boolean; org_id?: string;
