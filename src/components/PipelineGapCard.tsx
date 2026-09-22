@@ -177,7 +177,7 @@ export const PipelineGapCard: React.FC<Props> = ({ userId, scopeUserId, readOnly
           icon={<AlertTriangle className="h-3 w-3" />}
           label="Gap to Fill"
           value={gap.gap}
-          tone={gap.onTrack ? 'good' : 'bad'}
+          tone={settings.goal <= 0 ? 'plain' : gap.onTrack ? 'good' : 'bad'}
         />
       </div>
     </div>
@@ -217,7 +217,7 @@ export const PipelineGapCard: React.FC<Props> = ({ userId, scopeUserId, readOnly
                   icon={<AlertTriangle className="h-3 w-3" />}
                   label="Gap to Fill"
                   value={combinedGapValue}
-                  tone={combinedOnTrack ? 'good' : 'bad'}
+                  tone={combinedGoal <= 0 ? 'plain' : combinedOnTrack ? 'good' : 'bad'}
                 />
               </div>
             </div>
