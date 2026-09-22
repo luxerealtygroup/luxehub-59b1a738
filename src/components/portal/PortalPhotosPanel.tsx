@@ -181,7 +181,7 @@ export function PortalPhotosPanel({ portalId, canManage: canManageProp, scope = 
     setProgress({ done: 0, total: 0 });
     setCaption('');
     if (inputRef.current) inputRef.current.value = '';
-    const ok = files.length - failed;
+
     if (ok > 0) toast({ title: `Uploaded ${ok} photo${ok !== 1 ? 's' : ''}` });
     load();
   };
