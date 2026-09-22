@@ -1,8 +1,9 @@
-import { useState, useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Upload, X, FileText, Image, File } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { ACCEPT_DOCUMENTS, checkFiles, formatFileSize as prettySize } from '@/lib/uploads';
 
 interface FileUploadProps {
   files: File[];
@@ -12,17 +13,30 @@ interface FileUploadProps {
 
 export function FileUpload({ files, setFiles, maxFiles = 10 }: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = Array.from(e.target.files || []);
-    
-    if (files.length + selectedFiles.length > maxFiles) {
+  const addFiles = (selectedFiles: File[]) => {
+    if (!selectedFiles.length) return;
+
+    const { accepted, errors } = checkFiles(selectedFiles, { maxSizeMB: 25 });
+    errors.forEach((message) => toast.error(message));
+    if (!accepted.length) return;
+
+    const room = maxFiles - files.length;
+    if (room <= 0) {
       toast.error(`Maximum ${maxFiles} files allowed`);
       return;
     }
+    if (accepted.length > room) {
+      toast.error(`Only ${room} more file${room === 1 ? '' : 's'} can be added (max ${maxFiles}).`);
+    }
 
-    setFiles([...files, ...selectedFiles]);
-    
+    setFiles([...files, ...accepted.slice(0, room)]);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    addFiles(Array.from(e.target.files || []));
+
     // Reset input so the same file can be selected again
     if (inputRef.current) {
       inputRef.current.value = '';
