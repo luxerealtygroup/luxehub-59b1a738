@@ -688,12 +688,13 @@ const Pipeline = () => {
         )}
       </div>
 
-      {/* Quarterly Gap Analysis */}
+      {/* Rolling two-quarter Gap Analysis */}
       <PipelineGapCard
         userId={queryUserId}
-        currentPipelineCount={pipelineMetrics.clientsInDateRange}
+        scopeUserId={canSeeTeam && teamScope ? null : queryUserId}
         readOnly={isReadOnly}
       />
+
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
