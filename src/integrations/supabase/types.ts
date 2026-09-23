@@ -3004,6 +3004,8 @@ export type Database = {
         Row: {
           agent_name: string | null
           attendance: string
+          casl_consent: boolean | null
+          casl_consent_at: string | null
           client_captured_at: string | null
           condition_feedback: string | null
           created_at: string
@@ -3016,6 +3018,7 @@ export type Database = {
           follow_up_sent_at: string | null
           fub_attempts: number
           fub_contact_id: string | null
+          fub_event_id: string | null
           fub_linked: boolean
           fub_next_attempt_at: string | null
           fub_note_due_at: string | null
@@ -3025,6 +3028,8 @@ export type Database = {
           fub_stage_due_at: string | null
           fub_stage_result: string | null
           fub_sync_error: string | null
+          fub_tier: string | null
+          fub_tier_sent_at: string | null
           has_home_to_sell: string | null
           id: string
           intent: string | null
@@ -3049,6 +3054,8 @@ export type Database = {
         Insert: {
           agent_name?: string | null
           attendance?: string
+          casl_consent?: boolean | null
+          casl_consent_at?: string | null
           client_captured_at?: string | null
           condition_feedback?: string | null
           created_at?: string
@@ -3061,6 +3068,7 @@ export type Database = {
           follow_up_sent_at?: string | null
           fub_attempts?: number
           fub_contact_id?: string | null
+          fub_event_id?: string | null
           fub_linked?: boolean
           fub_next_attempt_at?: string | null
           fub_note_due_at?: string | null
@@ -3070,6 +3078,8 @@ export type Database = {
           fub_stage_due_at?: string | null
           fub_stage_result?: string | null
           fub_sync_error?: string | null
+          fub_tier?: string | null
+          fub_tier_sent_at?: string | null
           has_home_to_sell?: string | null
           id?: string
           intent?: string | null
@@ -3094,6 +3104,8 @@ export type Database = {
         Update: {
           agent_name?: string | null
           attendance?: string
+          casl_consent?: boolean | null
+          casl_consent_at?: string | null
           client_captured_at?: string | null
           condition_feedback?: string | null
           created_at?: string
@@ -3106,6 +3118,7 @@ export type Database = {
           follow_up_sent_at?: string | null
           fub_attempts?: number
           fub_contact_id?: string | null
+          fub_event_id?: string | null
           fub_linked?: boolean
           fub_next_attempt_at?: string | null
           fub_note_due_at?: string | null
@@ -3115,6 +3128,8 @@ export type Database = {
           fub_stage_due_at?: string | null
           fub_stage_result?: string | null
           fub_sync_error?: string | null
+          fub_tier?: string | null
+          fub_tier_sent_at?: string | null
           has_home_to_sell?: string | null
           id?: string
           intent?: string | null
@@ -3159,6 +3174,7 @@ export type Database = {
           custom_question_3: string | null
           disclosure_text: string | null
           ends_at: string | null
+          feature_sheet_url: string | null
           hosting_agent_id: string | null
           id: string
           is_active: boolean
@@ -3197,6 +3213,7 @@ export type Database = {
           custom_question_3?: string | null
           disclosure_text?: string | null
           ends_at?: string | null
+          feature_sheet_url?: string | null
           hosting_agent_id?: string | null
           id?: string
           is_active?: boolean
@@ -3235,6 +3252,7 @@ export type Database = {
           custom_question_3?: string | null
           disclosure_text?: string | null
           ends_at?: string | null
+          feature_sheet_url?: string | null
           hosting_agent_id?: string | null
           id?: string
           is_active?: boolean
@@ -6222,26 +6240,48 @@ export type Database = {
         }
         Returns: undefined
       }
-      submit_open_house_visitor: {
-        Args: {
-          _agent_name: string
-          _client_captured_at: string
-          _custom_answers: Json
-          _disclosure_accepted: boolean
-          _email: string
-          _first_name: string
-          _has_home_to_sell: string
-          _intent: string
-          _last_name: string
-          _lender_status: string
-          _notes: string
-          _phone: string
-          _slug: string
-          _timeline: string
-          _working_with_agent: boolean
-        }
-        Returns: undefined
-      }
+      submit_open_house_visitor:
+        | {
+            Args: {
+              _agent_name: string
+              _client_captured_at: string
+              _custom_answers: Json
+              _disclosure_accepted: boolean
+              _email: string
+              _first_name: string
+              _has_home_to_sell: string
+              _intent: string
+              _last_name: string
+              _lender_status: string
+              _notes: string
+              _phone: string
+              _slug: string
+              _timeline: string
+              _working_with_agent: boolean
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              _agent_name: string
+              _casl_consent: boolean
+              _client_captured_at: string
+              _custom_answers: Json
+              _disclosure_accepted: boolean
+              _email: string
+              _first_name: string
+              _has_home_to_sell: string
+              _intent: string
+              _last_name: string
+              _lender_status: string
+              _notes: string
+              _phone: string
+              _slug: string
+              _timeline: string
+              _working_with_agent: boolean
+            }
+            Returns: undefined
+          }
       topic_in_my_org: { Args: { _topic: string }; Returns: boolean }
       user_in_my_org: { Args: { _user_id: string }; Returns: boolean }
       validate_org_invite: {
