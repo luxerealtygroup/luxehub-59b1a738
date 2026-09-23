@@ -122,7 +122,7 @@ Deno.serve(async (req) => {
     // Per-org key and stage list, resolved once per run.
     const keys = new Map<string, string | null>();
     const stageLists = new Map<string, Stage[]>();
-    const hostEmails = new Map<string, string | null>();
+    const hostEmails = new Map<string, any>();
 
     const keyFor = async (orgId: string) => {
       if (!keys.has(orgId)) keys.set(orgId, await getFubApiKeyForOrg(orgId));
