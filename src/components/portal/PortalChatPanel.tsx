@@ -200,12 +200,20 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
     (viewerRole === 'client' && m.sender_type === 'client') ||
     (viewerRole === 'agent' && m.sender_type === 'agent');
 
+  // Everyone in the thread sees who wrote and in what capacity, so the client
+  // can tell they are talking to a team rather than one person.
   const headerFor = (m: PortalMessage) => {
     if (m.sender_type === 'ops') {
-      return { icon: <Headset className="h-3 w-3" />, label: `${tenant.brokerageName} Support` };
+      return {
+        icon: <Headset className="h-3 w-3" />,
+        label: `${m.sender_name || 'Operations'} · Operations`,
+      };
     }
     if (m.sender_type === 'agent') {
-      return { icon: <Briefcase className="h-3 w-3" />, label: m.sender_name || 'Your Agent' };
+      return {
+        icon: <Briefcase className="h-3 w-3" />,
+        label: `${m.sender_name || 'Your Agent'} · Agent`,
+      };
     }
     return { icon: <User className="h-3 w-3" />, label: m.sender_name || 'Client' };
   };
