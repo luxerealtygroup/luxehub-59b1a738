@@ -29,6 +29,7 @@ import {
   Bell,
   Heart,
   Headset,
+  MessageSquare,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -37,6 +38,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useTenant } from '@/hooks/useTenant';
 import { useOrgTier } from '@/hooks/useOrgTier';
+import { useUnreadMessageCount } from '@/hooks/useAgentConversations';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -146,6 +148,7 @@ export function AppSidebar() {
     canAccessClientPortals,
     canAccessNominations,
   } = useOrgTier();
+  const unreadMessages = useUnreadMessageCount();
   const tenant = useTenant();
   // Cross-tenant tools stay off-limits to Operations, which is team-scoped.
   const isSuperAdmin = (isOwner || isAdmin) && !isOperations && tenant.isDefaultTenant;
@@ -174,6 +177,7 @@ export function AppSidebar() {
           if (item.adminOnly && !isAdmin) return false;
           if (item.title === 'Nominations' && !canAccessNominations) return false;
           if (item.title === 'Client Portals' && !canAccessClientPortals) return false;
+          if (item.title === 'Messages' && !canAccessClientPortals) return false;
           return true;
         }),
       };
