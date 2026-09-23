@@ -64,7 +64,8 @@ export default function MessageThread() {
     };
   }, [portalId]);
 
-  const attach = async (picked: File[]) => {
+  // Attachments are sent from inside the conversation composer.
+  const unusedAttach = async (picked: File[]) => {
     if (!portalId) return;
     const { accepted, errors } = checkFiles(picked, { maxSizeMB: 25 });
     errors.forEach((message) =>
@@ -168,20 +169,6 @@ export default function MessageThread() {
         sendAsAgentId={portal.assigned_agent_id ?? portal.invited_by ?? null}
       />
 
-      <div className="flex flex-wrap items-center gap-2">
-        {uploading ? (
-          <span className="text-xs text-muted-foreground flex items-center gap-2">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Sending file…
-          </span>
-        ) : (
-          <>
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
-              <Paperclip className="h-3.5 w-3.5" /> Send a file or photo
-            </span>
-            <UploadPickers onFiles={(f) => void attach(f)} disabled={uploading} size="sm" />
-          </>
-        )}
-      </div>
     </div>
   );
 }
