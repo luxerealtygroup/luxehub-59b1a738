@@ -21,7 +21,7 @@ import {
 } from '@/lib/openHouse/options';
 import {
   ATTENDANCE_LABEL,
-  CONDITION_LABEL, Guest, INTEREST_LABEL, PRICE_LABEL, TEMPERATURE_OPTIONS, Temperature,
+  CONDITION_LABEL, Guest, INTEREST_LABEL, PRICE_LABEL, FUB_TIERS, tierTemperature,
   ConditionFeedback, InterestLevel, PriceFeedback,
   fillTemplate, fubNoteStale, guestName, guestTime, mailtoHref, missingPrompt, smsHref,
 } from '@/lib/openHouse/guests';
@@ -305,29 +305,34 @@ export function GuestCard({
         </div>
       </div>
 
-      {/* Temperature — set before they leave */}
-      <div className="flex gap-2">
-        {TEMPERATURE_OPTIONS.map((t) => {
-          const on = guest.temperature === t.value;
-          const tone =
-            t.value === 'hot' ? 'bg-destructive text-destructive-foreground'
-            : t.value === 'warm' ? 'bg-gold text-background'
-            : 'bg-muted-foreground text-background';
-          return (
-            <button
-              key={t.value}
-              type="button"
-              aria-pressed={on}
-              disabled={busy || !canManage}
-              onClick={() => canManage && patch({ temperature: (on ? null : t.value) as Temperature | null })}
-              className={`min-h-[44px] flex-1 rounded-lg border text-sm font-semibold transition-colors ${
-                on ? `${tone} border-transparent` : 'border-border bg-background text-muted-foreground hover:border-gold/60'
-              }`}
-            >
-              {t.label}
-            </button>
-          );
-        })}
+      {/* Follow-up tier — the agent's own vocabulary */}
+      <div className="space-y-1">
+        <div className="flex flex-wrap gap-2">
+          {FUB_TIERS.map((t) => {
+            const on = guest.fub_tier === t;
+            return (
+              <button
+                key={t}
+                type="button"
+                aria-pressed={on}
+                disabled={busy || !canManage}
+                onClick={() => {
+                  if (!canManage) return;
+                  const next = on ? null : t;
+                  patch({ fub_tier: next, temperature: tierTemperature(next) });
+                }}
+                className={`min-h-[40px] rounded-lg border px-3 text-sm font-semibold transition-colors ${
+                  on ? 'border-transparent bg-gold text-background' : 'border-border bg-background text-muted-foreground hover:border-gold/60'
+                }`}
+              >
+                {t}
+              </button>
+            );
+          })}
+        </div>
+        {guest.fub_tier_sent_at && (
+          <p className="text-xs text-muted-foreground">Tier sent to Follow Up Boss</p>
+        )}
       </div>
 
       {canManage && prompt && (
