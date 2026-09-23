@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
+import { ThreadParticipants } from '@/components/portal/ThreadParticipants';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { blockPortalWrite, usePortalPreview } from '@/hooks/usePortalPreview';
@@ -263,6 +264,7 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
           </div>
         </div>
       </CardHeader>
+      <ThreadParticipants portalId={portalId} viewerRole={viewerRole} />
       <CardContent className="flex-1 flex flex-col min-h-0 p-0 bg-[hsl(38_30%_98%)]">
         {loading ? (
           <div className="flex-1 flex items-center justify-center text-muted-foreground">

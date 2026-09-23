@@ -4935,6 +4935,7 @@ export type Database = {
           avatar_url: string | null
           coaching_history_seed: string | null
           created_at: string
+          display_title: string | null
           email: string | null
           fub_account: string
           fub_user_email: string | null
@@ -4956,6 +4957,7 @@ export type Database = {
           avatar_url?: string | null
           coaching_history_seed?: string | null
           created_at?: string
+          display_title?: string | null
           email?: string | null
           fub_account?: string
           fub_user_email?: string | null
@@ -4977,6 +4979,7 @@ export type Database = {
           avatar_url?: string | null
           coaching_history_seed?: string | null
           created_at?: string
+          display_title?: string | null
           email?: string | null
           fub_account?: string
           fub_user_email?: string | null
@@ -5978,6 +5981,17 @@ export type Database = {
       get_org_secret: {
         Args: { _key: string; _org_id: string }
         Returns: string
+      }
+      get_portal_participants: {
+        Args: { _portal_id: string }
+        Returns: {
+          avatar_url: string
+          full_name: string
+          is_client: boolean
+          role_label: string
+          sort_order: number
+          user_id: string
+        }[]
       }
       get_portal_realtor: {
         Args: { _portal_id: string }
