@@ -93,7 +93,8 @@ Deno.serve(async (req) => {
     if (!slackToken && portal.slack_channel_id) {
       console.warn('Slack is not connected for this instance; portal message not mirrored to Slack.');
     }
-    if (slackToken && portal.slack_channel_id) {
+    // Internal notes stay inside LUXEhub — they are never mirrored to Slack.
+    if (slackToken && portal.slack_channel_id && !isInternal) {
       try {
         const emoji = senderType === 'client' ? '💬' : '🧑‍💼';
         const text = `${emoji} *${senderName}*: ${message}`;
@@ -135,6 +136,7 @@ Deno.serve(async (req) => {
         sender_user_id: userId,
         message_body: message,
         slack_ts: slackTs,
+        is_internal: isInternal,
       })
       .select()
       .single();
