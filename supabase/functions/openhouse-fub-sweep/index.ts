@@ -122,7 +122,7 @@ Deno.serve(async (req) => {
     // Per-org key and stage list, resolved once per run.
     const keys = new Map<string, string | null>();
     const stageLists = new Map<string, Stage[]>();
-    const hostEmails = new Map<string, string | null>();
+    const hostEmails = new Map<string, any>();
 
     const keyFor = async (orgId: string) => {
       if (!keys.has(orgId)) keys.set(orgId, await getFubApiKeyForOrg(orgId));
@@ -135,8 +135,8 @@ Deno.serve(async (req) => {
     const hostEmailFor = async (userId: string | null) => {
       if (!userId) return null;
       if (!hostEmails.has(userId)) {
-        const { data } = await db.from('profiles').select('email').eq('id', userId).maybeSingle();
-        hostEmails.set(userId, (data as { email: string | null } | null)?.email ?? null);
+        const { data } = await db.from('profiles').select('email, fub_user_email, fub_user_id').eq('id', userId).maybeSingle();
+        hostEmails.set(userId, data as any);
       }
       return hostEmails.get(userId) ?? null;
     };
@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
       .from('open_house_visitors')
       .select(
         `${VISITOR_COLUMNS}, fub_attempts, open_house_id, ` +
-          'open_houses!inner(id, property_address, org_id, hosting_agent_id, user_id, ends_at, open_house_date)',
+          'open_houses!inner(id, property_address, org_id, hosting_agent_id, user_id, ends_at, open_house_date, city, mls_number, list_price, feature_sheet_url)',
       )
       .is('fub_sent_at', null)
       // No phone and no email means Follow Up Boss has nothing to match on.
@@ -209,15 +209,22 @@ Deno.serve(async (req) => {
       }
 
       const visitor = row as unknown as Visitor;
+      const hostProf: any = await hostEmailFor(hostId);
       const out = await sendOne(
         key,
         visitor,
         {
           property_address: house.property_address || 'Open House',
-          hosting_email: await hostEmailFor(hostId),
+          hosting_email: hostProf?.fub_user_email || hostProf?.email || null,
+          hosting_fub_user_id: hostProf?.fub_user_id ? Number(hostProf.fub_user_id) || null : null,
+          city: (house as any).city ?? null,
+          mls_number: (house as any).mls_number ?? null,
+          list_price: (house as any).list_price ?? null,
+          feature_sheet_url: (house as any).feature_sheet_url ?? null,
         },
         stage,
         stages,
+        orgId,
       );
 
       if (out.ok) {
@@ -234,6 +241,7 @@ Deno.serve(async (req) => {
             fub_note_due_at: null,
             fub_stage: stage,
             fub_stage_result: out.stageResult ?? null,
+            fub_event_id: out.eventId ?? null,
           })
           .eq('id', visitor.id);
         summary.sent += 1;

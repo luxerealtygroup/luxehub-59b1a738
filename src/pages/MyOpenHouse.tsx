@@ -60,6 +60,7 @@ type OpenHouse = {
   slug: string | null;
   city: string | null;
   mls_number: string | null;
+  feature_sheet_url?: string | null;
   list_price: number | null;
   cover_photo_url: string | null;
   hosting_agent_id: string | null;
@@ -321,6 +322,7 @@ function OpenHouseFormDialog({
     client_email: initial?.client_email || '',
     city: initial?.city || '',
     mls_number: initial?.mls_number || '',
+    feature_sheet_url: initial?.feature_sheet_url || '',
     list_price: initial?.list_price != null ? String(initial.list_price) : '',
     cover_photo_url: initial?.cover_photo_url || '',
     start_time: initial?.starts_at ? new Date(initial.starts_at).toTimeString().slice(0, 5) : '',
@@ -514,6 +516,7 @@ function OpenHouseFormDialog({
       client_email: form.client_email.trim() || null,
       city: form.city.trim() || null,
       mls_number: form.mls_number.trim() || null,
+      feature_sheet_url: form.feature_sheet_url.trim() || null,
       list_price: form.list_price ? Number(form.list_price.replace(/[^\d.]/g, '')) : null,
       cover_photo_url: form.cover_photo_url.trim() || null,
       starts_at: startsAt,
@@ -716,6 +719,9 @@ function OpenHouseFormDialog({
             <Input value={form.mls_number} onChange={e => setForm({ ...form, mls_number: e.target.value })} />
           </Field>
         </div>
+        <Field label="Feature sheet link (sent to Follow Up Boss)">
+          <Input type="url" placeholder="https://" value={form.feature_sheet_url} onChange={e => setForm({ ...form, feature_sheet_url: e.target.value })} />
+        </Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Start time">
             <Input type="time" value={form.start_time} onChange={e => setForm({ ...form, start_time: e.target.value })} />

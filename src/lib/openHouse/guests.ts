@@ -40,6 +40,10 @@ export interface Guest {
   fub_sync_error: string | null;
   fub_stage: string | null;
   fub_stage_result: string | null;
+  fub_tier: FubTier | null;
+  fub_tier_sent_at: string | null;
+  casl_consent: boolean | null;
+  casl_consent_at: string | null;
   fub_note_updated_at: string | null;
   fub_attempts: number | null;
   fub_next_attempt_at: string | null;
@@ -60,7 +64,7 @@ export const GUEST_COLUMNS =
   'id, open_house_id, first_name, last_name, email, phone, working_with_agent, agent_name, ' +
   'intent, has_home_to_sell, timeline, lender_status, custom_answers, notes, source, temperature, ' +
   'interest_level, price_feedback, condition_feedback, fub_contact_id, fub_linked, ' +
-  'fub_sent_at, fub_sync_error, fub_stage, fub_stage_result, fub_note_updated_at, ' +
+  'fub_sent_at, fub_sync_error, fub_stage, fub_stage_result, fub_tier, fub_tier_sent_at, casl_consent, casl_consent_at, fub_note_updated_at, ' +
   'fub_attempts, fub_next_attempt_at, fub_note_due_at, updated_at, attendance, ' +
   'report_token, featured_listings, follow_up_sent_at, follow_up_channel, signed_in_at, client_captured_at, created_at';
 
@@ -88,6 +92,21 @@ export const INTEREST_LABEL: Record<InterestLevel, string> = {
   medium: 'Medium',
   low: 'Low',
 };
+
+/** The agent's fixed follow-up tiers; each becomes a Follow Up Boss tag. */
+export const FUB_TIERS = [
+  'Ready to Go', 'Pre-Approved', 'Early Stages', 'Hot Lead',
+  'Warm Lead', 'Cool Lead', 'Nurture', 'OH – No Read',
+] as const;
+export type FubTier = (typeof FUB_TIERS)[number];
+
+/** Keeps the seller report's hot/warm/cold counts working from the tier. */
+export function tierTemperature(t: FubTier | null): Temperature | null {
+  if (!t) return null;
+  if (t === 'Ready to Go' || t === 'Pre-Approved' || t === 'Hot Lead') return 'hot';
+  if (t === 'Early Stages' || t === 'Warm Lead') return 'warm';
+  return 'cold';
+}
 
 export const TEMPERATURE_OPTIONS: { value: Temperature; label: string }[] = [
   { value: 'hot', label: 'Hot' },

@@ -53,6 +53,7 @@ const blankForm = () => ({
   custom_3: '',
   notes: '',
   disclosure_accepted: false,
+  casl_consent: false,
 });
 
 type FormState = ReturnType<typeof blankForm>;
@@ -282,6 +283,7 @@ export default function OpenHouseSignIn() {
         _custom_answers: custom_answers,
         _disclosure_accepted: form.disclosure_accepted,
         _notes: form.notes.trim() || null,
+        _casl_consent: form.casl_consent,
       },
     };
 
@@ -540,6 +542,20 @@ export default function OpenHouseSignIn() {
               </label>
             </div>
           )}
+
+          <div className="rounded-xl border border-border bg-card p-4">
+            <label className="flex items-start gap-3 text-base text-foreground">
+              <Checkbox
+                className="mt-0.5 h-6 w-6"
+                checked={form.casl_consent}
+                onCheckedChange={(v) => set('casl_consent', v === true)}
+              />
+              <span>
+                Yes, I agree to receive emails and texts about this home and similar listings from the hosting
+                agent and their brokerage. I can unsubscribe at any time.
+              </span>
+            </label>
+          </div>
 
           <Button type="submit" disabled={submitting} className="h-16 w-full text-xl font-semibold">
             {submitting && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}

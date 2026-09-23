@@ -14,6 +14,8 @@ import {
   type Visitor,
   getStages,
   applyStage,
+  applyTier,
+  TIERS,
   isDemoOpenHouse,
   postNote,
   sendOne,
@@ -49,6 +51,7 @@ Deno.serve(async (req) => {
     stage?: string;
     visitorIds?: string[];
     orgId?: string;
+    tiers?: Record<string, string>;
   };
   try {
     body = await req.json();
@@ -98,7 +101,7 @@ Deno.serve(async (req) => {
     // ---- sending ----------------------------------------------------------
     if (
       action !== 'push' && action !== 'push_all' && action !== 'stages' &&
-      action !== 'update_note' && action !== 'restage'
+      action !== 'update_note' && action !== 'restage' && action !== 'send_tier'
     ) {
       return json({ error: 'Unknown action' }, 400);
     }
@@ -118,6 +121,24 @@ Deno.serve(async (req) => {
     if (!key) {
       return json({ error: 'Follow Up Boss is not connected for this team yet.' }, 400);
     }
+
+    const houseInfo = async (h: any) => {
+      const hid = h.hosting_agent_id || h.user_id;
+      let prof: any = null;
+      if (hid) {
+        const { data } = await db.from('profiles').select('email, fub_user_email, fub_user_id').eq('id', hid).maybeSingle();
+        prof = data;
+      }
+      return {
+        property_address: h.property_address,
+        hosting_email: prof?.fub_user_email || prof?.email || null,
+        hosting_fub_user_id: prof?.fub_user_id ? Number(prof.fub_user_id) || null : null,
+        city: h.city ?? null,
+        mls_number: h.mls_number ?? null,
+        list_price: h.list_price ?? null,
+        feature_sheet_url: h.feature_sheet_url ?? null,
+      };
+    };
 
     const stages = await getStages(key, callerOrgId ?? 'instance');
 
@@ -209,6 +230,68 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
 
+    // ---- end-of-day tiers: one PUT per person, never a bulk update --------
+    if (action === 'send_tier') {
+      const tiers = body.tiers ?? {};
+      const ids = Object.keys(tiers).slice(0, 200);
+      if (!ids.length) return json({ error: 'Set a tier on at least one guest.' }, 400);
+      const results: { id: string; ok: boolean; error?: string }[] = [];
+      for (const id of ids) {
+        const tier = tiers[id];
+        if (!(TIERS as readonly string[]).includes(tier)) {
+          results.push({ id, ok: false, error: 'Unknown tier' });
+          continue;
+        }
+        const { data: row } = await db
+          .from('open_house_visitors')
+          .select(`${VISITOR_COLUMNS}, open_house_id`)
+          .eq('id', id)
+          .maybeSingle();
+        if (!row) { results.push({ id, ok: false, error: 'Guest not found' }); continue; }
+        const { data: oh } = await db
+          .from('open_houses')
+          .select('property_address, hosting_agent_id, user_id, org_id, city, mls_number, list_price, feature_sheet_url')
+          .eq('id', (row as any).open_house_id)
+          .maybeSingle();
+        if (!oh || ((oh as any).org_id && (oh as any).org_id !== callerOrgId)) {
+          results.push({ id, ok: false, error: 'FORBIDDEN' });
+          continue;
+        }
+        if (await isDemoOpenHouse(db, (oh as any).hosting_agent_id, (oh as any).user_id)) {
+          results.push({ id, ok: false, error: 'Demo open house — never sent.' });
+          continue;
+        }
+        await db.from('open_house_visitors').update({ fub_tier: tier }).eq('id', id);
+        let personId = (row as any).fub_contact_id as string | null;
+        if (!personId || !(row as any).fub_sent_at) {
+          const stage = matchStage((row as any).fub_stage) ?? matchStage('Lead') ?? matchStage('New Lead');
+          if (!stage) { results.push({ id, ok: false, error: 'No stage available' }); continue; }
+          const out = await sendOne(key, row as unknown as Visitor, await houseInfo(oh), stage, stages, callerOrgId ?? 'instance');
+          if (!out.ok) {
+            await db.from('open_house_visitors').update({ fub_sync_error: out.error ?? 'Unknown error' }).eq('id', id);
+            results.push({ id, ok: false, error: out.error });
+            continue;
+          }
+          personId = out.personId!;
+          await db.from('open_house_visitors').update({
+            fub_contact_id: personId, fub_linked: true, fub_sent_at: new Date().toISOString(),
+            fub_note_updated_at: new Date().toISOString(), fub_sync_error: null, fub_attempts: 0,
+            fub_next_attempt_at: null, fub_note_due_at: null, fub_stage: stage,
+            fub_stage_result: out.stageResult ?? null, fub_event_id: out.eventId ?? null,
+          }).eq('id', id);
+        }
+        const t = await applyTier(key, personId, tier);
+        if (t.ok) {
+          await db.from('open_house_visitors').update({ fub_tier_sent_at: new Date().toISOString(), fub_sync_error: null }).eq('id', id);
+        } else {
+          await db.from('open_house_visitors').update({ fub_sync_error: t.error ?? 'Tier failed' }).eq('id', id);
+        }
+        results.push({ id, ok: t.ok, error: t.error });
+      }
+      const sent = results.filter((r) => r.ok).length;
+      return json({ sent, failed: results.length - sent, results });
+    }
+
     const batchStage = matchStage(body.stage);
     if (!batchStage && action === 'push') {
       return json({ error: 'Pick a stage before sending this guest to Follow Up Boss.' }, 400);
@@ -240,7 +323,7 @@ Deno.serve(async (req) => {
 
     const { data: house } = await db
       .from('open_houses')
-      .select('property_address, hosting_agent_id, user_id, org_id')
+      .select('property_address, hosting_agent_id, user_id, org_id, city, mls_number, list_price, feature_sheet_url')
       .eq('id', openHouseId)
       .maybeSingle();
     if (!house) return json({ error: 'Open house not found' }, 404);
@@ -257,12 +340,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const hostId = (house as any).hosting_agent_id || (house as any).user_id;
-    let hostingEmail: string | null = null;
-    if (hostId) {
-      const { data: prof } = await db.from('profiles').select('email').eq('id', hostId).maybeSingle();
-      hostingEmail = (prof as any)?.email ?? null;
-    }
+    const info = await houseInfo(house);
 
     const results: { id: string; ok: boolean; error?: string }[] = [];
     for (const v of visitors) {
@@ -274,10 +352,7 @@ Deno.serve(async (req) => {
         results.push({ id: v.id, ok: false, error });
         continue;
       }
-      const out = await sendOne(key, v, {
-        property_address: (house as any).property_address,
-        hosting_email: hostingEmail,
-      }, stage, stages);
+      const out = await sendOne(key, v, info, stage, stages, callerOrgId ?? 'instance');
       if (out.ok) {
         await db
           .from('open_house_visitors')
@@ -292,6 +367,7 @@ Deno.serve(async (req) => {
             fub_note_due_at: null,
             fub_stage: stage,
             fub_stage_result: out.stageResult ?? null,
+            fub_event_id: out.eventId ?? null,
           })
           .eq('id', v.id);
       } else {

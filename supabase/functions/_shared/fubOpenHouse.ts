@@ -63,6 +63,9 @@ export interface Visitor {
   fub_contact_id: string | null;
   fub_sent_at: string | null;
   fub_stage: string | null;
+  fub_tier?: string | null;
+  casl_consent?: boolean | null;
+  casl_consent_at?: string | null;
   signed_in_at: string | null;
   client_captured_at: string | null;
   created_at: string;
@@ -72,7 +75,7 @@ export const VISITOR_COLUMNS =
   'id, first_name, last_name, email, phone, working_with_agent, agent_name, intent, ' +
   'has_home_to_sell, timeline, lender_status, custom_answers, notes, temperature, ' +
   'price_feedback, condition_feedback, interest_level, ' +
-  'fub_contact_id, fub_stage, fub_sent_at, signed_in_at, client_captured_at, created_at';
+  'fub_contact_id, fub_stage, fub_tier, casl_consent, casl_consent_at, fub_sent_at, signed_in_at, client_captured_at, created_at';
 
 const PRICE_LABEL: Record<string, string> = {
   priced_right: 'Priced right',
@@ -116,7 +119,9 @@ export function buildNote(v: Visitor, address: string, update = false) {
   } else if (v.working_with_agent === false) {
     answers.push('• Working with an agent: no');
   }
-  add('Temperature', v.temperature);
+  add('Follow-up tier', v.fub_tier);
+  if (v.casl_consent) answers.push(`• CASL consent: yes${v.casl_consent_at ? ` (${new Date(v.casl_consent_at).toLocaleString('en-CA')})` : ''}`);
+  else if (v.casl_consent === false) answers.push('• CASL consent: not given');
   add('Interest level', v.interest_level ? INTEREST_LABEL[v.interest_level] ?? v.interest_level : null);
   for (const [q, a] of Object.entries(v.custom_answers ?? {})) {
     if (a) answers.push(`• ${q}: ${a}`);
@@ -150,7 +155,6 @@ export function buildNote(v: Visitor, address: string, update = false) {
 export function buildTags(v: Visitor, address: string) {
   const tags = ['Open House'];
   if (address) tags.push(`Open House - ${address}`);
-  if (v.temperature) tags.push(`Open House ${v.temperature[0].toUpperCase()}${v.temperature.slice(1)}`);
   if (v.has_home_to_sell === 'yes') tags.push('Has Home To Sell');
   else if (v.has_home_to_sell === 'no') tags.push('No Home To Sell');
   return tags;
@@ -234,13 +238,108 @@ export async function postNote(
   return { ok: true };
 }
 
+export interface HouseInfo {
+  property_address: string;
+  hosting_email: string | null;
+  hosting_fub_user_id?: number | null;
+  city?: string | null;
+  mls_number?: string | null;
+  list_price?: number | null;
+  feature_sheet_url?: string | null;
+}
+
+export const EVENT_SOURCE = 'LUXEhub Open House';
+export const EVENT_TYPE = 'Visited Open House';
+export const WORKING_WITH_AGENT_TAG = 'Working with Another Agent';
+
+/** The agent's fixed follow-up tiers. Each one becomes a Follow Up Boss tag. */
+export const TIERS = [
+  'Ready to Go', 'Pre-Approved', 'Early Stages', 'Hot Lead',
+  'Warm Lead', 'Cool Lead', 'Nurture', 'OH – No Read',
+] as const;
+
+// ---- custom fields --------------------------------------------------------
+
+const FIELD_SPECS = [
+  { key: 'ownRent', labels: ['Own/Rent', 'Own or Rent', 'Own / Rent', 'OH Own/Rent'] },
+  { key: 'preApproved', labels: ['Pre-Approved', 'Pre Approved', 'Preapproved', 'OH Pre-Approved'] },
+  { key: 'workingWithAgent', labels: ['Working with an Agent', 'Working With Agent', 'Working with Agent', 'OH Working with an Agent'] },
+  { key: 'featureSheet', labels: ['OH Feature Sheet'] },
+] as const;
+type FieldKey = typeof FIELD_SPECS[number]['key'];
+
+const fieldCache = new Map<string, { at: number; map: Partial<Record<FieldKey, string>> }>();
+
+/**
+ * Resolve our four fields to the account's custom field API names. A field
+ * that does not exist yet is created once as plain text; if the key lacks the
+ * permission to create it, that field is simply skipped (the note still has it).
+ */
+export async function customFieldMap(key: string, cacheKey: string) {
+  const hit = fieldCache.get(cacheKey);
+  if (hit && Date.now() - hit.at < 10 * 60 * 1000) return hit.map;
+  const res = await fub(key, '/customFields?limit=200');
+  const list: any[] = res.ok ? res.body?.customfields ?? res.body?.customFields ?? [] : [];
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '');
+  const map: Partial<Record<FieldKey, string>> = {};
+  for (const spec of FIELD_SPECS) {
+    const want = spec.labels.map(norm);
+    const found = list.find((f) => want.includes(norm(String(f.label ?? ''))));
+    if (found?.name) { map[spec.key] = String(found.name); continue; }
+    const made = await fub(key, '/customFields', {
+      method: 'POST',
+      body: JSON.stringify({ label: spec.labels[0], type: 'text' }),
+    });
+    if (made.ok && made.body?.name) map[spec.key] = String(made.body.name);
+  }
+  fieldCache.set(cacheKey, { at: Date.now(), map });
+  return map;
+}
+
+function fieldValues(v: Visitor, house: HouseInfo) {
+  const ownRent = v.has_home_to_sell === 'yes' ? 'Own' : v.has_home_to_sell === 'no' ? 'Rent' :
+    v.has_home_to_sell === 'unsure' ? 'Not sure' : null;
+  const preApproved = v.lender_status === 'pre_approved' ? 'Yes' :
+    v.lender_status === 'pre_qualified' ? 'Pre-qualified' :
+    v.lender_status === 'not_yet' ? 'No' : v.lender_status === 'unsure' ? 'Not sure' : null;
+  const working = v.working_with_agent === true
+    ? `Yes${v.agent_name ? ` (${v.agent_name})` : ''}`
+    : v.working_with_agent === false ? 'No' : null;
+  return { ownRent, preApproved, workingWithAgent: working, featureSheet: house.feature_sheet_url || null };
+}
+
+function splitAddress(address: string, city?: string | null) {
+  const parts = address.split(',').map((p) => p.trim()).filter(Boolean);
+  const street = parts[0] || address;
+  const rest = parts.slice(1).join(' ');
+  const code = (rest.match(/[A-Z]\d[A-Z]\s?\d[A-Z]\d/i) || [])[0] || undefined;
+  const state = /\bON\b/.test(rest) ? 'ON' : undefined;
+  const cityGuess = city || parts[1]?.replace(/\bON\b.*$/, '').trim() || undefined;
+  return { street, city: cityGuess, state, code };
+}
+
+async function hostAgent(key: string, house: HouseInfo) {
+  if (house.hosting_fub_user_id) {
+    const res = await fub(key, `/users/${house.hosting_fub_user_id}`);
+    if (res.ok && res.body?.id) return { id: Number(res.body.id), name: String(res.body.name || '') };
+  }
+  return findAgent(key, house.hosting_email);
+}
+
+/**
+ * Send a guest to Follow Up Boss as an event (so the account's automations and
+ * lead flow fire), then finish the contact one person at a time:
+ * stage (guarded), tags, custom fields, assignment, and the sign-in note.
+ * The tier tag is NOT sent here — that happens later in `applyTier`.
+ */
 export async function sendOne(
   key: string,
   v: Visitor,
-  house: { property_address: string; hosting_email: string | null },
+  house: HouseInfo,
   stage: string,
   stages: Stage[],
-): Promise<{ ok: boolean; personId?: string; error?: string; stageResult?: string }> {
+  cacheKey = 'instance',
+): Promise<{ ok: boolean; personId?: string; error?: string; stageResult?: string; eventId?: string }> {
   if (v.fub_sent_at && v.fub_contact_id) {
     return { ok: true, personId: v.fub_contact_id };
   }
@@ -249,57 +348,116 @@ export async function sendOne(
   }
 
   const address = house.property_address || 'Open House';
-  const agent = await findAgent(key, house.hosting_email);
+  const agent = await hostAgent(key, house);
   const tags = buildTags(v, address);
-
-  let personId: string | null = null;
-  let stageResult = `Stage set to ${stage}`;
   const existing = await findPerson(key, v);
 
+  const person: Record<string, unknown> = {
+    firstName: v.first_name,
+    lastName: v.last_name || '',
+  };
+  if (v.email) person.emails = [{ value: v.email }];
+  if (v.phone) person.phones = [{ value: v.phone }];
+  if (!existing) {
+    person.stage = stage;
+    person.tags = tags;
+    if (agent) person.assignedUserId = agent.id;
+  }
+  const loc = splitAddress(address, house.city);
+  const property: Record<string, unknown> = { street: loc.street, type: 'Open House' };
+  if (loc.city) property.city = loc.city;
+  if (loc.state) property.state = loc.state;
+  if (loc.code) property.code = loc.code;
+  if (house.mls_number) property.mlsNumber = house.mls_number;
+  if (house.list_price) property.price = Number(house.list_price);
+  if (house.feature_sheet_url) property.url = house.feature_sheet_url;
+
+  const ev = await fub(key, '/events', {
+    method: 'POST',
+    body: JSON.stringify({
+      source: EVENT_SOURCE,
+      system: 'LUXEhub',
+      type: EVENT_TYPE,
+      message: `Signed in at the open house at ${address}`,
+      description: buildNote(v, address, false),
+      occurredAt: v.client_captured_at || v.signed_in_at || v.created_at,
+      person,
+      property,
+    }),
+  });
+  if (!ev.ok) {
+    return { ok: false, error: scrub(`Follow Up Boss event ${ev.status}: ${ev.text}`, key).slice(0, 500) };
+  }
+  let personId: string | null =
+    (ev.body?.personId ?? ev.body?.person?.id ?? existing?.id ?? null) as string | null;
+  if (!personId) {
+    const again = await findPerson(key, v);
+    personId = again?.id ? String(again.id) : null;
+  }
+  if (!personId) {
+    return { ok: false, error: 'Follow Up Boss accepted the event but did not return the contact (lead flow may have archived it).' };
+  }
+  personId = String(personId);
+
+  // Follow-up PUT: one person, never bulk.
+  const current = await fub(key, `/people/${personId}?fields=id,stage,tags,assignedUserId`);
+  const currentTags: string[] = current.body?.tags ?? [];
+  const currentStage = current.body?.stage ? String(current.body.stage) : null;
+  const followTags = [...tags];
+  if (v.working_with_agent === true) followTags.push(WORKING_WITH_AGENT_TAG);
+  const payload: Record<string, unknown> = {
+    tags: Array.from(new Set([...currentTags, ...followTags])),
+  };
+  let stageResult = `Stage set to ${stage}`;
   if (existing) {
-    personId = String(existing.id);
-    const merged = Array.from(new Set([...(existing.tags ?? []), ...tags]));
-    const currentStage = existing.stage ? String(existing.stage) : null;
-    const payload: Record<string, unknown> = { tags: merged };
-    // Never knock an already-worked contact backwards.
-    if (isUnworked(currentStage, stages)) {
-      payload.stage = stage;
-    } else {
-      stageResult = `Stage left as ${currentStage} — already being worked`;
-    }
-    const upd = await fub(key, `/people/${personId}`, {
-      method: 'PUT',
-      body: JSON.stringify(payload),
-    });
-    if (!upd.ok) return { ok: false, error: scrub(`Follow Up Boss ${upd.status}: ${upd.text}`, key).slice(0, 500) };
+    const before = existing.stage ? String(existing.stage) : null;
+    if (isUnworked(before, stages)) payload.stage = stage;
+    else stageResult = `Stage left as ${before} — already being worked`;
   } else {
-    const body: Record<string, unknown> = {
-      firstName: v.first_name,
-      lastName: v.last_name || '',
-      source: 'Open House',
-      stage,
-      tags,
-    };
-    if (v.email) body.emails = [{ value: v.email }];
-    if (v.phone) body.phones = [{ value: v.phone }];
-    if (agent) {
-      body.assignedUserId = agent.id;
-      if (agent.name) body.assignedTo = agent.name;
+    if (currentStage?.toLowerCase() !== stage.toLowerCase()) payload.stage = stage;
+    if (agent && Number(current.body?.assignedUserId) !== agent.id) payload.assignedUserId = agent.id;
+  }
+  try {
+    const fields = await customFieldMap(key, cacheKey);
+    const values = fieldValues(v, house);
+    for (const [k, apiName] of Object.entries(fields)) {
+      const val = values[k as FieldKey];
+      if (apiName && val) payload[apiName] = val;
     }
-    const created = await fub(key, '/people?deduplicate=true', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    });
-    if (!created.ok || !created.body?.id) {
-      return { ok: false, error: scrub(`Follow Up Boss ${created.status}: ${created.text}`, key).slice(0, 500) };
-    }
-    personId = String(created.body.id);
+  } catch { /* fields are best effort; the note carries the answers too */ }
+
+  const upd = await fub(key, `/people/${personId}`, { method: 'PUT', body: JSON.stringify(payload) });
+  if (!upd.ok) {
+    return { ok: false, personId, error: scrub(`Follow Up Boss ${upd.status}: ${upd.text}`, key).slice(0, 500) };
   }
 
-  const note = await postNote(key, personId!, v, address, false);
-  if (!note.ok) return { ok: false, error: note.error };
+  return { ok: true, personId, stageResult, eventId: ev.body?.personId && ev.body?.id ? String(ev.body.id) : undefined };
+}
 
-  return { ok: true, personId: personId!, stageResult };
+/**
+ * Apply the end-of-day tier as a tag on ONE person. Other tiers from the fixed
+ * list are removed so a person carries exactly one. This is what starts the
+ * agent's follow-up automation, so it is always its own PUT.
+ */
+export async function applyTier(
+  key: string,
+  personId: string,
+  tier: string,
+): Promise<{ ok: boolean; error?: string }> {
+  if (!(TIERS as readonly string[]).includes(tier)) return { ok: false, error: 'Unknown tier.' };
+  const person = await fub(key, `/people/${personId}?fields=id,tags`);
+  if (!person.ok) {
+    return { ok: false, error: scrub(`Follow Up Boss ${person.status}: ${person.text}`, key).slice(0, 500) };
+  }
+  const kept = ((person.body?.tags ?? []) as string[]).filter((t) => !(TIERS as readonly string[]).includes(t));
+  const upd = await fub(key, `/people/${personId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ tags: [...kept, tier] }),
+  });
+  if (!upd.ok) {
+    return { ok: false, error: scrub(`Follow Up Boss ${upd.status}: ${upd.text}`, key).slice(0, 500) };
+  }
+  return { ok: true };
 }
 
 /**
