@@ -431,7 +431,7 @@ export async function sendOne(
     return { ok: false, personId, error: scrub(`Follow Up Boss ${upd.status}: ${upd.text}`, key).slice(0, 500) };
   }
 
-  return { ok: true, personId, stageResult, eventId: ev.body?.id ? String(ev.body.id) : undefined };
+  return { ok: true, personId, stageResult, eventId: ev.body?.personId && ev.body?.id ? String(ev.body.id) : undefined };
 }
 
 /**
