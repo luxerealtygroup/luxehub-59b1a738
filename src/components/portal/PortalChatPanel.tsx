@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useContext } from 'react';
 import { ViewAsAgentContext } from '@/hooks/useViewAsAgent';
+import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +20,7 @@ interface PortalMessage {
   portal_id: string;
   sender_type: SenderType;
   sender_name: string | null;
+  sender_user_id?: string | null;
   message_body: string;
   created_at: string;
   is_internal?: boolean;
@@ -47,6 +49,8 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const viewCtx = useContext(ViewAsAgentContext);
+  const { user } = useAuth();
+  const [internalNote, setInternalNote] = useState(false);
   const { isPreview } = usePortalPreview();
   const sendAsAgentId =
     viewerRole === 'agent'
@@ -136,6 +140,7 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
         portal_id: portalId,
         message: body,
         send_as_agent_id: sendAsAgentId ?? undefined,
+        is_internal: internalNote || undefined,
       },
     });
     if (error || (data as any)?.error) {
@@ -155,6 +160,7 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
         );
       }
       setText('');
+      setInternalNote(false);
     }
     setSending(false);
   };
@@ -196,9 +202,15 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
     return format(d, 'MMM d, h:mm a');
   };
 
-  const isMine = (m: PortalMessage) =>
-    (viewerRole === 'client' && m.sender_type === 'client') ||
-    (viewerRole === 'agent' && m.sender_type === 'agent');
+  // In a group thread "mine" is the person who actually wrote it, not the side
+  // they are on — another agent's or ops' reply stays on the left.
+  const isMine = (m: PortalMessage) => {
+    if (m.sender_user_id && user?.id) return m.sender_user_id === user.id;
+    return (
+      (viewerRole === 'client' && m.sender_type === 'client') ||
+      (viewerRole === 'agent' && m.sender_type === 'agent')
+    );
+  };
 
   // Everyone in the thread sees who wrote and in what capacity, so the client
   // can tell they are talking to a team rather than one person.
@@ -286,11 +298,9 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
                       </div>
                     )}
                     <div className={`max-w-[85%] sm:max-w-[70%] flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
-                      {!mine && (
-                        <span className="text-[11px] font-medium text-muted-foreground mb-1 ml-1">
-                          {h.label}
-                        </span>
-                      )}
+                      <span className={`text-[11px] font-medium text-muted-foreground mb-1 ${mine ? 'mr-1' : 'ml-1'}`}>
+                        {mine ? `${h.label} (you)` : h.label}
+                      </span>
                       {showAgentControls && (m.is_internal || m.source_slack_ts) && (
                         <div className="flex flex-wrap items-center gap-1.5 mb-1 ml-1">
                           {m.is_internal && (
