@@ -62,7 +62,6 @@ const isDefinitelyInvalid = (error: unknown) => {
     msg.includes('invalid claim') ||
     msg.includes('invalid refresh token') ||
     msg.includes('refresh token not found') ||
-    msg.includes('already used') ||
     msg.includes('user not found');
   return (e.status === 400 || e.status === 401 || e.status === 403) && authRejected;
 };
@@ -103,6 +102,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (!error && data.session) {
             if (active) apply(data.session);
             return 'ok';
+          }
+          // Another tab (or the client's own auto-refresh) may have rotated the
+          // token first: if the server still accepts us, nothing is wrong.
+          if (error) {
+            const { data: check } = await supabase.auth.getSession();
+            if (check.session) {
+              if (active) apply(check.session);
+              return 'ok';
+            }
           }
           if (isDefinitelyInvalid(error)) {
             clearBackup();
