@@ -2,9 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useContext } from 'react';
 import { ViewAsAgentContext } from '@/hooks/useViewAsAgent';
+import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { blockPortalWrite, usePortalPreview } from '@/hooks/usePortalPreview';
@@ -19,6 +21,7 @@ interface PortalMessage {
   portal_id: string;
   sender_type: SenderType;
   sender_name: string | null;
+  sender_user_id?: string | null;
   message_body: string;
   created_at: string;
   is_internal?: boolean;
@@ -47,6 +50,8 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const viewCtx = useContext(ViewAsAgentContext);
+  const { user } = useAuth();
+  const [internalNote, setInternalNote] = useState(false);
   const { isPreview } = usePortalPreview();
   const sendAsAgentId =
     viewerRole === 'agent'
@@ -136,6 +141,7 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
         portal_id: portalId,
         message: body,
         send_as_agent_id: sendAsAgentId ?? undefined,
+        is_internal: internalNote || undefined,
       },
     });
     if (error || (data as any)?.error) {
@@ -155,6 +161,7 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
         );
       }
       setText('');
+      setInternalNote(false);
     }
     setSending(false);
   };
@@ -196,16 +203,30 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
     return format(d, 'MMM d, h:mm a');
   };
 
-  const isMine = (m: PortalMessage) =>
-    (viewerRole === 'client' && m.sender_type === 'client') ||
-    (viewerRole === 'agent' && m.sender_type === 'agent');
+  // In a group thread "mine" is the person who actually wrote it, not the side
+  // they are on — another agent's or ops' reply stays on the left.
+  const isMine = (m: PortalMessage) => {
+    if (m.sender_user_id && user?.id) return m.sender_user_id === user.id;
+    return (
+      (viewerRole === 'client' && m.sender_type === 'client') ||
+      (viewerRole === 'agent' && m.sender_type === 'agent')
+    );
+  };
 
+  // Everyone in the thread sees who wrote and in what capacity, so the client
+  // can tell they are talking to a team rather than one person.
   const headerFor = (m: PortalMessage) => {
     if (m.sender_type === 'ops') {
-      return { icon: <Headset className="h-3 w-3" />, label: `${tenant.brokerageName} Support` };
+      return {
+        icon: <Headset className="h-3 w-3" />,
+        label: `${m.sender_name || 'Operations'} · Operations`,
+      };
     }
     if (m.sender_type === 'agent') {
-      return { icon: <Briefcase className="h-3 w-3" />, label: m.sender_name || 'Your Agent' };
+      return {
+        icon: <Briefcase className="h-3 w-3" />,
+        label: `${m.sender_name || 'Your Agent'} · Agent`,
+      };
     }
     return { icon: <User className="h-3 w-3" />, label: m.sender_name || 'Client' };
   };
@@ -278,11 +299,9 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
                       </div>
                     )}
                     <div className={`max-w-[85%] sm:max-w-[70%] flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
-                      {!mine && (
-                        <span className="text-[11px] font-medium text-muted-foreground mb-1 ml-1">
-                          {h.label}
-                        </span>
-                      )}
+                      <span className={`text-[11px] font-medium text-muted-foreground mb-1 ${mine ? 'mr-1' : 'ml-1'}`}>
+                        {mine ? `${h.label} (you)` : h.label}
+                      </span>
                       {showAgentControls && (m.is_internal || m.source_slack_ts) && (
                         <div className="flex flex-wrap items-center gap-1.5 mb-1 ml-1">
                           {m.is_internal && (
@@ -343,22 +362,49 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
             Read-only preview — messaging is disabled.
           </div>
         ) : (
-        <form onSubmit={send} className="p-3 sm:p-4 border-t border-border/60 bg-background flex gap-2">
-          <Input
-            placeholder={viewerRole === 'client' ? 'Type a message…' : 'Reply to client…'}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            disabled={sending}
-            className="rounded-full h-11 px-4 border-border/70 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:border-primary transition-colors"
-          />
-          <Button
-            type="submit"
-            size="icon"
-            disabled={!text.trim() || sending}
-            className="h-11 w-11 rounded-full shadow-gold shrink-0"
-          >
-            <Send className="h-4 w-4" />
-          </Button>
+        <form onSubmit={send} className="p-3 sm:p-4 border-t border-border/60 bg-background space-y-2">
+          {showAgentControls && (
+            <div className="flex items-center gap-2">
+              <Switch
+                id="internal-note"
+                checked={internalNote}
+                onCheckedChange={setInternalNote}
+                disabled={sending}
+              />
+              <label
+                htmlFor="internal-note"
+                className="text-[11px] font-medium text-muted-foreground inline-flex items-center gap-1 cursor-pointer"
+              >
+                <Lock className="h-3 w-3" />
+                Internal note — client can't see this
+              </label>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <Input
+              placeholder={
+                viewerRole === 'client'
+                  ? 'Message your team…'
+                  : internalNote
+                    ? 'Note for the team only…'
+                    : 'Reply to the client…'
+              }
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              disabled={sending}
+              className={`rounded-full h-11 px-4 border-border/70 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:border-primary transition-colors ${
+                internalNote ? 'bg-muted/60 border-dashed' : ''
+              }`}
+            />
+            <Button
+              type="submit"
+              size="icon"
+              disabled={!text.trim() || sending}
+              className="h-11 w-11 rounded-full shadow-gold shrink-0"
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
         </form>
         )}
       </CardContent>
