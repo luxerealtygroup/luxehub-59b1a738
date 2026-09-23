@@ -64,45 +64,6 @@ export default function MessageThread() {
     };
   }, [portalId]);
 
-  const attach = async (picked: File[]) => {
-    if (!portalId) return;
-    const { accepted, errors } = checkFiles(picked, { maxSizeMB: 25 });
-    errors.forEach((message) =>
-      toast({ title: 'File not sent', description: message, variant: 'destructive' }),
-    );
-    if (!accepted.length) return;
-    setUploading(true);
-    const { data: auth } = await supabase.auth.getUser();
-    for (const file of accepted) {
-      const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const path = `${portalId}/${crypto.randomUUID()}_${safe}`;
-      const up = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type });
-      if (up.error) {
-        toast({ title: `Upload failed: ${file.name}`, description: up.error.message, variant: 'destructive' });
-        continue;
-      }
-      const { error } = await supabase.from('portal_documents').insert({
-        portal_id: portalId,
-        file_name: file.name,
-        file_path: path,
-        file_type: file.type || null,
-        file_size: file.size,
-        uploaded_by: auth.user?.id,
-        is_internal: false,
-        source: 'transaction',
-      });
-      if (error) {
-        toast({ title: 'Could not save the file', description: error.message, variant: 'destructive' });
-        continue;
-      }
-      await supabase.functions.invoke('portal-send-message', {
-        body: { portal_id: portalId, message: `📎 Shared a file: ${file.name}` },
-      });
-    }
-    setUploading(false);
-    toast({ title: 'Sent', description: 'Your client can open it in their Documents tab.' });
-  };
-
   if (loading) {
     return <div className="p-10 text-center text-sm text-muted-foreground animate-pulse">Loading…</div>;
   }
@@ -168,20 +129,6 @@ export default function MessageThread() {
         sendAsAgentId={portal.assigned_agent_id ?? portal.invited_by ?? null}
       />
 
-      <div className="flex flex-wrap items-center gap-2">
-        {uploading ? (
-          <span className="text-xs text-muted-foreground flex items-center gap-2">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Sending file…
-          </span>
-        ) : (
-          <>
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
-              <Paperclip className="h-3.5 w-3.5" /> Send a file or photo
-            </span>
-            <UploadPickers onFiles={(f) => void attach(f)} disabled={uploading} size="sm" />
-          </>
-        )}
-      </div>
     </div>
   );
 }

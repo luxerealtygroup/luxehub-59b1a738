@@ -26,7 +26,10 @@ Deno.serve(async (req) => {
     const message = String(body.message ?? '').trim();
     const sendAsAgentId = body.send_as_agent_id ? String(body.send_as_agent_id).trim() : '';
     const wantsInternal = body.is_internal === true;
-    if (!portalId || !message) return json({ error: 'portal_id and message required' }, 400);
+    const attachmentId = body.attachment_document_id ? String(body.attachment_document_id).trim() : '';
+    if (!portalId || (!message && !attachmentId)) {
+      return json({ error: 'portal_id and message required' }, 400);
+    }
     if (message.length > 4000) return json({ error: 'Message too long' }, 400);
 
     const admin = createClient(
@@ -137,6 +140,7 @@ Deno.serve(async (req) => {
         message_body: message,
         slack_ts: slackTs,
         is_internal: isInternal,
+        attachment_document_id: attachmentId || null,
       })
       .select()
       .single();
