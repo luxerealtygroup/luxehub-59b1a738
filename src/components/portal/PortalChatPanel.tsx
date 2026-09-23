@@ -88,7 +88,7 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
   const [avatars, setAvatars] = useState<Record<string, string | null>>({});
   const [attachments, setAttachments] = useState<Record<string, AttachmentInfo>>({});
   const [needsHeadshot, setNeedsHeadshot] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const viewCtx = useContext(ViewAsAgentContext);
   const { user } = useAuth();
@@ -226,11 +226,11 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
     };
   }, [messages, attachments]);
 
+  // Always land on the newest message, including when one arrives over realtime.
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
+    const t = setTimeout(() => bottomRef.current?.scrollIntoView({ block: 'end' }), 50);
+    return () => clearTimeout(t);
+  }, [messages, loading]);
 
   const deliver = useCallback(
     async (tempId: string, body: string, internal: boolean, attachmentId: string | null) => {
@@ -503,7 +503,7 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
             </p>
           </div>
         ) : (
-          <ScrollArea className="flex-1 px-3 sm:px-6" ref={scrollRef}>
+          <ScrollArea className="flex-1 px-3 sm:px-6">
             <div className="py-5 space-y-1">
               {messages.map((m, i) => {
                 const prev = messages[i - 1];
@@ -625,6 +625,7 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
                   </div>
                 );
               })}
+              <div ref={bottomRef} />
             </div>
           </ScrollArea>
         )}
