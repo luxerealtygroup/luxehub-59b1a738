@@ -92,7 +92,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refreshing.current = true;
       try {
         for (let i = 0; i < attempts; i++) {
-          const backup = readBackup();
+          // Prefer the client's own stored session so concurrent tabs share
+          // its refresh lock; only fall back to our backup token when the
+          // client has lost the session entirely.
+          const { data: current } = await supabase.auth.getSession();
+          const backup = current.session ? null : readBackup();
           const { data, error } = await supabase.auth.refreshSession(
             backup?.refresh_token ? { refresh_token: backup.refresh_token } : undefined,
           );
