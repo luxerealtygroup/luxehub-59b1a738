@@ -4307,6 +4307,8 @@ export type Database = {
       }
       portal_messages: {
         Row: {
+          attachment_document_id: string | null
+          client_seen_at: string | null
           created_at: string
           id: string
           is_internal: boolean
@@ -4323,6 +4325,8 @@ export type Database = {
           source_slack_ts: string | null
         }
         Insert: {
+          attachment_document_id?: string | null
+          client_seen_at?: string | null
           created_at?: string
           id?: string
           is_internal?: boolean
@@ -4339,6 +4343,8 @@ export type Database = {
           source_slack_ts?: string | null
         }
         Update: {
+          attachment_document_id?: string | null
+          client_seen_at?: string | null
           created_at?: string
           id?: string
           is_internal?: boolean
@@ -4355,6 +4361,13 @@ export type Database = {
           source_slack_ts?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "portal_messages_attachment_document_id_fkey"
+            columns: ["attachment_document_id"]
+            isOneToOne: false
+            referencedRelation: "portal_documents"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "portal_messages_org_id_fkey"
             columns: ["org_id"]
@@ -6026,6 +6039,10 @@ export type Database = {
       is_strict_owner: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
       is_team_member: { Args: { _user_id: string }; Returns: boolean }
+      mark_portal_messages_seen: {
+        Args: { _portal_id: string }
+        Returns: undefined
+      }
       move_to_dlq: {
         Args: {
           dlq_name: string
