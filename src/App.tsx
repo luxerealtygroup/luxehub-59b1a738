@@ -42,6 +42,8 @@ import AdminClientPortals from "./pages/AdminClientPortals";
 import AdminTickets from "./pages/AdminTickets";
 import CoachingNotes from "./pages/CoachingNotes";
 import Notifications from "./pages/Notifications";
+import Messages from "./pages/Messages";
+import MessageThread from "./pages/MessageThread";
 import NotFound from "./pages/NotFound";
 import AuthConfirm from "./pages/AuthConfirm";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -182,6 +184,8 @@ const App = () => (
               <Route path="settings" element={<AccountSettings />} />
               <Route path="notifications" element={<Notifications />} />
               <Route path="client-portals" element={<RoleGuard><TierGuard feature="canAccessClientPortals" featureName="Client Portals" requiredTierLabel="Pro+ or Team"><AdminClientPortals /></TierGuard></RoleGuard>} />
+              <Route path="messages" element={<RoleGuard><TierGuard feature="canAccessClientPortals" featureName="Messages" requiredTierLabel="Pro+ or Team"><Messages /></TierGuard></RoleGuard>} />
+              <Route path="messages/:portalId" element={<RoleGuard><TierGuard feature="canAccessClientPortals" featureName="Messages" requiredTierLabel="Pro+ or Team"><MessageThread /></TierGuard></RoleGuard>} />
               <Route path="nominations" element={<RoleGuard allowedRoles={['admin', 'owner']} blockPlanning={false}><TierGuard feature="canAccessNominations" featureName="Nominations" requiredTierLabel="original organization"><Nominations /></TierGuard></RoleGuard>} />
               <Route path="upgrade" element={<Upgrade />} />
               <Route path="setup" element={<RoleGuard allowedRoles={['owner']} blockPlanning={false}><InstanceSetup /></RoleGuard>} />
