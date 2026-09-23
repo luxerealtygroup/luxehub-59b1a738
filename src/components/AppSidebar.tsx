@@ -91,6 +91,7 @@ const allSections: MenuSection[] = [
       { title: 'Pipeline', url: '/dashboard/pipeline', icon: Building2 },
       { title: 'Transactions', url: '/dashboard/commissions', icon: DollarSign },
       { title: 'Client Portals', url: '/dashboard/client-portals', icon: Users2 },
+      { title: 'Messages', url: '/dashboard/messages', icon: MessageSquare },
       { title: 'Nominations', url: '/dashboard/nominations', icon: Heart, adminOnly: true },
     ],
   },
@@ -235,12 +236,17 @@ export function AppSidebar() {
                               >
                                 <item.icon className="h-5 w-5 shrink-0" />
                                 {!collapsed && (
-                                  <div className="flex flex-col">
+                                  <div className="flex flex-col flex-1 min-w-0">
                                     <span>{item.title}</span>
                                     {item.subtitle && (
                                       <span className="text-[10px] text-muted-foreground/60 -mt-0.5">{item.subtitle}</span>
                                     )}
                                   </div>
+                                )}
+                                {item.title === 'Messages' && unreadMessages > 0 && (
+                                  <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">
+                                    {unreadMessages > 9 ? '9+' : unreadMessages}
+                                  </span>
                                 )}
                               </NavLink>
                             )}
