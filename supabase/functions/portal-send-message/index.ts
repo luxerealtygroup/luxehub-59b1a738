@@ -25,6 +25,7 @@ Deno.serve(async (req) => {
     const portalId = String(body.portal_id ?? '').trim();
     const message = String(body.message ?? '').trim();
     const sendAsAgentId = body.send_as_agent_id ? String(body.send_as_agent_id).trim() : '';
+    const wantsInternal = body.is_internal === true;
     if (!portalId || !message) return json({ error: 'portal_id and message required' }, 400);
     if (message.length > 4000) return json({ error: 'Message too long' }, 400);
 
@@ -42,14 +43,18 @@ Deno.serve(async (req) => {
     if (portalErr || !portal) return json({ error: 'Portal not found' }, 404);
 
     const isClient = portal.user_id === userId;
-    let senderType: 'client' | 'agent' = 'client';
+    let senderType: 'client' | 'agent' | 'ops' = 'client';
     let senderName = portal.full_name || 'Client';
+    // Internal notes are team-only. A client can never create one, whatever the
+    // request body says — this is decided here, on the server.
+    let isInternal = false;
 
     if (!isClient) {
-      // Must be a team member (agent/admin/owner)
+      // Must be a team member (agent/admin/owner/operations)
       const { data: teamCheck } = await admin.rpc('is_team_member', { _user_id: userId });
       if (!teamCheck) return json({ error: 'Forbidden' }, 403);
       senderType = 'agent';
+      isInternal = wantsInternal;
 
       // If an admin/owner is impersonating an agent via "View as Agent",
       // attribute the message to that agent instead of the real user.
@@ -64,12 +69,20 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Operations replies are labelled as Operations so the client sees a team,
+      // not a single person.
+      const { data: isOps } = await admin.rpc('has_role', {
+        _user_id: attributedUserId,
+        _role: 'operations',
+      });
+      if (isOps) senderType = 'ops';
+
       const { data: prof } = await admin
         .from('profiles')
         .select('full_name')
         .eq('id', attributedUserId)
         .maybeSingle();
-      senderName = prof?.full_name || 'Your Agent';
+      senderName = prof?.full_name || (senderType === 'ops' ? 'Operations' : 'Your Agent');
       // Reassign so the DB row + downstream notification trigger reflect the agent.
       userId = attributedUserId;
     }
