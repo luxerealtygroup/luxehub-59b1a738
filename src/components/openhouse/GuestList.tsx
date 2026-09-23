@@ -20,6 +20,7 @@ import {
   GUEST_COLUMNS, Guest, fubState,
 } from '@/lib/openHouse/guests';
 import { FollowUpTemplates, GuestCard } from '@/components/openhouse/GuestCard';
+import { ReviewGuestsDialog } from '@/components/openhouse/ReviewGuestsDialog';
 import { FubStageSelect, lastStage, rememberStage } from '@/components/openhouse/FubStageSelect';
 
 type Mode = 'live' | 'all';
@@ -48,6 +49,7 @@ export function GuestList({
   const [showFub, setShowFub] = useState(false);
   const [sendingAll, setSendingAll] = useState(false);
   const [showSendAll, setShowSendAll] = useState(false);
+  const [showReview, setShowReview] = useState(false);
   const [batchStage, setBatchStage] = useState<string | null>(lastStage());
   const [isSampleAccount, setIsSampleAccount] = useState(false);
   const [templates, setTemplates] = useState<FollowUpTemplates>({
@@ -206,6 +208,11 @@ export function GuestList({
               <Plug className="mr-1.5 h-4 w-4" /> Follow Up Boss
             </Button>
           )}
+          {canManage && guests.length > 0 && !isSampleAccount && (
+            <Button size="sm" onClick={() => setShowReview(true)}>
+              <Send className="mr-1.5 h-4 w-4" /> Review guests
+            </Button>
+          )}
           {canManage && unsent > 0 && !isSampleAccount && (
             <Button variant="outline" size="sm" onClick={() => setShowSendAll(true)} disabled={sendingAll}>
               {sendingAll ? (
@@ -240,7 +247,7 @@ export function GuestList({
 
       <p className="text-sm text-muted-foreground">
         {mode === 'live'
-          ? 'Sign-ins appear here the moment they happen. Fill in what you learn while they are still in the house, and set a temperature before they leave.'
+          ? 'Sign-ins appear here the moment they happen. Fill in what you learn while they are still in the house, and set a follow-up tier before they leave.'
           : ended
             ? `${awaitingFollowUp} of ${guests.length} still waiting on a follow-up — they are at the top.`
             : 'Everyone at this open house, however they were added.'}
@@ -284,6 +291,14 @@ export function GuestList({
           templates={templates}
           onClose={() => setShowSettings(false)}
           onSaved={() => { setShowSettings(false); loadTemplates(); }}
+        />
+      )}
+
+      {showReview && (
+        <ReviewGuestsDialog
+          guests={guests}
+          onClose={() => setShowReview(false)}
+          onDone={() => { setShowReview(false); load(); }}
         />
       )}
 
