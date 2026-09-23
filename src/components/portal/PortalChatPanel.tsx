@@ -361,22 +361,49 @@ export function PortalChatPanel({ portalId, viewerRole, sendAsAgentId: sendAsAge
             Read-only preview — messaging is disabled.
           </div>
         ) : (
-        <form onSubmit={send} className="p-3 sm:p-4 border-t border-border/60 bg-background flex gap-2">
-          <Input
-            placeholder={viewerRole === 'client' ? 'Type a message…' : 'Reply to client…'}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            disabled={sending}
-            className="rounded-full h-11 px-4 border-border/70 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:border-primary transition-colors"
-          />
-          <Button
-            type="submit"
-            size="icon"
-            disabled={!text.trim() || sending}
-            className="h-11 w-11 rounded-full shadow-gold shrink-0"
-          >
-            <Send className="h-4 w-4" />
-          </Button>
+        <form onSubmit={send} className="p-3 sm:p-4 border-t border-border/60 bg-background space-y-2">
+          {showAgentControls && (
+            <div className="flex items-center gap-2">
+              <Switch
+                id="internal-note"
+                checked={internalNote}
+                onCheckedChange={setInternalNote}
+                disabled={sending}
+              />
+              <label
+                htmlFor="internal-note"
+                className="text-[11px] font-medium text-muted-foreground inline-flex items-center gap-1 cursor-pointer"
+              >
+                <Lock className="h-3 w-3" />
+                Internal note — client can't see this
+              </label>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <Input
+              placeholder={
+                viewerRole === 'client'
+                  ? 'Message your team…'
+                  : internalNote
+                    ? 'Note for the team only…'
+                    : 'Reply to the client…'
+              }
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              disabled={sending}
+              className={`rounded-full h-11 px-4 border-border/70 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:border-primary transition-colors ${
+                internalNote ? 'bg-muted/60 border-dashed' : ''
+              }`}
+            />
+            <Button
+              type="submit"
+              size="icon"
+              disabled={!text.trim() || sending}
+              className="h-11 w-11 rounded-full shadow-gold shrink-0"
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
         </form>
         )}
       </CardContent>
