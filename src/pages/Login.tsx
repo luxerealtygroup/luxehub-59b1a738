@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,7 +20,7 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn } = useAuth();
+  const { signIn, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
@@ -28,6 +28,23 @@ const Login = () => {
   // Same-origin relative path to return to after sign-in (used by the OAuth consent flow).
   const rawNext = searchParams.get('next');
   const nextPath = rawNext && rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : null;
+
+  // A live session must never be shown the login form. The native app reloads
+  // its start URL after a long background, which used to land signed-in users
+  // here and make it look like they had been logged out.
+  const bounced = useRef(false);
+  useEffect(() => {
+    if (authLoading || !user || bounced.current) return;
+    bounced.current = true;
+    void (async () => {
+      if (nextPath) {
+        navigate(nextPath, { replace: true });
+        return;
+      }
+      const redirect = await getRoleBasedRedirect(user.id);
+      navigate(redirect, { replace: true });
+    })();
+  }, [authLoading, user, nextPath, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
