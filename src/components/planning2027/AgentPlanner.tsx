@@ -200,7 +200,7 @@ export function AgentPlanner({ agentId, fubUserId, hasFUB, agentName, settings, 
         </TabsList>
 
         <TabsContent value="recap" className="mt-4">
-          <RecapSection agentId={agentId} actuals={actuals} goal2026={goal2026} recap={recap} recapLoading={recapLoading}
+          <RecapSection agentId={agentId} fubUserId={fubUserId} actuals={actuals} goal2026={goal2026} recap={recap} recapLoading={recapLoading}
             regenerating={working} canRegenerate={!!canRegenerate} onRegenerate={regenerate}
             prework={prework} setPrework={setPrework} editable={editable} />
         </TabsContent>

@@ -1,3 +1,4 @@
+import { ClosedFirmSummary } from './ClosedFirmSummary';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,8 +47,8 @@ function Field({ id, label, value, onChange, editable, rows = 4, hint }: {
 }
 
 /* ─────────────── TAB 1 — 2026 Recap ─────────────── */
-export function RecapSection({ agentId, actuals, goal2026, recap, recapLoading, regenerating, canRegenerate, onRegenerate, prework, setPrework, editable }: {
-  agentId: string; actuals: PriorYearActuals; goal2026: PriorYearGoal | null;
+export function RecapSection({ agentId, fubUserId, actuals, goal2026, recap, recapLoading, regenerating, canRegenerate, onRegenerate, prework, setPrework, editable }: {
+  agentId: string; fubUserId?: number | null; actuals: PriorYearActuals; goal2026: PriorYearGoal | null;
   recap: RecapRow | null; recapLoading: boolean; regenerating: boolean; canRegenerate: boolean; onRegenerate: () => void;
   prework: PreworkRow; setPrework?: SetPrework; editable: boolean;
 }) {
@@ -80,6 +81,10 @@ export function RecapSection({ agentId, actuals, goal2026, recap, recapLoading, 
             <Stat label="Avg sale price" value={actuals.closedSales ? m(Math.round(actuals.volume / actuals.closedSales)) : '—'} sub={`${actuals.closedSales} sales`} />
           </>}
         </CardContent>
+      </Card>
+
+      <Card><CardHeader className="pb-2"><CardTitle className="text-base">2026 closed + firm</CardTitle></CardHeader>
+        <CardContent><ClosedFirmSummary fubUserId={fubUserId ?? null} /></CardContent>
       </Card>
 
       <Card><CardHeader className="pb-2"><CardTitle className="text-base">2026 activity <span className="font-normal text-muted-foreground text-sm">· weekly 4-1-1 ({actuals.weeksLogged} weeks logged)</span></CardTitle></CardHeader>

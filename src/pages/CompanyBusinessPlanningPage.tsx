@@ -5,6 +5,7 @@ import { useTenant } from '@/hooks/useTenant';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Button } from '@/components/ui/button';
 import CompanyBusinessPlanning from '@/components/CompanyBusinessPlanning';
+import { ClosedFirmSummary } from '@/components/planning2027/ClosedFirmSummary';
 import { OwnerCoachingNotes } from '@/components/planning2027/OwnerCoachingNotes';
 import { AdminPlanningOverview } from '@/components/planning2027/AdminPlanningOverview';
 import { PlanningBanner } from '@/components/planning2027/PlanningBanner';
@@ -56,7 +57,7 @@ const CompanyBusinessPlanningPage = () => {
 
       <AdminPlanningOverview
         settings={settings} onOpenSettings={() => setOpen(true)} tab={tab} onTab={setTab}
-        recap={<div className="space-y-6"><CompanyBusinessPlanning recap />{company.row && <OwnerCoachingNotes />}</div>}
+        recap={<div className="space-y-6"><ClosedFirmSummary title="2026 Closed + Firm" /><CompanyBusinessPlanning recap />{company.row && <OwnerCoachingNotes />}</div>}
       />
 
       <PlanningSettingsDialog open={open} onOpenChange={setOpen} orgId={orgId} settings={settings} onSaved={load} />
