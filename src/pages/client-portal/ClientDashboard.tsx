@@ -899,8 +899,8 @@ const ClientDashboard = ({ previewPortalId, section }: ClientDashboardProps = {}
                 </div>
               </div>
               {properties.length > 0 && activeTab !== 'messages' ? (
-                <div className="ml-auto flex items-center gap-2 min-w-0">
-                  <span className="eyebrow hidden md:inline">Property</span>
+                <div className="ml-auto flex min-w-0 flex-none items-center gap-2">
+                  <span className="eyebrow hidden shrink-0 whitespace-nowrap lg:inline">Property</span>
                   <PropertySwitcher
                     properties={properties}
                     value={scope}
@@ -910,13 +910,13 @@ const ClientDashboard = ({ previewPortalId, section }: ClientDashboardProps = {}
                   <ClientNotificationsBell onOpenTab={(tab) => changeTab(tab)} />
                 </div>
               ) : transactions.length > 1 && activeTab !== 'messages' ? (
-                <div className="ml-auto flex items-center gap-2 min-w-0">
-                  <span className="eyebrow hidden md:inline">Transaction</span>
+                <div className="ml-auto flex min-w-0 flex-none items-center gap-2">
+                  <span className="eyebrow hidden shrink-0 whitespace-nowrap lg:inline">Transaction</span>
                   <Select
                     value={selectedTransactionId ?? undefined}
                     onValueChange={(v) => setSelectedTransactionId(v)}
                   >
-                    <SelectTrigger className="h-11 min-w-[220px] sm:min-w-[280px] rounded-full border-border/70 bg-background shadow-sm hover:border-primary/40 focus:ring-2 focus:ring-primary/30 transition-colors">
+                    <SelectTrigger className="h-11 w-[min(220px,56vw)] min-w-0 flex-none sm:w-[280px] lg:w-[320px] rounded-full border-border/70 bg-background shadow-sm hover:border-primary/40 focus:ring-2 focus:ring-primary/30 transition-colors">
                       <SelectValue placeholder="Select a transaction" />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
