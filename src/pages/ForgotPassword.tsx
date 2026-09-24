@@ -17,8 +17,11 @@ const ForgotPassword = () => {
     e.preventDefault();
     setLoading(true);
 
+    // Carry a pending client-portal invite through the reset email so the
+    // portal is claimed after the new password is set (even on another device).
+    const invite = new URLSearchParams(window.location.search).get('invite');
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: `${window.location.origin}/reset-password${invite ? `?invite=${encodeURIComponent(invite)}` : ''}`,
     });
 
     if (error) {

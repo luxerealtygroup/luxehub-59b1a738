@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, CheckCircle2 } from 'lucide-react';
 import { getRoleBasedRedirect } from '@/lib/utils/roleRedirect';
-import { claimPendingInvite, readPendingInvite } from '@/lib/inviteLinks';
+import { claimPendingInvite, readPendingInvite, rememberInviteFromUrl, PORTAL_CLAIM_FAILED_MESSAGE } from '@/lib/inviteLinks';
 import { tenant } from '@/config/tenant';
 
 const AuthConfirm = () => {
@@ -13,6 +13,7 @@ const AuthConfirm = () => {
   const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
 
   useEffect(() => {
+    rememberInviteFromUrl();
     let redirectTimer: ReturnType<typeof setTimeout> | undefined;
     let failureTimer: ReturnType<typeof setTimeout> | undefined;
     let unsubscribe: (() => void) | undefined;
@@ -25,12 +26,12 @@ const AuthConfirm = () => {
         if (!claimed) {
           setStatus('error');
           toast({
-            title: 'Portal connection failed',
-            description: 'Please open your invitation link again or request a fresh one.',
+            title: 'Email confirmed',
+            description: PORTAL_CLAIM_FAILED_MESSAGE,
             variant: 'destructive',
           });
           redirectTimer = setTimeout(
-            () => navigate('/client-portal/request-access?reason=invalid', { replace: true }),
+            () => navigate('/client-portal/request-access', { replace: true }),
             2000,
           );
           return;
