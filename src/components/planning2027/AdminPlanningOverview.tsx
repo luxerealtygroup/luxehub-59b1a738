@@ -96,7 +96,7 @@ export function AdminPlanningOverview({ onOpenSettings, settings, recap, tab, on
   const notSubmitted = (r: Row) => !r.goal || r.goal.status === 'draft';
 
   // Team production uses full team GCI straight from Follow Up Boss (each deal once), not the agent-share sum.
-  const recapTotals = { ...team.totals, gci: fub.gci, volume: fub.volume, closings: fub.units, leases: fub.leases, fubLeads: fub.newContacts, companyGci: companyGoal?.gci ?? 0, companyDeals: companyGoal?.deals ?? 0 };
+  const recapTotals = { ...team.totals, gci: fub.gci, volume: fub.volume, closings: fub.units, leases: fub.leases, weightedUnits: fub.weightedUnits, fubLeads: fub.newContacts, companyGci: companyGoal?.gci ?? 0, companyDeals: companyGoal?.deals ?? 0 };
 
   const overview = (
     <div className="space-y-6">
