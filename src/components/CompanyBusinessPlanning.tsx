@@ -770,7 +770,7 @@ const CompanyBusinessPlanning = ({ recap = false }: { recap?: boolean } = {}) =>
                     { label: 'Dials → Appt Set', r: measuredRates.dialsToApptSet },
                     { label: 'Contact → Pipeline', r: measuredRates.contactToPipeline },
                     { label: 'Appt Held → Contract', r: measuredRates.apptHeldToContract },
-                    { label: 'Appt Held → Firm Deal', r: measuredRates.apptHeldToFirm },
+                    { label: 'Appt Held → Pending Deal', r: measuredRates.apptHeldToFirm },
                     { label: 'Dials → Pipeline', r: measuredRates.dialsToPipeline },
                   ].map(m => (
                     <div key={m.label} className="text-center p-3 rounded-lg border border-border bg-muted/20">

@@ -84,7 +84,7 @@ export function RecapSection({ agentId, fubUserId, actuals, goal2026, recap, rec
         </CardContent>
       </Card>
 
-      <Card><CardHeader className="pb-2"><CardTitle className="text-base">2026 closed + firm</CardTitle></CardHeader>
+      <Card><CardHeader className="pb-2"><CardTitle className="text-base">2026 closed + pending</CardTitle></CardHeader>
         <CardContent><ClosedFirmSummary fubUserId={fubUserId ?? null} /></CardContent>
       </Card>
 

@@ -57,7 +57,7 @@ const CompanyBusinessPlanningPage = () => {
 
       <AdminPlanningOverview
         settings={settings} onOpenSettings={() => setOpen(true)} tab={tab} onTab={setTab}
-        recap={<div className="space-y-6"><ClosedFirmSummary title="2026 Closed + Firm" /><CompanyBusinessPlanning recap />{company.row && <OwnerCoachingNotes />}</div>}
+        recap={<div className="space-y-6"><ClosedFirmSummary title="2026 Closed + Pending" /><CompanyBusinessPlanning recap />{company.row && <OwnerCoachingNotes />}</div>}
       />
 
       <PlanningSettingsDialog open={open} onOpenChange={setOpen} orgId={orgId} settings={settings} onSaved={load} />
