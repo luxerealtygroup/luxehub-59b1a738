@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
       'Content-Type': 'application/json', 'Lovable-API-Key': key,
       'anthropic-version': '2023-06-01', 'X-Lovable-AIG-SDK': 'fetch',
     },
-    body: JSON.stringify({ model: MODEL, max_tokens: 1500, stream: true, system, messages: [{ role: 'user', content: prompt }] }),
+    body: JSON.stringify({ model: MODEL, max_tokens: 4000, stream: true, system, messages: [{ role: 'user', content: prompt }] }),
   });
   if (!res.ok || !res.body) {
     const t = await res.text().catch(() => '');
@@ -116,10 +116,12 @@ Deno.serve(async (req) => {
       try {
         const ev = JSON.parse(line.slice(5).trim());
         if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') text += ev.delta.text;
+        else if (ev.type === 'error' || ev.type === 'message_delta') console.log('ev', JSON.stringify(ev).slice(0, 300));
       } catch { /* ignore keep-alives */ }
     }
   }
 
+  console.log('ai text', text.length, text.slice(0, 500), buf.slice(0, 300));
   const m = text.match(/\{[\s\S]*\}/);
   let out: Record<string, string> = {};
   try { out = m ? JSON.parse(m[0]) : {}; } catch { out = {}; }
