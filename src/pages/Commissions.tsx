@@ -253,15 +253,15 @@ const Commissions = () => {
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <Table>
+            <Table className="min-w-[760px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Property</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Price</TableHead>
-                  <TableHead className="text-right">GCI</TableHead>
-                  <TableHead>Closing Date</TableHead>
+                  <TableHead className="whitespace-nowrap">Client</TableHead>
+                  <TableHead className="whitespace-nowrap">Property</TableHead>
+                  <TableHead className="whitespace-nowrap">Status</TableHead>
+                  <TableHead className="whitespace-nowrap text-right">Price</TableHead>
+                  <TableHead className="whitespace-nowrap text-right">GCI</TableHead>
+                  <TableHead className="whitespace-nowrap">Closing Date</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -292,7 +292,7 @@ const Commissions = () => {
                         </TableRow>
                         {deals.map((deal) => (
                           <TableRow key={deal.id}>
-                            <TableCell className="font-medium">{deal.clientName}</TableCell>
+                            <TableCell className="whitespace-nowrap font-medium">{deal.clientName}</TableCell>
                             <TableCell className="max-w-[200px] truncate">{deal.propertyAddress}</TableCell>
                             <TableCell>
                               <Badge variant="outline" className={badgeClass}>
@@ -301,7 +301,7 @@ const Commissions = () => {
                             </TableCell>
                             <TableCell className="text-right">{formatCurrency(deal.dealValue)}</TableCell>
                             <TableCell className="text-right font-bold text-gold">{formatCurrency(deal.grossCommission)}</TableCell>
-                            <TableCell>
+                            <TableCell className="whitespace-nowrap">
                               {deal.createdAt ? format(parseISO(deal.createdAt), 'MMM d, yyyy') : '-'}
                             </TableCell>
                           </TableRow>

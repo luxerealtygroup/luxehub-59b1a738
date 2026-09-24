@@ -566,19 +566,19 @@ export default function AdminClientPortals() {
             </div>
           ) : (
             <div className="w-full max-w-full overflow-x-auto border border-border/50 rounded-lg">
-              <Table>
+              <Table className="min-w-[1180px]">
                 <TableHeader>
                   <TableRow>
-                    <TableHead><SortButton label="Client" sortKey="client" /></TableHead>
-                    <TableHead><SortButton label="Agent" sortKey="agent" /></TableHead>
-                    <TableHead><SortButton label="Type" sortKey="type" /></TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead><SortButton label="Health" sortKey="health" /></TableHead>
+                    <TableHead className="min-w-[220px] whitespace-nowrap"><SortButton label="Client" sortKey="client" /></TableHead>
+                    <TableHead className="min-w-[160px] whitespace-nowrap"><SortButton label="Agent" sortKey="agent" /></TableHead>
+                    <TableHead className="whitespace-nowrap"><SortButton label="Type" sortKey="type" /></TableHead>
+                    <TableHead className="whitespace-nowrap">Status</TableHead>
+                    <TableHead className="whitespace-nowrap"><SortButton label="Health" sortKey="health" /></TableHead>
                     <TableHead className="text-center">FUB</TableHead>
                     <TableHead className="text-center">Slack</TableHead>
                     <TableHead className="text-center">Docs</TableHead>
-                    <TableHead><SortButton label="Last activity" sortKey="activity" /></TableHead>
-                    <TableHead className="text-right">Manage</TableHead>
+                    <TableHead className="whitespace-nowrap"><SortButton label="Last activity" sortKey="activity" /></TableHead>
+                    <TableHead className="whitespace-nowrap text-right">Manage</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -586,9 +586,9 @@ export default function AdminClientPortals() {
                     const h = healthMeta(r.healthScore);
                     return (
                       <TableRow key={r.id} className={`border-border/50 ${h.tone}`}>
-                      <TableCell>
-                        <div className="font-medium">{r.full_name || '—'}</div>
-                        <div className="text-xs text-muted-foreground">{r.email}</div>
+                      <TableCell className="min-w-[220px]">
+                        <div className="whitespace-nowrap font-medium">{r.full_name || '—'}</div>
+                        <div className="max-w-[240px] truncate text-xs text-muted-foreground">{r.email}</div>
                         {(r.overdueConditions > 0 || r.dueSoonConditions > 0) && (
                           <div className="mt-1 flex flex-wrap gap-1">
                             {r.overdueConditions > 0 && (
@@ -605,7 +605,7 @@ export default function AdminClientPortals() {
                           </div>
                         )}
                       </TableCell>
-                      <TableCell className="text-muted-foreground">{r.agentName}</TableCell>
+                      <TableCell className="whitespace-nowrap text-muted-foreground">{r.agentName}</TableCell>
                       <TableCell>
                         <div className="flex flex-col items-start gap-1">
                           <Badge variant="outline" className="text-xs">
