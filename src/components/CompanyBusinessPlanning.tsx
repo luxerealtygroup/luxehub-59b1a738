@@ -658,9 +658,9 @@ const CompanyBusinessPlanning = ({ recap = false }: { recap?: boolean } = {}) =>
           <CardTitle className="text-gold font-display flex items-center gap-2">
             <Building2 className="h-5 w-5" /> {recap ? `${CURRENT_YEAR} Recap` : `Company Business Planning — ${CURRENT_YEAR}`}
           </CardTitle>
-          {isAdmin && !recap && (
+          {isAdmin && (
             <Button size="sm" variant="outline" onClick={() => setGoalDialogOpen(true)}>
-              <Target className="h-4 w-4 mr-1" /> {hasCompanyGoal ? 'Edit company goal' : 'Set company goal'}
+              <Target className="h-4 w-4 mr-1" /> {recap ? 'Edit 2026 company goal' : hasCompanyGoal ? 'Edit company goal' : 'Set company goal'}
             </Button>
           )}
         </div>
