@@ -5984,6 +5984,42 @@ export type Database = {
         }
         Relationships: []
       }
+      temp_password_grants: {
+        Row: {
+          created_at: string
+          expired_at: string | null
+          expires_at: string
+          id: string
+          issued_by: string
+          org_id: string | null
+          portal_id: string | null
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expired_at?: string | null
+          expires_at: string
+          id?: string
+          issued_by: string
+          org_id?: string | null
+          portal_id?: string | null
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expired_at?: string | null
+          expires_at?: string
+          id?: string
+          issued_by?: string
+          org_id?: string | null
+          portal_id?: string | null
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       training_documents: {
         Row: {
           category: string | null
@@ -6372,6 +6408,7 @@ export type Database = {
         Args: { _full_name?: string; _token: string }
         Returns: string
       }
+      claim_portal_for_user: { Args: { _user_id: string }; Returns: string }
       claim_portal_invite: {
         Args: { _full_name?: string; _token: string }
         Returns: string
