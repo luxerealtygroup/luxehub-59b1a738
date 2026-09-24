@@ -1,3 +1,4 @@
+import LeadSourceTable from './LeadSourceTable';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -56,6 +57,7 @@ export function SessionCapture({ orgId }: { orgId: string | null }) {
 
   return (
     <div className="space-y-4">
+      <LeadSourceTable compact />
       {BUCKETS.map(b => {
         const rows = sources.map((s, i) => ({ s, i })).filter(x => x.s.bucket === b.k);
         return (

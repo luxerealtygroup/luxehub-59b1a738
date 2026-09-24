@@ -2848,6 +2848,35 @@ export type Database = {
           },
         ]
       }
+      lead_attribution_cache: {
+        Row: {
+          computed_at: string
+          org_id: string
+          plan_year: number
+          result: Json
+        }
+        Insert: {
+          computed_at?: string
+          org_id: string
+          plan_year?: number
+          result?: Json
+        }
+        Update: {
+          computed_at?: string
+          org_id?: string
+          plan_year?: number
+          result?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_attribution_cache_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       manual_production: {
         Row: {
           closed_deals: number
