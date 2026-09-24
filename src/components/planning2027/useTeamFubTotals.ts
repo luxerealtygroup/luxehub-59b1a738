@@ -11,6 +11,9 @@ export interface TeamFubTotals {
   leases: number;
   /** Weighted closed units: sale 1, lease 1/3, lease with GCI >= threshold 1. */
   weightedUnits: number;
+  /** Weighted units / GCI from personal transactions (no Luxe commission) — excluded from per-deal averages. */
+  personalUnits: number;
+  personalGci: number;
   /** Leases counted as a full unit (GCI at/above the threshold). */
   fullLeases: { name: string; gci: number }[];
   /** FUB contacts created this year (null until loaded). */
@@ -27,7 +30,7 @@ const closeDate = (d: any): string => (d.closedDate || d.closeDate || d.projecte
 
 /** Team-wide 2026 closings straight from Follow Up Boss (each deal once, not summed per agent). */
 export function useTeamFubTotals(year = 2026): TeamFubTotals {
-  const [t, setT] = useState<TeamFubTotals>({ loading: true, error: null, units: 0, leases: 0, weightedUnits: 0, fullLeases: [], newContacts: null, volume: 0, gci: 0, byMonth: Array(12).fill(0), asOf: '' });
+  const [t, setT] = useState<TeamFubTotals>({ loading: true, error: null, units: 0, leases: 0, weightedUnits: 0, personalUnits: 0, personalGci: 0, fullLeases: [], newContacts: null, volume: 0, gci: 0, byMonth: Array(12).fill(0), asOf: '' });
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -37,9 +40,9 @@ export function useTeamFubTotals(year = 2026): TeamFubTotals {
         return;
       }
       if (cancelled) return;
-      const deals: any[] = loaded.deals; const meta = loaded.meta;
+      const deals: any[] = loaded.deals; const meta = loaded.meta; const flags = loaded.flags;
       const today = new Date().toISOString().slice(0, 10);
-      const out = { leases: 0, units: 0, weightedUnits: 0, fullLeases: [] as { name: string; gci: number }[], volume: 0, gci: 0, byMonth: Array(12).fill(0) as number[] };
+      const out = { leases: 0, units: 0, weightedUnits: 0, personalUnits: 0, personalGci: 0, fullLeases: [] as { name: string; gci: number }[], volume: 0, gci: 0, byMonth: Array(12).fill(0) as number[] };
       for (const d of deals) {
         if (String(d.stageName ?? '').toLowerCase() !== 'closed') continue;
         const dt = closeDate(d);
@@ -47,6 +50,7 @@ export function useTeamFubTotals(year = 2026): TeamFubTotals {
         out.units += 1;
         const w = getDealWeight(d, meta);
         out.weightedUnits += w;
+        if (flags.get(Number(d.id))?.personal) { out.personalUnits += w; out.personalGci += Number(d.commissionValue || 0); }
         if (inferDealCategory(d, meta).category === 'lease') { out.leases += 1; if (w >= 1) out.fullLeases.push({ name: d.name, gci: Number(d.commissionValue || 0) }); }
         out.volume += Number(d.price || 0);
         out.gci += Number(d.commissionValue || 0);

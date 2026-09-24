@@ -50,11 +50,13 @@ export function annualPace(t: TeamFubTotals, raw = false) {
 /** Live per-deal figures from 2026 Follow Up Boss numbers, with optional owner overrides. */
 export function perDeal(p: CompanyPlanRow, t: TeamFubTotals) {
   const months = t.asOf ? daysYtd(t.asOf) / (365 / 12) : 0;
-  const unitsPerMonth = months ? t.weightedUnits / months : 0;
-  const gciLive = t.weightedUnits ? t.gci / t.weightedUnits : 0;
+  // Personal transactions (no Luxe commission) count as units but not in per-deal averages.
+  const avgUnits = t.weightedUnits - (t.personalUnits || 0);
+  const unitsPerMonth = months ? avgUnits / months : 0;
+  const gciLive = avgUnits ? (t.gci - (t.personalGci || 0)) / avgUnits : 0;
   const luxeLive = unitsPerMonth ? Number(p.luxe_monthly_revenue || 0) / unitsPerMonth : 0;
   return {
-    months, unitsPerMonth, gciLive, luxeLive,
+    months, unitsPerMonth, gciLive, luxeLive, avgUnits,
     gci: p.gci_per_deal_override ? Number(p.gci_per_deal_override) : gciLive,
     luxe: p.luxe_revenue_override ? Number(p.luxe_revenue_override) : luxeLive,
   };
@@ -160,12 +162,12 @@ export function CompanyPlan({ plan, onSaved, fub, agentDealGoals }: {
             <div className="rounded-lg border border-border p-3 space-y-1">
               <p className="text-xs uppercase tracking-wider text-muted-foreground">GCI per weighted deal</p>
               <p className="text-2xl font-bold">{m(pd.gci)}{p.gci_per_deal_override ? <span className="text-xs font-normal text-muted-foreground"> · your override</span> : null}</p>
-              <p className="text-xs text-muted-foreground">{m(fub.gci)} 2026 GCI ÷ {fub.weightedUnits} weighted units = {m(pd.gciLive)}</p>
+              <p className="text-xs text-muted-foreground">{m(fub.gci - (fub.personalGci || 0))} 2026 GCI ÷ {pd.avgUnits} weighted units = {m(pd.gciLive)}{fub.personalUnits ? ` · excludes ${fub.personalUnits} personal transaction${fub.personalUnits === 1 ? '' : 's'} (no commission)` : ''}</p>
             </div>
             <div className="rounded-lg border border-border p-3 space-y-1">
               <p className="text-xs uppercase tracking-wider text-muted-foreground">Luxe revenue per weighted deal</p>
               <p className="text-2xl font-bold">{m(pd.luxe)}{p.luxe_revenue_override ? <span className="text-xs font-normal text-muted-foreground"> · your override</span> : null}</p>
-              <p className="text-xs text-muted-foreground">{m(p.luxe_monthly_revenue)}/month ÷ ({fub.weightedUnits} units ÷ {pd.months.toFixed(2)} months = {pd.unitsPerMonth.toFixed(2)} units/month) = {m(pd.luxeLive)}</p>
+              <p className="text-xs text-muted-foreground">{m(p.luxe_monthly_revenue)}/month ÷ ({pd.avgUnits} units ÷ {pd.months.toFixed(2)} months = {pd.unitsPerMonth.toFixed(2)} units/month) = {m(pd.luxeLive)}</p>
             </div>
           </div>
           <div className="rounded-lg border border-border overflow-x-auto">

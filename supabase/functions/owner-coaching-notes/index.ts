@@ -72,7 +72,7 @@ async function compile(db: any, orgId: string, callerId: string) {
   for (const p of profs ?? []) if (p.fub_user_id && producing.has(p.id)) byFub.set(Number(p.fub_user_id), p.id);
 
   // Shared lease rule: deal_metadata marks, lease keywords, then rent-sized price; weight from Planning settings.
-  const { data: md } = await db.from('deal_metadata').select('fub_deal_id, deal_category, weight_override').eq('org_id', orgId);
+  const { data: md } = await db.from('deal_metadata').select('fub_deal_id, deal_category, weight_override, personal_transaction, double_end').eq('org_id', orgId);
   const { data: lw } = await db.from('planning_settings').select('lease_full_unit_gci, lease_weight').eq('org_id', orgId).eq('plan_year', 2027).maybeSingle();
   const META = new Map<number, any>((md ?? []).map((r: any) => [Number(r.fub_deal_id), r]));
   const LFULL = Number(lw?.lease_full_unit_gci ?? 4000), LW = Number(lw?.lease_weight ?? 1 / 3);
@@ -104,11 +104,14 @@ async function compile(db: any, orgId: string, callerId: string) {
   for (const d of pending) for (const id of owners(d)) { const a = agg(id); a.pending += 1 / owners(d).length; a.pendingGci += Number(d.commissionValue || 0) / owners(d).length; }
 
   // Audit: $0 commission, missing dates, duplicates.
-  const zero = closed.filter(d => !Number(d.commissionValue)).map(d => `${d.name} (${dealDate(d)}, $${r0(Number(d.price || 0)).toLocaleString()})`);
+  const personal = closed.filter(d => META.get(Number(d.id))?.personal_transaction).map(d => `${d.name} (${dealDate(d)})`);
+  const doubleEnds = closed.filter(d => META.get(Number(d.id))?.double_end).map(d => `${d.name} (${dealDate(d)})`);
+  const zero = closed.filter(d => !Number(d.commissionValue) && !META.get(Number(d.id))?.personal_transaction).map(d => `${d.name} (${dealDate(d)}, commission $0, price $${r0(Number(d.price || 0)).toLocaleString()})`);
   const noDate = deals.filter(d => String(d.stageName).toLowerCase() === 'closed' && !(d.closeDate || d.closedDate || d.projectedCloseDate)).map(d => d.name);
   const dups: string[] = [];
   for (let i = 0; i < closed.length; i++) for (let j = i + 1; j < closed.length; j++) {
     const a = closed[i], b = closed[j], na = norm(a.name), nb = norm(b.name);
+    if (META.get(Number(a.id))?.double_end && META.get(Number(b.id))?.double_end) continue;
     const sameName = na && na === nb, sameComm = Number(a.commissionValue) === Number(b.commissionValue) && Number(a.commissionValue) > 0;
     const overlap = na && nb && (na.split(' ').some((w: string) => nb.split(' ').includes(w)));
     if (sameName || (sameComm && overlap)) dups.push(`"${a.name}" and "${b.name}" — both $${r0(Number(a.commissionValue || 0)).toLocaleString()} commission`);
@@ -197,6 +200,8 @@ async function compile(db: any, orgId: string, callerId: string) {
     by_agent_production: Object.entries(A).map(([id, a]) => ({ name: id === 'unassigned' ? 'Unassigned' : P.get(id)?.full_name ?? id, gci: r0(a.gci + a.leaseGci), homes: r1(a.homes), leases: r1(a.leases), volume: r0(a.volume), pending: r1(a.pending) })).sort((x, y) => y.gci - x.gci),
     audit: {
       zero_commission: zero, missing_close_date: noDate, possible_duplicates: dups,
+      confirmed_personal_transactions_no_commission: personal, confirmed_double_ends_one_record_per_side: doubleEnds,
+      counting_note: 'Each side of a double-end is its own unit with its own GCI. Personal transactions are correct at $0 and count as units, but are excluded from per-deal averages. Neither is a data problem.',
       uncontacted_2026_leads: uncontacted.length, uncontacted_older_than_7_days: uncontacted.filter(p => p.created < cutoff).length,
       leads_stuck_in_lead_stage_90d: stuckLead, duplicate_profiles: dupNames,
       shared_deals_split: 'Shared deals split evenly between the producing agents on the deal; support staff excluded.',
@@ -207,7 +212,7 @@ async function compile(db: any, orgId: string, callerId: string) {
     agents: agents.map(({ evidence, ...rest }) => rest),
   };
 
-  const RULES = `Rules: call deals whose conditions are waived but not yet closed "pending", never "firm". every claim cites its source in brackets, e.g. [FUB, Jul 2026], [4-1-1, 22 of 38 weeks], [Coaching notes, Mar 2026], [Appointment log]. If data is thin or unreliable, say so plainly instead of guessing. NEVER mention health, illness, family, pregnancy, bereavement, relationships or other personal circumstances; where they affected work write only "personal capacity was limited in [months]". Tone: direct, supportive, specific; no generic advice. Use "personal capacity was limited in [months]" only when the notes actually show it — never speculate. Use the exact numbers provided; never invent numbers, clients or events. Return ONLY one valid JSON object: no markdown fences, escape any double quotes inside strings, keep each string under 60 words.`;
+  const RULES = `Rules: only discuss the selling agents named in the facts — never mention anyone else (for example people who are not agents yet). Confirmed personal transactions and confirmed double-ends are correct data, never list them as issues. call deals whose conditions are waived but not yet closed "pending", never "firm". every claim cites its source in brackets, e.g. [FUB, Jul 2026], [4-1-1, 22 of 38 weeks], [Coaching notes, Mar 2026], [Appointment log]. If data is thin or unreliable, say so plainly instead of guessing. NEVER mention health, illness, family, pregnancy, bereavement, relationships or other personal circumstances; where they affected work write only "personal capacity was limited in [months]". Tone: direct, supportive, specific; no generic advice. Use "personal capacity was limited in [months]" only when the notes actually show it — never speculate. Use the exact numbers provided; never invent numbers, clients or events. Return ONLY one valid JSON object: no markdown fences, escape any double quotes inside strings, keep each string under 60 words.`;
 
   const teamPrompt = `FACTS (JSON):\n${JSON.stringify(facts).slice(0, 60000)}`;
   const teamSys = `You write private coaching notes for Kristen, the owner of a Canadian real estate team, ahead of the Oct 14 2026 planning session. ${RULES}
