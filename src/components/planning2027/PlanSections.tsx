@@ -12,6 +12,7 @@ import {
   PreworkRow, RecapRow, GoalResults, perWeek, pctChange, splitQuarters, LeadSourceFocus, ActionItem, Milestone,
 } from '@/lib/planning2027';
 import type { PriorYearActuals, PriorYearGoal } from './usePriorYearActuals';
+import { ReflectionExercises, KpiTargets, ContractSection } from './SessionExercises';
 
 type SetPrework = (fn: (p: PreworkRow) => PreworkRow) => void;
 const m = (v: number | null | undefined) => (v == null ? '—' : formatCurrency(v));
@@ -152,16 +153,23 @@ export function ReflectionSection({ prework, setPrework, editable }: { prework: 
     ['challenges_2026', 'What were your biggest challenges in 2026?', 'Started from your coaching recap — make it yours.'],
     ['top_lead_sources', 'What were your top lead sources?'],
     ['team_change_suggestion', 'One change you would suggest for the team'],
-    ['stop_start_continue', 'What do you want to stop, start and continue in 2027?'],
     ['support_needed', 'What support do you need from Kristen and the team?'],
   ];
   return (
-    <Card><CardContent className="p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
-      {fields.map(([k, label, hint]) => (
-        <Field key={k} id={k} label={label} hint={editable ? hint : undefined} editable={editable && !!setPrework}
-          value={prework[k] as string} onChange={v => setPrework?.(p => ({ ...p, [k]: v }))} />
-      ))}
-    </CardContent></Card>
+    <div className="space-y-4">
+      <ReflectionExercises prework={prework} setPrework={setPrework} editable={editable} />
+      <Card><CardHeader className="pb-2"><CardTitle className="text-base">Pre-work questions</CardTitle></CardHeader>
+        <CardContent className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {fields.map(([k, label, hint]) => (
+            <Field key={k} id={k} label={label} hint={editable ? hint : undefined} editable={editable && !!setPrework}
+              value={prework[k] as string} onChange={v => setPrework?.(p => ({ ...p, [k]: v }))} />
+          ))}
+          {prework.stop_start_continue && (
+            <Field id="stop_start_continue" label="Stop / start / continue (earlier answer)" editable={false} value={prework.stop_start_continue} onChange={() => {}} />
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
@@ -207,8 +215,8 @@ export function weeklyDefaults(r: GoalResults | null, a: PriorYearActuals) {
   return { weekly_conversations: convos, weekly_appointments: appts, weekly_leads: leads };
 }
 
-export function WayForwardSection({ prework, setPrework, editable, results, actuals }: {
-  prework: PreworkRow; setPrework?: SetPrework; editable: boolean; results: GoalResults | null; actuals: PriorYearActuals;
+export function WayForwardSection({ prework, setPrework, editable, results, actuals, agentId }: {
+  prework: PreworkRow; setPrework?: SetPrework; editable: boolean; results: GoalResults | null; actuals: PriorYearActuals; agentId: string;
 }) {
   const ed = editable && !!setPrework;
   const set = (patch: Partial<PreworkRow>) => setPrework?.(p => ({ ...p, ...patch }));
@@ -226,16 +234,7 @@ export function WayForwardSection({ prework, setPrework, editable, results, actu
 
   return (
     <div className="space-y-4">
-      <Card><CardHeader className="pb-2 flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
-        <CardTitle className="text-base">Weekly activity commitments</CardTitle>
-        {ed && <Button size="sm" variant="ghost" className="gap-2" onClick={() => set(weeklyDefaults(results, actuals))}><RotateCcw className="h-4 w-4" />Reset from calculator</Button>}
-      </CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {([['weekly_conversations', 'Conversations / week'], ['weekly_appointments', 'Appointments / week'], ['weekly_leads', 'Leads / week']] as const).map(([k, label]) => (
-            <div key={k} className="space-y-1"><Label htmlFor={k} className="text-xs">{label}</Label>{numIn(k, prework[k], v => set({ [k]: v }))}</div>
-          ))}
-        </CardContent>
-      </Card>
+      <KpiTargets prework={prework} setPrework={setPrework} editable={editable} results={results} actuals={actuals} />
 
       <Card><CardHeader className="pb-2"><CardTitle className="text-base">Top 3 lead sources for 2027</CardTitle></CardHeader>
         <CardContent className="space-y-2">
@@ -294,6 +293,8 @@ export function WayForwardSection({ prework, setPrework, editable, results, actu
         <Field id="skills_focus" label="Skills or training focus" editable={ed} rows={3} value={prework.skills_focus} onChange={v => set({ skills_focus: v })} />
         <Field id="personal_goal" label="One personal goal (optional)" editable={ed} rows={3} value={prework.personal_goal} onChange={v => set({ personal_goal: v })} />
       </CardContent></Card>
+
+      <ContractSection prework={prework} setPrework={setPrework} editable={editable} selfId={agentId} />
     </div>
   );
 }

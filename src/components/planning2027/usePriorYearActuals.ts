@@ -23,7 +23,12 @@ export interface PriorYearActuals {
   listings: number;
   offers: number;
   weeksLogged: number;
+  /** Why the agent's own conversion rates were or weren't used. */
+  rateNote: string | null;
 }
+
+/** Minimum weekly 4-1-1 entries before an agent's own conversion rates are trusted. */
+export const MIN_WEEKS_FOR_RATES = 12;
 
 const round1 = (v: number) => Math.round(v * 10) / 10;
 
@@ -62,6 +67,11 @@ export function usePriorYearActuals(userId: string | null, fubUserId: number | n
   const closings = metrics.deals_closed;
   const appts = w?.appts ?? 0;
   const leads = w?.leads ?? 0;
+  const weeks = w?.weeks ?? 0;
+  const ratesTrusted = weeks >= MIN_WEEKS_FOR_RATES && leads >= appts && appts > 0;
+  const rateNote = ratesTrusted ? null
+    : weeks < MIN_WEEKS_FOR_RATES ? `Only ${weeks} weeks of 4-1-1 logged (need ${MIN_WEEKS_FOR_RATES}) — using team defaults`
+    : `4-1-1 shows fewer leads (${leads}) than appointments (${appts}) — using team defaults`;
   const a2cRaw = appts > 0 ? round1(Math.min(100, (closings / appts) * 100)) : null;
   const l2aRaw = leads > 0 ? round1(Math.min(100, (appts / leads) * 100)) : null;
   return {
@@ -73,8 +83,8 @@ export function usePriorYearActuals(userId: string | null, fubUserId: number | n
     closedSales: sales,
     avgSalePrice: sales >= 2 && vol > 0 ? Math.round(vol / sales) : null,
     commissionRate: sales >= 2 && vol > 0 && metrics.gci_sales_closed > 0 ? round1((metrics.gci_sales_closed / vol) * 100) : null,
-    apptToClose: appts >= 5 && closings > 0 ? a2cRaw : null,
-    leadToAppt: leads >= 20 && appts > 0 ? l2aRaw : null,
+    apptToClose: ratesTrusted && closings > 0 ? a2cRaw : null,
+    leadToAppt: ratesTrusted ? l2aRaw : null,
     apptToCloseRaw: a2cRaw,
     leadToApptRaw: l2aRaw,
     appointments: appts,
@@ -82,7 +92,8 @@ export function usePriorYearActuals(userId: string | null, fubUserId: number | n
     conversations: w?.convos ?? 0,
     listings: w?.listings ?? 0,
     offers: w?.offers ?? 0,
-    weeksLogged: w?.weeks ?? 0,
+    weeksLogged: weeks,
+    rateNote,
   };
 }
 

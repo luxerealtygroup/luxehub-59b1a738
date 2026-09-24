@@ -11,6 +11,7 @@ import { StatusBadge } from './StatusBadge';
 import { usePriorYearActuals, usePriorYearGoal } from './usePriorYearActuals';
 import { useRecap } from './useRecap';
 import { RecapSection, ReflectionSection, GoalComparison, WayForwardSection } from './PlanSections';
+import { GoalExercises } from './SessionExercises';
 
 function Section({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
@@ -111,10 +112,11 @@ export function AgentPlanDetail({ agentId, agentName, canReview, onChanged }: {
             {!actuals.loading && <GoalComparison actuals={actuals} r={goal} />}
           </div>
         )}
+        <GoalExercises prework={pw} editable={false} />
       </Section>
 
       <Section n={4} title="Way Forward">
-        {prework ? <WayForwardSection prework={pw} editable={false} results={goal} actuals={actuals} />
+        {prework ? <WayForwardSection prework={pw} editable={false} results={goal} actuals={actuals} agentId={agentId} />
           : <p className="text-sm text-muted-foreground">Nothing saved yet.</p>}
       </Section>
     </div>

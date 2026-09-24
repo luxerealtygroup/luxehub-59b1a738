@@ -49,7 +49,7 @@ export function TeamRecap({ totals, loading, goals }: {
           <p className="text-sm font-semibold text-foreground">2026 actual vs 2026 goal</p>
           {loading ? <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin text-gold" />Adding up each agent's 2026 numbers…</p> : (
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-              <Box k="GCI" v={m(totals.gci)} sub={`${pctOf(totals.gci, totals.goalGci)} (${m(totals.goalGci)})`} />
+              <Box k="Team GCI (full)" v={m(totals.gci)} sub={`${pctOf(totals.gci, totals.goalGci)} (${m(totals.goalGci)})`} />
               <Box k="Closed deals" v={n(totals.closings)} sub={`${pctOf(totals.closings, totals.goalDeals)} (${n(totals.goalDeals)})`} />
               <Box k="Volume" v={m(totals.volume)} sub={totals.goalVolume ? `${pctOf(totals.volume, totals.goalVolume)} (${m(totals.goalVolume)})` : undefined} />
               <Box k="Appointments" v={n(totals.appts)} />
