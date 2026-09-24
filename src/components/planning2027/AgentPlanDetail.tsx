@@ -85,7 +85,7 @@ export function AgentPlanDetail({ agentId, agentName, canReview, onChanged }: {
       </div>
 
       <Section n={1} title="2026 Recap">
-        <RecapSection agentId={agentId} actuals={actuals} goal2026={goal2026} recap={recap} recapLoading={recapLoading}
+        <RecapSection agentId={agentId} fubUserId={fub?.id ?? null} actuals={actuals} goal2026={goal2026} recap={recap} recapLoading={recapLoading}
           regenerating={working} canRegenerate={canReview} onRegenerate={regenerate} prework={pw} editable={false} />
       </Section>
 
