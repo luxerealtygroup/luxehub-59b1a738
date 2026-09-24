@@ -585,7 +585,7 @@ const Pipeline = () => {
                 <FUBClientSearch onSelectClient={handleFUBSelect} />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <Label>Client Name *</Label>
                   <Input value={newClient.client_name} onChange={(e) => setNewClient({ ...newClient, client_name: e.target.value })} placeholder="John Doe" />
@@ -627,7 +627,7 @@ const Pipeline = () => {
               </div>
 
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div><Label>Phone</Label><Input value={newClient.phone} onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })} placeholder="(555) 123-4567" /></div>
                 <div><Label>Email</Label><Input value={newClient.email} onChange={(e) => setNewClient({ ...newClient, email: e.target.value })} placeholder="john@example.com" /></div>
               </div>
@@ -639,7 +639,7 @@ const Pipeline = () => {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <Label>Stage *</Label>
                   <Select value={newClient.stage.toString()} onValueChange={(value) => setNewClient({ ...newClient, stage: parseInt(value) })}>

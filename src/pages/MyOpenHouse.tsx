@@ -1323,22 +1323,22 @@ function ReportSection({ openHouse, guests, canManage, hostName, onChanged }: {
 
       {guests.length > 0 && (
         <div className="overflow-x-auto">
-          <Table>
+          <Table className="min-w-[820px]">
             <TableHeader>
               <TableRow>
-                <TableHead>Guest</TableHead>
-                <TableHead>How</TableHead>
-                <TableHead>Temp</TableHead>
-                <TableHead>Interest</TableHead>
-                <TableHead>Price</TableHead>
-                <TableHead>Condition</TableHead>
-                <TableHead>Notes</TableHead>
+                <TableHead className="whitespace-nowrap">Guest</TableHead>
+                <TableHead className="whitespace-nowrap">How</TableHead>
+                <TableHead className="whitespace-nowrap">Temp</TableHead>
+                <TableHead className="whitespace-nowrap">Interest</TableHead>
+                <TableHead className="whitespace-nowrap">Price</TableHead>
+                <TableHead className="whitespace-nowrap">Condition</TableHead>
+                <TableHead className="whitespace-nowrap">Notes</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {guests.map(g => (
                 <TableRow key={g.id}>
-                  <TableCell className="font-medium">{guestName(g)}</TableCell>
+                  <TableCell className="whitespace-nowrap font-medium">{guestName(g)}</TableCell>
                   <TableCell className="text-xs">{g.source === 'visitor' ? 'Signed in' : 'Agent logged'}</TableCell>
                   <TableCell className="text-xs capitalize">{g.temperature || '—'}</TableCell>
                   <TableCell>{g.interest_level ? INTEREST_LABEL[g.interest_level] : '—'}</TableCell>

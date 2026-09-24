@@ -1355,7 +1355,7 @@ const AdminDashboard = () => {
                           </div>
                         </div>
                         <div className="overflow-x-auto border border-border/50 rounded-lg">
-                          <Table>
+                          <Table className="min-w-[1120px]">
                             <TableHeader>
                               <TableRow>
                                 <TableHead className="w-8">
@@ -1370,14 +1370,14 @@ const AdminDashboard = () => {
                                     }}
                                   />
                                 </TableHead>
-                                <TableHead>Client</TableHead>
+                                <TableHead className="whitespace-nowrap">Client</TableHead>
                                 <TableHead className="w-16 text-center">Portal</TableHead>
-                                <TableHead>Property</TableHead>
-                                <TableHead>Agent</TableHead>
-                                <TableHead>{key === 'closed' ? 'Close Date' : 'Projected Close'}</TableHead>
-                                <TableHead>Deal Type</TableHead>
-                                <TableHead className="text-right">GCI</TableHead>
-                                <TableHead className="text-right">Company Revenue</TableHead>
+                                <TableHead className="whitespace-nowrap">Property</TableHead>
+                                <TableHead className="whitespace-nowrap">Agent</TableHead>
+                                <TableHead className="whitespace-nowrap">{key === 'closed' ? 'Close Date' : 'Projected Close'}</TableHead>
+                                <TableHead className="whitespace-nowrap">Deal Type</TableHead>
+                                <TableHead className="whitespace-nowrap text-right">GCI</TableHead>
+                                <TableHead className="whitespace-nowrap text-right">Company Revenue</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -1398,7 +1398,7 @@ const AdminDashboard = () => {
                                         }}
                                       />
                                     </TableCell>
-                                    <TableCell className="font-medium">{transaction.clientName}</TableCell>
+                                    <TableCell className="whitespace-nowrap font-medium">{transaction.clientName}</TableCell>
                                     <TableCell className="text-center">
                                       {(() => {
                                         const portal = transaction.clientFubId
@@ -1429,7 +1429,7 @@ const AdminDashboard = () => {
                                         );
                                       })()}
                                     </TableCell>
-                                    <TableCell className="text-muted-foreground max-w-[200px] truncate">
+                                    <TableCell className="min-w-[180px] max-w-[240px] truncate text-muted-foreground">
                                       {transaction.propertyAddress || '-'}
                                     </TableCell>
                                     <TableCell className="text-muted-foreground max-w-[200px]">
@@ -1440,7 +1440,7 @@ const AdminDashboard = () => {
                                         onSaved={() => setAttributionVersion(v => v + 1)}
                                       />
                                     </TableCell>
-                                    <TableCell className="text-muted-foreground">
+                                    <TableCell className="whitespace-nowrap text-muted-foreground">
                                       {formatDashboardDate(transaction.closingDate)}
                                     </TableCell>
                                     <TableCell>

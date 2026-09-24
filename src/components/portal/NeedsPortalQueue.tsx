@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Link2, Loader2, Plus, UserPlus } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { AgentPortalDialog } from '@/components/AgentPortalDialog';
 import { AttachToPortalDialog } from '@/components/portal/AttachToPortalDialog';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -106,6 +107,58 @@ export function NeedsPortalQueue({
 
   if (!loading && queue.length === 0) return null;
 
+  const actions = (r: QueueRow, compact = false) => {
+    const isSeller = (r.client_type || '').toLowerCase() === 'seller';
+    return (
+      <div className={compact ? 'flex items-center justify-end gap-2' : 'grid grid-cols-1 gap-2'}>
+        <AttachToPortalDialog
+          pipelineClientId={r.id}
+          clientName={r.client_name}
+          onAttached={refresh}
+          trigger={compact ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="icon" variant="outline" aria-label={`Attach ${r.client_name} to an existing portal`}>
+                  <Link2 className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Attach to existing portal</TooltipContent>
+            </Tooltip>
+          ) : (
+            <Button size="sm" variant="outline" className="w-full justify-center gap-2 whitespace-normal">
+              <Link2 className="h-4 w-4 shrink-0" />
+              Attach to existing portal
+            </Button>
+          )}
+        />
+        <AgentPortalDialog
+          clientName={r.client_name}
+          clientEmail={r.email || undefined}
+          defaultType={isSeller ? 'seller' : 'buyer'}
+          defaultAgentId={r.user_id}
+          defaultPropertyAddress={isSeller ? r.property_address : null}
+          pipelineClientId={r.id}
+          onSaved={refresh}
+          trigger={compact ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="icon" aria-label={`Create a portal for ${r.client_name}`}>
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Create portal</TooltipContent>
+            </Tooltip>
+          ) : (
+            <Button size="sm" className="w-full justify-center gap-2">
+              <Plus className="h-4 w-4 shrink-0" />
+              Create portal
+            </Button>
+          )}
+        />
+      </div>
+    );
+  };
+
   return (
     <Card className="border-amber-500/30">
       <CardHeader>
@@ -124,16 +177,42 @@ export function NeedsPortalQueue({
             <Loader2 className="h-4 w-4 animate-spin" /> Checking signed clients…
           </div>
         ) : (
-          <div className="overflow-x-auto border border-border/50 rounded-lg">
-            <Table>
+          <TooltipProvider>
+            <div className="space-y-3 md:hidden">
+              {queue.map((r) => {
+                const isSeller = (r.client_type || '').toLowerCase() === 'seller';
+                return (
+                  <section key={r.id} className="min-w-0 space-y-4 rounded-md border border-border/60 p-4">
+                    <div className="min-w-0">
+                      <p className="break-words font-medium leading-snug">{r.client_name}</p>
+                      <p className="break-all text-xs text-muted-foreground">{r.email || 'No email on file'}</p>
+                    </div>
+                    <dl className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm">
+                      <dt className="text-muted-foreground">Agent</dt>
+                      <dd className="min-w-0 break-words text-right">{r.agentName}</dd>
+                      <dt className="text-muted-foreground">Type</dt>
+                      <dd className="text-right"><Badge variant="outline" className="text-xs">{isSeller ? 'Seller' : 'Buyer'}</Badge></dd>
+                      <dt className="text-muted-foreground">Property</dt>
+                      <dd className="min-w-0 break-words text-right">{isSeller ? r.property_address || '—' : 'Address TBD'}</dd>
+                      <dt className="text-muted-foreground">Signed</dt>
+                      <dd className="whitespace-nowrap text-right">{format(new Date(r.updated_at), 'MMM d, yyyy')}</dd>
+                    </dl>
+                    {actions(r)}
+                  </section>
+                );
+              })}
+            </div>
+
+            <div className="hidden max-w-full overflow-x-auto overscroll-x-contain rounded-lg border border-border/50 [-webkit-overflow-scrolling:touch] md:block">
+            <Table className="min-w-[880px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Agent</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Property</TableHead>
-                  <TableHead>Signed</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
+                  <TableHead className="min-w-[190px] whitespace-nowrap">Client</TableHead>
+                  <TableHead className="min-w-[150px] whitespace-nowrap">Agent</TableHead>
+                  <TableHead className="w-24 whitespace-nowrap">Type</TableHead>
+                  <TableHead className="min-w-[190px] whitespace-nowrap">Property</TableHead>
+                  <TableHead className="w-32 whitespace-nowrap">Signed</TableHead>
+                  <TableHead className="w-28 whitespace-nowrap text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -141,62 +220,34 @@ export function NeedsPortalQueue({
                   const isSeller = (r.client_type || '').toLowerCase() === 'seller';
                   return (
                     <TableRow key={r.id} className="border-border/50">
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         <div className="font-medium">{r.client_name}</div>
-                        <div className="text-xs text-muted-foreground">{r.email || 'No email on file'}</div>
+                        <div className="max-w-[220px] truncate text-xs text-muted-foreground">{r.email || 'No email on file'}</div>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">{r.agentName}</TableCell>
+                      <TableCell className="whitespace-nowrap text-muted-foreground">{r.agentName}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-xs">
                           {isSeller ? 'Seller' : 'Buyer'}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-sm">
+                      <TableCell className="max-w-[240px] text-sm">
                         {isSeller ? (
                           r.property_address || <span className="text-muted-foreground">—</span>
                         ) : (
                           <span className="text-muted-foreground">Address TBD</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
+                      <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
                         {format(new Date(r.updated_at), 'MMM d, yyyy')}
                       </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <AttachToPortalDialog
-                            pipelineClientId={r.id}
-                            clientName={r.client_name}
-                            onAttached={refresh}
-                            trigger={
-                              <Button size="sm" variant="outline" className="gap-2">
-                                <Link2 className="h-4 w-4" />
-                                Attach to existing portal
-                              </Button>
-                            }
-                          />
-                          <AgentPortalDialog
-                            clientName={r.client_name}
-                            clientEmail={r.email || undefined}
-                            defaultType={isSeller ? 'seller' : 'buyer'}
-                            defaultAgentId={r.user_id}
-                            defaultPropertyAddress={isSeller ? r.property_address : null}
-                            pipelineClientId={r.id}
-                            onSaved={refresh}
-                            trigger={
-                              <Button size="sm" className="gap-2">
-                                <Plus className="h-4 w-4" />
-                                Create portal
-                              </Button>
-                            }
-                          />
-                        </div>
-                      </TableCell>
+                      <TableCell className="w-28 whitespace-nowrap text-right">{actions(r, true)}</TableCell>
                     </TableRow>
                   );
                 })}
               </TableBody>
             </Table>
-          </div>
+            </div>
+          </TooltipProvider>
         )}
       </CardContent>
     </Card>
