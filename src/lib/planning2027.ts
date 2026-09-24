@@ -21,7 +21,12 @@ export interface PlanningSettings {
   planning_session_date: string;
   selling_agent_ids?: string[];
   defaults_source?: string | null;
+  /** Goals stay editable until this moment, then lock (session day). */
+  final_lock_at?: string | null;
 }
+
+/** When goals lock: the final lock time, falling back to the draft deadline. */
+export const lockTime = (s: PlanningSettings) => s.final_lock_at || s.submission_deadline;
 
 export const DEFAULT_SETTINGS: PlanningSettings = {
   plan_year: PLAN_YEAR,
@@ -30,7 +35,8 @@ export const DEFAULT_SETTINGS: PlanningSettings = {
   appt_to_close_rate: 20,
   lead_to_appt_rate: 10,
   avg_sale_price: 800000,
-  submission_deadline: '2026-10-14T03:59:00.000Z', // Oct 13 2026 11:59 PM Toronto
+  submission_deadline: '2026-10-14T03:59:00.000Z', // Oct 13 2026 11:59 PM Toronto — draft due
+  final_lock_at: '2026-10-14T16:20:00.000Z', // Oct 14 2026 12:20 PM Toronto — goals lock
   planning_session_date: '2026-10-14',
 };
 
@@ -95,6 +101,51 @@ export interface PreworkRow {
   personal_goal?: string | null;
   status?: 'draft' | 'submitted';
   submitted_at?: string | null;
+  exercises?: Exercises;
+}
+
+export const G_OPTIONS = ['Grit', 'Grace', 'Growth', 'Gratitude'] as const;
+export type GName = typeof G_OPTIONS[number];
+
+export const PROMISE_QUESTIONS = [
+  'What did you promise yourself at the start of 2026?',
+  'Did you keep it? Where did you keep it, and where did you let it slide?',
+  'What got in the way?',
+  'What will you promise yourself for 2027?',
+] as const;
+
+export const CONTRACT_PROMPTS = [
+  'In 2027 I commit to…',
+  'I will measure it by…',
+  'When I fall behind, I will…',
+  'My reward when I hit it is…',
+] as const;
+
+export const KPI_KEYS = [
+  ['conversations', 'Conversations'],
+  ['pipeline_adds', 'Pipeline adds'],
+  ['appointments_held', 'Appointments held'],
+  ['agreements_signed', 'Agreements signed'],
+  ['deals_closed', 'Deals closed'],
+] as const;
+export type KpiKey = typeof KPI_KEYS[number][0];
+
+export interface Exercises {
+  g_carried?: GName | null;
+  g_neglected?: GName | null;
+  promise?: string[];
+  keep?: string[];
+  stop?: string[];
+  start?: string[];
+  fifth_why?: string | null;
+  premortem?: string | null;
+  habit_change?: string | null;
+  belief_change?: string | null;
+  kpis?: Partial<Record<KpiKey, number | null>>;
+  contract?: string[];
+  accountability_partner_id?: string | null;
+  accountability_partner_name?: string | null;
+  lead_g?: GName | null;
 }
 
 export interface RecapRow {
@@ -107,7 +158,7 @@ export const PREWORK_SAVE_KEYS = [
   'wins_2026', 'challenges_2026', 'top_lead_sources', 'team_change_suggestion', 'stop_start_continue', 'support_needed',
   'recap_wins', 'recap_challenges', 'recap_commitments', 'recap_lead_sources',
   'weekly_conversations', 'weekly_appointments', 'weekly_leads',
-  'lead_source_focus', 'quarterly_milestones', 'action_plan', 'skills_focus', 'personal_goal',
+  'lead_source_focus', 'quarterly_milestones', 'action_plan', 'skills_focus', 'personal_goal', 'exercises',
 ] as const;
 
 /** Evenly split deals/GCI across quarters; remainder deals go to the later (busier) quarters. */
