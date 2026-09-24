@@ -103,6 +103,13 @@ export function AgentPlanner({ agentId, fubUserId, hasFUB, agentName, settings, 
   }, [loading, actuals, saved, settings, inputs]);
 
   const results = useMemo(() => (inputs ? computeGoal(inputs) : null), [inputs]);
+
+  // Seed weekly commitments from the calculator the first time a goal exists.
+  useEffect(() => {
+    if (!results?.appointments_needed) return;
+    setPreworkState(p => (p.weekly_conversations == null && p.weekly_appointments == null && p.weekly_leads == null
+      ? { ...p, ...weeklyDefaults(results, actuals) } : p));
+  }, [results, actuals]);
   const status = saved?.status ?? 'draft';
   const editable = !pastDeadline && status === 'draft';
 
@@ -159,8 +166,6 @@ export function AgentPlanner({ agentId, fubUserId, hasFUB, agentName, settings, 
     return <div className="flex flex-col items-center gap-2 py-16 text-sm text-muted-foreground"><Loader2 className="h-6 w-6 animate-spin text-gold" />Loading your 2026 numbers…</div>;
   }
 
-  // Seed weekly commitments from the calculator the first time a goal exists
-  const view = withDefaults(prework, recap, results, actuals);
 
   const goalField = inputs.goal_input_type === 'net' ? 'net_income_goal' : 'gci_goal';
   const rateInput = (k: RateKey | 'agent_split_pct', label: string, suffix: string) => (
@@ -235,7 +240,7 @@ export function AgentPlanner({ agentId, fubUserId, hasFUB, agentName, settings, 
         </TabsContent>
 
         <TabsContent value="forward" className="mt-4">
-          <WayForwardSection prework={view} setPrework={setPrework} editable={editable} results={results} actuals={actuals} />
+          <WayForwardSection prework={prework} setPrework={setPrework} editable={editable} results={results} actuals={actuals} />
         </TabsContent>
       </Tabs>
 
