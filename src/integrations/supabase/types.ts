@@ -2478,6 +2478,80 @@ export type Database = {
         }
         Relationships: []
       }
+      invitation_security_audit: {
+        Row: {
+          created_at: string
+          details: Json
+          expected_member_type: string
+          id: string
+          invitation_type: string
+          org_id: string | null
+          org_invite_id: string | null
+          outcome: string
+          portal_id: string | null
+          previous_member_type: string | null
+          previous_roles: Database["public"]["Enums"]["app_role"][]
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          details?: Json
+          expected_member_type: string
+          id?: string
+          invitation_type: string
+          org_id?: string | null
+          org_invite_id?: string | null
+          outcome: string
+          portal_id?: string | null
+          previous_member_type?: string | null
+          previous_roles?: Database["public"]["Enums"]["app_role"][]
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          details?: Json
+          expected_member_type?: string
+          id?: string
+          invitation_type?: string
+          org_id?: string | null
+          org_invite_id?: string | null
+          outcome?: string
+          portal_id?: string | null
+          previous_member_type?: string | null
+          previous_roles?: Database["public"]["Enums"]["app_role"][]
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invitation_security_audit_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invitation_security_audit_org_invite_id_fkey"
+            columns: ["org_invite_id"]
+            isOneToOne: false
+            referencedRelation: "org_invites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invitation_security_audit_portal_id_fkey"
+            columns: ["portal_id"]
+            isOneToOne: false
+            referencedRelation: "client_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invitation_security_audit_portal_id_fkey"
+            columns: ["portal_id"]
+            isOneToOne: false
+            referencedRelation: "portal_sides"
+            referencedColumns: ["portal_id"]
+          },
+        ]
+      }
       launchpad_module_progress: {
         Row: {
           completed_at: string | null
