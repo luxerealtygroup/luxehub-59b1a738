@@ -193,10 +193,6 @@ export function CompanyPlan({ plan, onSaved, fub, agentDealGoals }: {
         </CardContent>
       </Card>
 
-      <Card className="hidden"><CardContent>
-          <p>
-        </CardContent>
-      </Card>
 
       <Card><CardHeader className="pb-2"><CardTitle className="text-base">Quarterly checkpoints {PLAN_YEAR}</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-2 lg:grid-cols-4 gap-3">
