@@ -43,6 +43,8 @@ const BusinessPlanning = () => {
   }
 
   if (admin && !isViewingAsAgent) return <Navigate to="/dashboard/admin/business-planning" replace />;
+  // Only selling agents (Planning settings) take part in 2027 planning.
+  if (!admin && !(settings.selling_agent_ids ?? []).includes(user.id)) return <Navigate to="/dashboard" replace />;
   const pastDeadline = now > new Date(lockTime(settings)).getTime();
   const draftPast = now > new Date(settings.submission_deadline).getTime();
   const companyView = admin && !isViewingAsAgent;
