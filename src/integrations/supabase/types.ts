@@ -3691,6 +3691,59 @@ export type Database = {
         }
         Relationships: []
       }
+      owner_coaching_notes: {
+        Row: {
+          created_at: string
+          draft: Json
+          facts: Json
+          generated_at: string | null
+          generated_by: string | null
+          id: string
+          model: string | null
+          org_id: string
+          owner_notes: Json
+          owner_notes_updated_at: string | null
+          plan_year: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          draft?: Json
+          facts?: Json
+          generated_at?: string | null
+          generated_by?: string | null
+          id?: string
+          model?: string | null
+          org_id: string
+          owner_notes?: Json
+          owner_notes_updated_at?: string | null
+          plan_year?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          draft?: Json
+          facts?: Json
+          generated_at?: string | null
+          generated_by?: string | null
+          id?: string
+          model?: string | null
+          org_id?: string
+          owner_notes?: Json
+          owner_notes_updated_at?: string | null
+          plan_year?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "owner_coaching_notes_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pipeline_client_audit: {
         Row: {
           changed_by: string
@@ -6600,6 +6653,7 @@ export type Database = {
       increment_cma_version: { Args: { report_id: string }; Returns: undefined }
       is_admin_or_owner: { Args: { _user_id: string }; Returns: boolean }
       is_client: { Args: { _user_id: string }; Returns: boolean }
+      is_company_plan_viewer: { Args: { _org: string }; Returns: boolean }
       is_demo_account: { Args: { _user_id: string }; Returns: boolean }
       is_mentor_of: { Args: { _agent_id: string }; Returns: boolean }
       is_operations: { Args: { _user_id: string }; Returns: boolean }

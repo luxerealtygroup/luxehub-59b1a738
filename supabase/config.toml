@@ -107,3 +107,6 @@ verify_jwt = false
 
 [functions.planning-recap]
 verify_jwt = false
+
+[functions.owner-coaching-notes]
+verify_jwt = false
