@@ -132,17 +132,47 @@ export function clearPendingInvite() {
 export async function claimPendingInvite(fullName?: string | null): Promise<boolean> {
   const token = readPendingInvite();
   if (!token) return false;
+  const result = await claimPortalWithToken(token, fullName);
+  return result.ok;
+}
+
+export const PORTAL_CLAIM_FAILED_MESSAGE =
+  "We couldn't connect your portal — your agent has been notified.";
+
+/**
+ * Claim a portal through the trusted server function (it validates the token
+ * and email, then sets the organisation, client classification and portal
+ * link). The browser never writes those fields itself. On failure the problem
+ * is logged to the admin audit and the agent is notified.
+ */
+export async function claimPortalWithToken(
+  token: string,
+  fullName?: string | null,
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const { data, error } = await supabase.rpc('claim_portal_invite', {
     _token: token,
     _full_name: fullName ?? null,
   });
   if (error) {
     console.error('Could not claim portal invite:', error.message);
-    return false;
+    await supabase
+      .rpc('report_portal_claim_failure' as any, { _token: token, _error: error.message })
+      .then(() => undefined, () => undefined);
+    return { ok: false, error: error.message };
   }
   clearPendingInvite();
   clearActivationLink(typeof data === 'string' ? data : null);
-  return true;
+  return { ok: true };
+}
+
+/** Pick up an invite token carried on a URL (?invite=…) so it survives device/browser switches. */
+export function rememberInviteFromUrl() {
+  try {
+    const t = new URLSearchParams(window.location.search).get('invite');
+    if (t) rememberPendingInvite(t);
+  } catch {
+    /* no-op */
+  }
 }
 
 /**

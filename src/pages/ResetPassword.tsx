@@ -6,6 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import {
+  claimPortalWithToken,
+  readPendingInvite,
+  rememberInviteFromUrl,
+  PORTAL_CLAIM_FAILED_MESSAGE,
+} from '@/lib/inviteLinks';
 
 const ResetPassword = () => {
   const [password, setPassword] = useState('');
@@ -16,6 +22,7 @@ const ResetPassword = () => {
   const { toast } = useToast();
 
   useEffect(() => {
+    rememberInviteFromUrl();
     // Listen for the PASSWORD_RECOVERY event which fires when user clicks the reset link
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
@@ -96,6 +103,24 @@ const ResetPassword = () => {
         variant: "destructive",
       });
     } else {
+      const inviteToken = readPendingInvite();
+      if (inviteToken) {
+        // Still signed in from the recovery link — connect the invited portal now.
+        const res = await claimPortalWithToken(inviteToken);
+        if (res.ok) {
+          toast({ title: 'Password updated', description: 'Your portal is connected.' });
+          navigate('/client-portal', { replace: true });
+        } else {
+          toast({
+            title: 'Password updated',
+            description: PORTAL_CLAIM_FAILED_MESSAGE,
+            variant: 'destructive',
+          });
+          navigate('/client-portal/request-access', { replace: true });
+        }
+        setLoading(false);
+        return;
+      }
       await supabase.auth.signOut();
       toast({
         title: "Password successfully updated.",

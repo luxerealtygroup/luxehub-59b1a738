@@ -11,6 +11,7 @@ import {
   clientFacingBaseUrl,
   rememberPendingInvite,
   clearPendingInvite,
+  claimPortalWithToken,
 } from '@/lib/inviteLinks';
 
 
@@ -85,13 +86,16 @@ const ClientSignup = () => {
   }, [token]);
 
   const claimPortal = async (name?: string) => {
-    const { data, error } = await supabase.rpc('claim_portal_invite', {
-      _token: token,
-      _full_name: name ?? fullName ?? null,
-    });
-    if (error) throw new Error(error.message);
-    clearPendingInvite();
-    clearActivationLink(typeof data === 'string' ? data : null);
+    if (!token) return false;
+    const res = await claimPortalWithToken(token, name ?? fullName ?? null);
+    if (!res.ok) {
+      toast({
+        title: "We couldn't connect your portal",
+        description: 'Your agent has been notified and will sort it out shortly.',
+        variant: 'destructive',
+      });
+    }
+    return res.ok;
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -106,7 +110,7 @@ const ClientSignup = () => {
         password,
         options: {
           data: { full_name: fullName },
-          emailRedirectTo: `${clientFacingBaseUrl()}/auth/confirm`,
+          emailRedirectTo: `${clientFacingBaseUrl()}/auth/confirm?invite=${encodeURIComponent(token ?? '')}`,
         },
       });
 
@@ -124,13 +128,10 @@ const ClientSignup = () => {
 
       // Session present = email confirmation is off, so claim immediately.
       if (authData.session) {
-        await claimPortal(fullName);
-        navigate('/client-portal');
+        if (await claimPortal(fullName)) navigate('/client-portal');
         return;
       }
 
-      // Otherwise the token stays remembered and is claimed after they confirm
-      // and sign in.
       toast({
         title: 'Check your email',
         description: "We've sent a confirmation link. Verify your email, then sign in.",
@@ -150,12 +151,15 @@ const ClientSignup = () => {
     try {
       if (typeof password !== 'string') throw new Error('Please enter your password.');
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      await claimPortal(fullName);
-      toast({ title: 'Portal connected', description: 'Welcome to your client portal.' });
-      navigate('/client-portal');
-    } catch (error: any) {
-      toast({ title: 'Sign in failed', description: error.message, variant: 'destructive' });
+      if (error) {
+        toast({ title: 'Sign in failed', description: error.message, variant: 'destructive' });
+        return;
+      }
+      // Signed in — a failure from here on is a portal-connection problem, not a sign-in one.
+      if (await claimPortal(fullName)) {
+        toast({ title: 'Portal connected', description: 'Welcome to your client portal.' });
+        navigate('/client-portal');
+      }
     } finally {
       setLoading(false);
     }
@@ -208,7 +212,7 @@ const ClientSignup = () => {
         </form>
         <p className="mt-6 text-center text-sm text-muted-foreground">
           Forgot your password?{' '}
-          <Link to="/forgot-password" className="text-primary hover:underline">
+          <Link to={`/forgot-password?invite=${encodeURIComponent(token ?? '')}`} className="text-primary hover:underline">
             Reset it
           </Link>{' '}
           — your invitation stays valid.
