@@ -1780,6 +1780,62 @@ export type Database = {
           },
         ]
       }
+      company_plans: {
+        Row: {
+          allowed_user_ids: string[]
+          created_at: string
+          deals_per_agent: number
+          debt_total: number
+          gci_per_deal: number
+          id: string
+          luxe_revenue_per_deal: number
+          operating_costs: number
+          org_id: string
+          plan_year: number
+          profit_tiers: Json
+          quarterly_checkpoints: Json
+          updated_at: string
+        }
+        Insert: {
+          allowed_user_ids?: string[]
+          created_at?: string
+          deals_per_agent?: number
+          debt_total?: number
+          gci_per_deal?: number
+          id?: string
+          luxe_revenue_per_deal?: number
+          operating_costs?: number
+          org_id: string
+          plan_year?: number
+          profit_tiers?: Json
+          quarterly_checkpoints?: Json
+          updated_at?: string
+        }
+        Update: {
+          allowed_user_ids?: string[]
+          created_at?: string
+          deals_per_agent?: number
+          debt_total?: number
+          gci_per_deal?: number
+          id?: string
+          luxe_revenue_per_deal?: number
+          operating_costs?: number
+          org_id?: string
+          plan_year?: number
+          profit_tiers?: Json
+          quarterly_checkpoints?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_plans_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deal_metadata: {
         Row: {
           attribution_note: string | null
@@ -4019,6 +4075,7 @@ export type Database = {
           agent_id: string
           challenges_2026: string | null
           created_at: string
+          exercises: Json
           id: string
           lead_source_focus: Json
           org_id: string | null
@@ -4047,6 +4104,7 @@ export type Database = {
           agent_id: string
           challenges_2026?: string | null
           created_at?: string
+          exercises?: Json
           id?: string
           lead_source_focus?: Json
           org_id?: string | null
@@ -4075,6 +4133,7 @@ export type Database = {
           agent_id?: string
           challenges_2026?: string | null
           created_at?: string
+          exercises?: Json
           id?: string
           lead_source_focus?: Json
           org_id?: string | null
@@ -4230,6 +4289,53 @@ export type Database = {
           },
         ]
       }
+      planning_session_capture: {
+        Row: {
+          created_at: string
+          id: string
+          lead_sources: Json
+          marketing_calendar: Json
+          org_id: string
+          plan_year: number
+          q1_priorities: Json
+          response_time_minutes: number | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lead_sources?: Json
+          marketing_calendar?: Json
+          org_id: string
+          plan_year?: number
+          q1_priorities?: Json
+          response_time_minutes?: number | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lead_sources?: Json
+          marketing_calendar?: Json
+          org_id?: string
+          plan_year?: number
+          q1_priorities?: Json
+          response_time_minutes?: number | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planning_session_capture_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       planning_settings: {
         Row: {
           agent_split_pct: number
@@ -4238,6 +4344,7 @@ export type Database = {
           commission_rate: number
           created_at: string
           defaults_source: string | null
+          final_lock_at: string | null
           id: string
           lead_to_appt_rate: number
           org_id: string
@@ -4254,6 +4361,7 @@ export type Database = {
           commission_rate?: number
           created_at?: string
           defaults_source?: string | null
+          final_lock_at?: string | null
           id?: string
           lead_to_appt_rate?: number
           org_id?: string
@@ -4270,6 +4378,7 @@ export type Database = {
           commission_rate?: number
           created_at?: string
           defaults_source?: string | null
+          final_lock_at?: string | null
           id?: string
           lead_to_appt_rate?: number
           org_id?: string
