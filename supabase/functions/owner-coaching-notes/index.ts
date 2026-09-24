@@ -14,13 +14,13 @@ const r0 = (n: number) => Math.round(n);
 const r1 = (n: number) => Math.round(n * 10) / 10;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-async function claude(system: string, prompt: string): Promise<{ text?: string; error?: string }> {
+async function claude(system: string, prompt: string, maxTokens = 6000): Promise<{ text?: string; error?: string }> {
   const key = Deno.env.get('LOVABLE_API_KEY');
   if (!key) return { error: 'AI is not configured' };
   const res = await fetch('https://ai.gateway.lovable.dev/v1/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Lovable-API-Key': key, 'anthropic-version': '2023-06-01', 'X-Lovable-AIG-SDK': 'fetch' },
-    body: JSON.stringify({ model: MODEL, max_tokens: 6000, stream: true, system, messages: [{ role: 'user', content: prompt }] }),
+    body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, stream: true, system, messages: [{ role: 'user', content: prompt }] }),
   });
   if (!res.ok || !res.body) {
     console.error('gateway', res.status, (await res.text().catch(() => '')).slice(0, 300));
@@ -197,7 +197,7 @@ async function compile(db: any, orgId: string, callerId: string) {
     agents: agents.map(({ evidence, ...rest }) => rest),
   };
 
-  const RULES = `Rules: every claim cites its source in brackets, e.g. [FUB, Jul 2026], [4-1-1, 22 of 38 weeks], [Coaching notes, Mar 2026], [Appointment log]. If data is thin or unreliable, say so plainly instead of guessing. NEVER mention health, illness, family, pregnancy, bereavement, relationships or other personal circumstances; where they affected work write only "personal capacity was limited in [months]". Tone: direct, supportive, specific; no generic advice. Use the exact numbers provided; never invent numbers, clients or events. Return ONLY JSON.`;
+  const RULES = `Rules: every claim cites its source in brackets, e.g. [FUB, Jul 2026], [4-1-1, 22 of 38 weeks], [Coaching notes, Mar 2026], [Appointment log]. If data is thin or unreliable, say so plainly instead of guessing. NEVER mention health, illness, family, pregnancy, bereavement, relationships or other personal circumstances; where they affected work write only "personal capacity was limited in [months]". Tone: direct, supportive, specific; no generic advice. Use "personal capacity was limited in [months]" only when the notes actually show it — never speculate. Use the exact numbers provided; never invent numbers, clients or events. Return ONLY one valid JSON object: no markdown fences, escape any double quotes inside strings, keep each string under 60 words.`;
 
   const teamPrompt = `FACTS (JSON):\n${JSON.stringify(facts).slice(0, 60000)}`;
   const teamSys = `You write private coaching notes for Kristen, the owner of a Canadian real estate team, ahead of the Oct 14 2026 planning session. ${RULES}
@@ -206,12 +206,17 @@ Schema: {"takeaways":[5 strings, each tied to a number],"working":[{"point":"","
 Schema: {"strengths":[{"point":"","evidence":""}],"patterns":{"stuck":[""],"carried_over":[""],"activity_gaps":[""]},"coach_2027":[2-3 strings],"questions":[3 strings],"suggested_range":{"deals_low":0,"deals_high":0,"gci_low":0,"gci_high":0,"rationale":""}}. Base the suggested range on 2026 annualised actuals (homes, GCI) and trend; it is a suggestion only.`;
 
   const [teamOut, ...agentOuts] = await Promise.all([
-    claude(teamSys, teamPrompt),
+    claude(teamSys, teamPrompt, 16000),
     ...agents.map(a => claude(agentSys, `TEAM CONTEXT: team GCI ${facts.team.gci}, ${facts.team.homes} homes, as of ${today}.\nAGENT FACTS: ${JSON.stringify({ name: a.name, numbers: a.numbers, activity: a.activity })}\nCOACHING SESSION NOTES:\n${a.evidence.coaching.join('\n').slice(0, 20000) || 'none'}\nWEEKLY 4-1-1 ENTRIES (W=wins C=challenges N=next steps):\n${a.evidence.weekly.join('\n').slice(0, 25000) || 'none'}`)),
   ]);
-  const errors = [teamOut, ...agentOuts].map(o => o.error).filter(Boolean);
+  let teamDraft = parse(teamOut.text);
+  let teamRetry = teamOut;
+  if (!teamDraft && !teamOut.error) { teamRetry = await claude(teamSys, teamPrompt, 16000); teamDraft = parse(teamRetry.text); }
+  const errors = [teamRetry, ...agentOuts].map(o => o.error).filter(Boolean) as string[];
+  if (!teamDraft && !teamRetry.error) errors.push('The team section came back unreadable — try Regenerate.');
+  agents.forEach((a, i) => { if (!parse(agentOuts[i].text) && !agentOuts[i].error) errors.push(`${a.name}'s card came back unreadable — try Regenerate.`); });
   const draft = {
-    team: parse(teamOut.text),
+    team: teamDraft,
     agents: Object.fromEntries(agents.map((a, i) => [a.id, parse(agentOuts[i].text)])),
     errors,
   };

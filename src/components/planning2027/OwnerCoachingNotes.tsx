@@ -144,7 +144,7 @@ export function OwnerCoachingNotes() {
                 <div key={a.id} className="rounded-lg border border-border p-4 space-y-4">
                   <p className="font-display text-lg font-semibold">{a.name}</p>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
-                    {[['GCI', m(x.gci)], ['Homes', n(x.homes)], ['Leases', n(x.leases)], ['Volume', m(x.volume)], ['Best month', x.best_month ?? '—'],
+                    {[['GCI', m(x.gci)], ['Homes', String(x.homes ?? '—')], ['Leases', String(x.leases ?? '—')], ['Volume', m(x.volume)], ['Best month', x.best_month ?? '—'],
                       ['Goal vs actual', x.goal_gci ? `${Math.round((x.gci / x.goal_gci) * 100)}% of ${m(x.goal_gci)}` : 'No 2026 goal']].map(([k, v]) => (
                       <div key={k} className="rounded-md bg-muted/30 p-2 min-w-0"><p className="text-[11px] uppercase tracking-wider text-muted-foreground">{k}</p><p className="text-sm font-semibold break-words">{v}</p></div>
                     ))}
