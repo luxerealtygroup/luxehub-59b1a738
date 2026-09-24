@@ -6608,6 +6608,10 @@ export type Database = {
         }
         Returns: Json
       }
+      report_portal_claim_failure: {
+        Args: { _error: string; _token: string }
+        Returns: undefined
+      }
       resolve_org_by_host: {
         Args: { _host: string }
         Returns: {
