@@ -276,9 +276,12 @@ const AdminDashboard = () => {
         fubDealsAll = deals;
         
         // Use shared stage definitions (same as per-agent metrics)
-        const closedDeals = deals.filter((d: FUBDeal) => classifyStage(d.stageName) === 'closed');
-        const pendingDeals = deals.filter((d: FUBDeal) => classifyStage(d.stageName) === 'pending' && !isConditionalStage(d.stageName));
-        const conditionalDeals = deals.filter((d: FUBDeal) => classifyStage(d.stageName) === 'pending' && isConditionalStage(d.stageName));
+        // Shared 2026 production rule (same as Team Recap): sold date, closed / pending
+        // counted, conditional shown separately, leases per the Planning settings rule.
+        const PROD_YEAR = new Date().getFullYear();
+        const closedDeals = deals.filter((d: FUBDeal) => productionKind(d, PROD_YEAR) === 'closed');
+        const pendingDeals = deals.filter((d: FUBDeal) => productionKind(d, PROD_YEAR) === 'pending');
+        const conditionalDeals = deals.filter((d: FUBDeal) => productionKind(d, PROD_YEAR) === 'conditional');
         const activeDeals = deals.filter((d: FUBDeal) => classifyStage(d.stageName) === 'other');
 
         // Total GCI = full commission value from closed deals (no splits)
@@ -363,7 +366,7 @@ const AdminDashboard = () => {
             id: deal.id,
             clientName: deal.people?.[0]?.name || deal.name || 'Unknown',
             propertyAddress: deal.name || '',
-            closingDate: deal.projectedCloseDate || deal.createdAt || null,
+            closingDate: dealDate(deal) || null,
             gci: deal.commissionValue || 0,
             companyRevenue: deal.teamCommission || 0,
             status: 'closed' as const,
@@ -376,7 +379,7 @@ const AdminDashboard = () => {
             id: deal.id,
             clientName: deal.people?.[0]?.name || deal.name || 'Unknown',
             propertyAddress: deal.name || '',
-            closingDate: deal.projectedCloseDate || null,
+            closingDate: dealDate(deal) || null,
             gci: deal.commissionValue || 0,
             companyRevenue: deal.teamCommission || 0,
             status: 'pending' as const,
@@ -389,7 +392,7 @@ const AdminDashboard = () => {
             id: deal.id,
             clientName: deal.people?.[0]?.name || deal.name || 'Unknown',
             propertyAddress: deal.name || '',
-            closingDate: deal.projectedCloseDate || null,
+            closingDate: dealDate(deal) || null,
             gci: deal.commissionValue || 0,
             companyRevenue: deal.teamCommission || 0,
             status: 'conditional' as const,
@@ -427,11 +430,10 @@ const AdminDashboard = () => {
               dealCount: 0,
             };
 
-            const isClosedDeal = deal.status?.toLowerCase() === 'won' || 
-              deal.stageName?.toLowerCase().includes('closed') ||
-              deal.stageName?.toLowerCase().includes('won');
-            const isPendingDeal = deal.stageName?.toLowerCase() === 'pending';
-            const isConditionalDeal = deal.stageName?.toLowerCase() === 'offer';
+            const pk = productionKind(deal, PROD_YEAR);
+            const isClosedDeal = pk === 'closed';
+            const isPendingDeal = pk === 'pending';
+            const isConditionalDeal = pk === 'conditional';
 
             if (isClosedDeal) {
               existing.totalGci += (deal.commissionValue || 0) * fraction;
@@ -442,9 +444,8 @@ const AdminDashboard = () => {
               existing.teamCommission += (deal.teamCommission || 0) * fraction;
               existing.dealCount += getDealWeight(deal, dealMetadata) * fraction;
             } else if (isConditionalDeal) {
+              // Conditional is shown, never counted toward units.
               existing.conditionalGci += (deal.commissionValue || 0) * fraction;
-              existing.teamCommission += (deal.teamCommission || 0) * fraction;
-              existing.dealCount += getDealWeight(deal, dealMetadata) * fraction;
             }
 
             agentMap.set(share.fubUserId, existing);
