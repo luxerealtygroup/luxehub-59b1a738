@@ -16,6 +16,7 @@ import { GoalResultsView } from './GoalResultsView';
 import { usePriorYearActuals, usePriorYearGoal } from './usePriorYearActuals';
 import { useRecap } from './useRecap';
 import { RecapSection, ReflectionSection, GoalComparison, WayForwardSection, weeklyDefaults } from './PlanSections';
+import { GoalExercises, kpiDefaults } from './SessionExercises';
 
 type RateKey = 'avg_sale_price' | 'commission_rate' | 'appt_to_close_rate' | 'lead_to_appt_rate';
 
@@ -29,6 +30,8 @@ export function withDefaults(p: PreworkRow, recap: RecapRow | null, results: Ret
     out.recap_commitments ??= recap.commitments; out.recap_lead_sources ??= recap.lead_sources;
   }
   if (out.weekly_conversations == null && out.weekly_appointments == null && out.weekly_leads == null) Object.assign(out, weeklyDefaults(results, actuals));
+  const k = out.exercises?.kpis;
+  if (!k || Object.values(k).every(v => v == null)) out.exercises = { ...(out.exercises ?? {}), kpis: kpiDefaults(results, actuals) };
   if (!out.quarterly_milestones?.length) out.quarterly_milestones = splitQuarters(results?.deals_needed ?? null, results?.gci_goal ?? null);
   out.lead_source_focus = (out.lead_source_focus ?? []).filter(s => s.source.trim());
   out.action_plan = (out.action_plan ?? []).filter(a => a.action.trim());
@@ -109,6 +112,10 @@ export function AgentPlanner({ agentId, fubUserId, hasFUB, agentName, settings, 
     if (!results?.appointments_needed) return;
     setPreworkState(p => (p.weekly_conversations == null && p.weekly_appointments == null && p.weekly_leads == null
       ? { ...p, ...weeklyDefaults(results, actuals) } : p));
+    setPreworkState(p => {
+      const k = p.exercises?.kpis;
+      return !k || Object.values(k).every(v => v == null) ? { ...p, exercises: { ...(p.exercises ?? {}), kpis: kpiDefaults(results, actuals) } } : p;
+    });
   }, [results, actuals]);
   const status = saved?.status ?? 'draft';
   const editable = !pastDeadline && status === 'draft';
@@ -237,10 +244,11 @@ export function AgentPlanner({ agentId, fubUserId, hasFUB, agentName, settings, 
           </CardContent></Card>
           <GoalResultsView r={results} inputType={inputs.goal_input_type} />
           <GoalComparison actuals={actuals} r={results} />
+          <GoalExercises prework={prework} setPrework={setPrework} editable={editable} />
         </TabsContent>
 
         <TabsContent value="forward" className="mt-4">
-          <WayForwardSection prework={prework} setPrework={setPrework} editable={editable} results={results} actuals={actuals} />
+          <WayForwardSection prework={prework} setPrework={setPrework} editable={editable} results={results} actuals={actuals} agentId={agentId} />
         </TabsContent>
       </Tabs>
 
