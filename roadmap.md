@@ -1,2 +1,3 @@
 - Urgent open-house backfill remains pending user approval before any live FUB backfill.
 - Next: finish CMA Studio PDF/data acceptance checks after urgent open-house work.
+- Verify the responsive table regression fix across the named screens and requested widths.
