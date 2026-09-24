@@ -10,7 +10,7 @@ import { useUserRole } from '@/hooks/useUserRole';
  */
 export function useInPlanning2027(): boolean | null {
   const { user } = useAuth();
-  const { isAdmin, isOwner, isStrictOwner, isPlanningAccess, isAgent, loading } = useUserRole() as any;
+  const { isAdmin, isOwner, isStrictOwner, isPlanningAccess, isAgent, isLoading: loading } = useUserRole() as any;
   const [inList, setInList] = useState<boolean | null>(null);
   const exempt = isAdmin || isOwner || isStrictOwner || (isPlanningAccess && !isAgent);
   useEffect(() => {
