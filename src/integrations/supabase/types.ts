@@ -3907,6 +3907,172 @@ export type Database = {
           },
         ]
       }
+      planning_goals: {
+        Row: {
+          agent_id: string
+          agent_split_pct: number | null
+          appointments_needed: number | null
+          approved_at: string | null
+          approved_by: string | null
+          appt_to_close_rate: number | null
+          avg_sale_price: number | null
+          commission_rate: number | null
+          created_at: string
+          deals_needed: number | null
+          gci_goal: number | null
+          gci_per_deal: number | null
+          goal_input_type: string
+          id: string
+          lead_to_appt_rate: number | null
+          leads_needed: number | null
+          net_income_goal: number | null
+          net_per_deal: number | null
+          org_id: string | null
+          plan_year: number
+          rate_source: string | null
+          status: string
+          submitted_at: string | null
+          updated_at: string
+          volume_needed: number | null
+        }
+        Insert: {
+          agent_id: string
+          agent_split_pct?: number | null
+          appointments_needed?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          appt_to_close_rate?: number | null
+          avg_sale_price?: number | null
+          commission_rate?: number | null
+          created_at?: string
+          deals_needed?: number | null
+          gci_goal?: number | null
+          gci_per_deal?: number | null
+          goal_input_type?: string
+          id?: string
+          lead_to_appt_rate?: number | null
+          leads_needed?: number | null
+          net_income_goal?: number | null
+          net_per_deal?: number | null
+          org_id?: string | null
+          plan_year?: number
+          rate_source?: string | null
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string
+          volume_needed?: number | null
+        }
+        Update: {
+          agent_id?: string
+          agent_split_pct?: number | null
+          appointments_needed?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          appt_to_close_rate?: number | null
+          avg_sale_price?: number | null
+          commission_rate?: number | null
+          created_at?: string
+          deals_needed?: number | null
+          gci_goal?: number | null
+          gci_per_deal?: number | null
+          goal_input_type?: string
+          id?: string
+          lead_to_appt_rate?: number | null
+          leads_needed?: number | null
+          net_income_goal?: number | null
+          net_per_deal?: number | null
+          org_id?: string | null
+          plan_year?: number
+          rate_source?: string | null
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string
+          volume_needed?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planning_goals_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "planning_goals_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "planning_goals_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      planning_prework: {
+        Row: {
+          agent_id: string
+          challenges_2026: string | null
+          created_at: string
+          id: string
+          org_id: string | null
+          plan_year: number
+          status: string
+          submitted_at: string | null
+          team_change_suggestion: string | null
+          top_lead_sources: string | null
+          updated_at: string
+          wins_2026: string | null
+        }
+        Insert: {
+          agent_id: string
+          challenges_2026?: string | null
+          created_at?: string
+          id?: string
+          org_id?: string | null
+          plan_year?: number
+          status?: string
+          submitted_at?: string | null
+          team_change_suggestion?: string | null
+          top_lead_sources?: string | null
+          updated_at?: string
+          wins_2026?: string | null
+        }
+        Update: {
+          agent_id?: string
+          challenges_2026?: string | null
+          created_at?: string
+          id?: string
+          org_id?: string | null
+          plan_year?: number
+          status?: string
+          submitted_at?: string | null
+          team_change_suggestion?: string | null
+          top_lead_sources?: string | null
+          updated_at?: string
+          wins_2026?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planning_prework_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "planning_prework_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       planning_reflections: {
         Row: {
           avoided_activity: string | null
@@ -3956,6 +4122,59 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "planning_reflections_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      planning_settings: {
+        Row: {
+          agent_split_pct: number
+          appt_to_close_rate: number
+          avg_sale_price: number
+          commission_rate: number
+          created_at: string
+          id: string
+          lead_to_appt_rate: number
+          org_id: string
+          plan_year: number
+          planning_session_date: string
+          submission_deadline: string
+          updated_at: string
+        }
+        Insert: {
+          agent_split_pct?: number
+          appt_to_close_rate?: number
+          avg_sale_price?: number
+          commission_rate?: number
+          created_at?: string
+          id?: string
+          lead_to_appt_rate?: number
+          org_id?: string
+          plan_year?: number
+          planning_session_date?: string
+          submission_deadline?: string
+          updated_at?: string
+        }
+        Update: {
+          agent_split_pct?: number
+          appt_to_close_rate?: number
+          avg_sale_price?: number
+          commission_rate?: number
+          created_at?: string
+          id?: string
+          lead_to_appt_rate?: number
+          org_id?: string
+          plan_year?: number
+          planning_session_date?: string
+          submission_deadline?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planning_settings_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -6151,6 +6370,10 @@ export type Database = {
       owns_portal: {
         Args: { _portal_id: string; _user_id: string }
         Returns: boolean
+      }
+      planning_deadline: {
+        Args: { _org_id: string; _year: number }
+        Returns: string
       }
       portal_object_accessible: { Args: { _name: string }; Returns: boolean }
       portal_object_in_my_org: { Args: { _name: string }; Returns: boolean }
