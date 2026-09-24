@@ -25,6 +25,25 @@ export const dealKind = (d: any): DealKind => {
 };
 export const dealDate = (d: any): string => String(d.closedDate || d.closeDate || d.projectedCloseDate || '').slice(0, 10);
 
+/**
+ * THE shared 2026 production rule. Every screen that shows year production uses this.
+ * Returns which bucket a deal counts in for `year`:
+ *  - 'closed'      stage Closed, sold date in the year and not in the future
+ *  - 'pending'     stage Pending, expected closing in the year (or no date yet)
+ *  - 'conditional' stage Offer, in the year — shown separately, never counted
+ *  - null          not part of this year's production
+ * Each double-end side is its own FUB deal, so it counts as its own unit with its own GCI.
+ * Personal transactions count as units; they are only left out of per-deal averages.
+ */
+export function productionKind(d: any, year: number): 'closed' | 'pending' | 'conditional' | null {
+  const kind = dealKind(d); if (!kind) return null;
+  const y = String(year), date = dealDate(d), today = new Date().toISOString().slice(0, 10);
+  if (kind === 'closed') return date.startsWith(y) && date <= today ? 'closed' : null;
+  if (kind === 'firm') return !date || date.startsWith(y) ? 'pending' : null;
+  return !date || date.startsWith(y) ? 'conditional' : null;
+}
+export const isSupportUser = (u: any) => SUPPORT_NAMES.test(String(u?.name ?? ''));
+
 export interface Bucket { count: number; units: number; homes: number; leases: number; fullLeases: number; volume: number; gci: number }
 const empty = (): Bucket => ({ count: 0, units: 0, homes: 0, leases: 0, fullLeases: 0, volume: 0, gci: 0 });
 export interface FirmSummary {

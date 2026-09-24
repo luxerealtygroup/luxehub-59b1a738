@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
 import { sumWeightedDeals, buildWeightedDebug, WeightedDebugInfo, DealMetadataMap } from '@/lib/utils/dealWeight';
 import { inferDealCategory } from '@/lib/utils/dealWeight';
+import { productionKind } from '@/lib/firmDeals';
 import { fetchDealAttribution, isDealCreditedTo, dealShareFor } from '@/lib/dealAttribution';
 
 // ── Single source of truth for stage classification ──────────────────────
@@ -27,8 +28,8 @@ export const isConditionalStage = (stageName: string): boolean => {
 // `__share` (0-1) is set when a deal is split between two producing agents.
 const getDealGci = (deal: any): number => {
   const share = typeof deal.__share === 'number' ? deal.__share : 1;
-  const agent = Number(deal.agentCommission ?? 0) || 0;
-  const gross = agent > 0 ? agent : Number(deal.commissionValue ?? 0) || 0;
+  // Same as Team Recap: full deal GCI, split evenly across producing agents.
+  const gross = Number(deal.commissionValue ?? 0) || Number(deal.agentCommission ?? 0) || 0;
   return gross * share;
 };
 
@@ -219,6 +220,7 @@ export function useFubDealMetrics({
     let gciPending = 0;
     let closedDealsArr: any[] = [];
     let pendingDealsArr: any[] = [];
+    let conditionalDealsArr: any[] = [];
 
     if (targetFubUserId) {
       debug.source = 'fub';
@@ -262,10 +264,11 @@ export function useFubDealMetrics({
         debug.dealsInClosedStages = dealsInClosedStages.length;
 
         // (c) CLOSED = closed stage + close date in year
-        const closedInYear = dealsInClosedStages.filter(d => {
-          const closeDate = getCloseDate(d);
-          if (!closeDate) return false;
-          return closeDate >= dateRangeStart && closeDate <= dateRangeEnd;
+        // Shared 2026 production rule (same as Team Recap): sold date, not in the future.
+        const closedInYear = agentDeals.filter(d => {
+          if (productionKind(d, year) !== 'closed') return false;
+          const cd = String(getCloseDate(d) ?? '').slice(0, 10);
+          return cd >= dateRangeStart && cd <= dateRangeEnd;
         });
         debug.dealsInClosedStagesAndDateRange = closedInYear.length;
 
@@ -274,10 +277,9 @@ export function useFubDealMetrics({
         closedDealsArr = closedInYear;
 
         // (d) PENDING = pending stage, NOT in closed stages, any date
-        const pendingDeals = agentDeals.filter(d => {
-          const stage = classifyStage(d.stageName);
-          return stage === 'pending';
-        });
+        // Pending = conditions waived, closing this year. Conditional (Offer) kept apart, never counted.
+        const pendingDeals = agentDeals.filter(d => productionKind(d, year) === 'pending');
+        conditionalDealsArr = agentDeals.filter(d => productionKind(d, year) === 'conditional');
         dealsPending = pendingDeals.length;
         gciPending = pendingDeals.reduce((sum, d) => sum + getDealGci(d), 0);
         pendingDealsArr = pendingDeals;
@@ -354,13 +356,12 @@ export function useFubDealMetrics({
       // Local/manual fallback: treat everything as sales
       gciSalesClosed = gciEarned;
     }
-    if (pendingDealsArr.length > 0) {
-      for (const d of pendingDealsArr) {
+    if (pendingDealsArr.length + conditionalDealsArr.length > 0) {
+      for (const d of [...pendingDealsArr, ...conditionalDealsArr]) {
         const cat = inferDealCategory(d, dealMetadataMap).category;
         const gci = getDealGci(d);
         if (cat === 'lease') {
-          leaseCountPending++;
-          gciLeasesPending += gci;
+          if (!isConditionalStage((d as any).stageName)) { leaseCountPending++; gciLeasesPending += gci; }
           continue;
         }
         if (isConditionalStage((d as any).stageName)) {

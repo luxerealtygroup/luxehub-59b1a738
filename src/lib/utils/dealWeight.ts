@@ -67,7 +67,8 @@ export function inferDealCategory(deal: {
   // 1. Check deal_metadata table first (highest priority)
   if (metadataMap && deal.id) {
     const meta = metadataMap.get(deal.id);
-    if (meta) {
+    // Rows that only carry flags (personal / double-end) have no category — fall through.
+    if (meta && meta.deal_category) {
       return { category: meta.deal_category, source: 'db' };
     }
   }

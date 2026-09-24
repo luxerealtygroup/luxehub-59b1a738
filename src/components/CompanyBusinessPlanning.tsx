@@ -27,6 +27,7 @@ import {
   UserPlus, ClipboardList, Loader2, Save, BarChart3, ArrowRightLeft, Briefcase, PieChart, Crosshair, Info,
 } from 'lucide-react';
 import DealSourcesTab from '@/components/deal-sources/DealSourcesTab';
+import { productionKind, dealDate } from '@/lib/firmDeals';
 import LeadSourceTable from '@/components/planning2027/LeadSourceTable';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -206,8 +207,9 @@ const CompanyBusinessPlanning = ({ recap = false }: { recap?: boolean } = {}) =>
         if (res.data.deals.length < pageSize) break;
       }
 
-      const closedDeals = collected.filter(d => classifyStage(d.stageName || '') === 'closed');
-      const pendingDeals = collected.filter(d => classifyStage(d.stageName || '') === 'pending');
+      // Shared 2026 production rule (same as Team Recap).
+      const closedDeals = collected.filter(d => productionKind(d, CURRENT_YEAR) === 'closed');
+      const pendingDeals = collected.filter(d => productionKind(d, CURRENT_YEAR) === 'pending');
       const activeListings = collected.filter(d => isActiveListingDeal(d));
       const pipelineDeals = collected.filter(d => {
         const cls = classifyStage(d.stageName || '');
@@ -226,14 +228,14 @@ const CompanyBusinessPlanning = ({ recap = false }: { recap?: boolean } = {}) =>
       setClosedDealsList(
         closedDeals.map(d => ({
           gci: d.commissionValue || d.agentCommission || 0,
-          date: d.projectedCloseDate || d.createdAt || '',
+          date: dealDate(d),
         })).filter(d => d.date)
       );
       // Store pending deals for the GCI chart
       setPendingDealsList(
         pendingDeals.map(d => ({
           gci: d.commissionValue || d.agentCommission || 0,
-          date: d.projectedCloseDate || d.createdAt || '',
+          date: dealDate(d),
         })).filter(d => d.date)
       );
 
@@ -243,7 +245,7 @@ const CompanyBusinessPlanning = ({ recap = false }: { recap?: boolean } = {}) =>
       const periodStart = `${CURRENT_YEAR}-01-01`;
       const periodEnd = QUARTER_END_DATE[CURRENT_QUARTER];
       const inPeriod = (d: FUBDeal) => {
-        const cd = (d as any).closedDate || (d as any).closeDate || d.projectedCloseDate || '';
+        const cd = dealDate(d);
         return !!cd && cd >= periodStart && cd <= periodEnd;
       };
       const periodClosed = closedDeals.filter(inPeriod);
