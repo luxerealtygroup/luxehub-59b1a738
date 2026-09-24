@@ -18,11 +18,11 @@ import { StatusBadge } from '@/components/planning2027/StatusBadge';
 const BusinessPlanning = () => {
   const { user } = useAuth();
   const { hasFUB } = useHasFUB();
-  const { isAdmin, isOwner } = useUserRole();
+  const { isAdmin, isStrictOwner } = useUserRole();
   const { effectiveFubUserId, isViewingAsAgent, viewingAgentId, viewingAgentName } = useViewAsAgent();
-  const tenant = useTenant() as any;
-  const orgId: string | null = tenant?.orgId ?? tenant?.tenant?.orgId ?? null;
-  const admin = isAdmin || isOwner;
+  const tenant = useTenant();
+  const orgId = tenant.orgId;
+  const admin = isAdmin || isStrictOwner;
 
   const [settings, setSettings] = useState<PlanningSettings | null>(null);
   const [status, setStatus] = useState<GoalStatus | null>(null);
