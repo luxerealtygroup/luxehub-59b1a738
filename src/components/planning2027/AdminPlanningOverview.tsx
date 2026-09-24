@@ -52,6 +52,11 @@ export function AdminPlanningOverview({ onOpenSettings, settings, recap, tab, on
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState<{ k: SortKey; asc: boolean }>({ k: 'status', asc: true });
   const [open, setOpen] = useState<Row | null>(null);
+  const [companyGoal, setCompanyGoal] = useState<{ gci: number; deals: number } | null>(null);
+  useEffect(() => {
+    supabase.from('company_goals').select('annual_gci_goal, annual_deals_goal').eq('year', 2026).maybeSingle()
+      .then(({ data }) => data && setCompanyGoal({ gci: Number(data.annual_gci_goal ?? 0), deals: Number(data.annual_deals_goal ?? 0) }));
+  }, []);
 
   const load = useCallback(async () => {
     const [agents, goals] = await Promise.all([
@@ -91,7 +96,7 @@ export function AdminPlanningOverview({ onOpenSettings, settings, recap, tab, on
   const notSubmitted = (r: Row) => !r.goal || r.goal.status === 'draft';
 
   // Team production uses full team GCI straight from Follow Up Boss (each deal once), not the agent-share sum.
-  const recapTotals = { ...team.totals, gci: fub.gci, volume: fub.volume, closings: fub.units };
+  const recapTotals = { ...team.totals, gci: fub.gci, volume: fub.volume, closings: fub.units, leases: fub.leases, fubLeads: fub.newContacts, companyGci: companyGoal?.gci ?? 0, companyDeals: companyGoal?.deals ?? 0 };
 
   const overview = (
     <div className="space-y-6">
