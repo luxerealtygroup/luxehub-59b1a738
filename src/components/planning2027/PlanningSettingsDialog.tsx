@@ -1,3 +1,4 @@
+import { DealFlagsEditor } from './DealFlagsEditor';
 import { setDealWeightConfig } from '@/lib/utils/dealWeight';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -116,6 +117,7 @@ export function PlanningSettingsDialog({ open, onOpenChange, orgId, settings, on
             <Label htmlFor="s-lock" className="text-xs">Goals lock (Toronto time)</Label>
             <Input id="s-lock" type="datetime-local" value={lock} onChange={e => setLock(e.target.value)} />
           </div>
+          <DealFlagsEditor orgId={orgId} />
           <div className="col-span-2 space-y-2">
             <Label className="text-xs">Selling agents (counted in submissions and team totals)</Label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 rounded-md border border-border p-2">

@@ -36,7 +36,8 @@ export interface FirmSummary {
   deals: { id: number; name: string; kind: DealKind; date: string; price: number; gci: number; lease: boolean; weight: number; share: number; nextYear: boolean }[];
 }
 
-type Loaded = { at: Date; deals: any[]; meta: DealMetadataMap };
+export type DealFlags = Map<number, { personal: boolean; doubleEnd: boolean }>;
+type Loaded = { at: Date; deals: any[]; meta: DealMetadataMap; flags: DealFlags };
 let cache: Loaded | null = null;
 let inflight: Promise<Loaded> | null = null;
 export async function loadDeals(): Promise<Loaded> {
@@ -44,10 +45,11 @@ export async function loadDeals(): Promise<Loaded> {
   inflight ??= (async () => {
     const { data, error } = await supabase.functions.invoke('follow-up-boss', { body: { action: 'get_deals', params: { limit: 100, paginate: true } } });
     if (error || !(data as any)?.success) throw new Error(error?.message ?? 'Could not load Follow Up Boss deals');
-    const { data: md } = await supabase.from('deal_metadata').select('fub_deal_id, deal_category, weight_override');
-    const meta: DealMetadataMap = new Map();
-    for (const r of (md as any[]) ?? []) if (r.deal_category || r.weight_override != null) meta.set(Number(r.fub_deal_id), { deal_category: r.deal_category, weight_override: r.weight_override });
-    cache = { at: new Date(), deals: (data as any)?.data?.deals ?? [], meta };
+    const { data: md } = await supabase.from('deal_metadata').select('fub_deal_id, deal_category, weight_override, personal_transaction, double_end');
+    const meta: DealMetadataMap = new Map(); const flags: DealFlags = new Map();
+    for (const r of (md as any[]) ?? []) { if (r.deal_category || r.weight_override != null) meta.set(Number(r.fub_deal_id), { deal_category: r.deal_category, weight_override: r.weight_override });
+      if (r.personal_transaction || r.double_end) flags.set(Number(r.fub_deal_id), { personal: !!r.personal_transaction, doubleEnd: !!r.double_end }); }
+    cache = { at: new Date(), deals: (data as any)?.data?.deals ?? [], meta, flags };
     return cache;
   })().finally(() => { inflight = null; });
   return inflight;
@@ -113,3 +115,6 @@ export function useFirmDealsRaw() {
 export const asOfLabel = (d: Date | null) => d
   ? `As of ${d.toLocaleString('en-CA', { timeZone: 'America/Toronto', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} · live from Follow Up Boss`
   : '';
+
+/** Drop the cached deals so the next read picks up new deal flags. */
+export function clearDealsCache() { cache = null; }

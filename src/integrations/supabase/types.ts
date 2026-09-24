@@ -1850,9 +1850,11 @@ export type Database = {
           attribution_note: string | null
           created_at: string
           deal_category: string | null
+          double_end: boolean
           fub_deal_id: number
           id: string
           org_id: string | null
+          personal_transaction: boolean
           producing_agent_2_id: string | null
           producing_agent_id: string | null
           producing_split_percent: number
@@ -1865,9 +1867,11 @@ export type Database = {
           attribution_note?: string | null
           created_at?: string
           deal_category?: string | null
+          double_end?: boolean
           fub_deal_id: number
           id?: string
           org_id?: string | null
+          personal_transaction?: boolean
           producing_agent_2_id?: string | null
           producing_agent_id?: string | null
           producing_split_percent?: number
@@ -1880,9 +1884,11 @@ export type Database = {
           attribution_note?: string | null
           created_at?: string
           deal_category?: string | null
+          double_end?: boolean
           fub_deal_id?: number
           id?: string
           org_id?: string | null
+          personal_transaction?: boolean
           producing_agent_2_id?: string | null
           producing_agent_id?: string | null
           producing_split_percent?: number
