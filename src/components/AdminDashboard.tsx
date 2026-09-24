@@ -969,19 +969,19 @@ const AdminDashboard = () => {
           <CardContent className="p-5">
             <div className="flex items-center gap-2 mb-2">
               <DollarSign className="h-5 w-5 text-green-500" />
-              <span className="text-sm text-muted-foreground">Sales GCI — closed + pending + conditional</span>
+              <span className="text-sm text-muted-foreground">Sales GCI — closed + pending</span>
             </div>
             <p className="text-xl md:text-2xl xl:text-xl font-bold tabular-nums break-words leading-tight text-foreground">
-              {formatCurrency((fubStats?.saleClosedGci || 0) + (fubStats?.salePendingGci || 0) + (fubStats?.saleConditionalGci || 0))}
+              {formatCurrency((fubStats?.saleClosedGci || 0) + (fubStats?.salePendingGci || 0))}
             </p>
             <p className="text-xs font-medium text-green-500 mt-1">
-              {formatWeightedDeals((fubStats?.saleClosedUnits || 0) + (fubStats?.salePendingUnits || 0) + (fubStats?.saleConditionalUnits || 0))} units
+              {formatWeightedDeals((fubStats?.saleClosedUnits || 0) + (fubStats?.salePendingUnits || 0))} units
             </p>
             <p className="text-xs text-muted-foreground mt-1">Year to date · sales only, leases excluded</p>
             <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
               <p>{formatWeightedDeals(fubStats?.saleClosedUnits || 0)} units — {formatCurrency(fubStats?.saleClosedGci)} closed</p>
               <p>{formatWeightedDeals(fubStats?.salePendingUnits || 0)} units — {formatCurrency(fubStats?.salePendingGci)} pending</p>
-              <p>{formatWeightedDeals(fubStats?.saleConditionalUnits || 0)} units — {formatCurrency(fubStats?.saleConditionalGci)} conditional</p>
+              <p>{formatWeightedDeals(fubStats?.saleConditionalUnits || 0)} units — {formatCurrency(fubStats?.saleConditionalGci)} conditional (not counted)</p>
             </div>
           </CardContent>
         </Card>
@@ -990,19 +990,19 @@ const AdminDashboard = () => {
           <CardContent className="p-5">
             <div className="flex items-center gap-2 mb-2">
               <ArrowRightLeft className="h-5 w-5 text-teal-500" />
-              <span className="text-sm text-muted-foreground">Lease GCI — closed + pending + conditional</span>
+              <span className="text-sm text-muted-foreground">Lease GCI — closed + pending</span>
             </div>
             <p className="text-xl md:text-2xl xl:text-xl font-bold tabular-nums break-words leading-tight text-teal-500">
-              {formatCurrency((fubStats?.leaseClosedGci || 0) + (fubStats?.leasePendingGci || 0) + (fubStats?.leaseConditionalGci || 0))}
+              {formatCurrency((fubStats?.leaseClosedGci || 0) + (fubStats?.leasePendingGci || 0))}
             </p>
             <p className="text-xs font-medium text-teal-500 mt-1">
-              {formatWeightedDeals((fubStats?.leaseClosedUnits || 0) + (fubStats?.leasePendingUnits || 0) + (fubStats?.leaseConditionalUnits || 0))} units
+              {formatWeightedDeals((fubStats?.leaseClosedUnits || 0) + (fubStats?.leasePendingUnits || 0))} units
             </p>
             <p className="text-xs text-muted-foreground mt-1">Year to date · leases only, ⅓ unit each under $4K GCI</p>
             <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
               <p>{formatWeightedDeals(fubStats?.leaseClosedUnits || 0)} units — {formatCurrency(fubStats?.leaseClosedGci)} closed</p>
               <p>{formatWeightedDeals(fubStats?.leasePendingUnits || 0)} units — {formatCurrency(fubStats?.leasePendingGci)} pending</p>
-              <p>{formatWeightedDeals(fubStats?.leaseConditionalUnits || 0)} units — {formatCurrency(fubStats?.leaseConditionalGci)} conditional</p>
+              <p>{formatWeightedDeals(fubStats?.leaseConditionalUnits || 0)} units — {formatCurrency(fubStats?.leaseConditionalGci)} conditional (not counted)</p>
             </div>
           </CardContent>
         </Card>
@@ -1011,19 +1011,19 @@ const AdminDashboard = () => {
           <CardContent className="p-5">
             <div className="flex items-center gap-2 mb-2">
               <Building2 className="h-5 w-5 text-blue-500" />
-              <span className="text-sm text-muted-foreground">Company Revenue — earned + pending + conditional</span>
+              <span className="text-sm text-muted-foreground">Company Revenue — earned + pending</span>
             </div>
             <p className="text-xl md:text-2xl xl:text-xl font-bold tabular-nums break-words leading-tight text-blue-500">
-              {formatCurrency((fubStats?.companyRevenueEarned || 0) + (fubStats?.companyRevenuePending || 0) + (fubStats?.companyRevenueConditional || 0))}
+              {formatCurrency((fubStats?.companyRevenueEarned || 0) + (fubStats?.companyRevenuePending || 0))}
             </p>
             <p className="text-xs font-medium text-blue-500 mt-1">
-              {formatWeightedDeals((fubStats?.closedDeals || 0) + (fubStats?.pendingDeals || 0) + (fubStats?.conditionalDeals || 0))} total units
+              {formatWeightedDeals((fubStats?.closedDeals || 0) + (fubStats?.pendingDeals || 0))} total units
             </p>
             <p className="text-xs text-muted-foreground mt-1">Year to date · sales and leases</p>
             <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
               <p>{formatCurrency(fubStats?.companyRevenueEarned)} earned</p>
               <p>{formatCurrency(fubStats?.companyRevenuePending)} pending</p>
-              <p>{formatCurrency(fubStats?.companyRevenueConditional)} conditional</p>
+              <p>{formatCurrency(fubStats?.companyRevenueConditional)} conditional (not counted)</p>
             </div>
           </CardContent>
         </Card>
@@ -1032,16 +1032,16 @@ const AdminDashboard = () => {
           <CardContent className="p-5">
             <div className="flex items-center gap-2 mb-2">
               <TrendingUp className="h-5 w-5 text-amber-500" />
-              <span className="text-sm text-muted-foreground">Volume — closed + pending + conditional</span>
+              <span className="text-sm text-muted-foreground">Volume — closed + pending</span>
             </div>
             <p className="text-xl md:text-2xl xl:text-xl font-bold tabular-nums break-words leading-tight text-amber-500">
-              {formatCurrency((fubStats?.closedVolume || 0) + (fubStats?.pendingVolume || 0) + (fubStats?.conditionalVolume || 0))}
+              {formatCurrency((fubStats?.closedVolume || 0) + (fubStats?.pendingVolume || 0))}
             </p>
             <p className="text-xs text-muted-foreground mt-1">Year to date · sales and leases</p>
             <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
               <p>{formatCurrency(fubStats?.closedVolume)} closed</p>
               <p>{formatCurrency(fubStats?.pendingVolume)} pending</p>
-              <p>{formatCurrency(fubStats?.conditionalVolume)} conditional</p>
+              <p>{formatCurrency(fubStats?.conditionalVolume)} conditional (not counted)</p>
             </div>
           </CardContent>
         </Card>
