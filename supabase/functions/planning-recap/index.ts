@@ -13,6 +13,66 @@ const clip = (s: unknown, n: number) => {
   return t.length > n ? t.slice(0, n) + '…' : t;
 };
 
+async function callClaude(system: string, prompt: string): Promise<{ text?: string; error?: string; status?: number }> {
+  const key = Deno.env.get('LOVABLE_API_KEY');
+  if (!key) return { error: 'AI is not configured', status: 500 };
+  const res = await fetch('https://ai.gateway.lovable.dev/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Lovable-API-Key': key, 'anthropic-version': '2023-06-01', 'X-Lovable-AIG-SDK': 'fetch' },
+    body: JSON.stringify({ model: MODEL, max_tokens: 4000, stream: true, system, messages: [{ role: 'user', content: prompt }] }),
+  });
+  if (!res.ok || !res.body) {
+    console.error('gateway', res.status, await res.text().catch(() => ''));
+    const error = res.status === 402 ? 'AI credits are used up — add credits in Settings → Plans & credits.'
+      : res.status === 429 ? 'AI is busy right now — try again in a minute.' : `AI request failed (${res.status})`;
+    return { error, status: [402, 403, 429].includes(res.status) ? res.status : 502 };
+  }
+  let text = '', buf = '';
+  const reader = res.body.getReader(); const dec = new TextDecoder();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let i;
+    while ((i = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+      if (!line.startsWith('data:')) continue;
+      try { const ev = JSON.parse(line.slice(5).trim()); if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') text += ev.delta.text; } catch { /* keep-alive */ }
+    }
+  }
+  return { text };
+}
+
+async function teamThemes(_req: Request, caller: any) {
+  if (!caller.isAdmin || caller.kind !== 'staff') return json({ error: 'Admins only' }, 403);
+  const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+  const { data: me } = await db.from('profiles').select('org_id').eq('id', caller.userId).maybeSingle();
+  const { data: st } = await db.from('planning_settings').select('selling_agent_ids').eq('org_id', me?.org_id).eq('plan_year', 2027).maybeSingle();
+  const ids: string[] = st?.selling_agent_ids ?? [];
+  if (!ids.length) return json({ themes: null });
+  const [pw, rc, pf] = await Promise.all([
+    db.from('planning_prework').select('agent_id, wins_2026, challenges_2026, top_lead_sources, lead_source_focus').in('agent_id', ids).eq('plan_year', 2027),
+    db.from('planning_recaps').select('agent_id, wins, challenges, lead_sources').in('agent_id', ids).eq('plan_year', 2027),
+    db.from('profiles').select('id, full_name').in('id', ids),
+  ]);
+  const name = new Map((pf.data ?? []).map((p: any) => [p.id, p.full_name]));
+  const blocks = ids.map(id => {
+    const p: any = (pw.data ?? []).find((x: any) => x.agent_id === id) ?? {};
+    const r: any = (rc.data ?? []).find((x: any) => x.agent_id === id) ?? {};
+    const wins = p.wins_2026 || r.wins, ch = p.challenges_2026 || r.challenges, ls = p.top_lead_sources || r.lead_sources;
+    const focus = (p.lead_source_focus ?? []).map((f: any) => `${f.source} ${f.pct ?? ''}%`).join(', ');
+    if (!wins && !ch && !ls) return null;
+    return `## ${name.get(id) ?? 'Agent'}\nWins: ${clip(wins, 1500)}\nChallenges: ${clip(ch, 1500)}\nLead sources: ${clip(ls, 800)} ${focus ? '| 2027 focus: ' + focus : ''}`;
+  }).filter(Boolean);
+  if (!blocks.length) return json({ themes: null, agents: 0 });
+  const out = await callClaude(
+    'You summarise a real-estate team\'s 2026 year-end reflections for a leadership planning session. Find what is COMMON across agents, not individual detail. Return ONLY JSON with string keys wins, challenges, lead_sources. Each: 3-5 lines starting with "- ", each line naming the theme and how many agents mention it, e.g. "- Open houses as a lead source (4 agents)". Never invent.',
+    blocks.join('\n\n'));
+  if (out.error) return json({ error: out.error }, out.status);
+  const m = out.text!.match(/\{[\s\S]*\}/);
+  try { return json({ themes: JSON.parse(m![0]), agents: blocks.length }); } catch { return json({ error: 'The AI returned an unreadable summary. Try again.' }, 502); }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   const guard = await requireStaff(req, { cors });
@@ -21,6 +81,7 @@ Deno.serve(async (req) => {
 
   let body: any;
   try { body = await req.json(); } catch { return json({ error: 'Invalid JSON' }, 400); }
+  if (body?.team === true) return teamThemes(req, caller);
   const agentId = String(body?.agent_id ?? '');
   const force = body?.force === true;
   if (!/^[0-9a-f-]{36}$/i.test(agentId)) return json({ error: 'agent_id required' }, 400);
