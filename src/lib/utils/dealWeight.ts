@@ -7,8 +7,23 @@
  * 3 lease deals ≈ 1.0 deal unit.
  */
 
-export const LEASE_WEIGHT = 1 / 3; // 0.3333
+export const LEASE_WEIGHT = 1 / 3; // default 0.3333
 export const SALE_WEIGHT = 1.0;
+
+/**
+ * One rule, app-wide (editable in Planning settings):
+ *  Sale = 1 unit · Lease with GCI under the threshold = lease weight (1/3) ·
+ *  Lease with GCI at/above the threshold (e.g. commercial) = 1 full unit. GCI always counts in full.
+ */
+export const dealWeightConfig = { leaseFullUnitGci: 4000, leaseWeight: LEASE_WEIGHT };
+export function setDealWeightConfig(c: { leaseFullUnitGci?: number | null; leaseWeight?: number | null }) {
+  if (c.leaseFullUnitGci != null && Number(c.leaseFullUnitGci) > 0) dealWeightConfig.leaseFullUnitGci = Number(c.leaseFullUnitGci);
+  if (c.leaseWeight != null && Number(c.leaseWeight) > 0) dealWeightConfig.leaseWeight = Number(c.leaseWeight) >= 0.333 && Number(c.leaseWeight) < 0.334 ? 1 / 3 : Number(c.leaseWeight);
+}
+/** Full deal GCI (team commission), used for the lease threshold. */
+export const fullDealGci = (d: any): number => Number(d?.commissionValue ?? d?.gci ?? d?.projected_gci ?? 0) || 0;
+/** Monthly-rent price guard: FUB has no lease deal type, so rent-sized prices are treated as leases. */
+export const LEASE_PRICE_MAX = 10000;
 
 export type DealCategory = 'sale' | 'lease';
 export type DealCategorySource = 'db' | 'fub' | 'manual' | 'inferred';
@@ -73,12 +88,10 @@ export function inferDealCategory(deal: {
     return { category: 'lease', source: 'inferred' };
   }
 
-  // 5. Price-based heuristic — any deal under $4,000 is a lease.
-  //    Real estate sales never close below this threshold; lease prices
-  //    (monthly rent) routinely fall under it. This catches FUB deals
-  //    that lack any "lease" keyword in their pipeline/name/stage.
-  const price = typeof deal.price === 'number' ? deal.price : null;
-  if (price !== null && price > 0 && price < 4000) {
+  // 5. Fallback: Follow Up Boss has no lease deal type, so a monthly-rent price
+  //    (under $10,000) marks a lease. Deals marked in deal_metadata win over this.
+  const price = typeof deal.price === 'number' ? deal.price : Number(deal.price);
+  if (Number.isFinite(price) && price > 0 && price < LEASE_PRICE_MAX) {
     return { category: 'lease', source: 'inferred' };
   }
 
@@ -89,7 +102,7 @@ export function inferDealCategory(deal: {
 /**
  * Returns the weight multiplier for a deal.
  * If deal_metadata has weight_override, use that.
- * Lease = 0.3333, Sale = 1.0
+ * Sale = 1 · lease under the GCI threshold = lease weight · lease at/above it = 1
  */
 export function getDealWeight(
   deal: Parameters<typeof inferDealCategory>[0],
@@ -102,7 +115,8 @@ export function getDealWeight(
   }
 
   const { category } = inferDealCategory(deal, metadataMap);
-  return category === 'lease' ? LEASE_WEIGHT : SALE_WEIGHT;
+  if (category !== 'lease') return SALE_WEIGHT;
+  return fullDealGci(deal) >= dealWeightConfig.leaseFullUnitGci ? SALE_WEIGHT : dealWeightConfig.leaseWeight;
 }
 
 /**
