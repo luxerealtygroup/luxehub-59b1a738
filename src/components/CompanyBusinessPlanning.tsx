@@ -27,6 +27,7 @@ import {
   UserPlus, ClipboardList, Loader2, Save, BarChart3, ArrowRightLeft, Briefcase, PieChart, Crosshair, Info,
 } from 'lucide-react';
 import DealSourcesTab from '@/components/deal-sources/DealSourcesTab';
+import LeadSourceTable from '@/components/planning2027/LeadSourceTable';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -1023,7 +1024,8 @@ const CompanyBusinessPlanning = ({ recap = false }: { recap?: boolean } = {}) =>
             </Card>
           </TabsContent>
           {/* ── TAB 5: Deal Sources ── */}
-          <TabsContent value="deal-sources">
+          <TabsContent value="deal-sources" className="space-y-4">
+            <LeadSourceTable />
             <DealSourcesTab companyDealGoal={companyDealGoal} isAdmin={true} />
           </TabsContent>
         </Tabs>

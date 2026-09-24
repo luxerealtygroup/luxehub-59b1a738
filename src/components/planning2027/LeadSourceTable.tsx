@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Info, RefreshCw } from 'lucide-react';
-import { useOrg } from '@/contexts/OrgContext';
+import { useTenant } from '@/hooks/useTenant';
 
 interface Row { source: string; leads: number; closed_sales: number; closed_leases: number; closed_gci: number; pending: number; pending_leases: number; pending_gci: number }
 const n = (v: number) => Math.round(v).toLocaleString();
@@ -12,7 +12,7 @@ const $ = (v: number) => `$${n(v)}`;
 
 /** 2026 by-source table using the one shared attribution rule (computed server-side). */
 export default function LeadSourceTable({ compact = false }: { compact?: boolean }) {
-  const { orgId } = useOrg() as any;
+  const { orgId } = useTenant();
   const [res, setRes] = useState<any>(null);
   const [busy, setBusy] = useState(false);
   const load = useCallback(async () => {
