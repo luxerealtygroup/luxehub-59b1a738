@@ -1,4 +1,5 @@
-import { Loader2 } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronDown, Loader2 } from 'lucide-react';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { asOfLabel, CONDITIONAL_SHARE, perAgent, useFirmDeals, useFirmDealsRaw } from '@/lib/firmDeals';
 
@@ -18,7 +19,8 @@ function Box({ k, v, sub, sub2, stamp }: { k: string; v: string; sub?: string; s
 }
 
 /** "66 closed + 9 pending = 75" headline, with conditional shown separately and a year-end projection. */
-export function ClosedFirmSummary({ fubUserId, year = 2026, showAgents = false, title }: { fubUserId?: number | null; year?: number; showAgents?: boolean; title?: string }) {
+export function ClosedFirmSummary({ fubUserId, year = 2026, showAgents = false, title, details }: { fubUserId?: number | null; year?: number; showAgents?: boolean; title?: string; details?: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
   const agentMode = fubUserId !== undefined;
   const { loading, error, data, asOf } = useFirmDeals(year, fubUserId ?? undefined, !agentMode || fubUserId != null);
   const raw = useFirmDealsRaw();
@@ -32,14 +34,26 @@ export function ClosedFirmSummary({ fubUserId, year = 2026, showAgents = false, 
 
   return (
     <div className="space-y-3">
-      {title && <p className="text-sm font-semibold text-foreground">{title}</p>}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <Box k={`${year} Closed + Pending · weighted units`} v={`${n(c.units)} closed + ${n(f.units)} pending = ${n(c.units + f.units)}`}
-          sub={`${n(c.count + f.count)} deals: ${n(c.homes + f.homes)} homes (${n(f.homes)} pending) + ${n(c.leases + f.leases)} leases (${n(f.leases)} pending${c.fullLeases + f.fullLeases ? `; ${n(c.fullLeases + f.fullLeases)} at $4K+ GCI = 1 unit` : ''})`}
-          sub2={nx.count ? `+ ${n(nx.count)} pending, closing ${year + 1} (not counted)` : data.firmNoDate ? `${data.firmNoDate} pending with no closing date` : undefined} stamp={stamp} />
-        <Box k="GCI · closed + pending" v={m(c.gci + f.gci)} sub={`${m(c.gci)} closed + ${m(f.gci)} pending`} stamp={stamp} />
-        <Box k="Volume · closed + pending" v={m(c.volume + f.volume)} sub={`${m(c.volume)} closed + ${m(f.volume)} pending`} stamp={stamp} />
-        <Box k="Conditional (not counted)" v={`${n(q.count)} conditional · ${m(q.gci)} GCI`} sub={`${n(q.units)} weighted units · ${m(q.volume)} volume · closing in ${year}`} stamp={stamp} />
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        {title && <p className="text-sm font-semibold text-foreground">{title}</p>}
+        {asOf && <p className="text-xs text-muted-foreground">As of {asOf.toLocaleString('en-CA', { timeZone: 'America/Toronto', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</p>}
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+        <Box k="Closed" v={n(c.homes)} />
+        <Box k="Pending" v={n(f.homes)} />
+        <Box k="Leases" v={n(c.leases + f.leases)} />
+        <Box k="Total units" v={n(Math.round((c.units + f.units) * 10) / 10)} />
+        <Box k="GCI" v={m(c.gci + f.gci)} />
+        <Box k="Volume" v={m(c.volume + f.volume)} />
+      </div>
+      <button type="button" onClick={() => setOpen(o => !o)} className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
+        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />Details
+      </button>
+      {open && <div className="space-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Box k="Conditional (not counted)" v={`${n(q.count)} · ${m(q.gci)} GCI`} sub={`${n(q.units)} weighted units · ${m(q.volume)} volume · closing in ${year}`} />
+        <Box k="Breakdown" v={`${n(c.units)} closed + ${n(f.units)} pending units`} sub={`${n(c.count + f.count)} deals: ${n(c.homes + f.homes)} homes + ${n(c.leases + f.leases)} leases (${n(f.leases)} pending${c.fullLeases + f.fullLeases ? `; ${n(c.fullLeases + f.fullLeases)} at $4K+ GCI = 1 unit` : ''})`}
+          sub2={nx.count ? `+ ${n(nx.count)} pending, closing ${year + 1} (not counted)` : undefined} />
       </div>
       <div className="rounded-lg border border-dashed border-gold/60 p-3">
         <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Projected year-end {year}</p>
@@ -72,6 +86,8 @@ export function ClosedFirmSummary({ fubUserId, year = 2026, showAgents = false, 
           <p className="p-2 text-[11px] text-muted-foreground">Shared deals split evenly between the agents on them; Marie (support) left out. Units weighted: sale 1 · lease ⅓ · lease with $4K+ GCI 1. Homes/leases are closed deals. Pending = Follow Up Boss "Pending" stage (conditions waived); conditional = "Offer" stage. {stamp}</p>
         </div>
       )}
+      {details}
+      </div>}
     </div>
   );
 }
