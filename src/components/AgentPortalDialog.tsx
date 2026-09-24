@@ -289,7 +289,7 @@ export function AgentPortalDialog({
     setSaving(false);
     if (saved) {
       setAccount(saved);
-      setForm((f) => ({ ...f, slack_channel_id: saved!.slack_channel_id || '' }));
+      setForm((f) => ({ ...f, slack_channel_id: saved.slack_channel_id || '' }));
       // Bind the client record to its portal, so it can never be offered a
       // second one. Only ever fills an empty link; never re-points an existing.
       if (pipelineClientId) {
@@ -306,7 +306,7 @@ export function AgentPortalDialog({
       // Write the staff-only portal link onto the Follow Up Boss contact.
       // Never blocks the save, and never carries an invite token.
       supabase.functions
-        .invoke('portal-fub-link', { body: { portalId: saved.id } })
+        ?.invoke('portal-fub-link', { body: { portalId: saved.id } })
         .catch((e) => console.warn('Could not write the portal link to Follow Up Boss:', e));
       // A brand-new portal always asks whether to invite the client now.
       if (isNew && opts?.promptInvite) {

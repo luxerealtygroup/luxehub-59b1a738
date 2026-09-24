@@ -186,7 +186,7 @@ const ClientDashboard = ({ previewPortalId, section }: ClientDashboardProps = {}
         // Never sign the client out here — a transient query failure is not
         // proof they lack a portal.
         setLoading(false);
-        if (!isPreview && !accountError) navigate('/client-portal/login');
+        if (!isPreview && !accountError) navigate('/client-portal/request-access');
         return;
       }
 

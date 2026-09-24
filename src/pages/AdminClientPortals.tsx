@@ -63,6 +63,8 @@ type PortalRow = {
   overdueConditions: number;
   /** Outstanding conditions due within the next 3 days. */
   dueSoonConditions: number;
+  roleMismatch: boolean;
+  roleCorrected: boolean;
 };
 
 type FilterKey =
@@ -152,7 +154,8 @@ export default function AdminClientPortals() {
       ) as string[];
       const portalIds = list.map((r) => r.id);
 
-      const [profilesRes, docsRes, msgsRes, txRes, propsRes, condRes] = await Promise.all([
+      const claimedUserIds = list.map((r) => r.user_id).filter(Boolean) as string[];
+      const [profilesRes, docsRes, msgsRes, txRes, propsRes, condRes, claimedProfilesRes, rolesRes, auditRes] = await Promise.all([
         inviterIds.length
           ? supabase.from('profiles').select('id,full_name').in('id', inviterIds)
           : Promise.resolve({ data: [] as any[] }),
@@ -181,10 +184,32 @@ export default function AdminClientPortals() {
               .select('portal_id,due_date,status')
               .in('portal_id', portalIds)
           : Promise.resolve({ data: [] as any[] }),
+        claimedUserIds.length
+          ? supabase.from('profiles').select('id,member_type').in('id', claimedUserIds)
+          : Promise.resolve({ data: [] as any[] }),
+        claimedUserIds.length
+          ? supabase.from('user_roles').select('user_id,role').in('user_id', claimedUserIds)
+          : Promise.resolve({ data: [] as any[] }),
+        portalIds.length && isAdmin
+          ? supabase
+              .from('invitation_security_audit')
+              .select('portal_id,outcome')
+              .eq('invitation_type', 'client_portal')
+              .eq('outcome', 'role_corrected')
+              .in('portal_id', portalIds)
+          : Promise.resolve({ data: [] as any[] }),
       ]);
 
       const profileMap = new Map<string, string>();
       (profilesRes.data ?? []).forEach((p: any) => profileMap.set(p.id, p.full_name || 'Unknown'));
+      const memberTypeByUser = new Map<string, string>();
+      (claimedProfilesRes.data ?? []).forEach((p: any) => memberTypeByUser.set(p.id, p.member_type));
+      const teamRoleUsers = new Set<string>();
+      (rolesRes.data ?? []).forEach((r: any) => teamRoleUsers.add(r.user_id));
+      const correctedPortals = new Set<string>();
+      (auditRes.data ?? []).forEach((a: any) => {
+        if (a.portal_id) correctedPortals.add(a.portal_id);
+      });
 
       const docCount = new Map<string, number>();
       (docsRes.data ?? []).forEach((d: any) => docCount.set(d.portal_id, (docCount.get(d.portal_id) ?? 0) + 1));
@@ -267,6 +292,10 @@ export default function AdminClientPortals() {
           healthScore: score,
           overdueConditions: overdueCond.get(r.id) ?? 0,
           dueSoonConditions: soonCond.get(r.id) ?? 0,
+          roleMismatch: Boolean(
+            r.user_id && (memberTypeByUser.get(r.user_id) !== 'client' || teamRoleUsers.has(r.user_id)),
+          ),
+          roleCorrected: correctedPortals.has(r.id),
         };
       });
 
@@ -393,6 +422,8 @@ export default function AdminClientPortals() {
     };
   }, [rows]);
 
+  const mismatchCount = rows.filter((r) => r.roleMismatch).length;
+
   const filterChips: { key: FilterKey; label: string; count: number }[] = [
     { key: 'all', label: 'All', count: stats.all },
     { key: 'not_invited', label: 'Never Invited', count: stats.not_invited },
@@ -450,6 +481,18 @@ export default function AdminClientPortals() {
           />
         </div>
       </div>
+
+      {isAdmin && mismatchCount > 0 && (
+        <div className="flex items-start gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+          <div>
+            <p className="font-semibold text-destructive">Account access mismatch</p>
+            <p className="text-muted-foreground">
+              {mismatchCount} client account{mismatchCount === 1 ? '' : 's'} currently has a conflicting profile or team permission.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="rounded-lg border border-border/60 bg-card/60 p-3 space-y-3 min-w-0">
         <div className="flex flex-wrap items-center gap-2">
@@ -663,6 +706,12 @@ export default function AdminClientPortals() {
                               {r.status === 'invited' ? 'Resend invite' : 'Invite'}
                             </Button>
                           )}
+                           {r.roleMismatch && (
+                             <Badge variant="destructive" className="text-[10px]">Access mismatch</Badge>
+                           )}
+                           {!r.roleMismatch && r.roleCorrected && (
+                             <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">Access corrected</Badge>
+                           )}
                         </div>
                       </TableCell>
 

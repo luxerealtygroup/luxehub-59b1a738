@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, CheckCircle2 } from 'lucide-react';
 import { getRoleBasedRedirect } from '@/lib/utils/roleRedirect';
+import { claimPendingInvite, readPendingInvite } from '@/lib/inviteLinks';
 import { tenant } from '@/config/tenant';
 
 const AuthConfirm = () => {
@@ -12,6 +13,38 @@ const AuthConfirm = () => {
   const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
 
   useEffect(() => {
+    let redirectTimer: ReturnType<typeof setTimeout> | undefined;
+    let failureTimer: ReturnType<typeof setTimeout> | undefined;
+    let unsubscribe: (() => void) | undefined;
+
+    const finishConfirmation = async (userId: string) => {
+      if (failureTimer) clearTimeout(failureTimer);
+      const hadClientInvite = Boolean(readPendingInvite());
+      if (hadClientInvite) {
+        const claimed = await claimPendingInvite();
+        if (!claimed) {
+          setStatus('error');
+          toast({
+            title: 'Portal connection failed',
+            description: 'Please open your invitation link again or request a fresh one.',
+            variant: 'destructive',
+          });
+          redirectTimer = setTimeout(
+            () => navigate('/client-portal/request-access?reason=invalid', { replace: true }),
+            2000,
+          );
+          return;
+        }
+      }
+
+      setStatus('success');
+      toast({
+        title: `Your email has been confirmed. Welcome to ${tenant.appName}.`,
+      });
+      const redirect = hadClientInvite ? '/client-portal' : await getRoleBasedRedirect(userId);
+      redirectTimer = setTimeout(() => navigate(redirect, { replace: true }), 1500);
+    };
+
     const handleConfirmation = async () => {
       try {
         // Supabase automatically exchanges the token from the URL hash
@@ -20,28 +53,19 @@ const AuthConfirm = () => {
         if (error) throw error;
 
         if (session) {
-          setStatus('success');
-          toast({
-            title: `Your email has been confirmed. Welcome to ${tenant.appName}.`,
-          });
-          const redirect = await getRoleBasedRedirect(session.user.id);
-          setTimeout(() => navigate(redirect, { replace: true }), 1500);
+          await finishConfirmation(session.user.id);
         } else {
           // No session yet — listen for auth state change (token exchange may be async)
           const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (event === 'SIGNED_IN' && session) {
-              setStatus('success');
-              toast({
-                title: `Your email has been confirmed. Welcome to ${tenant.appName}.`,
-              });
-              const redirect = await getRoleBasedRedirect(session.user.id);
-              setTimeout(() => navigate(redirect, { replace: true }), 1500);
+              await finishConfirmation(session.user.id);
               subscription.unsubscribe();
             }
           });
+          unsubscribe = () => subscription.unsubscribe();
 
           // Timeout fallback
-          setTimeout(() => {
+          failureTimer = setTimeout(() => {
             subscription.unsubscribe();
             setStatus('error');
             toast({
@@ -49,7 +73,7 @@ const AuthConfirm = () => {
               description: "The link may have expired. Please try signing up again.",
               variant: "destructive",
             });
-            setTimeout(() => navigate('/login', { replace: true }), 2000);
+            redirectTimer = setTimeout(() => navigate('/login', { replace: true }), 2000);
           }, 10000);
         }
       } catch {
@@ -59,11 +83,16 @@ const AuthConfirm = () => {
           description: "Something went wrong. Please try again.",
           variant: "destructive",
         });
-        setTimeout(() => navigate('/login', { replace: true }), 2000);
+        redirectTimer = setTimeout(() => navigate('/login', { replace: true }), 2000);
       }
     };
 
-    handleConfirmation();
+    void handleConfirmation();
+    return () => {
+      unsubscribe?.();
+      if (failureTimer) clearTimeout(failureTimer);
+      if (redirectTimer) clearTimeout(redirectTimer);
+    };
   }, [navigate, toast]);
 
   return (
