@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
@@ -40,7 +40,9 @@ const m = (v: number | null | undefined) => (v == null ? '—' : formatCurrency(
 const n = (v: number | null | undefined) => (v == null ? '—' : formatNumber(v));
 const d = (v: string | null | undefined) => (v ? new Date(v).toLocaleDateString('en-US', { timeZone: 'America/Toronto', month: 'short', day: 'numeric' }) : '—');
 
-export function AdminPlanningOverview({ onOpenSettings, settings }: { onOpenSettings: () => void; settings: PlanningSettings }) {
+export function AdminPlanningOverview({ onOpenSettings, settings, recap, tab, onTab }: {
+  onOpenSettings: () => void; settings: PlanningSettings; recap?: React.ReactNode; tab?: string; onTab?: (t: string) => void;
+}) {
   const selling = settings.selling_agent_ids ?? [];
   const team = useTeamActuals(selling);
   const fub = useTeamFubTotals(2026);
@@ -97,7 +99,6 @@ export function AdminPlanningOverview({ onOpenSettings, settings }: { onOpenSett
       <TeamRecap totals={recapTotals} loading={team.loading || fub.loading} goals={rows.filter(r => r.goal && r.goal.status !== 'draft').map(r => r.goal!)} />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground min-w-0">Selling agents counted ({rows.length}): {rows.map(r => r.name).sort().join(', ') || 'none — choose them in Planning settings'}</p>
-        <Button variant="outline" size="sm" onClick={onOpenSettings} className="gap-2"><Settings className="h-4 w-4" />Planning settings</Button>
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
@@ -171,19 +172,21 @@ export function AdminPlanningOverview({ onOpenSettings, settings }: { onOpenSett
   );
 
   return (
-    <Tabs defaultValue="team">
+    <Tabs {...(tab ? { value: tab, onValueChange: onTab } : { defaultValue: 'team' })}>
       <TabsList className="h-auto flex-wrap">
-        <TabsTrigger value="team">Team plans</TabsTrigger>
-        <TabsTrigger value="session">Session capture</TabsTrigger>
-        {company.row && <TabsTrigger value="company">Company plan</TabsTrigger>}
+        <TabsTrigger value="team">{PLAN_YEAR} Team Plans</TabsTrigger>
+        {company.row && <TabsTrigger value="company">Company Plan</TabsTrigger>}
+        <TabsTrigger value="session">Session</TabsTrigger>
+        {recap && <TabsTrigger value="recap">2026 Recap</TabsTrigger>}
       </TabsList>
       <TabsContent value="team" className="mt-4">{overview}</TabsContent>
-      <TabsContent value="session" className="mt-4"><SessionCapture orgId={tenant.orgId} /></TabsContent>
       {company.row && (
         <TabsContent value="company" className="mt-4">
           <CompanyPlan plan={company.row} onSaved={company.reload} fub={fub} agentDealGoals={{ submitted: t.submitted, deals: t.deals, total: t.total }} />
         </TabsContent>
       )}
+      <TabsContent value="session" className="mt-4"><SessionCapture orgId={tenant.orgId} /></TabsContent>
+      {recap && <TabsContent value="recap" className="mt-4">{recap}</TabsContent>}
     </Tabs>
   );
 }

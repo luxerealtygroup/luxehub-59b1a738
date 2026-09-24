@@ -12,6 +12,8 @@ import {
 import { AgentPlanner } from '@/components/planning2027/AgentPlanner';
 import { AgentPlanDetail } from '@/components/planning2027/AgentPlanDetail';
 import { AdminPlanningOverview } from '@/components/planning2027/AdminPlanningOverview';
+import { PlanningBanner } from '@/components/planning2027/PlanningBanner';
+import { Navigate } from 'react-router-dom';
 import { PlanningSettingsDialog } from '@/components/planning2027/PlanningSettingsDialog';
 import { StatusBadge } from '@/components/planning2027/StatusBadge';
 
@@ -40,6 +42,7 @@ const BusinessPlanning = () => {
     return <div className="flex items-center justify-center h-64"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>;
   }
 
+  if (admin && !isViewingAsAgent) return <Navigate to="/dashboard/admin/business-planning" replace />;
   const pastDeadline = now > new Date(lockTime(settings)).getTime();
   const draftPast = now > new Date(settings.submission_deadline).getTime();
   const companyView = admin && !isViewingAsAgent;
@@ -56,19 +59,7 @@ const BusinessPlanning = () => {
           </div>
           {!companyView && !reviewingAgent && <StatusBadge status={status ?? 'draft'} />}
         </div>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-gold/50 bg-gold/5 px-4 py-3">
-          <CalendarClock className="h-5 w-5 text-gold shrink-0" />
-          <span className="font-semibold text-foreground">
-            Draft due {formatSessionDate(new Date(settings.submission_deadline).toLocaleDateString('en-CA', { timeZone: 'America/Toronto' }))} · Final at the session {formatSessionDate(settings.planning_session_date)}
-          </span>
-          <span className="text-sm text-muted-foreground">
-            {!draftPast
-              ? `Draft: ${countdown(settings.submission_deadline, now)} (${formatDeadline(settings.submission_deadline)})`
-              : !pastDeadline
-                ? `Draft deadline passed — goals lock ${formatDeadline(lockTime(settings))}`
-                : 'Goals locked'} · Toronto time
-          </span>
-        </div>
+        <PlanningBanner settings={settings} now={now} />
       </div>
 
       {companyView ? (
