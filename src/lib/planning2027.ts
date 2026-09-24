@@ -19,6 +19,8 @@ export interface PlanningSettings {
   avg_sale_price: number;
   submission_deadline: string;
   planning_session_date: string;
+  selling_agent_ids?: string[];
+  defaults_source?: string | null;
 }
 
 export const DEFAULT_SETTINGS: PlanningSettings = {
@@ -66,6 +68,10 @@ export interface PlanningGoalRow extends GoalInputs, GoalResults {
   updated_at: string;
 }
 
+export interface LeadSourceFocus { source: string; pct: number | null }
+export interface Milestone { quarter: 1 | 2 | 3 | 4; deals: number | null; gci: number | null }
+export interface ActionItem { action: string; due: string }
+
 export interface PreworkRow {
   id?: string;
   agent_id?: string;
@@ -73,9 +79,50 @@ export interface PreworkRow {
   challenges_2026: string | null;
   top_lead_sources: string | null;
   team_change_suggestion: string | null;
+  stop_start_continue?: string | null;
+  support_needed?: string | null;
+  recap_wins?: string | null;
+  recap_challenges?: string | null;
+  recap_commitments?: string | null;
+  recap_lead_sources?: string | null;
+  weekly_conversations?: number | null;
+  weekly_appointments?: number | null;
+  weekly_leads?: number | null;
+  lead_source_focus?: LeadSourceFocus[];
+  quarterly_milestones?: Milestone[];
+  action_plan?: ActionItem[];
+  skills_focus?: string | null;
+  personal_goal?: string | null;
   status?: 'draft' | 'submitted';
   submitted_at?: string | null;
 }
+
+export interface RecapRow {
+  wins: string | null; challenges: string | null; commitments: string | null; lead_sources: string | null;
+  source_counts: { coaching_sessions?: number; weekly_entries?: number };
+  generated_at: string; model: string | null;
+}
+
+export const PREWORK_SAVE_KEYS = [
+  'wins_2026', 'challenges_2026', 'top_lead_sources', 'team_change_suggestion', 'stop_start_continue', 'support_needed',
+  'recap_wins', 'recap_challenges', 'recap_commitments', 'recap_lead_sources',
+  'weekly_conversations', 'weekly_appointments', 'weekly_leads',
+  'lead_source_focus', 'quarterly_milestones', 'action_plan', 'skills_focus', 'personal_goal',
+] as const;
+
+/** Evenly split deals/GCI across quarters; remainder deals go to the later (busier) quarters. */
+export function splitQuarters(deals: number | null, gci: number | null): Milestone[] {
+  const d = deals ?? 0;
+  const base = Math.floor(d / 4), rem = d % 4;
+  return ([1, 2, 3, 4] as const).map((q, i) => ({
+    quarter: q,
+    deals: deals == null ? null : base + (i >= 4 - rem ? 1 : 0),
+    gci: gci == null ? null : Math.round(gci / 4),
+  }));
+}
+
+export const pctChange = (from: number | null | undefined, to: number | null | undefined) =>
+  from && to != null && from > 0 ? Math.round(((to - from) / from) * 100) : null;
 
 const pos = (v: number | null | undefined) => (v != null && Number.isFinite(v) && v > 0 ? v : null);
 

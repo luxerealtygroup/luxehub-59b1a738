@@ -65,13 +65,13 @@ const BusinessPlanning = () => {
       </div>
 
       {companyView ? (
-        <AdminPlanningOverview onOpenSettings={() => setSettingsOpen(true)} />
+        <AdminPlanningOverview settings={settings} onOpenSettings={() => setSettingsOpen(true)} />
       ) : reviewingAgent ? (
         <AgentPlanDetail agentId={viewingAgentId!} agentName={viewingAgentName ?? 'Agent'} canReview />
       ) : (
         <AgentPlanner
           agentId={user.id} fubUserId={effectiveFubUserId} hasFUB={hasFUB} agentName={null}
-          settings={settings} pastDeadline={pastDeadline} onStatus={setStatus}
+          settings={settings} pastDeadline={pastDeadline} onStatus={setStatus} canRegenerate={admin}
         />
       )}
 

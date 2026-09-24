@@ -5,7 +5,9 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Loader2, ArrowUpDown, AlertCircle, Settings } from 'lucide-react';
 import { formatCurrency, formatNumber } from '@/lib/utils';
-import { PLAN_YEAR, PlanningGoalRow } from '@/lib/planning2027';
+import { PLAN_YEAR, PlanningGoalRow, PlanningSettings } from '@/lib/planning2027';
+import { TeamRecap } from './TeamRecap';
+import { useTeamActuals } from './useTeamActuals';
 import { StatusBadge } from './StatusBadge';
 import { AgentPlanDetail } from './AgentPlanDetail';
 
@@ -33,7 +35,9 @@ const m = (v: number | null | undefined) => (v == null ? '—' : formatCurrency(
 const n = (v: number | null | undefined) => (v == null ? '—' : formatNumber(v));
 const d = (v: string | null | undefined) => (v ? new Date(v).toLocaleDateString('en-US', { timeZone: 'America/Toronto', month: 'short', day: 'numeric' }) : '—');
 
-export function AdminPlanningOverview({ onOpenSettings }: { onOpenSettings: () => void }) {
+export function AdminPlanningOverview({ onOpenSettings, settings }: { onOpenSettings: () => void; settings: PlanningSettings }) {
+  const selling = settings.selling_agent_ids ?? [];
+  const team = useTeamActuals(selling);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState<{ k: SortKey; asc: boolean }>({ k: 'status', asc: true });
@@ -45,9 +49,9 @@ export function AdminPlanningOverview({ onOpenSettings }: { onOpenSettings: () =
       supabase.from('planning_goals').select('*').eq('plan_year', PLAN_YEAR),
     ]);
     const byAgent = new Map((goals.data as PlanningGoalRow[] | null ?? []).map(g => [g.agent_id, g]));
-    setRows((agents.data ?? []).map((a: any) => ({ id: a.id, name: a.full_name || a.email, goal: byAgent.get(a.id) ?? null })));
+    setRows((agents.data ?? []).filter((a: any) => selling.includes(a.id)).map((a: any) => ({ id: a.id, name: a.full_name || a.email, goal: byAgent.get(a.id) ?? null })));
     setLoading(false);
-  }, []);
+  }, [selling.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, [load]);
 
   const sorted = useMemo(() => [...rows].sort((a, b) => {
@@ -78,7 +82,10 @@ export function AdminPlanningOverview({ onOpenSettings }: { onOpenSettings: () =
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
+      {team.probes}
+      <TeamRecap totals={team.totals} loading={team.loading} goals={rows.filter(r => r.goal && r.goal.status !== 'draft').map(r => r.goal!)} />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground min-w-0">Selling agents counted ({rows.length}): {rows.map(r => r.name).sort().join(', ') || 'none — choose them in Planning settings'}</p>
         <Button variant="outline" size="sm" onClick={onOpenSettings} className="gap-2"><Settings className="h-4 w-4" />Planning settings</Button>
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

@@ -104,3 +104,6 @@ verify_jwt = true
 
 [functions.portal-request-access]
 verify_jwt = false
+
+[functions.planning-recap]
+verify_jwt = false

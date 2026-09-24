@@ -1,36 +1,56 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Loader2, Calculator, NotebookPen, Pencil, Save, Send, Lock } from 'lucide-react';
+import { Loader2, History, NotebookPen, Calculator, Compass, Pencil, Save, Send, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils';
 import {
-  PLAN_YEAR, PlanningSettings, GoalInputs, PlanningGoalRow, PreworkRow, computeGoal,
+  PLAN_YEAR, PlanningSettings, GoalInputs, PlanningGoalRow, PreworkRow, RecapRow, computeGoal, splitQuarters, PREWORK_SAVE_KEYS,
 } from '@/lib/planning2027';
 import { GoalResultsView } from './GoalResultsView';
-import { usePriorYearActuals } from './usePriorYearActuals';
+import { usePriorYearActuals, usePriorYearGoal } from './usePriorYearActuals';
+import { useRecap } from './useRecap';
+import { RecapSection, ReflectionSection, GoalComparison, WayForwardSection, weeklyDefaults } from './PlanSections';
 
 type RateKey = 'avg_sale_price' | 'commission_rate' | 'appt_to_close_rate' | 'lead_to_appt_rate';
 
-const EMPTY_PREWORK: PreworkRow = { wins_2026: '', challenges_2026: '', top_lead_sources: '', team_change_suggestion: '' };
+const EMPTY_PREWORK: PreworkRow = { wins_2026: null, challenges_2026: null, top_lead_sources: null, team_change_suggestion: null };
 
-export function AgentPlanner({ agentId, fubUserId, hasFUB, agentName, settings, pastDeadline, onStatus }: {
+/** Fill any blank derived fields (recap copy, weekly numbers, milestones) so what the agent sees is what gets saved. */
+export function withDefaults(p: PreworkRow, recap: RecapRow | null, results: ReturnType<typeof computeGoal> | null, actuals: Parameters<typeof weeklyDefaults>[1]): PreworkRow {
+  const out = { ...p };
+  if (recap) {
+    out.recap_wins ??= recap.wins; out.recap_challenges ??= recap.challenges;
+    out.recap_commitments ??= recap.commitments; out.recap_lead_sources ??= recap.lead_sources;
+  }
+  if (out.weekly_conversations == null && out.weekly_appointments == null && out.weekly_leads == null) Object.assign(out, weeklyDefaults(results, actuals));
+  if (!out.quarterly_milestones?.length) out.quarterly_milestones = splitQuarters(results?.deals_needed ?? null, results?.gci_goal ?? null);
+  out.lead_source_focus = (out.lead_source_focus ?? []).filter(s => s.source.trim());
+  out.action_plan = (out.action_plan ?? []).filter(a => a.action.trim());
+  return out;
+}
+
+export function AgentPlanner({ agentId, fubUserId, hasFUB, agentName, settings, pastDeadline, onStatus, canRegenerate }: {
   agentId: string; fubUserId: number | null; hasFUB: boolean; agentName: string | null;
-  settings: PlanningSettings; pastDeadline: boolean; onStatus: (s: PlanningGoalRow['status'] | null) => void;
+  settings: PlanningSettings; pastDeadline: boolean; onStatus: (s: PlanningGoalRow['status'] | null) => void; canRegenerate?: boolean;
 }) {
   const actuals = usePriorYearActuals(agentId, fubUserId, hasFUB, agentName);
+  const goal2026 = usePriorYearGoal(agentId);
+  const { recap, loading: recapLoading, working, regenerate } = useRecap(agentId, true);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState<PlanningGoalRow | null>(null);
   const [inputs, setInputs] = useState<GoalInputs | null>(null);
   const [sources, setSources] = useState<Record<RateKey, '2026 actuals' | 'Team default' | 'Saved'>>({} as any);
-  const [prework, setPrework] = useState<PreworkRow>(EMPTY_PREWORK);
+  const [prework, setPreworkState] = useState<PreworkRow>(EMPTY_PREWORK);
   const [busy, setBusy] = useState(false);
+  const [tab, setTab] = useState('recap');
+  const seeded = useRef(false);
+  const setPrework = useCallback((fn: (p: PreworkRow) => PreworkRow) => setPreworkState(fn), []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -41,12 +61,23 @@ export function AgentPlanner({ agentId, fubUserId, hasFUB, agentName, settings, 
     const row = (g.data as PlanningGoalRow) ?? null;
     setSaved(row);
     onStatus(row?.status ?? null);
-    if (p.data) setPrework(p.data as PreworkRow);
+    if (p.data) setPreworkState(p.data as unknown as PreworkRow);
     setLoading(false);
   }, [agentId, onStatus]);
   useEffect(() => { load(); }, [load]);
 
-  // Build initial inputs once saved row + actuals are known
+  // Seed Reflection wins/challenges/lead sources from the coaching recap the first time.
+  useEffect(() => {
+    if (loading || !recap || seeded.current) return;
+    seeded.current = true;
+    setPreworkState(p => ({
+      ...p,
+      wins_2026: p.wins_2026 || p.recap_wins || recap.wins,
+      challenges_2026: p.challenges_2026 || p.recap_challenges || recap.challenges,
+      top_lead_sources: p.top_lead_sources || p.recap_lead_sources || recap.lead_sources,
+    }));
+  }, [loading, recap]);
+
   useEffect(() => {
     if (loading || actuals.loading || inputs) return;
     if (saved) {
@@ -72,6 +103,13 @@ export function AgentPlanner({ agentId, fubUserId, hasFUB, agentName, settings, 
   }, [loading, actuals, saved, settings, inputs]);
 
   const results = useMemo(() => (inputs ? computeGoal(inputs) : null), [inputs]);
+
+  // Seed weekly commitments from the calculator the first time a goal exists.
+  useEffect(() => {
+    if (!results?.appointments_needed) return;
+    setPreworkState(p => (p.weekly_conversations == null && p.weekly_appointments == null && p.weekly_leads == null
+      ? { ...p, ...weeklyDefaults(results, actuals) } : p));
+  }, [results, actuals]);
   const status = saved?.status ?? 'draft';
   const editable = !pastDeadline && status === 'draft';
 
@@ -80,7 +118,6 @@ export function AgentPlanner({ agentId, fubUserId, hasFUB, agentName, settings, 
 
   const switchType = (t: string) => {
     if (!t || !inputs || !results || t === inputs.goal_input_type) return;
-    // Carry the current figure across so both numbers keep matching
     setInputs({ ...inputs, goal_input_type: t as 'net' | 'gci', net_income_goal: results.net_income_goal, gci_goal: results.gci_goal });
   };
 
@@ -95,18 +132,19 @@ export function AgentPlanner({ agentId, fubUserId, hasFUB, agentName, settings, 
   const save = async (next: 'draft' | 'submitted') => {
     if (!inputs) return;
     if (next === 'submitted' && (inputs.goal_input_type === 'net' ? !inputs.net_income_goal : !inputs.gci_goal)) {
-      toast.error('Enter your goal before submitting'); return;
+      toast.error('Enter your goal on the 2027 Goals tab before submitting'); setTab('goals'); return;
+    }
+    const full = withDefaults(prework, recap, results, actuals);
+    if (next === 'submitted' && (full.action_plan?.length ?? 0) < 3) {
+      toast.error('Add at least 3 actions to your 90-day plan'); setTab('forward'); return;
     }
     setBusy(true);
     const g = await supabase.from('planning_goals').upsert({
       agent_id: agentId, plan_year: PLAN_YEAR, ...inputs, rate_source: rateSource(), status: next,
     }, { onConflict: 'agent_id,plan_year' });
-    const p = g.error ? null : await supabase.from('planning_prework').upsert({
-      agent_id: agentId, plan_year: PLAN_YEAR,
-      wins_2026: prework.wins_2026, challenges_2026: prework.challenges_2026,
-      top_lead_sources: prework.top_lead_sources, team_change_suggestion: prework.team_change_suggestion,
-      status: next,
-    }, { onConflict: 'agent_id,plan_year' });
+    const payload: Record<string, unknown> = { agent_id: agentId, plan_year: PLAN_YEAR, status: next };
+    for (const k of PREWORK_SAVE_KEYS) payload[k] = (full as any)[k] ?? null;
+    const p = g.error ? null : await supabase.from('planning_prework').upsert(payload as any, { onConflict: 'agent_id,plan_year' });
     setBusy(false);
     const err = g.error || p?.error;
     if (err) { toast.error(err.message); return; }
@@ -128,6 +166,7 @@ export function AgentPlanner({ agentId, fubUserId, hasFUB, agentName, settings, 
     return <div className="flex flex-col items-center gap-2 py-16 text-sm text-muted-foreground"><Loader2 className="h-6 w-6 animate-spin text-gold" />Loading your 2026 numbers…</div>;
   }
 
+
   const goalField = inputs.goal_input_type === 'net' ? 'net_income_goal' : 'gci_goal';
   const rateInput = (k: RateKey | 'agent_split_pct', label: string, suffix: string) => (
     <div className="space-y-1 min-w-0">
@@ -145,13 +184,25 @@ export function AgentPlanner({ agentId, fubUserId, hasFUB, agentName, settings, 
 
   return (
     <div className="space-y-4">
-      <Tabs defaultValue="calculator">
-        <TabsList className="flex w-full flex-wrap justify-start h-auto gap-1">
-          <TabsTrigger value="calculator" className="gap-2"><Calculator className="h-4 w-4" />2027 Goal Calculator</TabsTrigger>
-          <TabsTrigger value="prework" className="gap-2"><NotebookPen className="h-4 w-4" />2026 Reflection & Pre-Work</TabsTrigger>
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto gap-1">
+          <TabsTrigger value="recap" className="gap-2"><History className="h-4 w-4" />2026 Recap</TabsTrigger>
+          <TabsTrigger value="reflection" className="gap-2"><NotebookPen className="h-4 w-4" />Reflection</TabsTrigger>
+          <TabsTrigger value="goals" className="gap-2"><Calculator className="h-4 w-4" />2027 Goals</TabsTrigger>
+          <TabsTrigger value="forward" className="gap-2"><Compass className="h-4 w-4" />Way Forward</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="calculator" className="mt-4 space-y-4">
+        <TabsContent value="recap" className="mt-4">
+          <RecapSection agentId={agentId} actuals={actuals} goal2026={goal2026} recap={recap} recapLoading={recapLoading}
+            regenerating={working} canRegenerate={!!canRegenerate} onRegenerate={regenerate}
+            prework={prework} setPrework={setPrework} editable={editable} />
+        </TabsContent>
+
+        <TabsContent value="reflection" className="mt-4">
+          <ReflectionSection prework={prework} setPrework={setPrework} editable={editable} />
+        </TabsContent>
+
+        <TabsContent value="goals" className="mt-4 space-y-4">
           <Card><CardContent className="p-4 sm:p-6 space-y-5">
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
               <span className="text-sm font-medium text-foreground">Set my goal by:</span>
@@ -183,29 +234,13 @@ export function AgentPlanner({ agentId, fubUserId, hasFUB, agentName, settings, 
               {rateInput('appt_to_close_rate', 'Appt → close', '%')}
               {rateInput('lead_to_appt_rate', 'Lead → appt', '%')}
             </div>
-            <p className="text-xs text-muted-foreground">
-              2026 actual GCI for reference: <span className="font-semibold text-foreground">{formatCurrency(actuals.gci)}</span>
-              {' '}· {actuals.closedSales} closed sales · {actuals.appointments} appointments · {actuals.leads} leads logged
-            </p>
           </CardContent></Card>
           <GoalResultsView r={results} inputType={inputs.goal_input_type} />
+          <GoalComparison actuals={actuals} r={results} />
         </TabsContent>
 
-        <TabsContent value="prework" className="mt-4">
-          <Card><CardContent className="p-4 sm:p-6 space-y-4">
-            {([
-              ['wins_2026', 'What were your biggest wins in 2026?'],
-              ['challenges_2026', 'What were your biggest challenges in 2026?'],
-              ['top_lead_sources', 'What were your top lead sources?'],
-              ['team_change_suggestion', 'One change you would suggest for the team'],
-            ] as [keyof PreworkRow, string][]).map(([k, label]) => (
-              <div key={k} className="space-y-1">
-                <Label htmlFor={k}>{label}</Label>
-                <Textarea id={k} rows={4} disabled={!editable} value={(prework[k] as string) ?? ''}
-                  onChange={e => setPrework(p => ({ ...p, [k]: e.target.value }))} />
-              </div>
-            ))}
-          </CardContent></Card>
+        <TabsContent value="forward" className="mt-4">
+          <WayForwardSection prework={prework} setPrework={setPrework} editable={editable} results={results} actuals={actuals} />
         </TabsContent>
       </Tabs>
 

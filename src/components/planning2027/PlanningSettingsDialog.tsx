@@ -5,7 +5,32 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Loader2, Calculator } from 'lucide-react';
 import { PlanningSettings } from '@/lib/planning2027';
+import { useTeamActuals } from './useTeamActuals';
+
+function TeamDefaultsCalc({ ids, onApply }: { ids: string[]; onApply: (d: Partial<PlanningSettings>, note: string) => void }) {
+  const t = useTeamActuals(ids);
+  const d = t.totals.defaults;
+  return (
+    <div className="col-span-2 rounded-md border border-gold/40 bg-gold/5 p-3 text-sm space-y-2">
+      {t.probes}
+      {t.loading ? <p className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Adding up 2026 data for {ids.length} agents…</p> : <>
+        <p className="font-medium text-foreground">From the team's 2026 Follow Up Boss and 4-1-1 data:</p>
+        <ul className="text-muted-foreground space-y-0.5">
+          <li>Avg sale price: <b className="text-foreground">{d.avg_sale_price?.toLocaleString() ?? '—'}</b> ({t.totals.sales} sales, ${Math.round(t.totals.volume).toLocaleString()} volume)</li>
+          <li>Commission: <b className="text-foreground">{d.commission_rate ?? '—'}%</b> (sales GCI ÷ volume)</li>
+          <li>Appt → close: <b className="text-foreground">{d.appt_to_close_rate ?? '—'}%</b> ({t.totals.closings} closings ÷ {t.totals.appts} appointments)</li>
+          <li>Lead → appt: <b className="text-foreground">{d.lead_to_appt_rate ?? '—'}%</b> ({t.totals.appts} appointments ÷ {t.totals.leads} leads)</li>
+          <li>Agent split is not in Follow Up Boss — set it by hand.</li>
+        </ul>
+        <Button size="sm" variant="outline" onClick={() => onApply(Object.fromEntries(Object.entries(d).filter(([, v]) => v != null)) as any,
+          `Calculated from 2026 team data (${ids.length} agents, ${t.totals.sales} sales, ${t.totals.appts} appts, ${t.totals.leads} leads)`)}>Use these numbers</Button>
+      </>}
+    </div>
+  );
+}
 
 /** datetime-local value in Toronto time <-> ISO */
 function toTorontoLocal(iso: string) {
@@ -26,7 +51,11 @@ export function PlanningSettingsDialog({ open, onOpenChange, orgId, settings, on
   const [f, setF] = useState(settings);
   const [deadline, setDeadline] = useState(toTorontoLocal(settings.submission_deadline));
   const [busy, setBusy] = useState(false);
-  useEffect(() => { if (open) { setF(settings); setDeadline(toTorontoLocal(settings.submission_deadline)); } }, [open, settings]);
+  const [calc, setCalc] = useState(false);
+  const [team, setTeam] = useState<{ id: string; full_name: string | null; email: string }[]>([]);
+  useEffect(() => { if (open) { setF(settings); setDeadline(toTorontoLocal(settings.submission_deadline)); setCalc(false); } }, [open, settings]);
+  useEffect(() => { if (open) supabase.rpc('get_team_agents').then(({ data }) => setTeam((data as any[]) ?? [])); }, [open]);
+  const ids = f.selling_agent_ids ?? [];
 
   const num = (k: keyof PlanningSettings, label: string) => (
     <div className="space-y-1">
@@ -43,7 +72,7 @@ export function PlanningSettingsDialog({ open, onOpenChange, orgId, settings, on
       org_id: orgId, plan_year: f.plan_year,
       commission_rate: f.commission_rate, agent_split_pct: f.agent_split_pct,
       appt_to_close_rate: f.appt_to_close_rate, lead_to_appt_rate: f.lead_to_appt_rate,
-      avg_sale_price: f.avg_sale_price,
+      avg_sale_price: f.avg_sale_price, selling_agent_ids: ids, defaults_source: f.defaults_source ?? null,
       submission_deadline: fromTorontoLocal(deadline), planning_session_date: f.planning_session_date,
     }, { onConflict: 'org_id,plan_year' });
     setBusy(false);
@@ -54,9 +83,14 @@ export function PlanningSettingsDialog({ open, onOpenChange, orgId, settings, on
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>2027 planning settings</DialogTitle></DialogHeader>
         <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">{f.defaults_source || 'Default rates have not been calculated from team data yet.'}</p>
+            <Button size="sm" variant="secondary" className="gap-2" onClick={() => setCalc(true)} disabled={!ids.length}><Calculator className="h-4 w-4" />Calculate from 2026 data</Button>
+          </div>
+          {calc && <TeamDefaultsCalc ids={ids} onApply={(d, note) => { setF(x => ({ ...x, ...d, defaults_source: note })); setCalc(false); }} />}
           {num('avg_sale_price', 'Default avg sale price ($)')}
           {num('commission_rate', 'Default commission %')}
           {num('agent_split_pct', 'Default agent split %')}
@@ -69,6 +103,17 @@ export function PlanningSettingsDialog({ open, onOpenChange, orgId, settings, on
           <div className="space-y-1 col-span-2 sm:col-span-1">
             <Label htmlFor="s-session" className="text-xs">Planning session date</Label>
             <Input id="s-session" type="date" value={f.planning_session_date} onChange={e => setF({ ...f, planning_session_date: e.target.value })} />
+          </div>
+          <div className="col-span-2 space-y-2">
+            <Label className="text-xs">Selling agents (counted in submissions and team totals)</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 rounded-md border border-border p-2">
+              {team.map(a => (
+                <label key={a.id} className="flex items-center gap-2 text-sm py-1">
+                  <Checkbox checked={ids.includes(a.id)} onCheckedChange={c => setF(x => ({ ...x, selling_agent_ids: c ? [...ids, a.id] : ids.filter(i => i !== a.id) }))} />
+                  <span className="break-words min-w-0">{a.full_name || a.email}</span>
+                </label>
+              ))}
+            </div>
           </div>
         </div>
         <DialogFooter>
