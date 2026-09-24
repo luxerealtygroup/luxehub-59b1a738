@@ -241,6 +241,9 @@ export function AgentPlanner({ agentId, fubUserId, hasFUB, agentName, settings, 
               {rateInput('appt_to_close_rate', 'Appt → close', '%')}
               {rateInput('lead_to_appt_rate', 'Lead → appt', '%')}
             </div>
+            {actuals.rateNote && sources.appt_to_close_rate === 'Team default' && (
+              <p className="text-xs text-muted-foreground">Conversion rates: {actuals.rateNote}.</p>
+            )}
           </CardContent></Card>
           <GoalResultsView r={results} inputType={inputs.goal_input_type} />
           <GoalComparison actuals={actuals} r={results} />

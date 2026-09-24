@@ -7,7 +7,7 @@ import { useViewAsAgent } from '@/hooks/useViewAsAgent';
 import { useTenant } from '@/hooks/useTenant';
 import { CalendarClock, Loader2 } from 'lucide-react';
 import {
-  PLAN_YEAR, DEFAULT_SETTINGS, PlanningSettings, GoalStatus, countdown, formatDeadline, formatSessionDate,
+  PLAN_YEAR, DEFAULT_SETTINGS, PlanningSettings, GoalStatus, countdown, formatDeadline, formatSessionDate, lockTime,
 } from '@/lib/planning2027';
 import { AgentPlanner } from '@/components/planning2027/AgentPlanner';
 import { AgentPlanDetail } from '@/components/planning2027/AgentPlanDetail';
@@ -40,7 +40,8 @@ const BusinessPlanning = () => {
     return <div className="flex items-center justify-center h-64"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>;
   }
 
-  const pastDeadline = now > new Date(settings.submission_deadline).getTime();
+  const pastDeadline = now > new Date(lockTime(settings)).getTime();
+  const draftPast = now > new Date(settings.submission_deadline).getTime();
   const companyView = admin && !isViewingAsAgent;
   const reviewingAgent = admin && isViewingAsAgent && viewingAgentId;
 
@@ -58,9 +59,15 @@ const BusinessPlanning = () => {
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-gold/50 bg-gold/5 px-4 py-3">
           <CalendarClock className="h-5 w-5 text-gold shrink-0" />
           <span className="font-semibold text-foreground">
-            Due {formatSessionDate(new Date(settings.submission_deadline).toLocaleDateString('en-CA', { timeZone: 'America/Toronto' }))} · Planning session {formatSessionDate(settings.planning_session_date)}
+            Draft due {formatSessionDate(new Date(settings.submission_deadline).toLocaleDateString('en-CA', { timeZone: 'America/Toronto' }))} · Final at the session {formatSessionDate(settings.planning_session_date)}
           </span>
-          <span className="text-sm text-muted-foreground">{countdown(settings.submission_deadline, now)} · closes {formatDeadline(settings.submission_deadline)} Toronto</span>
+          <span className="text-sm text-muted-foreground">
+            {!draftPast
+              ? `Draft: ${countdown(settings.submission_deadline, now)} (${formatDeadline(settings.submission_deadline)})`
+              : !pastDeadline
+                ? `Draft deadline passed — goals lock ${formatDeadline(lockTime(settings))}`
+                : 'Goals locked'} · Toronto time
+          </span>
         </div>
       </div>
 
