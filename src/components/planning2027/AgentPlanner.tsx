@@ -209,7 +209,7 @@ export function AgentPlanner({ agentId, fubUserId, hasFUB, agentName, settings, 
         </TabsContent>
       </Tabs>
 
-      <div className="sticky bottom-0 z-10 -mx-1 flex flex-wrap items-center justify-end gap-2 border-t border-border bg-background/95 px-1 py-3 backdrop-blur">
+      <div className="sticky bottom-0 z-10 -mx-1 flex flex-wrap items-center justify-end gap-2 border-t border-border bg-background/95 pl-1 pr-20 sm:pr-1 py-3 backdrop-blur">
         {status === 'approved' && <p className="mr-auto flex items-center gap-2 text-sm text-muted-foreground"><Lock className="h-4 w-4" />Approved — locked.</p>}
         {status !== 'approved' && pastDeadline && <p className="mr-auto flex items-center gap-2 text-sm text-muted-foreground"><Lock className="h-4 w-4" />Deadline passed — locked.</p>}
         {status === 'submitted' && !pastDeadline && (
