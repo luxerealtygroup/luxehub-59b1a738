@@ -23,9 +23,13 @@ interface UseUserRoleReturn {
 export const useUserRole = (): UseUserRoleReturn => {
   const { user } = useAuth();
   const [roles, setRoles] = useState<AppRole[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loadedFor, setLoadedFor] = useState<string | null | undefined>(undefined);
   const [accessExpired, setAccessExpired] = useState(false);
   const [accessExpiresAt, setAccessExpiresAt] = useState<string | null>(null);
+  // Still loading until roles have been fetched for the CURRENT user — prevents a
+  // one-render window where a signed-in user looks role-less and gets redirected.
+  const isLoading = loadedFor !== (user?.id ?? null);
+  const setIsLoading = (v: boolean) => { if (!v) setLoadedFor(user?.id ?? null); };
 
   useEffect(() => {
     if (!user) {
