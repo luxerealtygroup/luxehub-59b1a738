@@ -150,7 +150,11 @@ const ClientSignup = () => {
     const password = new FormData(e.currentTarget as HTMLFormElement).get('password');
     try {
       if (typeof password !== 'string') throw new Error('Please enter your password.');
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data: signIn, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (!error && signIn.user?.app_metadata?.must_change_password) {
+        navigate('/client-portal/set-password');
+        return;
+      }
       if (error) {
         toast({ title: 'Sign in failed', description: error.message, variant: 'destructive' });
         return;
