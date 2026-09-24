@@ -4015,45 +4015,87 @@ export type Database = {
       }
       planning_prework: {
         Row: {
+          action_plan: Json
           agent_id: string
           challenges_2026: string | null
           created_at: string
           id: string
+          lead_source_focus: Json
           org_id: string | null
+          personal_goal: string | null
           plan_year: number
+          quarterly_milestones: Json
+          recap_challenges: string | null
+          recap_commitments: string | null
+          recap_lead_sources: string | null
+          recap_wins: string | null
+          skills_focus: string | null
           status: string
+          stop_start_continue: string | null
           submitted_at: string | null
+          support_needed: string | null
           team_change_suggestion: string | null
           top_lead_sources: string | null
           updated_at: string
+          weekly_appointments: number | null
+          weekly_conversations: number | null
+          weekly_leads: number | null
           wins_2026: string | null
         }
         Insert: {
+          action_plan?: Json
           agent_id: string
           challenges_2026?: string | null
           created_at?: string
           id?: string
+          lead_source_focus?: Json
           org_id?: string | null
+          personal_goal?: string | null
           plan_year?: number
+          quarterly_milestones?: Json
+          recap_challenges?: string | null
+          recap_commitments?: string | null
+          recap_lead_sources?: string | null
+          recap_wins?: string | null
+          skills_focus?: string | null
           status?: string
+          stop_start_continue?: string | null
           submitted_at?: string | null
+          support_needed?: string | null
           team_change_suggestion?: string | null
           top_lead_sources?: string | null
           updated_at?: string
+          weekly_appointments?: number | null
+          weekly_conversations?: number | null
+          weekly_leads?: number | null
           wins_2026?: string | null
         }
         Update: {
+          action_plan?: Json
           agent_id?: string
           challenges_2026?: string | null
           created_at?: string
           id?: string
+          lead_source_focus?: Json
           org_id?: string | null
+          personal_goal?: string | null
           plan_year?: number
+          quarterly_milestones?: Json
+          recap_challenges?: string | null
+          recap_commitments?: string | null
+          recap_lead_sources?: string | null
+          recap_wins?: string | null
+          skills_focus?: string | null
           status?: string
+          stop_start_continue?: string | null
           submitted_at?: string | null
+          support_needed?: string | null
           team_change_suggestion?: string | null
           top_lead_sources?: string | null
           updated_at?: string
+          weekly_appointments?: number | null
+          weekly_conversations?: number | null
+          weekly_leads?: number | null
           wins_2026?: string | null
         }
         Relationships: [
@@ -4069,6 +4111,65 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      planning_recaps: {
+        Row: {
+          agent_id: string
+          challenges: string | null
+          commitments: string | null
+          created_at: string
+          generated_at: string
+          generated_by: string | null
+          id: string
+          lead_sources: string | null
+          model: string | null
+          org_id: string | null
+          plan_year: number
+          source_counts: Json
+          updated_at: string
+          wins: string | null
+        }
+        Insert: {
+          agent_id: string
+          challenges?: string | null
+          commitments?: string | null
+          created_at?: string
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          lead_sources?: string | null
+          model?: string | null
+          org_id?: string | null
+          plan_year?: number
+          source_counts?: Json
+          updated_at?: string
+          wins?: string | null
+        }
+        Update: {
+          agent_id?: string
+          challenges?: string | null
+          commitments?: string | null
+          created_at?: string
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          lead_sources?: string | null
+          model?: string | null
+          org_id?: string | null
+          plan_year?: number
+          source_counts?: Json
+          updated_at?: string
+          wins?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planning_recaps_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -4136,11 +4237,13 @@ export type Database = {
           avg_sale_price: number
           commission_rate: number
           created_at: string
+          defaults_source: string | null
           id: string
           lead_to_appt_rate: number
           org_id: string
           plan_year: number
           planning_session_date: string
+          selling_agent_ids: string[]
           submission_deadline: string
           updated_at: string
         }
@@ -4150,11 +4253,13 @@ export type Database = {
           avg_sale_price?: number
           commission_rate?: number
           created_at?: string
+          defaults_source?: string | null
           id?: string
           lead_to_appt_rate?: number
           org_id?: string
           plan_year?: number
           planning_session_date?: string
+          selling_agent_ids?: string[]
           submission_deadline?: string
           updated_at?: string
         }
@@ -4164,11 +4269,13 @@ export type Database = {
           avg_sale_price?: number
           commission_rate?: number
           created_at?: string
+          defaults_source?: string | null
           id?: string
           lead_to_appt_rate?: number
           org_id?: string
           plan_year?: number
           planning_session_date?: string
+          selling_agent_ids?: string[]
           submission_deadline?: string
           updated_at?: string
         }
