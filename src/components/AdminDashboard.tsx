@@ -1,3 +1,4 @@
+import { productionKind, dealDate } from '@/lib/firmDeals';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -960,7 +961,7 @@ const AdminDashboard = () => {
         <PipelineReport onClose={() => setShowPipelineReport(false)} />
       )}
 
-      <QuarterlyPipelineSummary title="Company Pipeline Outlook" />
+      <QuarterlyPipelineSummary title="Company Pipeline Outlook — forecast" />
 
       {/* Company-wide Stats from FUB */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
