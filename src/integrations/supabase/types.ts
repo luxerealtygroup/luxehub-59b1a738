@@ -1787,7 +1787,10 @@ export type Database = {
           deals_per_agent: number
           debt_total: number
           gci_per_deal: number
+          gci_per_deal_override: number | null
           id: string
+          luxe_monthly_revenue: number
+          luxe_revenue_override: number | null
           luxe_revenue_per_deal: number
           operating_costs: number
           org_id: string
@@ -1802,7 +1805,10 @@ export type Database = {
           deals_per_agent?: number
           debt_total?: number
           gci_per_deal?: number
+          gci_per_deal_override?: number | null
           id?: string
+          luxe_monthly_revenue?: number
+          luxe_revenue_override?: number | null
           luxe_revenue_per_deal?: number
           operating_costs?: number
           org_id: string
@@ -1817,7 +1823,10 @@ export type Database = {
           deals_per_agent?: number
           debt_total?: number
           gci_per_deal?: number
+          gci_per_deal_override?: number | null
           id?: string
+          luxe_monthly_revenue?: number
+          luxe_revenue_override?: number | null
           luxe_revenue_per_deal?: number
           operating_costs?: number
           org_id?: string
@@ -4400,6 +4409,8 @@ export type Database = {
           final_lock_at: string | null
           id: string
           lead_to_appt_rate: number
+          lease_full_unit_gci: number
+          lease_weight: number
           org_id: string
           plan_year: number
           planning_session_date: string
@@ -4417,6 +4428,8 @@ export type Database = {
           final_lock_at?: string | null
           id?: string
           lead_to_appt_rate?: number
+          lease_full_unit_gci?: number
+          lease_weight?: number
           org_id?: string
           plan_year?: number
           planning_session_date?: string
@@ -4434,6 +4447,8 @@ export type Database = {
           final_lock_at?: string | null
           id?: string
           lead_to_appt_rate?: number
+          lease_full_unit_gci?: number
+          lease_weight?: number
           org_id?: string
           plan_year?: number
           planning_session_date?: string

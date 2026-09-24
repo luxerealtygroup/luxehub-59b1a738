@@ -74,7 +74,7 @@ interface CompanyStats {
   totalDeals: number;
   closedDeals: number;
   activeDeals: number;
-  /** Weighted qualified pipeline: stages 2–9 only, leases at 0.33. */
+  /** Weighted qualified pipeline: stages 2–9 only, leases ⅓ unit (1 if GCI ≥ $4K). */
   totalPipelineClients: number;
   allPipelineClientRecords: number;
   qualifiedPipelineClientRecords: number;
@@ -996,7 +996,7 @@ const AdminDashboard = () => {
             <p className="text-xs font-medium text-teal-500 mt-1">
               {formatWeightedDeals((fubStats?.leaseClosedUnits || 0) + (fubStats?.leasePendingUnits || 0) + (fubStats?.leaseConditionalUnits || 0))} units
             </p>
-            <p className="text-xs text-muted-foreground mt-1">Year to date · leases only, at 0.33 units each</p>
+            <p className="text-xs text-muted-foreground mt-1">Year to date · leases only, ⅓ unit each under $4K GCI</p>
             <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
               <p>{formatWeightedDeals(fubStats?.leaseClosedUnits || 0)} units — {formatCurrency(fubStats?.leaseClosedGci)} closed</p>
               <p>{formatWeightedDeals(fubStats?.leasePendingUnits || 0)} units — {formatCurrency(fubStats?.leasePendingGci)} pending</p>
@@ -1052,7 +1052,7 @@ const AdminDashboard = () => {
             </div>
             <p className="text-xl md:text-2xl xl:text-xl font-bold tabular-nums break-words leading-tight text-purple-500">{stats?.totalPipelineClients || 0}</p>
             <p className="text-xs text-muted-foreground mt-1 break-words">
-              {stats?.qualifiedPipelineClientRecords || 0} of {stats?.allPipelineClientRecords || 0} client records — signed agreement or live deal, leases at 0.33
+              {stats?.qualifiedPipelineClientRecords || 0} of {stats?.allPipelineClientRecords || 0} client records — signed agreement or live deal, leases ⅓ unit (1 if GCI ≥ $4K)
             </p>
             <p className="text-xs text-muted-foreground mt-0.5 break-words">
               Excludes Leads and finished clients · same measure as Business Planning

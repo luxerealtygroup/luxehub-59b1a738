@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatCurrency, formatNumber } from '@/lib/utils';
+import { formatWeightedDeals } from '@/lib/utils/dealWeight';
 import { PlanningGoalRow } from '@/lib/planning2027';
 import { ClosedFirmSummary } from './ClosedFirmSummary';
 
@@ -15,7 +16,7 @@ const k = (v: number) => (v >= 1000 ? `$${Math.round(v / 1000)}K` : m(v));
 
 export function TeamRecap({ totals, loading, goals }: {
   totals: { gci: number; volume: number; closings: number; appts: number; leads: number; goalGci: number; goalDeals: number; goalVolume: number;
-    leases: number; fubLeads: number | null; companyGci: number; companyDeals: number };
+    leases: number; weightedUnits?: number; fubLeads: number | null; companyGci: number; companyDeals: number };
   loading: boolean; goals: PlanningGoalRow[];
 }) {
   const [themes, setThemes] = useState<{ wins: string; challenges: string; lead_sources: string } | null>(null);
@@ -57,9 +58,9 @@ export function TeamRecap({ totals, loading, goals }: {
               <Box k="Team GCI (full)" v={m(totals.gci)}
                 sub={totals.companyGci ? `${pct(totals.gci, totals.companyGci)} of company goal (${k(totals.companyGci)})` : 'No company goal set'}
                 sub2={`${pct(totals.gci, totals.goalGci)} of agent goals (${k(totals.goalGci)})`} />
-              <Box k="Closed deals" v={`${n(totals.closings)} (${n(totals.closings - totals.leases)} homes + ${n(totals.leases)} leases)`}
-                sub={totals.companyDeals ? `${pct(totals.closings, totals.companyDeals)} of company goal (${n(totals.companyDeals)})` : 'No company goal set'}
-                sub2={`${pct(totals.closings, totals.goalDeals)} of agent goals (${n(totals.goalDeals)})`} />
+              <Box k="Closed · weighted units" v={`${formatWeightedDeals(totals.weightedUnits ?? totals.closings)} units`}
+                sub={`${n(totals.closings)} deals: ${n(totals.closings - totals.leases)} homes + ${n(totals.leases)} leases · ${totals.companyDeals ? `${pct(totals.weightedUnits ?? totals.closings, totals.companyDeals)} of company goal (${n(totals.companyDeals)})` : 'no company goal'}`}
+                sub2={`${pct(totals.weightedUnits ?? totals.closings, totals.goalDeals)} of agent goals (${n(totals.goalDeals)})`} />
               <Box k="Volume" v={m(totals.volume)} sub="No company volume goal"
                 sub2={totals.goalVolume ? `${pct(totals.volume, totals.goalVolume)} of agent goals (${m(totals.goalVolume)})` : undefined} />
               <Box k="Appointments" v={n(totals.appts)} sub="Logged (4-1-1 + appointment log) — undercounted" />

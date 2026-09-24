@@ -48,7 +48,7 @@ export default function QuarterlyPipelineSummary({ agentUserId, title = 'Pipelin
         </CardTitle>
         {summary && (
           <p className="text-xs text-muted-foreground">
-            Entered in {summary.cohortYear}, excluding lost/cancelled · actual or linked closing date, then expected closing date · sales 1 unit, leases 0.33
+            Entered in {summary.cohortYear}, excluding lost/cancelled · actual or linked closing date, then expected closing date · sales 1 unit, leases ⅓ unit (1 if GCI ≥ $4K)
           </p>
         )}
       </CardHeader>

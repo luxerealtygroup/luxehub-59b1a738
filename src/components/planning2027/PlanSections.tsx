@@ -1,4 +1,5 @@
 import { ClosedFirmSummary } from './ClosedFirmSummary';
+import { formatWeightedDeals } from '@/lib/utils/dealWeight';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -75,7 +76,7 @@ export function RecapSection({ agentId, fubUserId, actuals, goal2026, recap, rec
       <Card><CardHeader className="pb-2"><CardTitle className="text-base">2026 production <span className="font-normal text-muted-foreground text-sm">· Follow Up Boss</span></CardTitle></CardHeader>
         <CardContent className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {actuals.loading ? <Loader2 className="h-5 w-5 animate-spin text-gold" /> : <>
-            <Stat label="Closed deals" value={n(actuals.closings)} sub={vsGoal(actuals.closings, goal2026?.deals)} />
+            <Stat label="Closed · weighted units" value={formatWeightedDeals(actuals.closings)} sub={`${actuals.closingsRaw} deals (${actuals.closedSales} homes + ${actuals.leasesClosed} leases) · ${vsGoal(actuals.closings, goal2026?.deals)}`} />
             <Stat label="Volume" value={m(actuals.volume)} sub={vsGoal(actuals.volume, goal2026?.volume, true)} />
             <Stat label="GCI" value={m(actuals.gci)} sub={vsGoal(actuals.gci, goal2026?.gci, true)} />
             <Stat label="Avg sale price" value={actuals.closedSales ? m(Math.round(actuals.volume / actuals.closedSales)) : '—'} sub={`${actuals.closedSales} sales`} />
@@ -182,7 +183,7 @@ export function ReflectionSection({ prework, setPrework, editable }: { prework: 
 export function GoalComparison({ actuals, r }: { actuals: PriorYearActuals; r: GoalResults }) {
   const rows: [string, number, number | null, boolean][] = [
     ['GCI', actuals.gci, r.gci_goal, true],
-    ['Deals', actuals.closings, r.deals_needed, false],
+    ['Deals (weighted units)', actuals.closings, r.deals_needed, false],
     ['Volume', actuals.volume, r.volume_needed, true],
     ['Appointments', actuals.appointments, r.appointments_needed, false],
     ['Leads', actuals.leads, r.leads_needed, false],

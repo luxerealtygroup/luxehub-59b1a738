@@ -8,7 +8,11 @@ export interface PriorYearActuals {
   gci: number;
   gciSales: number;
   volume: number;
+  /** Weighted closed units (sale 1, lease 1/3, $4K+ GCI lease 1). */
   closings: number;
+  /** Raw closed deal count. */
+  closingsRaw: number;
+  leasesClosed: number;
   closedSales: number;
   avgSalePrice: number | null;
   commissionRate: number | null;
@@ -64,7 +68,7 @@ export function usePriorYearActuals(userId: string | null, fubUserId: number | n
 
   const sales = metrics.sales_count_closed;
   const vol = metrics.sales_volume_closed;
-  const closings = metrics.deals_closed;
+  const closings = metrics.weighted_closed || metrics.deals_closed;
   const appts = w?.appts ?? 0;
   const leads = w?.leads ?? 0;
   const weeks = w?.weeks ?? 0;
@@ -80,6 +84,8 @@ export function usePriorYearActuals(userId: string | null, fubUserId: number | n
     gciSales: Math.round(metrics.gci_sales_closed),
     volume: Math.round(vol),
     closings,
+    closingsRaw: metrics.deals_closed,
+    leasesClosed: metrics.lease_count_closed,
     closedSales: sales,
     avgSalePrice: sales >= 2 && vol > 0 ? Math.round(vol / sales) : null,
     commissionRate: sales >= 2 && vol > 0 && metrics.gci_sales_closed > 0 ? round1((metrics.gci_sales_closed / vol) * 100) : null,

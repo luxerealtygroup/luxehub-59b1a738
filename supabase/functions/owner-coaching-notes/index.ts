@@ -71,6 +71,16 @@ async function compile(db: any, orgId: string, callerId: string) {
   const byFub = new Map<number, string>();
   for (const p of profs ?? []) if (p.fub_user_id && producing.has(p.id)) byFub.set(Number(p.fub_user_id), p.id);
 
+  // Shared lease rule: deal_metadata marks, lease keywords, then rent-sized price; weight from Planning settings.
+  const { data: md } = await db.from('deal_metadata').select('fub_deal_id, deal_category, weight_override').eq('org_id', orgId);
+  const { data: lw } = await db.from('planning_settings').select('lease_full_unit_gci, lease_weight').eq('org_id', orgId).eq('plan_year', 2027).maybeSingle();
+  const META = new Map<number, any>((md ?? []).map((r: any) => [Number(r.fub_deal_id), r]));
+  const LFULL = Number(lw?.lease_full_unit_gci ?? 4000), LW = Number(lw?.lease_weight ?? 1 / 3);
+  const isLease = (d: any) => { const m = META.get(Number(d.id)); if (m?.deal_category) return m.deal_category === 'lease';
+    return /lease|rental|rent|tenant|leasing/i.test(`${d.pipelineName ?? ''} ${d.name ?? ''} ${d.stageName ?? ''}`) || (Number(d.price || 0) > 0 && Number(d.price) < 10000); };
+  const weightOf = (d: any) => { const m = META.get(Number(d.id)); if (m?.weight_override != null) return Number(m.weight_override);
+    return !isLease(d) ? 1 : Number(d.commissionValue || 0) >= LFULL ? 1 : LW; };
+
   // ── Follow Up Boss deals ──
   const h = await fubHeadersForUser(callerId);
   const deals: any[] = [];
@@ -81,15 +91,15 @@ async function compile(db: any, orgId: string, callerId: string) {
   const today = new Date().toISOString().slice(0, 10);
   const closed = deals.filter(d => String(d.stageName).toLowerCase() === 'closed' && dealDate(d).startsWith(YEAR) && dealDate(d) <= today);
   const pending = deals.filter(d => /pending|firm|conditional|under contract|sold/i.test(String(d.stageName)) && String(d.stageName).toLowerCase() !== 'closed');
-  type Agg = { gci: number; homes: number; leases: number; volume: number; leaseGci: number; pending: number; pendingGci: number; byMonth: number[] };
+  type Agg = { units: number; gci: number; homes: number; leases: number; volume: number; leaseGci: number; pending: number; pendingGci: number; byMonth: number[] };
   const A: Record<string, Agg> = {};
-  const agg = (id: string) => (A[id] ??= { gci: 0, homes: 0, leases: 0, volume: 0, leaseGci: 0, pending: 0, pendingGci: 0, byMonth: Array(12).fill(0) });
+  const agg = (id: string) => (A[id] ??= { units: 0, gci: 0, homes: 0, leases: 0, volume: 0, leaseGci: 0, pending: 0, pendingGci: 0, byMonth: Array(12).fill(0) });
   const owners = (d: any) => { const ids = (d.users ?? []).map((u: any) => byFub.get(Number(u.id))).filter(Boolean) as string[]; return ids.length ? [...new Set(ids)] : ['unassigned']; };
-  let team = { gci: 0, homes: 0, leases: 0, volume: 0 };
+  let team = { gci: 0, homes: 0, leases: 0, volume: 0, units: 0 };
   for (const d of closed) {
-    const o = owners(d), f = 1 / o.length, g = Number(d.commissionValue || 0), price = Number(d.price || 0), lease = price < 10000;
-    team.gci += g; team.volume += price; lease ? team.leases++ : team.homes++;
-    for (const id of o) { const a = agg(id); if (lease) { a.leases += f; a.leaseGci += g * f; } else { a.homes += f; a.gci += g * f; a.volume += price * f; a.byMonth[Number(dealDate(d).slice(5, 7)) - 1] += f; } }
+    const o = owners(d), f = 1 / o.length, g = Number(d.commissionValue || 0), price = Number(d.price || 0), lease = isLease(d), w = weightOf(d);
+    team.units += w; team.gci += g; team.volume += price; lease ? team.leases++ : team.homes++;
+    for (const id of o) { const a = agg(id); a.units += w * f; if (lease) { a.leases += f; a.leaseGci += g * f; } else { a.homes += f; a.gci += g * f; a.volume += price * f; a.byMonth[Number(dealDate(d).slice(5, 7)) - 1] += f; } }
   }
   for (const d of pending) for (const id of owners(d)) { const a = agg(id); a.pending += 1 / owners(d).length; a.pendingGci += Number(d.commissionValue || 0) / owners(d).length; }
 
@@ -116,7 +126,7 @@ async function compile(db: any, orgId: string, callerId: string) {
   for (let i = 0; i < missing.length; i += 10) await Promise.all(missing.slice(i, i + 10).map(async id => { try { const p = await fubGet(h, `/people/${id}?fields=id,source`); srcOf.set(id, p.source ?? ''); } catch { srcOf.set(id, ''); } }));
   const S: Record<string, { leads: number; closings: number; gci: number }> = {};
   for (const p of people) (S[bucket(p.source)] ??= { leads: 0, closings: 0, gci: 0 }).leads++;
-  for (const d of closed) { if (Number(d.price || 0) < 10000) continue; const b = bucket(srcOf.get(Number(d.people?.[0]?.id)) ?? ''); const s = (S[b] ??= { leads: 0, closings: 0, gci: 0 }); s.closings++; s.gci += Number(d.commissionValue || 0); }
+  for (const d of closed) { if (isLease(d)) continue; const b = bucket(srcOf.get(Number(d.people?.[0]?.id)) ?? ''); const s = (S[b] ??= { leads: 0, closings: 0, gci: 0 }); s.closings++; s.gci += Number(d.commissionValue || 0); }
   const cutoff = new Date(Date.now() - 7 * 864e5).toISOString();
   const uncontacted = people.filter(p => String(p.contacted) === '0' || p.contacted === false);
   const stuckLead = people.filter(p => p.stage === 'Lead' && p.created < new Date(Date.now() - 90 * 864e5).toISOString()).length;
@@ -158,7 +168,7 @@ async function compile(db: any, orgId: string, callerId: string) {
     return {
       id, name: p?.full_name ?? 'Agent',
       numbers: {
-        gci: r0(a.gci + a.leaseGci), sales_gci: r0(a.gci), lease_gci: r0(a.leaseGci), homes: r1(a.homes), leases: r1(a.leases), volume: r0(a.volume),
+        gci: r0(a.gci + a.leaseGci), weighted_units: r1(a.units), sales_gci: r0(a.gci), lease_gci: r0(a.leaseGci), homes: r1(a.homes), leases: r1(a.leases), volume: r0(a.volume),
         avg_gci_per_home: a.homes ? r0(a.gci / a.homes) : null, pending: r1(a.pending), pending_gci: r0(a.pendingGci),
         best_month: a.byMonth[best] ? `${MONTHS[best]} 2026 (${r1(a.byMonth[best])} homes)` : null,
         goal_gci: goal.gci, goal_deals: goal.deals, goal_source: goal.source,
@@ -177,13 +187,13 @@ async function compile(db: any, orgId: string, callerId: string) {
 
   const tiers = (plan?.profit_tiers ?? []).map((p: number) => {
     const tx = plan?.luxe_revenue_per_deal ? Math.ceil((Number(plan.operating_costs) + Number(plan.debt_total) + p) / Number(plan.luxe_revenue_per_deal)) : null;
-    const pace = Math.round(closed.length / ((Date.now() - new Date('2026-01-01').getTime()) / (365 * 864e5)));
+    const pace = Math.round(team.units / ((Date.now() - new Date('2026-01-01').getTime()) / (365 * 864e5)));
     return { profit: p, transactions: tx, pace, gap: tx != null ? tx - pace : null, new_agents: tx != null ? Math.ceil(Math.max(0, tx - pace) / Number(plan.deals_per_agent || 10)) : null };
   });
 
   const facts = {
     as_of: today,
-    team: { gci: r0(team.gci), closed: closed.length, homes: team.homes, leases: team.leases, volume: r0(team.volume), pending: pending.length },
+    team: { gci: r0(team.gci), weighted_units: r1(team.units), unit_rule: `sale 1, lease ${r1(LW*100)/100} unit, lease with GCI >= $${LFULL} = 1`, closed: closed.length, homes: team.homes, leases: team.leases, volume: r0(team.volume), pending: pending.length },
     by_agent_production: Object.entries(A).map(([id, a]) => ({ name: id === 'unassigned' ? 'Unassigned' : P.get(id)?.full_name ?? id, gci: r0(a.gci + a.leaseGci), homes: r1(a.homes), leases: r1(a.leases), volume: r0(a.volume), pending: r1(a.pending) })).sort((x, y) => y.gci - x.gci),
     audit: {
       zero_commission: zero, missing_close_date: noDate, possible_duplicates: dups,

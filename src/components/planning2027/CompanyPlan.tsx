@@ -13,6 +13,7 @@ import type { TeamFubTotals } from './useTeamFubTotals';
 export interface CompanyPlanRow {
   id: string; operating_costs: number; debt_total: number; profit_tiers: number[];
   luxe_revenue_per_deal: number; gci_per_deal: number; deals_per_agent: number;
+  luxe_monthly_revenue: number; luxe_revenue_override: number | null; gci_per_deal_override: number | null;
   quarterly_checkpoints: { q: number; low: number | null; high: number | null }[];
 }
 
@@ -31,20 +32,32 @@ export function useCompanyPlan() {
 const m = (v: number | null | undefined) => (v == null || !Number.isFinite(v) ? '—' : formatCurrency(Math.round(v)));
 const n = (v: number | null | undefined) => (v == null || !Number.isFinite(v) ? '—' : formatNumber(Math.round(v)));
 
-export function calcTiers(p: CompanyPlanRow) {
+export function calcTiers(p: CompanyPlanRow, luxe = p.luxe_revenue_per_deal, gciPerDeal = p.gci_per_deal) {
   return p.profit_tiers.map(profit => {
-    const tx = p.luxe_revenue_per_deal > 0 ? Math.ceil((Number(p.operating_costs) + Number(p.debt_total) + profit) / p.luxe_revenue_per_deal) : null;
-    return { profit, tx, gci: tx != null ? tx * p.gci_per_deal : null, monthly: tx != null ? Math.round((tx / 12) * 10) / 10 : null };
+    const tx = luxe > 0 ? Math.ceil((Number(p.operating_costs) + Number(p.debt_total) + profit) / luxe) : null;
+    return { profit, tx, gci: tx != null ? tx * gciPerDeal : null, monthly: tx != null ? Math.round((tx / 12) * 10) / 10 : null };
   });
 }
 
-/** Annualised pace from year-to-date closings. */
-export function annualPace(t: TeamFubTotals) {
-  if (!t.asOf || !t.units) return null;
-  const d = new Date(`${t.asOf}T12:00:00`);
-  const start = new Date(d.getFullYear(), 0, 1);
-  const days = (d.getTime() - start.getTime()) / 86400000 + 1;
-  return Math.round((t.units / days) * 365);
+const daysYtd = (asOf: string) => { const d = new Date(`${asOf}T12:00:00`); return (d.getTime() - new Date(d.getFullYear(), 0, 1).getTime()) / 86400000 + 1; };
+/** Annualised pace from year-to-date weighted units (sale 1, lease 1/3, $4K+ GCI lease 1). */
+export function annualPace(t: TeamFubTotals, raw = false) {
+  const u = raw ? t.units : t.weightedUnits;
+  if (!t.asOf || !u) return null;
+  return Math.round((u / daysYtd(t.asOf)) * 365);
+}
+
+/** Live per-deal figures from 2026 Follow Up Boss numbers, with optional owner overrides. */
+export function perDeal(p: CompanyPlanRow, t: TeamFubTotals) {
+  const months = t.asOf ? daysYtd(t.asOf) / (365 / 12) : 0;
+  const unitsPerMonth = months ? t.weightedUnits / months : 0;
+  const gciLive = t.weightedUnits ? t.gci / t.weightedUnits : 0;
+  const luxeLive = unitsPerMonth ? Number(p.luxe_monthly_revenue || 0) / unitsPerMonth : 0;
+  return {
+    months, unitsPerMonth, gciLive, luxeLive,
+    gci: p.gci_per_deal_override ? Number(p.gci_per_deal_override) : gciLive,
+    luxe: p.luxe_revenue_override ? Number(p.luxe_revenue_override) : luxeLive,
+  };
 }
 
 export function CompanyPlan({ plan, onSaved, fub, agentDealGoals }: {
@@ -54,8 +67,11 @@ export function CompanyPlan({ plan, onSaved, fub, agentDealGoals }: {
   const [busy, setBusy] = useState(false);
   const [big, setBig] = useState(false);
   useEffect(() => setP(plan), [plan]);
-  const tiers = useMemo(() => calcTiers(p), [p]);
+  const pd = perDeal(p, fub);
+  const tiers = useMemo(() => calcTiers(p, pd.luxe, pd.gci), [p, pd.luxe, pd.gci]);
+  const oldTiers = useMemo(() => calcTiers(p, 1834, 7621), [p]);
   const pace = annualPace(fub);
+  const oldPace = annualPace(fub, true);
   const txLow = tiers[0]?.tx ?? null, txHigh = tiers[tiers.length - 1]?.tx ?? null;
 
   const num = (k: keyof CompanyPlanRow, label: string, prefix = '$') => (
@@ -73,7 +89,8 @@ export function CompanyPlan({ plan, onSaved, fub, agentDealGoals }: {
     setBusy(true);
     const { error } = await supabase.from('company_plans' as any).update({
       operating_costs: p.operating_costs, debt_total: p.debt_total, profit_tiers: p.profit_tiers,
-      luxe_revenue_per_deal: p.luxe_revenue_per_deal, gci_per_deal: p.gci_per_deal, deals_per_agent: p.deals_per_agent,
+      luxe_monthly_revenue: p.luxe_monthly_revenue, luxe_revenue_override: p.luxe_revenue_override || null, gci_per_deal_override: p.gci_per_deal_override || null,
+      luxe_revenue_per_deal: Math.round(pd.luxe), gci_per_deal: Math.round(pd.gci), deals_per_agent: p.deals_per_agent,
       quarterly_checkpoints: p.quarterly_checkpoints,
     }).eq('id', p.id);
     setBusy(false);
@@ -131,11 +148,51 @@ export function CompanyPlan({ plan, onSaved, fub, agentDealGoals }: {
             })}
           </div>
           <p className="text-xs text-muted-foreground">
-            Current pace: {fub.loading ? 'loading…' : pace == null ? '—' : `${n(pace)} transactions/year`} — {n(fub.units)} closed in {PLAN_YEAR - 1} to {fub.asOf || '…'} (Follow Up Boss), annualised.
-            Transactions = (operating costs + debt + profit) ÷ Luxe revenue per deal, rounded up.
+            Current pace: {fub.loading ? 'loading…' : pace == null ? '—' : `${n(pace)} weighted units/year`} — {fub.weightedUnits} weighted units ({n(fub.units)} deals) closed in {PLAN_YEAR - 1} to {fub.asOf || '…'} (Follow Up Boss), annualised.
+            Transactions = (operating costs + debt + profit) ÷ Luxe revenue per deal, rounded up. All transactions are weighted units (sale 1 · lease ⅓ · lease with $4K+ GCI 1).
           </p>
         </CardContent>
       </Card>
+
+      <Card><CardHeader className="pb-2"><CardTitle className="text-base">Per-deal figures · calculated live</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="rounded-lg border border-border p-3 space-y-1">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">GCI per weighted deal</p>
+              <p className="text-2xl font-bold">{m(pd.gci)}{p.gci_per_deal_override ? <span className="text-xs font-normal text-muted-foreground"> · your override</span> : null}</p>
+              <p className="text-xs text-muted-foreground">{m(fub.gci)} 2026 GCI ÷ {fub.weightedUnits} weighted units = {m(pd.gciLive)}</p>
+            </div>
+            <div className="rounded-lg border border-border p-3 space-y-1">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">Luxe revenue per weighted deal</p>
+              <p className="text-2xl font-bold">{m(pd.luxe)}{p.luxe_revenue_override ? <span className="text-xs font-normal text-muted-foreground"> · your override</span> : null}</p>
+              <p className="text-xs text-muted-foreground">{m(p.luxe_monthly_revenue)}/month ÷ ({fub.weightedUnits} units ÷ {pd.months.toFixed(2)} months = {pd.unitsPerMonth.toFixed(2)} units/month) = {m(pd.luxeLive)}</p>
+            </div>
+          </div>
+          <div className="rounded-lg border border-border overflow-x-auto">
+            <table className="w-full text-sm min-w-[720px]">
+              <thead className="bg-muted/40 text-left text-xs text-muted-foreground"><tr><th className="p-2">Profit tier</th><th className="p-2 text-right">Transactions (old → new)</th><th className="p-2 text-right">Team GCI</th><th className="p-2 text-right">Monthly pace</th><th className="p-2 text-right">Gap vs pace</th><th className="p-2 text-right">New agents</th></tr></thead>
+              <tbody>{tiers.map((t, i) => {
+                const o = oldTiers[i];
+                const gap = (x: number | null, pc: number | null) => (x != null && pc != null ? x - pc : null);
+                const ag = (g: number | null) => (g != null && p.deals_per_agent > 0 ? Math.max(0, Math.ceil(g / p.deals_per_agent)) : null);
+                const ng = gap(t.tx, pace), og = gap(o.tx, oldPace);
+                return (
+                  <tr key={t.profit} className="border-t border-border">
+                    <td className="p-2">{m(t.profit)}</td>
+                    <td className="p-2 text-right"><span className="text-muted-foreground">{n(o.tx)}</span> → <b>{n(t.tx)}</b></td>
+                    <td className="p-2 text-right"><span className="text-muted-foreground">{m(o.gci)}</span> → <b>{m(t.gci)}</b></td>
+                    <td className="p-2 text-right"><span className="text-muted-foreground">{o.monthly}</span> → <b>{t.monthly}</b></td>
+                    <td className="p-2 text-right"><span className="text-muted-foreground">{n(og)}</span> → <b>{n(ng)}</b></td>
+                    <td className="p-2 text-right"><span className="text-muted-foreground">{n(ag(og))}</span> → <b>{n(ag(ng))}</b></td>
+                  </tr>
+                );
+              })}</tbody>
+            </table>
+            <p className="p-2 text-[11px] text-muted-foreground">Old: $1,834 Luxe revenue and $7,621 GCI per raw deal, pace {n(oldPace)} raw deals/year. New: live per weighted deal, pace {n(pace)} weighted units/year.</p>
+          </div>
+        </CardContent>
+      </Card>
+
 
       <Card><CardHeader className="pb-2"><CardTitle className="text-base">Quarterly checkpoints {PLAN_YEAR}</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -161,8 +218,9 @@ export function CompanyPlan({ plan, onSaved, fub, agentDealGoals }: {
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
             {num('operating_costs', 'All-in operating costs')}
             {num('debt_total', 'Debt (total)')}
-            {num('luxe_revenue_per_deal', 'Luxe revenue per deal')}
-            {num('gci_per_deal', 'GCI per deal')}
+            {num('luxe_monthly_revenue', 'Luxe revenue per month (books)')}
+            {num('luxe_revenue_override', 'Luxe revenue per deal — override (blank = live)')}
+            {num('gci_per_deal_override', 'GCI per deal — override (blank = live)')}
             {num('deals_per_agent', 'Deals per new agent', '')}
           </div>
           <div className="grid grid-cols-3 gap-3 max-w-xl">
