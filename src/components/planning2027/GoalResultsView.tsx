@@ -54,7 +54,7 @@ export function GoalResultsView({ r, inputType }: { r: GoalResults; inputType: G
         <Small label="Volume needed" value={money(r.volume_needed)} />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <Cadence label="Deals" yearly={r.deals_needed} />
+        <Cadence label="Deals (weighted units)" yearly={r.deals_needed} />
         <Cadence label="Appointments" yearly={r.appointments_needed} />
         <Cadence label="Leads" yearly={r.leads_needed} />
       </div>

@@ -23,6 +23,8 @@ export interface PlanningSettings {
   defaults_source?: string | null;
   /** Goals stay editable until this moment, then lock (session day). */
   final_lock_at?: string | null;
+  lease_full_unit_gci?: number;
+  lease_weight?: number;
 }
 
 /** When goals lock: the final lock time, falling back to the draft deadline. */

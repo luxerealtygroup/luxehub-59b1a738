@@ -183,7 +183,7 @@ export function ReflectionSection({ prework, setPrework, editable }: { prework: 
 export function GoalComparison({ actuals, r }: { actuals: PriorYearActuals; r: GoalResults }) {
   const rows: [string, number, number | null, boolean][] = [
     ['GCI', actuals.gci, r.gci_goal, true],
-    ['Deals', actuals.closings, r.deals_needed, false],
+    ['Deals (weighted units)', actuals.closings, r.deals_needed, false],
     ['Volume', actuals.volume, r.volume_needed, true],
     ['Appointments', actuals.appointments, r.appointments_needed, false],
     ['Leads', actuals.leads, r.leads_needed, false],

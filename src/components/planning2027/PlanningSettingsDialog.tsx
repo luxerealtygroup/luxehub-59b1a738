@@ -1,3 +1,4 @@
+import { setDealWeightConfig } from '@/lib/utils/dealWeight';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -76,10 +77,12 @@ export function PlanningSettingsDialog({ open, onOpenChange, orgId, settings, on
       avg_sale_price: f.avg_sale_price, selling_agent_ids: ids, defaults_source: f.defaults_source ?? null,
       submission_deadline: fromTorontoLocal(deadline), planning_session_date: f.planning_session_date,
       final_lock_at: fromTorontoLocal(lock),
+      lease_full_unit_gci: f.lease_full_unit_gci ?? 4000, lease_weight: f.lease_weight ?? 0.3333,
     }, { onConflict: 'org_id,plan_year' });
     setBusy(false);
     if (error) { toast.error(error.message); return; }
-    toast.success('Planning settings saved');
+    setDealWeightConfig({ leaseFullUnitGci: f.lease_full_unit_gci, leaseWeight: f.lease_weight });
+    toast.success('Planning settings saved — reload to recount deals with the new lease rule');
     onSaved(); onOpenChange(false);
   };
 
@@ -98,6 +101,9 @@ export function PlanningSettingsDialog({ open, onOpenChange, orgId, settings, on
           {num('lead_to_appt_rate', 'Lead → appointment %')}
           {num('avg_sale_price', 'Avg sale price ($)')}
           {num('commission_rate', 'Commission %')}
+          {num('lease_full_unit_gci', 'Lease counts as a full unit at GCI of ($)')}
+          {num('lease_weight', 'Lease weight under that GCI (units)')}
+          <p className="col-span-2 text-[11px] text-muted-foreground -mt-1">Sale = 1 unit. Lease under the GCI threshold = lease weight (0.3333 = ⅓). Lease at or above it = 1 unit. GCI always counts in full. Applies across the whole app.</p>
           <div className="space-y-1 col-span-2 sm:col-span-1">
             <Label htmlFor="s-deadline" className="text-xs">Draft deadline (Toronto time)</Label>
             <Input id="s-deadline" type="datetime-local" value={deadline} onChange={e => setDeadline(e.target.value)} />
