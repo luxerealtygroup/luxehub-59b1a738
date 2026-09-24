@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Building2 } from 'lucide-react';
-import { claimPendingInvite } from '@/lib/inviteLinks';
+import { claimPendingInvite, readPendingInvite } from '@/lib/inviteLinks';
 
 const ClientLogin = () => {
   const [email, setEmail] = useState('');
@@ -33,7 +33,8 @@ const ClientLogin = () => {
 
     // If they arrived from an invitation link (e.g. had to confirm their email
     // first), claim the portal now that they're authenticated.
-    await claimPendingInvite();
+    const hadInvite = Boolean(readPendingInvite());
+    const claimed = await claimPendingInvite();
 
     // Check if user is a client
     const { data: clientAccount } = await supabase
@@ -44,11 +45,11 @@ const ClientLogin = () => {
 
     if (!clientAccount) {
       await supabase.auth.signOut();
-      toast({
-        title: "Access denied",
-        description: "This portal is for clients only. Please use the agent login.",
-        variant: "destructive"
-      });
+      toast(
+        hadInvite && !claimed
+          ? { title: "We couldn't connect your portal", description: 'Your agent has been notified and will sort it out shortly.', variant: 'destructive' }
+          : { title: 'Access denied', description: 'This portal is for clients only. Please use the agent login.', variant: 'destructive' },
+      );
       setLoading(false);
       return;
     }
