@@ -220,6 +220,7 @@ export function useFubDealMetrics({
     let gciPending = 0;
     let closedDealsArr: any[] = [];
     let pendingDealsArr: any[] = [];
+    let conditionalDealsArr: any[] = [];
 
     if (targetFubUserId) {
       debug.source = 'fub';
@@ -264,7 +265,11 @@ export function useFubDealMetrics({
 
         // (c) CLOSED = closed stage + close date in year
         // Shared 2026 production rule (same as Team Recap): sold date, not in the future.
-        const closedInYear = agentDeals.filter(d => productionKind(d, year) === 'closed');
+        const closedInYear = agentDeals.filter(d => {
+          if (productionKind(d, year) !== 'closed') return false;
+          const cd = String(getCloseDate(d) ?? '').slice(0, 10);
+          return cd >= dateRangeStart && cd <= dateRangeEnd;
+        });
         debug.dealsInClosedStagesAndDateRange = closedInYear.length;
 
         dealsClosed = closedInYear.length;
@@ -356,8 +361,7 @@ export function useFubDealMetrics({
         const cat = inferDealCategory(d, dealMetadataMap).category;
         const gci = getDealGci(d);
         if (cat === 'lease') {
-          leaseCountPending++;
-          gciLeasesPending += gci;
+          if (!isConditionalStage((d as any).stageName)) { leaseCountPending++; gciLeasesPending += gci; }
           continue;
         }
         if (isConditionalStage((d as any).stageName)) {
