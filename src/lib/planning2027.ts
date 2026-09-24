@@ -19,6 +19,8 @@ export interface PlanningSettings {
   avg_sale_price: number;
   submission_deadline: string;
   planning_session_date: string;
+  selling_agent_ids?: string[];
+  defaults_source?: string | null;
 }
 
 export const DEFAULT_SETTINGS: PlanningSettings = {
