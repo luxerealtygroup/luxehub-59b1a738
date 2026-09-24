@@ -50,7 +50,7 @@ export function TeamRecap({ totals, loading, goals }: {
     <Card className="border-gold/40">
       <CardHeader className="pb-2"><CardTitle className="text-lg font-display">Team Recap</CardTitle></CardHeader>
       <CardContent className="space-y-5">
-        <ClosedFirmSummary title="2026 Closed + Firm" showAgents />
+        <ClosedFirmSummary title="2026 Closed + Pending" showAgents />
         <div className="space-y-2">
           <p className="text-sm font-semibold text-foreground">2026 actual vs 2026 goal <span className="font-normal text-muted-foreground">· closed only</span></p>
           {loading ? <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin text-gold" />Adding up each agent's 2026 numbers…</p> : (
