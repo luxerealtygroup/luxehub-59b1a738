@@ -1,3 +1,4 @@
+import { useInPlanning2027 } from '@/hooks/useInPlanning2027';
 import { 
   LayoutDashboard, 
   Building2, 
@@ -158,6 +159,7 @@ export function AppSidebar() {
   const collapsed = state === 'collapsed';
 
   const isPlanningOnly = isPlanningAccess && !isAgent;
+  const inPlanning = useInPlanning2027();
 
   const visibleSections = allSections
     .filter(section => {
@@ -175,6 +177,7 @@ export function AppSidebar() {
         ...section,
         items: section.items.filter(item => {
           if (item.adminOnly && !isAdmin) return false;
+          if (item.title === 'Business Planning' && inPlanning === false) return false;
           if (item.title === 'Nominations' && !canAccessNominations) return false;
           if (item.title === 'Client Portals' && !canAccessClientPortals) return false;
           if (item.title === 'Messages' && !canAccessClientPortals) return false;

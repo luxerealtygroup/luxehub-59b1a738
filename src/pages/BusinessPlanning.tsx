@@ -1,3 +1,4 @@
+import { useInPlanning2027 } from '@/hooks/useInPlanning2027';
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -25,6 +26,7 @@ const BusinessPlanning = () => {
   const tenant = useTenant();
   const orgId = tenant.orgId;
   const admin = isAdmin || isStrictOwner;
+  const inPlanning = useInPlanning2027();
 
   const [settings, setSettings] = useState<PlanningSettings | null>(null);
   const [status, setStatus] = useState<GoalStatus | null>(null);
@@ -44,7 +46,7 @@ const BusinessPlanning = () => {
 
   if (admin && !isViewingAsAgent) return <Navigate to="/dashboard/admin/business-planning" replace />;
   // Only selling agents (Planning settings) take part in 2027 planning.
-  if (!admin && !(settings.selling_agent_ids ?? []).includes(user.id)) return <Navigate to="/dashboard" replace />;
+  if (!admin && inPlanning === false) return <Navigate to="/dashboard" replace />;
   const pastDeadline = now > new Date(lockTime(settings)).getTime();
   const draftPast = now > new Date(settings.submission_deadline).getTime();
   const companyView = admin && !isViewingAsAgent;
