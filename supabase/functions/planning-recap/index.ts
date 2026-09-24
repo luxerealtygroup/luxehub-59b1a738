@@ -116,12 +116,11 @@ Deno.serve(async (req) => {
       try {
         const ev = JSON.parse(line.slice(5).trim());
         if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') text += ev.delta.text;
-        else if (ev.type === 'error' || ev.type === 'message_delta') console.log('ev', JSON.stringify(ev).slice(0, 300));
+        else if (ev.type === 'error') console.error('ai stream error', JSON.stringify(ev).slice(0, 300));
       } catch { /* ignore keep-alives */ }
     }
   }
 
-  console.log('ai text', text.length, text.slice(0, 500), buf.slice(0, 300));
   const m = text.match(/\{[\s\S]*\}/);
   let out: Record<string, string> = {};
   try { out = m ? JSON.parse(m[0]) : {}; } catch { out = {}; }
