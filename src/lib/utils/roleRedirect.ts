@@ -1,6 +1,10 @@
 import { supabase } from '@/integrations/supabase/client';
 
 export async function getRoleBasedRedirect(userId: string): Promise<string> {
+  // Temporary-password accounts must choose their own password first.
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user?.id === userId && user.app_metadata?.must_change_password) return '/client-portal/set-password';
+
   const [{ data }, { data: profile }] = await Promise.all([
     supabase.from('user_roles').select('role').eq('user_id', userId),
     supabase.from('profiles').select('member_type').eq('id', userId).maybeSingle(),

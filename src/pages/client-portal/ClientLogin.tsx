@@ -31,6 +31,12 @@ const ClientLogin = () => {
       return;
     }
 
+    if (data.user?.app_metadata?.must_change_password) {
+      navigate('/client-portal/set-password');
+      setLoading(false);
+      return;
+    }
+
     // If they arrived from an invitation link (e.g. had to confirm their email
     // first), claim the portal now that they're authenticated.
     const hadInvite = Boolean(readPendingInvite());

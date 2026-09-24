@@ -51,6 +51,7 @@ import ResetPassword from "./pages/ResetPassword";
 import AccountSettings from "./pages/AccountSettings";
 import ClientLogin from "./pages/client-portal/ClientLogin";
 import ClientSignup from "./pages/client-portal/ClientSignup";
+import ClientSetPassword from "./pages/client-portal/SetPassword";
 import ClientRequestAccess from "./pages/client-portal/RequestAccess";
 import ClientDashboard from "./pages/client-portal/ClientDashboard";
 import ClientPortalPreview from "./pages/client-portal/ClientPortalPreview";
@@ -150,6 +151,7 @@ const App = () => (
             <Route path="/client-portal/login" element={<ClientLogin />} />
             <Route path="/client-portal/signup" element={<ClientSignup />} />
             <Route path="/client-portal/request-access" element={<ClientRequestAccess />} />
+            <Route path="/client-portal/set-password" element={<ClientSetPassword />} />
             {/* Team preview: standalone, outside the dashboard shell, so there is
                 no navigation out of it into pages that read the signed-in org. */}
             <Route path="/dashboard/admin/tenants/:orgId/preview" element={<ProtectedRoute><AdminTenantPreview /></ProtectedRoute>} />
