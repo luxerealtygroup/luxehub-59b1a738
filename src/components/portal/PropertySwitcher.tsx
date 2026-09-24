@@ -40,7 +40,7 @@ export function PropertySwitcher({ properties, value, onChange, className, onDas
       }}
     >
       <SelectTrigger
-        className={`h-11 min-w-[220px] sm:min-w-[280px] rounded-full border-border/70 bg-background shadow-sm hover:border-primary/40 focus:ring-2 focus:ring-primary/30 transition-colors ${className ?? ''}`}
+        className={`h-11 w-[min(220px,56vw)] min-w-0 flex-none sm:w-[280px] lg:w-[320px] rounded-full border-border/70 bg-background shadow-sm hover:border-primary/40 focus:ring-2 focus:ring-primary/30 transition-colors ${className ?? ''}`}
       >
         <SelectValue placeholder="Select a property" />
       </SelectTrigger>
