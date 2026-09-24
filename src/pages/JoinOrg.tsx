@@ -95,7 +95,7 @@ const JoinOrg = () => {
       if (!signedIn) {
         if (password.length < 8) throw new Error('Use at least 8 characters for your password.');
         if (password !== confirm) throw new Error('The passwords do not match.');
-        const { error } = await supabase.auth.signUp({
+        const { data: signupData, error } = await supabase.auth.signUp({
           email: info?.email ?? '',
           password,
           options: {
@@ -104,6 +104,10 @@ const JoinOrg = () => {
           },
         });
         if (error) throw new Error(error.message);
+        if (!signupData.session) {
+          toast.success('Check your email to confirm your account, then this invitation will continue.');
+          return;
+        }
       }
 
       const { error: claimErr } = await supabase.rpc('claim_org_invite', {

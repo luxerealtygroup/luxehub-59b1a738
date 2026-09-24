@@ -1,2 +1,3 @@
 - Urgent open-house backfill remains pending user approval before any live FUB backfill.
 - Next: finish CMA Studio PDF/data acceptance checks after urgent open-house work.
+- Verify secure client invitation claims, team-only realtor creation, dashboard denial, and admin mismatch warnings in preview.

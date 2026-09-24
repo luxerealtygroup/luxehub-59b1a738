@@ -18,6 +18,7 @@ const AuthConfirm = () => {
     let unsubscribe: (() => void) | undefined;
 
     const finishConfirmation = async (userId: string) => {
+      if (failureTimer) clearTimeout(failureTimer);
       const hadClientInvite = Boolean(readPendingInvite());
       if (hadClientInvite) {
         const claimed = await claimPendingInvite();
