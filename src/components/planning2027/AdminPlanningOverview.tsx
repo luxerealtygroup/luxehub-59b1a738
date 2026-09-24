@@ -10,6 +10,11 @@ import { TeamRecap } from './TeamRecap';
 import { useTeamActuals } from './useTeamActuals';
 import { StatusBadge } from './StatusBadge';
 import { AgentPlanDetail } from './AgentPlanDetail';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useTenant } from '@/hooks/useTenant';
+import { useTeamFubTotals } from './useTeamFubTotals';
+import { CompanyPlan, useCompanyPlan } from './CompanyPlan';
+import { SessionCapture } from './SessionCapture';
 
 interface Row {
   id: string; name: string; goal: PlanningGoalRow | null;
@@ -38,6 +43,9 @@ const d = (v: string | null | undefined) => (v ? new Date(v).toLocaleDateString(
 export function AdminPlanningOverview({ onOpenSettings, settings }: { onOpenSettings: () => void; settings: PlanningSettings }) {
   const selling = settings.selling_agent_ids ?? [];
   const team = useTeamActuals(selling);
+  const fub = useTeamFubTotals(2026);
+  const company = useCompanyPlan();
+  const tenant = useTenant();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState<{ k: SortKey; asc: boolean }>({ k: 'status', asc: true });
@@ -80,10 +88,13 @@ export function AdminPlanningOverview({ onOpenSettings, settings }: { onOpenSett
   );
   const notSubmitted = (r: Row) => !r.goal || r.goal.status === 'draft';
 
-  return (
+  // Team production uses full team GCI straight from Follow Up Boss (each deal once), not the agent-share sum.
+  const recapTotals = { ...team.totals, gci: fub.gci, volume: fub.volume, closings: fub.units };
+
+  const overview = (
     <div className="space-y-6">
       {team.probes}
-      <TeamRecap totals={team.totals} loading={team.loading} goals={rows.filter(r => r.goal && r.goal.status !== 'draft').map(r => r.goal!)} />
+      <TeamRecap totals={recapTotals} loading={team.loading || fub.loading} goals={rows.filter(r => r.goal && r.goal.status !== 'draft').map(r => r.goal!)} />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground min-w-0">Selling agents counted ({rows.length}): {rows.map(r => r.name).sort().join(', ') || 'none — choose them in Planning settings'}</p>
         <Button variant="outline" size="sm" onClick={onOpenSettings} className="gap-2"><Settings className="h-4 w-4" />Planning settings</Button>
@@ -157,5 +168,22 @@ export function AdminPlanningOverview({ onOpenSettings, settings }: { onOpenSett
         </DialogContent>
       </Dialog>
     </div>
+  );
+
+  return (
+    <Tabs defaultValue="team">
+      <TabsList className="h-auto flex-wrap">
+        <TabsTrigger value="team">Team plans</TabsTrigger>
+        <TabsTrigger value="session">Session capture</TabsTrigger>
+        {company.row && <TabsTrigger value="company">Company plan</TabsTrigger>}
+      </TabsList>
+      <TabsContent value="team" className="mt-4">{overview}</TabsContent>
+      <TabsContent value="session" className="mt-4"><SessionCapture orgId={tenant.orgId} /></TabsContent>
+      {company.row && (
+        <TabsContent value="company" className="mt-4">
+          <CompanyPlan plan={company.row} onSaved={company.reload} fub={fub} agentDealGoals={{ submitted: t.submitted, deals: t.deals, total: t.total }} />
+        </TabsContent>
+      )}
+    </Tabs>
   );
 }
