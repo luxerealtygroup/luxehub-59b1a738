@@ -145,7 +145,7 @@ const QUARTER_RANGE_LABEL: Record<number, string> = {
 };
 
 // ── Component ────────────────────────────────────────────────────────────
-const CompanyBusinessPlanning = () => {
+const CompanyBusinessPlanning = ({ recap = false }: { recap?: boolean } = {}) => {
   const { user } = useAuth();
   const { orgId } = useTenant();
   const { isAdmin } = useUserRole();
@@ -656,9 +656,9 @@ const CompanyBusinessPlanning = () => {
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="text-gold font-display flex items-center gap-2">
-            <Building2 className="h-5 w-5" /> Company Business Planning — {CURRENT_YEAR}
+            <Building2 className="h-5 w-5" /> {recap ? `${CURRENT_YEAR} Recap` : `Company Business Planning — ${CURRENT_YEAR}`}
           </CardTitle>
-          {isAdmin && (
+          {isAdmin && !recap && (
             <Button size="sm" variant="outline" onClick={() => setGoalDialogOpen(true)}>
               <Target className="h-4 w-4 mr-1" /> {hasCompanyGoal ? 'Edit company goal' : 'Set company goal'}
             </Button>
@@ -691,19 +691,21 @@ const CompanyBusinessPlanning = () => {
         <Tabs defaultValue="performance" className="space-y-4">
           <TabsList className="bg-card border border-border h-auto p-1 flex-wrap">
             <TabsTrigger value="performance" className="flex items-center gap-1 text-xs sm:text-sm">
-              <BarChart3 className="h-3.5 w-3.5" /> Performance
+              <BarChart3 className="h-3.5 w-3.5" /> {recap ? '2026 Performance' : 'Performance'}
             </TabsTrigger>
             <TabsTrigger value="coverage" className="flex items-center gap-1 text-xs sm:text-sm">
-              <Target className="h-3.5 w-3.5" /> Goal Coverage
+              <Target className="h-3.5 w-3.5" /> {recap ? '2026 Goal Coverage' : 'Goal Coverage'}
             </TabsTrigger>
+            {!recap && (<>
             <TabsTrigger value="recruiting" className="flex items-center gap-1 text-xs sm:text-sm">
               <UserPlus className="h-3.5 w-3.5" /> Recruiting Need
             </TabsTrigger>
             <TabsTrigger value="execution" className="flex items-center gap-1 text-xs sm:text-sm">
               <ClipboardList className="h-3.5 w-3.5" /> Execution Plan
             </TabsTrigger>
+            </>)}
             <TabsTrigger value="deal-sources" className="flex items-center gap-1 text-xs sm:text-sm">
-              <PieChart className="h-3.5 w-3.5" /> Deal Sources
+              <PieChart className="h-3.5 w-3.5" /> {recap ? '2026 Deal Sources' : 'Deal Sources'}
             </TabsTrigger>
           </TabsList>
 

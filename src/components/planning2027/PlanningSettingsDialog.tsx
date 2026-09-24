@@ -50,10 +50,11 @@ export function PlanningSettingsDialog({ open, onOpenChange, orgId, settings, on
 }) {
   const [f, setF] = useState(settings);
   const [deadline, setDeadline] = useState(toTorontoLocal(settings.submission_deadline));
+  const [lock, setLock] = useState(toTorontoLocal(settings.final_lock_at || settings.submission_deadline));
   const [busy, setBusy] = useState(false);
   const [calc, setCalc] = useState(false);
   const [team, setTeam] = useState<{ id: string; full_name: string | null; email: string }[]>([]);
-  useEffect(() => { if (open) { setF(settings); setDeadline(toTorontoLocal(settings.submission_deadline)); setCalc(false); } }, [open, settings]);
+  useEffect(() => { if (open) { setF(settings); setDeadline(toTorontoLocal(settings.submission_deadline)); setLock(toTorontoLocal(settings.final_lock_at || settings.submission_deadline)); setCalc(false); } }, [open, settings]);
   useEffect(() => { if (open) supabase.rpc('get_team_agents').then(({ data }) => setTeam((data as any[]) ?? [])); }, [open]);
   const ids = f.selling_agent_ids ?? [];
 
@@ -74,6 +75,7 @@ export function PlanningSettingsDialog({ open, onOpenChange, orgId, settings, on
       appt_to_close_rate: f.appt_to_close_rate, lead_to_appt_rate: f.lead_to_appt_rate,
       avg_sale_price: f.avg_sale_price, selling_agent_ids: ids, defaults_source: f.defaults_source ?? null,
       submission_deadline: fromTorontoLocal(deadline), planning_session_date: f.planning_session_date,
+      final_lock_at: fromTorontoLocal(lock),
     }, { onConflict: 'org_id,plan_year' });
     setBusy(false);
     if (error) { toast.error(error.message); return; }
@@ -91,18 +93,22 @@ export function PlanningSettingsDialog({ open, onOpenChange, orgId, settings, on
             <Button size="sm" variant="secondary" className="gap-2" onClick={() => setCalc(true)} disabled={!ids.length}><Calculator className="h-4 w-4" />Calculate from 2026 data</Button>
           </div>
           {calc && <TeamDefaultsCalc ids={ids} onApply={(d, note) => { setF(x => ({ ...x, ...d, defaults_source: note })); setCalc(false); }} />}
-          {num('avg_sale_price', 'Default avg sale price ($)')}
-          {num('commission_rate', 'Default commission %')}
-          {num('agent_split_pct', 'Default agent split %')}
-          {num('appt_to_close_rate', 'Default appt → close %')}
-          {num('lead_to_appt_rate', 'Default lead → appt %')}
+          {num('agent_split_pct', 'Team agent split %')}
+          {num('appt_to_close_rate', 'Appointment → close %')}
+          {num('lead_to_appt_rate', 'Lead → appointment %')}
+          {num('avg_sale_price', 'Avg sale price ($)')}
+          {num('commission_rate', 'Commission %')}
           <div className="space-y-1 col-span-2 sm:col-span-1">
-            <Label htmlFor="s-deadline" className="text-xs">Deadline (Toronto time)</Label>
+            <Label htmlFor="s-deadline" className="text-xs">Draft deadline (Toronto time)</Label>
             <Input id="s-deadline" type="datetime-local" value={deadline} onChange={e => setDeadline(e.target.value)} />
           </div>
           <div className="space-y-1 col-span-2 sm:col-span-1">
             <Label htmlFor="s-session" className="text-xs">Planning session date</Label>
             <Input id="s-session" type="date" value={f.planning_session_date} onChange={e => setF({ ...f, planning_session_date: e.target.value })} />
+          </div>
+          <div className="space-y-1 col-span-2 sm:col-span-1">
+            <Label htmlFor="s-lock" className="text-xs">Goals lock (Toronto time)</Label>
+            <Input id="s-lock" type="datetime-local" value={lock} onChange={e => setLock(e.target.value)} />
           </div>
           <div className="col-span-2 space-y-2">
             <Label className="text-xs">Selling agents (counted in submissions and team totals)</Label>
