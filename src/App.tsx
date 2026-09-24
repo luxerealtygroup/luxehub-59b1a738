@@ -154,7 +154,7 @@ const App = () => (
                 no navigation out of it into pages that read the signed-in org. */}
             <Route path="/dashboard/admin/tenants/:orgId/preview" element={<ProtectedRoute><AdminTenantPreview /></ProtectedRoute>} />
             <Route path="/dashboard" element={
-              <ProtectedRoute>
+              <ProtectedRoute requireTeamRole>
                 <DashboardLayout />
               </ProtectedRoute>
             }>

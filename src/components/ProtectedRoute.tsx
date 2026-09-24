@@ -6,11 +6,12 @@ import { ShieldAlert } from 'lucide-react';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
+  requireTeamRole?: boolean;
 }
 
-const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
+const ProtectedRoute = ({ children, requireTeamRole = false }: ProtectedRouteProps) => {
   const { user, loading } = useAuth();
-  const { isLoading, accessExpired } = useUserRole();
+  const { roles, isLoading, accessExpired } = useUserRole();
 
   if (loading || isLoading) {
     return (
@@ -22,6 +23,10 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (requireTeamRole && roles.length === 0) {
+    return <Navigate to="/client-portal" replace />;
   }
 
   if (accessExpired) {

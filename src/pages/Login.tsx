@@ -75,7 +75,7 @@ const Login = () => {
         const redirect = await getRoleBasedRedirect(user.id);
         navigate(redirect);
       } else {
-        navigate('/dashboard');
+        navigate('/login', { replace: true });
       }
     } else {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });

@@ -1,10 +1,10 @@
 import { supabase } from '@/integrations/supabase/client';
 
 export async function getRoleBasedRedirect(userId: string): Promise<string> {
-  const { data } = await supabase
-    .from('user_roles')
-    .select('role')
-    .eq('user_id', userId);
+  const [{ data }, { data: profile }] = await Promise.all([
+    supabase.from('user_roles').select('role').eq('user_id', userId),
+    supabase.from('profiles').select('member_type').eq('id', userId).maybeSingle(),
+  ]);
 
   const roles = (data || []).map(r => r.role);
 
@@ -14,8 +14,10 @@ export async function getRoleBasedRedirect(userId: string): Promise<string> {
   if (roles.includes('planning_access')) {
     return '/dashboard/business-planning';
   }
-  // No team role at all: this may be a portal client, who belongs in the
-  // client portal rather than the realtor dashboard.
+  if (roles.includes('agent')) return '/dashboard';
+
+  // No team role can never fall through to the realtor workspace. A claimed
+  // client opens their portal; every other least-privileged account requests access.
   if (roles.length === 0) {
     const { data: clientAccount } = await supabase
       .from('client_accounts')
@@ -23,8 +25,8 @@ export async function getRoleBasedRedirect(userId: string): Promise<string> {
       .eq('user_id', userId)
       .maybeSingle();
     if (clientAccount) return '/client-portal';
+    if (profile?.member_type === 'client') return '/client-portal/request-access';
   }
 
-  // agent or any other role
-  return '/dashboard';
+  return '/login';
 }

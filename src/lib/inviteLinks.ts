@@ -136,11 +136,11 @@ export async function claimPendingInvite(fullName?: string | null): Promise<bool
     _token: token,
     _full_name: fullName ?? null,
   });
-  clearPendingInvite();
   if (error) {
     console.error('Could not claim portal invite:', error.message);
     return false;
   }
+  clearPendingInvite();
   clearActivationLink(typeof data === 'string' ? data : null);
   return true;
 }
