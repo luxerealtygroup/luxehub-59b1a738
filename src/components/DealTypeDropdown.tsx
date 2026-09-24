@@ -21,7 +21,7 @@ export function DealTypeDropdown({ fubDealId, currentCategory, onchange, compact
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="sale">Sale (1.0)</SelectItem>
-          <SelectItem value="lease">Lease (0.33)</SelectItem>
+          <SelectItem value="lease">Lease (⅓, or 1 if GCI ≥ $4K)</SelectItem>
         </SelectContent>
       </Select>
       {!currentCategory && (

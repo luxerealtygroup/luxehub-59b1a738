@@ -192,7 +192,7 @@ export const PipelineGapCard: React.FC<Props> = ({ userId, scopeUserId, readOnly
         </CardTitle>
         <p className="text-xs text-muted-foreground">
           Entered in {periods.current.year}, excluding lost/cancelled · assigned by actual or linked closing date, then
-          expected closing date · sales 1 unit, leases 0.33
+          expected closing date · sales 1 unit, leases ⅓ unit (1 if GCI ≥ $4K)
         </p>
       </CardHeader>
       <CardContent className="space-y-4">

@@ -712,9 +712,9 @@ const CompanyBusinessPlanning = ({ recap = false }: { recap?: boolean } = {}) =>
           {/* ── TAB 1: Company Performance Reality ── */}
           <TabsContent value="performance" className="space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <MetricCard label="Closed units — YTD, sales + leases" value={formatWeightedDeals(metrics?.weightedClosed || 0)} icon={<Target className="h-4 w-4 text-green-500" />} sub={metrics?.leasesClosed ? `${metrics.closedDeals} raw · ${metrics.leasesClosed} leases (0.33 each)` : `${metrics?.closedDeals || 0} raw · no leases`} />
+              <MetricCard label="Closed units — YTD, sales + leases" value={formatWeightedDeals(metrics?.weightedClosed || 0)} icon={<Target className="h-4 w-4 text-green-500" />} sub={metrics?.leasesClosed ? `${metrics.closedDeals} raw · ${metrics.leasesClosed} leases (⅓ unit each under $4K GCI)` : `${metrics?.closedDeals || 0} raw · no leases`} />
               <MetricCard label="Gross GCI — closed only, YTD, sales + leases" value={formatCurrency(metrics?.grossGciClosed)} icon={<DollarSign className="h-4 w-4 text-green-500" />} sub="Excludes pending and conditional" />
-              <MetricCard label="Pending units — sales + leases" value={formatWeightedDeals(metrics?.weightedPending || 0)} icon={<TrendingUp className="h-4 w-4 text-gold" />} sub={metrics?.leasesPending ? `${metrics.pendingDeals} raw · ${metrics.leasesPending} leases (0.33 each)` : `${metrics?.pendingDeals || 0} raw · not yet closed`} />
+              <MetricCard label="Pending units — sales + leases" value={formatWeightedDeals(metrics?.weightedPending || 0)} icon={<TrendingUp className="h-4 w-4 text-gold" />} sub={metrics?.leasesPending ? `${metrics.pendingDeals} raw · ${metrics.leasesPending} leases (⅓ unit each under $4K GCI)` : `${metrics?.pendingDeals || 0} raw · not yet closed`} />
               <MetricCard label="Active Listings" value={metrics?.activeListings || 0} icon={<Building2 className="h-4 w-4 text-blue-500" />} sub="Open listings today" />
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -751,7 +751,7 @@ const CompanyBusinessPlanning = ({ recap = false }: { recap?: boolean } = {}) =>
                   {pipelineSummary.leadCount > 0 ? ` · includes ${pipelineSummary.leadCount} leads` : ''}
                   {pipelineSummary.finishedCount > 0 ? ` · ${pipelineSummary.finishedCount} finished (closed or dead) excluded` : ''}
                   {pipelineSummary.priorYearCount > 0 ? ` · ${pipelineSummary.priorYearCount} entered before ${CURRENT_YEAR} excluded` : ''}.
-                  Leases count as 0.33 deal units; no stage-probability weighting is applied.
+                  Leases under $4K GCI count as ⅓ unit, $4K+ leases as 1 unit; no stage-probability weighting is applied.
                 </p>
               </CardContent>
             </Card>
