@@ -108,17 +108,17 @@ export const G_OPTIONS = ['Grit', 'Grace', 'Growth', 'Gratitude'] as const;
 export type GName = typeof G_OPTIONS[number];
 
 export const PROMISE_QUESTIONS = [
-  'What did you promise yourself at the start of 2026?',
-  'Did you keep it? Where did you keep it, and where did you let it slide?',
-  'What got in the way?',
-  'What will you promise yourself for 2027?',
+  "In July I said out loud what I'd do differently in Q3. Did I?",
+  'What am I most proud of this year that nobody else saw?',
+  'If a stranger read my calendar since July, what would they say I prioritize?',
+  'Which promise to myself did I keep, and which did I break?',
 ] as const;
 
 export const CONTRACT_PROMPTS = [
-  'In 2027 I commit to…',
-  'I will measure it by…',
-  'When I fall behind, I will…',
-  'My reward when I hit it is…',
+  'The one outcome that matters most to me in 2027 is…',
+  'The weekly activity I will protect no matter what is…',
+  "What I'm willing to give up to get there is…",
+  "When I fall off track, the first thing I'll do is…",
 ] as const;
 
 export const KPI_KEYS = [
@@ -132,7 +132,9 @@ export type KpiKey = typeof KPI_KEYS[number][0];
 
 export interface Exercises {
   g_carried?: GName | null;
+  g_carried_why?: string | null;
   g_neglected?: GName | null;
+  g_neglected_why?: string | null;
   promise?: string[];
   keep?: string[];
   stop?: string[];
@@ -146,6 +148,7 @@ export interface Exercises {
   accountability_partner_id?: string | null;
   accountability_partner_name?: string | null;
   lead_g?: GName | null;
+  lead_g_why?: string | null;
 }
 
 export interface RecapRow {
