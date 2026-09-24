@@ -5,6 +5,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { requireStaff, sharedCorsHeaders as cors } from '../_shared/auth.ts';
 import { fubHeadersForUser, FUB_BASE_URL } from '../_shared/fub.ts';
+import { getAttribution } from '../_shared/leadAttributionCache.ts';
 
 const MODEL = 'anthropic/claude-sonnet-5';
 const YEAR = '2026';
@@ -188,6 +189,7 @@ async function compile(db: any, orgId: string, callerId: string) {
     };
   });
 
+  const attr = await getAttribution(db, orgId, h, deals, md ?? []);
   const tiers = (plan?.profit_tiers ?? []).map((p: number) => {
     const tx = plan?.luxe_revenue_per_deal ? Math.ceil((Number(plan.operating_costs) + Number(plan.debt_total) + p) / Number(plan.luxe_revenue_per_deal)) : null;
     const pace = Math.round(team.units / ((Date.now() - new Date('2026-01-01').getTime()) / (365 * 864e5)));
@@ -206,8 +208,9 @@ async function compile(db: any, orgId: string, callerId: string) {
       leads_stuck_in_lead_stage_90d: stuckLead, duplicate_profiles: dupNames,
       shared_deals_split: 'Shared deals split evenly between the producing agents on the deal; support staff excluded.',
     },
-    lead_sources: Object.entries(S).map(([k, v]) => ({ source: k, leads: v.leads, closings: v.closings, gci: r0(v.gci), lead_to_close_pct: v.leads ? r1(v.closings / v.leads * 100) : null })).sort((a, b) => b.gci - a.gci),
-    lead_source_note: 'Leads = FUB contacts created in 2026. Closings = 2026 home sales by the buyer/seller contact\'s source (contact may predate 2026), so lead→close is approximate. Appointments are not tracked by source.',
+    lead_sources: attr.table.map(t => ({ ...t, lead_to_close_pct: t.leads ? r1((t.closed_sales + t.closed_leases) / t.leads * 100) : null })),
+    lead_sources_by_agent: attr.deals.reduce((m: Record<string, Record<string, number>>, d) => { for (const u of d.users) { m[u] ??= {}; m[u][d.source] = (m[u][d.source] ?? 0) + 1; } return m; }, {}),
+    lead_source_note: attr.rule + ' Closed sales and leases are 2026 closings; pending are homes pending with 2026 closing. Appointments are not tracked by source.',
     recruiting: { tracked: false, candidates_in_app: 0, note: 'The app has a recruiting table but it holds no candidates, conversations or stages.', plan_tiers: tiers, deals_per_agent: plan?.deals_per_agent ?? 10 },
     agents: agents.map(({ evidence, ...rest }) => rest),
   };
