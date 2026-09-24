@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.planning_deadline(uuid, int) FROM authenticated;
