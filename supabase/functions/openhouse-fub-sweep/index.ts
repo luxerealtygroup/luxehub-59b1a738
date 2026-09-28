@@ -150,6 +150,7 @@ Deno.serve(async (req) => {
           'open_houses!inner(id, property_address, org_id, hosting_agent_id, user_id, ends_at, open_house_date, city, mls_number, list_price, feature_sheet_url)',
       )
       .is('fub_sent_at', null)
+      .eq('is_test', false)
       // No phone and no email means Follow Up Boss has nothing to match on.
       // Those guests simply wait until someone adds a way to reach them.
       .or('phone.not.is.null,email.not.is.null')
