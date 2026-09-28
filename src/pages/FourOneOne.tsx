@@ -12,6 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import FubWeeklySyncStatus from '@/components/FubWeeklySyncStatus';
+import { FubWeekBlock } from '@/components/FubWeeklyKpis';
 
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -123,6 +124,9 @@ const AUTOMATION_OWNED_FIELDS = [
   'fub_sync_error',
   'calls_actual',
   'appointments_actual',
+  'fub_conversations', 'fub_pipeline_adds', 'fub_agreements', 'fub_pending', 'fub_closed',
+  'fub_closed_units', 'fub_gci', 'fub_speed_to_lead_minutes', 'fub_emails_sent',
+  'fub_appointments_set', 'fub_appointments_held', 'fub_raw', 'fub_user_id',
 ] as const;
 
 function buildAgentPayload(data: Weekly411): Record<string, unknown> {
@@ -775,7 +779,7 @@ const FourOneOne = () => {
             </Button>
           </div>
 
-          {/* Automated Follow Up Boss numbers now live on the Scorecard tab */}
+          <FubWeekBlock row={weeklyData as any} userId={queryUserId ?? ''} appointmentsLogged={appointmentRecords.length} />
 
 
 
