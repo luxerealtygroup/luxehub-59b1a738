@@ -13,6 +13,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { getFubApiKeyForOrg } from '../_shared/fub.ts';
 import {
+  agentTagColumns,
   VISITOR_COLUMNS,
   type Stage,
   type Visitor,
@@ -216,6 +217,7 @@ Deno.serve(async (req) => {
         {
           property_address: house.property_address || 'Open House',
           hosting_email: hostProf?.fub_user_email || hostProf?.email || null,
+          hosting_agent_id: hostId ?? null,
           hosting_fub_user_id: hostProf?.fub_user_id ? Number(hostProf.fub_user_id) || null : null,
           city: (house as any).city ?? null,
           mls_number: (house as any).mls_number ?? null,
@@ -242,6 +244,7 @@ Deno.serve(async (req) => {
             fub_stage: stage,
             fub_stage_result: out.stageResult ?? null,
             fub_event_id: out.eventId ?? null,
+            ...agentTagColumns(out.agentTag),
           })
           .eq('id', visitor.id);
         summary.sent += 1;
