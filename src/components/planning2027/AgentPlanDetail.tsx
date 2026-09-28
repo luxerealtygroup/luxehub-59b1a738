@@ -12,9 +12,11 @@ import { usePriorYearActuals, usePriorYearGoal } from './usePriorYearActuals';
 import { useRecap } from './useRecap';
 import { RecapSection, ReflectionSection, GoalComparison, WayForwardSection } from './PlanSections';
 import { GoalExercises } from './SessionExercises';
-import { SevenCirclesCollapsed, Circles } from './SevenCircles';
+import { SevenCirclesCollapsed, SevenCirclesSection, Circles } from './SevenCircles';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-function Section({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
+function Section({ n, title, children, tabbed }: { n: number; title: string; children: React.ReactNode; tabbed?: boolean }) {
+  if (tabbed) return <TabsContent value={String(n)} className="mt-4 space-y-3">{children}</TabsContent>;
   return (
     <section className="space-y-3">
       <h3 className="flex items-center gap-3 text-lg font-display font-semibold text-foreground">
@@ -26,8 +28,8 @@ function Section({ n, title, children }: { n: number; title: string; children: R
 }
 
 /** Full read-only plan in the same four-part order as the agent sees it, with admin Approve / Reopen. */
-export function AgentPlanDetail({ agentId, agentName, canReview, onChanged }: {
-  agentId: string; agentName: string; canReview: boolean; onChanged?: () => void;
+export function AgentPlanDetail({ agentId, agentName, canReview, onChanged, tabbed }: {
+  agentId: string; agentName: string; canReview: boolean; onChanged?: () => void; tabbed?: boolean;
 }) {
   const { hasFUB } = useHasFUB();
   const [fub, setFub] = useState<{ id: number | null; name: string | null } | null>(null);
@@ -89,17 +91,29 @@ export function AgentPlanDetail({ agentId, agentName, canReview, onChanged }: {
         </div>
       </div>
 
-      <Section n={1} title="2026 Recap">
+      {tabbed ? (
+      <Tabs defaultValue="1">
+        <TabsList className="h-auto flex-wrap">
+          <TabsTrigger value="1">2026 Recap</TabsTrigger><TabsTrigger value="2">Reflection</TabsTrigger>
+          <TabsTrigger value="3">2027 Goals</TabsTrigger><TabsTrigger value="4">Way Forward</TabsTrigger>
+        </TabsList>
+        {sections}
+      </Tabs>) : sections}
+    </div>
+  );
+}
+ title="2026 Recap">
         <RecapSection agentId={agentId} fubUserId={fub?.id ?? null} actuals={actuals} goal2026={goal2026} recap={recap} recapLoading={recapLoading}
           regenerating={working} canRegenerate={canReview} onRegenerate={regenerate} prework={pw} editable={false} />
       </Section>
 
-      <Section n={2} title="Reflection">
-        {circles && <SevenCirclesCollapsed circles={circles} />}
+      <Section tabbed={tabbed} n={2} title="Reflection">
+        {tabbed ? (circles ? <SevenCirclesSection circles={circles} editable={false} /> : <p className="text-sm text-muted-foreground">Seven circles: not scored yet.</p>)
+          : circles ? <SevenCirclesCollapsed circles={circles} /> : <p className="text-sm text-muted-foreground">Seven circles (private): not scored yet.</p>}
         <ReflectionSection prework={pw} editable={false} />
       </Section>
 
-      <Section n={3} title="2027 Goals">
+      <Section tabbed={tabbed} n={3} title="2027 Goals">
         {!goal ? <p className="text-sm text-muted-foreground">No goal saved yet.</p> : (
           <div className="space-y-4">
             <GoalResultsView r={goal} inputType={goal.goal_input_type} />
@@ -121,7 +135,7 @@ export function AgentPlanDetail({ agentId, agentName, canReview, onChanged }: {
         <GoalExercises prework={pw} editable={false} />
       </Section>
 
-      <Section n={4} title="Way Forward">
+      <Section tabbed={tabbed} n={4} title="Way Forward">
         {prework ? <WayForwardSection prework={pw} editable={false} results={goal} actuals={actuals} agentId={agentId} />
           : <p className="text-sm text-muted-foreground">Nothing saved yet.</p>}
       </Section>
