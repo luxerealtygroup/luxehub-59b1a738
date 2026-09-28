@@ -4060,6 +4060,42 @@ export type Database = {
           },
         ]
       }
+      planning_circles: {
+        Row: {
+          agent_id: string
+          circles: Json
+          created_at: string
+          id: string
+          org_id: string | null
+          plan_year: number
+          status: string
+          submitted_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          agent_id?: string
+          circles?: Json
+          created_at?: string
+          id?: string
+          org_id?: string | null
+          plan_year?: number
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          circles?: Json
+          created_at?: string
+          id?: string
+          org_id?: string | null
+          plan_year?: number
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       planning_goals: {
         Row: {
           agent_id: string
