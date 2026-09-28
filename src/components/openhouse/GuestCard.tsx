@@ -330,6 +330,9 @@ export function GuestCard({
             );
           })}
         </div>
+        {guest.fub_agent_tag && guest.fub_agent_tag_sent_at && (
+          <p className="text-xs text-muted-foreground">{guest.fub_agent_tag} tag sent</p>
+        )}
         {guest.fub_tier_sent_at && (
           <p className="text-xs text-muted-foreground">Tier sent to Follow Up Boss</p>
         )}
