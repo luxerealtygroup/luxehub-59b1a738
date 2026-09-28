@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Badge } from '@/components/ui/badge';
 import { ChevronDown, Lock, Plus, Star } from 'lucide-react';
 
 export const CIRCLES = [
@@ -56,12 +57,16 @@ export function SevenCirclesSection({ circles, setCircles, editable }: {
   circles: Circles; setCircles?: (fn: (c: Circles) => Circles) => void; editable: boolean;
 }) {
   const ed = editable && !!setCircles;
+  const notScored = CIRCLES.every(([k]) => circles[k]?.today == null && circles[k]?.target == null);
   const top = topGaps(circles);
   const upd = (k: CircleKey, p: Partial<CircleEntry>) => setCircles?.(c => ({ ...c, [k]: { ...c[k], ...p } }));
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-base flex items-center gap-2">The seven circles <Lock className="h-3.5 w-3.5 text-muted-foreground" /></CardTitle>
+        <CardTitle className="text-base flex flex-wrap items-center gap-2">
+          The seven circles <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+          {!editable && notScored && <Badge variant="secondary" className="font-normal">Not scored yet</Badge>}
+        </CardTitle>
         <p className="text-sm text-muted-foreground">Score each circle of your life today and where you want it to be by December 31, 2027. Adapted from The ONE Thing by Gary Keller and Jay Papasan.</p>
         <p className="text-xs text-muted-foreground">Private — only you and Kristen can see this.</p>
       </CardHeader>
@@ -88,12 +93,14 @@ export function SevenCirclesSection({ circles, setCircles, editable }: {
                   </div>
                 </div>
               </div>
-              {showOne ? (
+              {showOne || (!ed && notScored) ? (
                 <div className="space-y-1">
                   <Label htmlFor={`${k}-one`} className="text-xs">{ONE_LABEL}{isTop && <span className="text-destructive"> *</span>}</Label>
                   {ed ? (
                     <Textarea id={`${k}-one`} rows={2} value={e.one_thing ?? ''} onChange={ev => upd(k, { one_thing: ev.target.value })}
                       className={isTop && !e.one_thing?.trim() ? 'border-destructive/60' : ''} />
+                  ) : notScored ? (
+                    <Textarea id={`${k}-one`} rows={2} value="" disabled aria-label={`${label} ONE Thing not scored yet`} />
                   ) : <p className="text-sm text-foreground whitespace-pre-wrap">{e.one_thing || '—'}</p>}
                 </div>
               ) : ed && (
@@ -111,11 +118,15 @@ export function SevenCirclesSection({ circles, setCircles, editable }: {
 
 /** Collapsed read-only block for Kristen's admin agent detail. */
 export function SevenCirclesCollapsed({ circles }: { circles: Circles }) {
+  const notScored = CIRCLES.every(([k]) => circles[k]?.today == null && circles[k]?.target == null);
   return (
     <Collapsible>
       <CollapsibleTrigger asChild>
         <Button variant="outline" className="w-full justify-between">
-          <span className="flex items-center gap-2"><Lock className="h-4 w-4" />Seven circles (private)</span><ChevronDown className="h-4 w-4" />
+          <span className="flex min-w-0 items-center gap-2">
+            <Lock className="h-4 w-4 shrink-0" />Seven circles (private)
+            {notScored && <Badge variant="secondary" className="font-normal">Not scored yet</Badge>}
+          </span><ChevronDown className="h-4 w-4 shrink-0" />
         </Button>
       </CollapsibleTrigger>
       <CollapsibleContent className="pt-3"><SevenCirclesSection circles={circles} editable={false} /></CollapsibleContent>
