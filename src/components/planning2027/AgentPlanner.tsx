@@ -17,6 +17,7 @@ import { usePriorYearActuals, usePriorYearGoal } from './usePriorYearActuals';
 import { useRecap } from './useRecap';
 import { RecapSection, ReflectionSection, GoalComparison, WayForwardSection, weeklyDefaults } from './PlanSections';
 import { GoalExercises, kpiDefaults } from './SessionExercises';
+import { SevenCirclesSection, Circles, circlesSubmitError } from './SevenCircles';
 
 type RateKey = 'avg_sale_price' | 'commission_rate' | 'appt_to_close_rate' | 'lead_to_appt_rate';
 
@@ -51,16 +52,20 @@ export function AgentPlanner({ agentId, fubUserId, hasFUB, agentName, settings, 
   const [sources, setSources] = useState<Record<RateKey, '2026 actuals' | 'Team default' | 'Saved'>>({} as any);
   const [prework, setPreworkState] = useState<PreworkRow>(EMPTY_PREWORK);
   const [busy, setBusy] = useState(false);
+  const [circles, setCirclesState] = useState<Circles>({});
+  const setCircles = useCallback((fn: (c: Circles) => Circles) => setCirclesState(fn), []);
   const [tab, setTab] = useState('recap');
   const seeded = useRef(false);
   const setPrework = useCallback((fn: (p: PreworkRow) => PreworkRow) => setPreworkState(fn), []);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [g, p] = await Promise.all([
+    const [g, p, c] = await Promise.all([
       supabase.from('planning_goals').select('*').eq('agent_id', agentId).eq('plan_year', PLAN_YEAR).maybeSingle(),
       supabase.from('planning_prework').select('*').eq('agent_id', agentId).eq('plan_year', PLAN_YEAR).maybeSingle(),
+      (supabase.from('planning_circles' as any) as any).select('circles').eq('agent_id', agentId).eq('plan_year', PLAN_YEAR).maybeSingle(),
     ]);
+    setCirclesState(((c as any).data?.circles as Circles) ?? {});
     const row = (g.data as PlanningGoalRow) ?? null;
     setSaved(row);
     onStatus(row?.status ?? null);
@@ -145,6 +150,10 @@ export function AgentPlanner({ agentId, fubUserId, hasFUB, agentName, settings, 
     if (next === 'submitted' && (full.action_plan?.length ?? 0) < 3) {
       toast.error('Add at least 3 actions to your 90-day plan'); setTab('forward'); return;
     }
+    if (next === 'submitted') {
+      const ce = circlesSubmitError(circles);
+      if (ce) { toast.error(ce); setTab('reflection'); return; }
+    }
     setBusy(true);
     const g = await supabase.from('planning_goals').upsert({
       agent_id: agentId, plan_year: PLAN_YEAR, ...inputs, rate_source: rateSource(), status: next,
@@ -152,8 +161,11 @@ export function AgentPlanner({ agentId, fubUserId, hasFUB, agentName, settings, 
     const payload: Record<string, unknown> = { agent_id: agentId, plan_year: PLAN_YEAR, status: next };
     for (const k of PREWORK_SAVE_KEYS) payload[k] = (full as any)[k] ?? null;
     const p = g.error ? null : await supabase.from('planning_prework').upsert(payload as any, { onConflict: 'agent_id,plan_year' });
+    const cleanCircles = Object.fromEntries(Object.entries(circles).map(([k, v]) => [k, { today: v?.today ?? null, target: v?.target ?? null, one_thing: v?.one_thing?.trim() || null }]));
+    const c = p && !p.error ? await (supabase.from('planning_circles' as any) as any).upsert(
+      { agent_id: agentId, plan_year: PLAN_YEAR, circles: cleanCircles, status: next }, { onConflict: 'agent_id,plan_year' }) : null;
     setBusy(false);
-    const err = g.error || p?.error;
+    const err = g.error || p?.error || c?.error;
     if (err) { toast.error(err.message); return; }
     toast.success(next === 'submitted' ? 'Plan submitted' : 'Draft saved');
     await load();
@@ -164,6 +176,7 @@ export function AgentPlanner({ agentId, fubUserId, hasFUB, agentName, settings, 
     setBusy(true);
     const { error } = await supabase.from('planning_goals').update({ status: 'draft' }).eq('id', saved.id);
     if (!error) await supabase.from('planning_prework').update({ status: 'draft' }).eq('agent_id', agentId).eq('plan_year', PLAN_YEAR);
+    if (!error) await (supabase.from('planning_circles' as any) as any).update({ status: 'draft' }).eq('agent_id', agentId).eq('plan_year', PLAN_YEAR);
     setBusy(false);
     if (error) { toast.error(error.message); return; }
     await load();
@@ -205,7 +218,8 @@ export function AgentPlanner({ agentId, fubUserId, hasFUB, agentName, settings, 
             prework={prework} setPrework={setPrework} editable={editable} />
         </TabsContent>
 
-        <TabsContent value="reflection" className="mt-4">
+        <TabsContent value="reflection" className="mt-4 space-y-4">
+          <SevenCirclesSection circles={circles} setCircles={setCircles} editable={editable} />
           <ReflectionSection prework={prework} setPrework={setPrework} editable={editable} />
         </TabsContent>
 

@@ -12,6 +12,7 @@ import { usePriorYearActuals, usePriorYearGoal } from './usePriorYearActuals';
 import { useRecap } from './useRecap';
 import { RecapSection, ReflectionSection, GoalComparison, WayForwardSection } from './PlanSections';
 import { GoalExercises } from './SessionExercises';
+import { SevenCirclesCollapsed, Circles } from './SevenCircles';
 
 function Section({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
@@ -33,6 +34,7 @@ export function AgentPlanDetail({ agentId, agentName, canReview, onChanged }: {
   const [goal, setGoal] = useState<PlanningGoalRow | null>(null);
   const [prework, setPrework] = useState<PreworkRow | null>(null);
   const [loading, setLoading] = useState(true);
+  const [circles, setCircles] = useState<Circles | null>(null);
   const [busy, setBusy] = useState(false);
   const actuals = usePriorYearActuals(fub ? agentId : null, fub?.id ?? null, hasFUB, fub?.name ?? null);
   const goal2026 = usePriorYearGoal(agentId);
@@ -45,6 +47,9 @@ export function AgentPlanDetail({ agentId, agentName, canReview, onChanged }: {
       supabase.from('planning_prework').select('*').eq('agent_id', agentId).eq('plan_year', PLAN_YEAR).maybeSingle(),
       supabase.from('profiles').select('fub_user_id, full_name').eq('id', agentId).maybeSingle(),
     ]);
+    // Private: RLS returns a row only to the agent and the Company Plan owner (Kristen).
+    const c = await (supabase.from('planning_circles' as any) as any).select('circles').eq('agent_id', agentId).eq('plan_year', PLAN_YEAR).maybeSingle();
+    setCircles((c.data?.circles as Circles) ?? null);
     setGoal((g.data as PlanningGoalRow) ?? null);
     setPrework((p.data as unknown as PreworkRow) ?? null);
     setFub({ id: (prof.data as any)?.fub_user_id ?? null, name: (prof.data as any)?.full_name ?? agentName });
@@ -90,6 +95,7 @@ export function AgentPlanDetail({ agentId, agentName, canReview, onChanged }: {
       </Section>
 
       <Section n={2} title="Reflection">
+        {circles && <SevenCirclesCollapsed circles={circles} />}
         <ReflectionSection prework={pw} editable={false} />
       </Section>
 
