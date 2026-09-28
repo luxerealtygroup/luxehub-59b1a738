@@ -3,6 +3,7 @@ import { Loader2, Settings, SlidersHorizontal } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useTenant } from '@/hooks/useTenant';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useViewAsAgent } from '@/hooks/useViewAsAgent';
 import { Button } from '@/components/ui/button';
 import CompanyBusinessPlanning from '@/components/CompanyBusinessPlanning';
 import { ClosedFirmSummary } from '@/components/planning2027/ClosedFirmSummary';
@@ -12,10 +13,12 @@ import { PlanningBanner } from '@/components/planning2027/PlanningBanner';
 import { PlanningSettingsDialog } from '@/components/planning2027/PlanningSettingsDialog';
 import { useCompanyPlan } from '@/components/planning2027/CompanyPlan';
 import { PLAN_YEAR, DEFAULT_SETTINGS, PlanningSettings } from '@/lib/planning2027';
+import { Navigate } from 'react-router-dom';
 
 const CompanyBusinessPlanningPage = () => {
   const { orgId } = useTenant();
   const { isAdmin, isStrictOwner } = useUserRole();
+  const { isViewingAsAgent } = useViewAsAgent();
   const company = useCompanyPlan();
   const [settings, setSettings] = useState<PlanningSettings | null>(null);
   const [open, setOpen] = useState(false);
@@ -29,6 +32,7 @@ const CompanyBusinessPlanningPage = () => {
   useEffect(() => { load(); }, [load]);
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 60000); return () => clearInterval(t); }, []);
 
+  if (isViewingAsAgent) return <Navigate to="/dashboard/business-planning" replace />;
   if (!settings) return <div className="flex items-center justify-center h-64"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>;
 
   return (

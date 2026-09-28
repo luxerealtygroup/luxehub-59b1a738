@@ -81,8 +81,8 @@ export function AgentPlanDetail({ agentId, agentName, canReview, onChanged, tabb
       </Section>
 
       <Section tabbed={tabbed} n={2} title="Reflection">
-        {tabbed ? (circles ? <SevenCirclesSection circles={circles} editable={false} /> : <p className="text-sm text-muted-foreground">Seven circles: not scored yet.</p>)
-          : circles ? <SevenCirclesCollapsed circles={circles} /> : <p className="text-sm text-muted-foreground">Seven circles (private): not scored yet.</p>}
+        {tabbed ? <SevenCirclesSection circles={circles ?? {}} editable={false} />
+          : <SevenCirclesCollapsed circles={circles ?? {}} />}
         <ReflectionSection prework={pw} editable={false} />
       </Section>
 
