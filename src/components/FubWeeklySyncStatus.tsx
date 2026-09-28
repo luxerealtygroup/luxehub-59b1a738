@@ -31,10 +31,11 @@ export default function FubWeeklySyncStatus({ weekStart, onSynced }: Props) {
     const { data } = await supabase
       .from('fub_weekly_sync_runs')
       .select('week_start, week_end, status, finished_at, error')
+      .eq('week_start', weekStart)
       .order('started_at', { ascending: false })
       .limit(1);
     setLatest(((data ?? []) as Run[])[0] ?? null);
-  }, []);
+  }, [weekStart]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -71,7 +72,7 @@ export default function FubWeeklySyncStatus({ weekStart, onSynced }: Props) {
             {needsAttention ? ` · ${latest.error || latest.status}` : ''}
           </span>
         ) : (
-          <span>No Follow Up Boss sync recorded yet.</span>
+          <span>No Follow Up Boss sync recorded for this week yet.</span>
         )}
       </div>
       {canResync && (

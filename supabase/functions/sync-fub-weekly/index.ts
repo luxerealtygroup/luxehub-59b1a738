@@ -219,17 +219,27 @@ async function syncOrg(
     }
   };
 
-  // Only producing agents get a weekly 4-1-1; operations, client, demo and
-  // system accounts are skipped entirely.
-  const { data: profiles } = await supa
-    .from('profiles')
-    .select('id, full_name, email, fub_user_id, fub_user_email')
-    .eq('org_id', orgId)
-    .eq('member_type', 'agent');
-  const team = (profiles ?? []) as {
+  // Producing agents, plus anyone on the 2027 selling-agent list, plus owners
+  // (Kristen sells too). Operations, client, demo and system accounts are skipped.
+  const [{ data: profiles }, { data: ps }, { data: owners }] = await Promise.all([
+    supa.from('profiles')
+      .select('id, full_name, email, fub_user_id, fub_user_email, member_type')
+      .eq('org_id', orgId),
+    supa.from('planning_settings').select('selling_agent_ids, lease_full_unit_gci, lease_weight')
+      .eq('org_id', orgId).order('plan_year', { ascending: false }).limit(1),
+    supa.from('user_roles').select('user_id').eq('role', 'owner'),
+  ]);
+  const settingsRow = ((ps ?? []) as { selling_agent_ids: string[] | null; lease_full_unit_gci: number | null; lease_weight: number | null }[])[0];
+  const include = new Set<string>([
+    ...((settingsRow?.selling_agent_ids ?? []) as string[]),
+    ...((owners ?? []) as { user_id: string }[]).map((o) => o.user_id),
+  ]);
+  const team = ((profiles ?? []) as {
     id: string; full_name: string | null; email: string | null;
-    fub_user_id: number | null; fub_user_email: string | null;
-  }[];
+    fub_user_id: number | null; fub_user_email: string | null; member_type: string | null;
+  }[]).filter((p) => (settingsRow?.selling_agent_ids?.length ? include.has(p.id) : (p.member_type === 'agent' || include.has(p.id))));
+  const leaseFull = Number(settingsRow?.lease_full_unit_gci ?? 4000);
+  const leaseWeight = Number(settingsRow?.lease_weight ?? 1 / 3);
 
   const key = await getFubApiKeyForOrg(orgId);
   if (!key) {
@@ -274,7 +284,12 @@ async function syncOrg(
   const markers = rentalMarkers((setting as { value: string } | null)?.value);
 
   // ---- 3. account-wide feeds (no date or user filter available) -----------
-  const calls = await pageBackwards(key, 'calls', 'calls', week_start, week_end, { sort: '-created' });
+  // Calls are read a week past the window (capped at today) so speed to lead
+  // can find the first touch on a lead that arrived late in the week.
+  const todayLocal = torontoParts(new Date()).date;
+  const extEnd = addDays(week_end, 7) < todayLocal ? addDays(week_end, 7) : todayLocal;
+  const callsWide = await pageBackwards(key, 'calls', 'calls', week_start, extEnd, { sort: '-created' });
+  const calls = { rows: callsWide.rows.filter((c) => inWeek(c.created as string, week_start, week_end)), capped: callsWide.capped };
   const people = await pageBackwards(key, 'people', 'people', week_start, week_end, {
     includeUnclaimed: true,
     sort: '-created',
@@ -298,11 +313,26 @@ async function syncOrg(
     if (duration >= CONVERSATION_SECONDS) t.conversations++;
   }
 
+  // First outbound touch per person (calls now; texts added in the text scan).
+  const firstTouch = new Map<number, number>();
+  const noteTouch = (personId: number, at: string | undefined) => {
+    if (!personId || !at) return;
+    const ms = new Date(at).getTime();
+    const prev = firstTouch.get(personId);
+    if (prev === undefined || ms < prev) firstTouch.set(personId, ms);
+  };
+  for (const c of callsWide.rows) if (c.isIncoming === false) noteTouch(Number(c.personId), c.created as string);
+
+  const newLeadRows: { personId: number; userId: number; created: string }[] = [];
   for (const p of people.rows) {
     if (looksRental(p, markers)) continue;
+    if (/vendor/i.test(String(p.stage ?? ''))) continue;
     const assigned = Number(p.assignedUserId ?? 0);
     const t = get(assigned);
-    if (t) t.new_leads++;
+    if (t) {
+      t.new_leads++;
+      newLeadRows.push({ personId: Number(p.id), userId: assigned, created: String(p.created) });
+    }
   }
 
   // Pond claims: Follow Up Boss does not expose when a person was assigned, so
@@ -335,12 +365,13 @@ async function syncOrg(
     // A group text comes back once per participant, so the same message shows up
     // under several people. Count each message once, by its own id.
     const seen = new Set<string>();
-    const chunk = 10;
+    const chunk = 4;
     for (let i = 0; i < ids.length; i += chunk) {
       await Promise.all(ids.slice(i, i + chunk).map(async (personId) => {
         const data = await fubGet(key, 'textMessages', { personId, limit: PAGE_LIMIT, sort: '-created' });
         const rows = (data?.textmessages ?? data?.textMessages ?? []) as Record<string, unknown>[];
         for (const m of rows) {
+          if (!m.isIncoming) noteTouch(Number(m.personId ?? personId), m.created as string);
           if (!inWeek(m.created as string, week_start, week_end)) continue;
           const msgId = String(m.id ?? `${m.userId}:${m.created}:${m.message ?? ''}`);
           if (seen.has(msgId)) continue;
@@ -367,53 +398,121 @@ async function syncOrg(
     console.warn('text scan failed:', textError);
   }
 
-  // ---- 5. appointments: one account-wide sweep, attributed by invitee ------
-  // `start`/`end` filter on when the appointment happens, so a wide window is
-  // pulled and "set" is decided on `created` instead.
+  // ---- 5. appointments: account-wide, paged, attributed by invitee ---------
+  // `start`/`end` filter on when the appointment happens; "set" is decided on
+  // `created`, "held" on `start` with no cancelled/no-show outcome.
+  let apptsMeasured = false;
   try {
-    const wide = await fubGet(key, 'appointments', {
-      start: `${addDays(week_start, -365)}T00:00:00Z`,
-      end: `${addDays(week_end, 365)}T00:00:00Z`,
-      limit: PAGE_LIMIT,
-      includeUnclaimed: true,
-    });
-    const appts = (wide?.appointments ?? []) as Record<string, unknown>[];
-    for (const a of appts) {
-      const invitees = (a.invitees ?? []) as { userId: number | null }[];
-      const userIds = invitees.map((i) => Number(i.userId)).filter((n) => n > 0);
-      if (!userIds.length && a.createdById) userIds.push(Number(a.createdById));
-      const outcome = String((a as any).outcome?.name ?? (a as any).outcome ?? (a as any).status ?? '');
-      const setThisWeek = inWeek(a.created as string, week_start, week_end);
-      const heldThisWeek = inWeek(a.start as string, week_start, week_end) && !CANCELLED.test(outcome);
-      for (const uid of new Set(userIds)) {
-        const t = get(uid);
-        if (!t) continue;
-        if (setThisWeek) t.appointments_set++;
-        if (heldThisWeek) t.appointments_held++;
+    let offset = 0;
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const wide = await fubGet(key, 'appointments', {
+        start: `${addDays(week_start, -120)}T00:00:00Z`,
+        end: `${addDays(week_end, 120)}T00:00:00Z`,
+        limit: PAGE_LIMIT, offset, includeUnclaimed: true,
+      });
+      const appts = (wide?.appointments ?? []) as Record<string, unknown>[];
+      for (const a of appts) {
+        const invitees = (a.invitees ?? []) as { userId: number | null }[];
+        const userIds = invitees.map((i) => Number(i.userId)).filter((n) => n > 0);
+        if (!userIds.length && a.createdById) userIds.push(Number(a.createdById));
+        const outcome = String((a as any).outcome?.name ?? (a as any).outcome ?? (a as any).status ?? '');
+        const setThisWeek = inWeek(a.created as string, week_start, week_end);
+        const heldThisWeek = inWeek(a.start as string, week_start, week_end) && !CANCELLED.test(outcome)
+          && String(a.start) <= new Date().toISOString();
+        for (const uid of new Set(userIds)) {
+          const t = get(uid);
+          if (!t) continue;
+          if (setThisWeek) t.appointments_set++;
+          if (heldThisWeek) t.appointments_held++;
+        }
       }
+      if (appts.length < PAGE_LIMIT) break;
+      offset += PAGE_LIMIT;
     }
+    apptsMeasured = true;
   } catch (e) {
     console.warn('appointments failed:', (e as Error).message);
   }
 
-  // ---- 6. deals: per agent, the endpoint does filter by user --------------
-  for (const p of matched) {
-    const t = get(p.fub_user_id!)!;
-    try {
-      const deals = await fubGet(key, 'deals', { userId: p.fub_user_id!, status: 'Active', limit: PAGE_LIMIT });
-      const rows = (deals?.deals ?? []) as Record<string, unknown>[];
-      t.deals_active = rows.length;
-      t.deals_created = rows.filter((d) => inWeek((d as any).created ?? (d as any).createdAt, week_start, week_end)).length;
-    } catch (e) {
-      console.warn(`deals failed for user ${p.fub_user_id}:`, (e as Error).message);
+  // ---- 6. deals: one paged read, then the shared production rules ----------
+  // Pipeline adds  = deals created in the week (client put into Buyers/Sellers).
+  // Agreements     = deals that entered Listed or Offer in the week.
+  // Pending        = deals that entered Pending in the week.
+  // Closed         = stage Closed with sold date in the week. Full GCI, split
+  //                  evenly between producing agents; leases weighted per settings.
+  interface DealX { pipeline_adds: number; agreements: number; pending: number; closed: number; units: number; gci: number }
+  const dx = new Map<number, DealX>();
+  const getX = (id: number) => { if (!dx.has(id)) dx.set(id, { pipeline_adds: 0, agreements: 0, pending: 0, closed: 0, units: 0, gci: 0 }); return dx.get(id)!; };
+  let dealsMeasured = false;
+  try {
+    const { data: md } = await supa.from('deal_metadata')
+      .select('fub_deal_id, deal_category, weight_override, personal_transaction').eq('org_id', orgId);
+    const meta = new Map(((md ?? []) as any[]).map((m) => [Number(m.fub_deal_id), m]));
+    const all: any[] = [];
+    for (let offset = 0, page = 0; page < MAX_PAGES; page++, offset += PAGE_LIMIT) {
+      const d = await fubGet(key, 'deals', { limit: PAGE_LIMIT, offset, sort: '-created' });
+      const rows = (d?.deals ?? []) as any[];
+      all.push(...rows);
+      if (rows.length < PAGE_LIMIT) break;
     }
+    const today = new Date().toISOString().slice(0, 10);
+    for (const d of all) {
+      const users = ((d.users ?? []) as { id: number; name?: string }[])
+        .filter((u) => !/^marie zinger$/i.test(String(u.name ?? '')));
+      if (!users.length) continue;
+      const share = 1 / users.length;
+      const stage = String(d.stageName ?? '').toLowerCase();
+      const entered = d.enteredStageAt as string | undefined;
+      const created = (d.createdAt ?? d.created) as string | undefined;
+      const soldDate = String(d.closedDate || d.closeDate || d.projectedCloseDate || '').slice(0, 10);
+      const gci = Number(d.commissionValue ?? 0);
+      const m = meta.get(Number(d.id));
+      const hay = `${d.pipelineName ?? ''} ${d.name ?? ''}`.toLowerCase();
+      const isLease = m?.deal_category ? m.deal_category === 'lease' : /lease|rent|tenant|landlord/.test(hay);
+      const weight = m?.weight_override != null ? Number(m.weight_override) : isLease ? (gci >= leaseFull ? 1 : leaseWeight) : 1;
+      for (const u of users) {
+        if (!get(u.id)) continue;
+        const x = getX(u.id);
+        if (inWeek(created, week_start, week_end)) x.pipeline_adds++;
+        if ((stage === 'listed' || stage === 'offer') && inWeek(entered, week_start, week_end)) x.agreements++;
+        if (stage === 'pending' && inWeek(entered, week_start, week_end)) x.pending++;
+        if (stage === 'closed' && soldDate >= week_start && soldDate <= week_end && soldDate <= today) {
+          x.closed++; x.units += weight * share; x.gci += gci * share;
+        }
+        if (String(d.status ?? '').toLowerCase() === 'active') get(u.id)!.deals_active++;
+        if (inWeek(created, week_start, week_end)) get(u.id)!.deals_created++;
+      }
+    }
+    dealsMeasured = true;
+  } catch (e) {
+    console.warn('deals failed:', (e as Error).message);
   }
 
-  // ---- 5. write the measured columns only ---------------------------------
+  // ---- 7. speed to lead: median minutes from lead created to first touch ---
+  const speed = new Map<number, number[]>();
+  for (const l of newLeadRows) {
+    const touch = firstTouch.get(l.personId);
+    const createdMs = new Date(l.created).getTime();
+    if (touch === undefined || touch < createdMs) continue;
+    const arr = speed.get(l.userId) ?? [];
+    arr.push(Math.round((touch - createdMs) / 60000));
+    speed.set(l.userId, arr);
+  }
+  const median = (a: number[] | undefined) => {
+    if (!a?.length) return null;
+    const s = [...a].sort((x, y) => x - y);
+    return s[Math.floor(s.length / 2)];
+  };
+
+  // ---- 8. write the Follow Up Boss columns only ---------------------------
+  // Agent-entered numbers (contacts, pipeline additions, contracts, firm sales,
+  // logged appointments) are never touched.
   const now = new Date().toISOString();
   let synced = 0;
   for (const p of matched) {
     const t = totals.get(p.fub_user_id!) ?? emptyTotals();
+    const x = dx.get(p.fub_user_id!) ?? { pipeline_adds: 0, agreements: 0, pending: 0, closed: 0, units: 0, gci: 0 };
+    const leads = speed.get(p.fub_user_id!);
     const { error } = await supa.from('weekly_411').upsert({
       user_id: p.id,
       org_id: orgId,
@@ -429,27 +528,38 @@ async function syncOrg(
       talk_time_minutes: Math.round(t.talk_time_seconds / 60),
       texts_sent: textsMeasured ? t.texts_sent : null,
       texts_received: textsMeasured ? t.texts_received : null,
-      appointments_set: t.appointments_set,
-      appointments_held: t.appointments_held,
-      appointments_actual: t.appointments_held,
       deals_active: t.deals_active,
       deals_created: t.deals_created,
       dials: t.calls_total,
       calls_actual: t.calls_total,
       connects: t.calls_connected,
       leads_received: t.new_leads,
+      speed_to_first_touch_minutes: median(leads),
+      fub_conversations: t.conversations,
+      fub_appointments_set: apptsMeasured ? t.appointments_set : null,
+      fub_appointments_held: apptsMeasured ? t.appointments_held : null,
+      fub_pipeline_adds: dealsMeasured ? x.pipeline_adds : null,
+      fub_agreements: dealsMeasured ? x.agreements : null,
+      fub_pending: dealsMeasured ? x.pending : null,
+      fub_closed: dealsMeasured ? x.closed : null,
+      fub_closed_units: dealsMeasured ? Math.round(x.units * 100) / 100 : null,
+      fub_gci: dealsMeasured ? Math.round(x.gci) : null,
+      fub_speed_to_lead_minutes: median(leads),
+      fub_emails_sent: null,
       fub_synced_at: now,
       fub_sync_status: 'ok',
       fub_sync_error: null,
       fub_raw: {
-        ...t,
+        ...t, ...x,
+        leads_with_first_touch: leads?.length ?? 0,
         texts_measurable: textsMeasured,
         texts_error: textError,
+        emails_measurable: false,
         pond_claims_measurable: false,
         connected_threshold_seconds: CONNECTED_SECONDS,
         conversation_threshold_seconds: CONVERSATION_SECONDS,
         week_start, week_end,
-        pages_capped: calls.capped || people.capped,
+        pages_capped: callsWide.capped || people.capped,
       },
     }, { onConflict: 'user_id,week_start_date' });
     if (!error) synced++;
@@ -525,13 +635,24 @@ Deno.serve(async (req) => {
   // The weekly cron fires twice (00:00 and 01:00 UTC) so 8pm Toronto stays exact
   // across daylight saving. Only the 8pm local run does the work, and it runs on
   // Monday evening so the Monday-Sunday week that just ended is complete.
-  if (body.cron) {
-    const { hour } = torontoParts(new Date());
-    if (hour !== 20) return json({ skipped: true, reason: `Toronto hour is ${hour}` });
-  }
-
+  // Scheduled modes fire at two UTC hours so the Toronto hour stays exact
+  // across daylight saving; only the matching local hour does the work.
+  //   nightly: 2am Toronto — the week in progress plus last week
+  //   monday:  7am Toronto Monday — last week, fresh for the 10:30 huddle
+  const b = body as typeof body & { mode?: 'nightly' | 'monday' };
   const fallback = lastCompletedWeek();
-  const week_start = body.week_start ?? fallback.week_start;
+  let weeks: string[] = [];
+  if (b.mode === 'nightly' || b.mode === 'monday') {
+    const { hour, weekday } = torontoParts(new Date());
+    const want = b.mode === 'nightly' ? 2 : 7;
+    if (hour !== want || (b.mode === 'monday' && weekday !== 'Mon')) {
+      return json({ skipped: true, reason: `Toronto ${weekday} ${hour}h` });
+    }
+    weeks = b.mode === 'nightly' ? [addDays(fallback.week_start, 7), fallback.week_start] : [fallback.week_start];
+  } else if (body.cron) {
+    return json({ skipped: true, reason: 'legacy weekly schedule retired' });
+  }
+  const week_start = weeks[0] ?? body.week_start ?? fallback.week_start;
   const week_end = body.week_end ?? addDays(week_start, 6);
 
   const supa = db();
@@ -572,7 +693,9 @@ Deno.serve(async (req) => {
   const results: unknown[] = [];
   for (const orgId of orgIds) {
     try {
-      results.push(await syncOrg(supa, orgId, week_start, week_end, caller.userId));
+      for (const ws of (weeks.length ? weeks : [week_start])) {
+        results.push(await syncOrg(supa, orgId, ws, weeks.length ? addDays(ws, 6) : week_end, caller.userId));
+      }
     } catch (e) {
 
       console.error(`sync failed for org ${orgId}:`, (e as Error).message);

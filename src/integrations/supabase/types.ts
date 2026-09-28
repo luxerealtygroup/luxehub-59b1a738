@@ -6431,7 +6431,18 @@ export type Database = {
           dials: number | null
           doors_knocked: number | null
           firm_deals: number | null
+          fub_agreements: number | null
+          fub_appointments_held: number | null
+          fub_appointments_set: number | null
+          fub_closed: number | null
+          fub_closed_units: number | null
+          fub_conversations: number | null
+          fub_emails_sent: number | null
+          fub_gci: number | null
+          fub_pending: number | null
+          fub_pipeline_adds: number | null
           fub_raw: Json | null
+          fub_speed_to_lead_minutes: number | null
           fub_sync_error: string | null
           fub_sync_status: string | null
           fub_synced_at: string | null
@@ -6498,7 +6509,18 @@ export type Database = {
           dials?: number | null
           doors_knocked?: number | null
           firm_deals?: number | null
+          fub_agreements?: number | null
+          fub_appointments_held?: number | null
+          fub_appointments_set?: number | null
+          fub_closed?: number | null
+          fub_closed_units?: number | null
+          fub_conversations?: number | null
+          fub_emails_sent?: number | null
+          fub_gci?: number | null
+          fub_pending?: number | null
+          fub_pipeline_adds?: number | null
           fub_raw?: Json | null
+          fub_speed_to_lead_minutes?: number | null
           fub_sync_error?: string | null
           fub_sync_status?: string | null
           fub_synced_at?: string | null
@@ -6565,7 +6587,18 @@ export type Database = {
           dials?: number | null
           doors_knocked?: number | null
           firm_deals?: number | null
+          fub_agreements?: number | null
+          fub_appointments_held?: number | null
+          fub_appointments_set?: number | null
+          fub_closed?: number | null
+          fub_closed_units?: number | null
+          fub_conversations?: number | null
+          fub_emails_sent?: number | null
+          fub_gci?: number | null
+          fub_pending?: number | null
+          fub_pipeline_adds?: number | null
           fub_raw?: Json | null
+          fub_speed_to_lead_minutes?: number | null
           fub_sync_error?: string | null
           fub_sync_status?: string | null
           fub_synced_at?: string | null
