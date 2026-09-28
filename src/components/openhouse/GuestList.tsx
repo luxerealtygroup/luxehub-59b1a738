@@ -140,11 +140,13 @@ export function GuestList({
     });
   }, [guests, mode, ended]);
 
-  const awaitingFollowUp = guests.filter((g) => !g.follow_up_sent_at).length;
-  const unsent = guests.filter((g) => !g.fub_sent_at).length;
-  const fubSent = guests.filter((g) => fubState(g) === 'sent').length;
-  const fubWaiting = guests.filter((g) => ['waiting', 'retrying'].includes(fubState(g))).length;
-  const fubStuck = guests.filter((g) => fubState(g) === 'stuck').length;
+  const real = guests.filter((g) => !g.is_test);
+  const testCount = guests.length - real.length;
+  const awaitingFollowUp = real.filter((g) => !g.follow_up_sent_at).length;
+  const unsent = real.filter((g) => !g.fub_sent_at).length;
+  const fubSent = real.filter((g) => fubState(g) === 'sent').length;
+  const fubWaiting = real.filter((g) => ['waiting', 'retrying'].includes(fubState(g))).length;
+  const fubStuck = real.filter((g) => fubState(g) === 'stuck').length;
 
   const sendAll = async () => {
     if (!batchStage) return;
@@ -180,7 +182,7 @@ export function GuestList({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 font-display text-lg font-semibold">
           <Users className="h-5 w-5 text-gold" /> Guests{' '}
-          <span className="font-normal text-muted-foreground">({guests.length})</span>
+          <span className="font-normal text-muted-foreground">({real.length}{testCount ? ` · ${testCount} test` : ''})</span>
         </h2>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex rounded-lg border border-border p-0.5">
@@ -208,7 +210,7 @@ export function GuestList({
               <Plug className="mr-1.5 h-4 w-4" /> Follow Up Boss
             </Button>
           )}
-          {canManage && guests.length > 0 && !isSampleAccount && (
+          {canManage && real.length > 0 && !isSampleAccount && (
             <Button size="sm" onClick={() => setShowReview(true)}>
               <Send className="mr-1.5 h-4 w-4" /> Review guests
             </Button>
@@ -249,7 +251,7 @@ export function GuestList({
         {mode === 'live'
           ? 'Sign-ins appear here the moment they happen. Fill in what you learn while they are still in the house, and set a follow-up tier before they leave.'
           : ended
-            ? `${awaitingFollowUp} of ${guests.length} still waiting on a follow-up — they are at the top.`
+            ? `${awaitingFollowUp} of ${real.length} still waiting on a follow-up — they are at the top.`
             : 'Everyone at this open house, however they were added.'}
       </p>
 
@@ -296,7 +298,7 @@ export function GuestList({
 
       {showReview && (
         <ReviewGuestsDialog
-          guests={guests}
+          guests={real}
           onClose={() => setShowReview(false)}
           onDone={() => { setShowReview(false); load(); }}
         />

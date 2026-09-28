@@ -134,7 +134,8 @@ export default function MyOpenHouse() {
       const { data: guests } = await supabase
         .from('open_house_visitors')
         .select('open_house_id, temperature, source, follow_up_sent_at')
-        .in('open_house_id', list.map(h => h.id));
+        .in('open_house_id', list.map(h => h.id))
+        .eq('is_test', false);
       const counts: Record<string, { total: number; signedIn: number; hot: number; awaiting: number }> = {};
       for (const h of list) counts[h.id] = { total: 0, signedIn: 0, hot: 0, awaiting: 0 };
       for (const g of guests || []) {

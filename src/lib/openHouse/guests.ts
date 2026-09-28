@@ -43,6 +43,8 @@ export interface Guest {
   fub_tier: FubTier | null;
   fub_tier_sent_at: string | null;
   fub_agent_tag?: string | null;
+  is_test?: boolean | null;
+  test_reason?: string | null;
   fub_agent_tag_sent_at?: string | null;
   fub_agent_tag_result?: string | null;
   casl_consent: boolean | null;
@@ -68,7 +70,7 @@ export const GUEST_COLUMNS =
   'intent, has_home_to_sell, timeline, lender_status, custom_answers, notes, source, temperature, ' +
   'interest_level, price_feedback, condition_feedback, fub_contact_id, fub_linked, ' +
   'fub_sent_at, fub_sync_error, fub_stage, fub_stage_result, fub_tier, fub_tier_sent_at, fub_agent_tag, fub_agent_tag_sent_at, fub_agent_tag_result, casl_consent, casl_consent_at, fub_note_updated_at, ' +
-  'fub_attempts, fub_next_attempt_at, fub_note_due_at, updated_at, attendance, ' +
+  'is_test, test_reason, fub_attempts, fub_next_attempt_at, fub_note_due_at, updated_at, attendance, ' +
   'report_token, featured_listings, follow_up_sent_at, follow_up_channel, signed_in_at, client_captured_at, created_at';
 
 export const ATTENDANCE_LABEL: Record<Exclude<GuestAttendance, 'during'>, string> = {
