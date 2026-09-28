@@ -1,4 +1,5 @@
 import { useInPlanning2027 } from '@/hooks/useInPlanning2027';
+import { useViewAsAgent } from '@/hooks/useViewAsAgent';
 import { 
   LayoutDashboard, 
   Building2, 
@@ -95,6 +96,7 @@ const allSections: MenuSection[] = [
       { title: 'Transactions', url: '/dashboard/commissions', icon: DollarSign },
       { title: 'Client Portals', url: '/dashboard/client-portals', icon: Users2 },
       { title: 'Messages', url: '/dashboard/messages', icon: MessageSquare },
+      { title: 'Business Planning', url: '/dashboard/business-planning', icon: Compass },
       { title: 'Nominations', url: '/dashboard/nominations', icon: Heart, adminOnly: true },
     ],
   },
@@ -105,7 +107,6 @@ const allSections: MenuSection[] = [
       { title: 'Activities', url: '/dashboard/activities', icon: Phone },
       { title: 'Weekly Coaching', url: '/dashboard/411', icon: ClipboardList },
       { title: 'Goals', url: '/dashboard/goals', icon: Target },
-      { title: 'Business Planning', url: '/dashboard/business-planning', icon: Compass },
       { title: 'Reports', url: '/dashboard/reports', icon: FileText },
     ],
   },
@@ -160,14 +161,18 @@ export function AppSidebar() {
 
   const isPlanningOnly = isPlanningAccess && !isAgent;
   const inPlanning = useInPlanning2027();
+  const { isViewingAsAgent } = useViewAsAgent();
+  // Owners/admins land on Company Business Planning; in "View as Agent" they see that agent's plan.
+  const planningUrl = isAdmin && !isViewingAsAgent && canAccessCompanyBusinessPlanning
+    ? '/dashboard/admin/business-planning' : '/dashboard/business-planning';
 
   const visibleSections = allSections
     .filter(section => {
-      if (isPlanningOnly) return section.planningVisible;
+      if (isPlanningOnly) return section.planningVisible || section.label === 'My Business';
       return true;
     })
     .map(section => {
-      if (isPlanningOnly && section.label === 'Performance') {
+      if (isPlanningOnly && (section.label === 'Performance' || section.label === 'My Business')) {
         return {
           ...section,
           items: section.items.filter(item => planningPerformanceItems.includes(item.title)),
@@ -182,7 +187,7 @@ export function AppSidebar() {
           if (item.title === 'Client Portals' && !canAccessClientPortals) return false;
           if (item.title === 'Messages' && !canAccessClientPortals) return false;
           return true;
-        }),
+        }).map(item => item.title === 'Business Planning' ? { ...item, url: planningUrl } : item),
       };
     });
 
