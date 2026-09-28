@@ -3211,6 +3211,7 @@ export type Database = {
           id: string
           intent: string | null
           interest_level: string | null
+          is_test: boolean
           last_name: string | null
           legacy_attendee_id: string | null
           lender_status: string | null
@@ -3224,6 +3225,7 @@ export type Database = {
           signed_in_at: string
           source: string
           temperature: string | null
+          test_reason: string | null
           timeline: string | null
           updated_at: string
           working_with_agent: boolean | null
@@ -3264,6 +3266,7 @@ export type Database = {
           id?: string
           intent?: string | null
           interest_level?: string | null
+          is_test?: boolean
           last_name?: string | null
           legacy_attendee_id?: string | null
           lender_status?: string | null
@@ -3277,6 +3280,7 @@ export type Database = {
           signed_in_at?: string
           source?: string
           temperature?: string | null
+          test_reason?: string | null
           timeline?: string | null
           updated_at?: string
           working_with_agent?: boolean | null
@@ -3317,6 +3321,7 @@ export type Database = {
           id?: string
           intent?: string | null
           interest_level?: string | null
+          is_test?: boolean
           last_name?: string | null
           legacy_attendee_id?: string | null
           lender_status?: string | null
@@ -3330,6 +3335,7 @@ export type Database = {
           signed_in_at?: string
           source?: string
           temperature?: string | null
+          test_reason?: string | null
           timeline?: string | null
           updated_at?: string
           working_with_agent?: boolean | null

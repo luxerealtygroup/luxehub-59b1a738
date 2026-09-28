@@ -211,7 +211,10 @@ export function GuestCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate font-semibold">{guestName(guest)}</p>
+            <p className="truncate font-semibold">{guestName(guest)}{guest.is_test && <span className="ml-2 rounded border border-destructive/40 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-destructive">Test</span>}</p>
+            {guest.is_test && (
+              <p className="text-xs text-destructive">Test sign-in — not sent to Follow Up Boss and left out of counts and reports.{guest.test_reason ? ` (${guest.test_reason})` : ''}</p>
+            )}
             <Badge variant="outline" className="gap-1 text-[10px]">
               {guest.source === 'visitor' ? (
                 <><Tablet className="h-3 w-3" /> They signed in</>

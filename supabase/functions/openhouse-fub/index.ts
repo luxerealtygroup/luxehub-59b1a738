@@ -319,6 +319,7 @@ Deno.serve(async (req) => {
         .from('open_house_visitors')
         .select(VISITOR_COLUMNS)
         .eq('open_house_id', openHouseId)
+        .eq('is_test', false)
         .is('fub_sent_at', null);
       if (error) return json({ error: 'Could not load the guest list' }, 500);
       visitors = (data ?? []) as unknown as Visitor[];
