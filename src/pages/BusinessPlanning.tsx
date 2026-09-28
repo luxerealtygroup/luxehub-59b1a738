@@ -69,7 +69,7 @@ const BusinessPlanning = () => {
       {companyView ? (
         <AdminPlanningOverview settings={settings} onOpenSettings={() => setSettingsOpen(true)} />
       ) : reviewingAgent ? (
-        <AgentPlanDetail agentId={viewingAgentId!} agentName={viewingAgentName ?? 'Agent'} canReview />
+        <AgentPlanDetail agentId={viewingAgentId!} agentName={viewingAgentName ?? 'Agent'} canReview tabbed />
       ) : (
         <AgentPlanner
           agentId={user.id} fubUserId={effectiveFubUserId} hasFUB={hasFUB} agentName={null}
