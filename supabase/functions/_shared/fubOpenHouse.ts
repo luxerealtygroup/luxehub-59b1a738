@@ -241,6 +241,7 @@ export async function postNote(
 export interface HouseInfo {
   property_address: string;
   hosting_email: string | null;
+  hosting_agent_id?: string | null;
   hosting_fub_user_id?: number | null;
   city?: string | null;
   mls_number?: string | null;
@@ -339,7 +340,7 @@ export async function sendOne(
   stage: string,
   stages: Stage[],
   cacheKey = 'instance',
-): Promise<{ ok: boolean; personId?: string; error?: string; stageResult?: string; eventId?: string }> {
+): Promise<{ ok: boolean; personId?: string; error?: string; stageResult?: string; eventId?: string; agentTag?: AgentTagResult }> {
   if (v.fub_sent_at && v.fub_contact_id) {
     return { ok: true, personId: v.fub_contact_id };
   }
@@ -431,7 +432,52 @@ export async function sendOne(
     return { ok: false, personId, error: scrub(`Follow Up Boss ${upd.status}: ${upd.text}`, key).slice(0, 500) };
   }
 
-  return { ok: true, personId, stageResult, eventId: ev.body?.personId && ev.body?.id ? String(ev.body.id) : undefined };
+  // Agent-specific buyer tag: its own PUT, after the event and follow-up succeed.
+  let agentTag: AgentTagResult | undefined;
+  const tagName = agentBuyerTag(house.hosting_agent_id);
+  if (tagName) {
+    const protectedStage = existing && !isUnworked(existing.stage ? String(existing.stage) : null, stages);
+    if (v.has_home_to_sell !== 'no') agentTag = { tag: tagName, sent: false, result: 'Skipped — has a home to sell or did not say' };
+    else if (v.working_with_agent === true) agentTag = { tag: tagName, sent: false, result: 'Skipped — working with another agent' };
+    else if (protectedStage) agentTag = { tag: tagName, sent: false, result: `Skipped — stage ${existing!.stage} is protected` };
+    else agentTag = await applyAgentTag(key, personId, tagName);
+  }
+
+  return { ok: true, personId, stageResult, agentTag, eventId: ev.body?.personId && ev.body?.id ? String(ev.body.id) : undefined };
+}
+
+/**
+ * Per-agent buyer tags for open house guests. Exact existing FUB tag names only.
+ * Keyed by the hosting agent's LUXEhub profile id.
+ */
+const AGENT_BUYER_TAGS: Record<string, string> = {
+  '53b3385f-45db-418a-b132-70af49ac9db0': 'Nick OH', // Nick Dertinger
+};
+export function agentBuyerTag(hostingAgentId: string | null | undefined): string | null {
+  return hostingAgentId ? AGENT_BUYER_TAGS[hostingAgentId] ?? null : null;
+}
+
+export interface AgentTagResult { tag: string; sent: boolean; result: string }
+
+/** Add one tag to ONE person, keeping every existing tag. */
+export async function applyAgentTag(key: string, personId: string, tag: string): Promise<AgentTagResult> {
+  const person = await fub(key, `/people/${personId}?fields=id,tags`);
+  if (!person.ok) return { tag, sent: false, result: scrub(`Follow Up Boss ${person.status}: ${person.text}`, key).slice(0, 300) };
+  const tags = (person.body?.tags ?? []) as string[];
+  if (tags.includes(tag)) return { tag, sent: true, result: `${tag} tag already on contact` };
+  const upd = await fub(key, `/people/${personId}`, { method: 'PUT', body: JSON.stringify({ tags: [...tags, tag] }) });
+  if (!upd.ok) return { tag, sent: false, result: scrub(`Follow Up Boss ${upd.status}: ${upd.text}`, key).slice(0, 300) };
+  return { tag, sent: true, result: `${tag} tag sent` };
+}
+
+/** Columns to write on the guest row for an agent tag outcome. */
+export function agentTagColumns(r: AgentTagResult | undefined): Record<string, unknown> {
+  if (!r) return {};
+  return {
+    fub_agent_tag: r.tag,
+    fub_agent_tag_result: r.result,
+    fub_agent_tag_sent_at: r.sent ? new Date().toISOString() : null,
+  };
 }
 
 /**
