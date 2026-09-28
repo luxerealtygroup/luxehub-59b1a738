@@ -10,6 +10,7 @@ import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { requireStaff } from '../_shared/auth.ts';
 import { getUserOrgContext, getFubApiKeyForUser, getFubApiKeyForOrg } from '../_shared/fub.ts';
 import {
+  agentTagColumns,
   VISITOR_COLUMNS,
   type Visitor,
   getStages,
@@ -132,6 +133,7 @@ Deno.serve(async (req) => {
       return {
         property_address: h.property_address,
         hosting_email: prof?.fub_user_email || prof?.email || null,
+        hosting_agent_id: hid ?? null,
         hosting_fub_user_id: prof?.fub_user_id ? Number(prof.fub_user_id) || null : null,
         city: h.city ?? null,
         mls_number: h.mls_number ?? null,
@@ -278,6 +280,7 @@ Deno.serve(async (req) => {
             fub_note_updated_at: new Date().toISOString(), fub_sync_error: null, fub_attempts: 0,
             fub_next_attempt_at: null, fub_note_due_at: null, fub_stage: stage,
             fub_stage_result: out.stageResult ?? null, fub_event_id: out.eventId ?? null,
+            ...agentTagColumns(out.agentTag),
           }).eq('id', id);
         }
         const t = await applyTier(key, personId, tier);
@@ -368,6 +371,7 @@ Deno.serve(async (req) => {
             fub_stage: stage,
             fub_stage_result: out.stageResult ?? null,
             fub_event_id: out.eventId ?? null,
+            ...agentTagColumns(out.agentTag),
           })
           .eq('id', v.id);
       } else {
