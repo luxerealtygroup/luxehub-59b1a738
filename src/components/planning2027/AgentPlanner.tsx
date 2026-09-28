@@ -143,16 +143,16 @@ export function AgentPlanner({ agentId, fubUserId, hasFUB, agentName, settings, 
 
   const save = async (next: 'draft' | 'submitted') => {
     if (!inputs) return;
+    if (next === 'submitted') {
+      const ce = circlesSubmitError(circles);
+      if (ce) { toast.error(ce); setTab('reflection'); return; }
+    }
     if (next === 'submitted' && (inputs.goal_input_type === 'net' ? !inputs.net_income_goal : !inputs.gci_goal)) {
       toast.error('Enter your goal on the 2027 Goals tab before submitting'); setTab('goals'); return;
     }
     const full = withDefaults(prework, recap, results, actuals);
     if (next === 'submitted' && (full.action_plan?.length ?? 0) < 3) {
       toast.error('Add at least 3 actions to your 90-day plan'); setTab('forward'); return;
-    }
-    if (next === 'submitted') {
-      const ce = circlesSubmitError(circles);
-      if (ce) { toast.error(ce); setTab('reflection'); return; }
     }
     setBusy(true);
     const g = await supabase.from('planning_goals').upsert({
