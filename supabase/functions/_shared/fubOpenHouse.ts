@@ -75,7 +75,7 @@ export const VISITOR_COLUMNS =
   'id, first_name, last_name, email, phone, working_with_agent, agent_name, intent, ' +
   'has_home_to_sell, timeline, lender_status, custom_answers, notes, temperature, ' +
   'price_feedback, condition_feedback, interest_level, ' +
-  'fub_contact_id, fub_stage, fub_tier, casl_consent, casl_consent_at, fub_sent_at, signed_in_at, client_captured_at, created_at';
+  'is_test, test_reason, fub_contact_id, fub_stage, fub_tier, casl_consent, casl_consent_at, fub_sent_at, signed_in_at, client_captured_at, created_at';
 
 const PRICE_LABEL: Record<string, string> = {
   priced_right: 'Priced right',
@@ -343,6 +343,9 @@ export async function sendOne(
 ): Promise<{ ok: boolean; personId?: string; error?: string; stageResult?: string; eventId?: string; agentTag?: AgentTagResult }> {
   if (v.fub_sent_at && v.fub_contact_id) {
     return { ok: true, personId: v.fub_contact_id };
+  }
+  if ((v as { is_test?: boolean }).is_test) {
+    return { ok: false, error: 'Test sign-in — never sent to Follow Up Boss.' };
   }
   if (!v.phone && !v.email) {
     return { ok: false, error: 'No phone or email on this guest — Follow Up Boss needs one of them.' };
