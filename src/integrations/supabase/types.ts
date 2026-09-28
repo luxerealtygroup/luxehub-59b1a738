@@ -3190,6 +3190,9 @@ export type Database = {
           first_name: string
           follow_up_channel: string | null
           follow_up_sent_at: string | null
+          fub_agent_tag: string | null
+          fub_agent_tag_result: string | null
+          fub_agent_tag_sent_at: string | null
           fub_attempts: number
           fub_contact_id: string | null
           fub_event_id: string | null
@@ -3240,6 +3243,9 @@ export type Database = {
           first_name: string
           follow_up_channel?: string | null
           follow_up_sent_at?: string | null
+          fub_agent_tag?: string | null
+          fub_agent_tag_result?: string | null
+          fub_agent_tag_sent_at?: string | null
           fub_attempts?: number
           fub_contact_id?: string | null
           fub_event_id?: string | null
@@ -3290,6 +3296,9 @@ export type Database = {
           first_name?: string
           follow_up_channel?: string | null
           follow_up_sent_at?: string | null
+          fub_agent_tag?: string | null
+          fub_agent_tag_result?: string | null
+          fub_agent_tag_sent_at?: string | null
           fub_attempts?: number
           fub_contact_id?: string | null
           fub_event_id?: string | null
