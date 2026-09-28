@@ -73,36 +73,9 @@ export function AgentPlanDetail({ agentId, agentName, canReview, onChanged, tabb
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>;
   const pw: PreworkRow = prework ?? { wins_2026: null, challenges_2026: null, top_lead_sources: null, team_change_suggestion: null };
 
-  return (
-    <div className="space-y-8 min-w-0">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="text-xl sm:text-2xl font-display font-bold text-foreground break-words">{agentName}</h2>
-          <p className="text-sm text-muted-foreground">{PLAN_YEAR} business plan</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <StatusBadge status={goal?.status ?? null} />
-          {canReview && goal && goal.status === 'submitted' && (
-            <Button onClick={() => setStatus('approved')} disabled={busy} className="gap-2"><CheckCircle2 className="h-4 w-4" />Approve</Button>
-          )}
-          {canReview && goal && goal.status === 'approved' && (
-            <Button variant="outline" onClick={() => setStatus('submitted')} disabled={busy} className="gap-2"><RotateCcw className="h-4 w-4" />Reopen</Button>
-          )}
-        </div>
-      </div>
-
-      {tabbed ? (
-      <Tabs defaultValue="1">
-        <TabsList className="h-auto flex-wrap">
-          <TabsTrigger value="1">2026 Recap</TabsTrigger><TabsTrigger value="2">Reflection</TabsTrigger>
-          <TabsTrigger value="3">2027 Goals</TabsTrigger><TabsTrigger value="4">Way Forward</TabsTrigger>
-        </TabsList>
-        {sections}
-      </Tabs>) : sections}
-    </div>
-  );
-}
- title="2026 Recap">
+  const sections = (
+    <>
+      <Section tabbed={tabbed} n={1} title="2026 Recap">
         <RecapSection agentId={agentId} fubUserId={fub?.id ?? null} actuals={actuals} goal2026={goal2026} recap={recap} recapLoading={recapLoading}
           regenerating={working} canRegenerate={canReview} onRegenerate={regenerate} prework={pw} editable={false} />
       </Section>
@@ -139,6 +112,35 @@ export function AgentPlanDetail({ agentId, agentName, canReview, onChanged, tabb
         {prework ? <WayForwardSection prework={pw} editable={false} results={goal} actuals={actuals} agentId={agentId} />
           : <p className="text-sm text-muted-foreground">Nothing saved yet.</p>}
       </Section>
+    </>
+  );
+
+  return (
+    <div className="space-y-8 min-w-0">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-xl sm:text-2xl font-display font-bold text-foreground break-words">{agentName}</h2>
+          <p className="text-sm text-muted-foreground">{PLAN_YEAR} business plan</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusBadge status={goal?.status ?? null} />
+          {canReview && goal && goal.status === 'submitted' && (
+            <Button onClick={() => setStatus('approved')} disabled={busy} className="gap-2"><CheckCircle2 className="h-4 w-4" />Approve</Button>
+          )}
+          {canReview && goal && goal.status === 'approved' && (
+            <Button variant="outline" onClick={() => setStatus('submitted')} disabled={busy} className="gap-2"><RotateCcw className="h-4 w-4" />Reopen</Button>
+          )}
+        </div>
+      </div>
+
+      {tabbed ? (
+      <Tabs defaultValue="1">
+        <TabsList className="h-auto flex-wrap">
+          <TabsTrigger value="1">2026 Recap</TabsTrigger><TabsTrigger value="2">Reflection</TabsTrigger>
+          <TabsTrigger value="3">2027 Goals</TabsTrigger><TabsTrigger value="4">Way Forward</TabsTrigger>
+        </TabsList>
+        {sections}
+      </Tabs>) : sections}
     </div>
   );
 }
