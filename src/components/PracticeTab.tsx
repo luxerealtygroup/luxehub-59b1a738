@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -137,6 +138,12 @@ function ScriptingBossLink() {
   return (
     <Card className="border-primary/10">
       <CardContent className="space-y-3 pt-6">
+        <div>
+          <Button asChild>
+            <Link to="/dashboard/script-boss"><Mic className="h-4 w-4 mr-2" /> Start practice</Link>
+          </Button>
+          <p className="text-xs text-muted-foreground mt-2">Role-play with Script Boss in LuxeHub — your score saves here automatically.</p>
+        </div>
         {url ? (
           <div>
             <Button asChild>

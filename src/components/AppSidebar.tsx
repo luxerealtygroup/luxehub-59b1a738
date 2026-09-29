@@ -106,6 +106,7 @@ const allSections: MenuSection[] = [
     items: [
       { title: 'Activities', url: '/dashboard/activities', icon: Phone },
       { title: 'Weekly Coaching', url: '/dashboard/411', icon: ClipboardList },
+      { title: 'Script Boss', url: '/dashboard/script-boss', icon: Headset },
       { title: 'Goals', url: '/dashboard/goals', icon: Target },
       { title: 'Reports', url: '/dashboard/reports', icon: FileText },
     ],
