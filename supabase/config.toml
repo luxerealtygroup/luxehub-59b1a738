@@ -110,3 +110,6 @@ verify_jwt = false
 
 [functions.owner-coaching-notes]
 verify_jwt = false
+
+[functions.script-boss]
+verify_jwt = false
