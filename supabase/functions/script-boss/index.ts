@@ -209,7 +209,7 @@ async function gradeAndSave(ctx: { orgId: string; name: string }, userId: string
         structure_covered: { type: 'string', description: 'A L P T M A M A with missed letters marked, e.g. "A L P T M A M A — covered: A, L, M; missed: P, T, A (agency), M (mortgage), A (ask again)". For sellers use the provisional seller sequence and say so.' },
         magic_words_used: s, magic_words_missed: s,
         one_thing_to_change: s, drill_again: s,
-        coach_note: { type: 'string', description: "Coach's note to Kristen: one honest sentence." },
+        coach_note: { type: 'string', description: "Coach's note to Kristen: exactly ONE honest sentence (max ~30 words), no greeting — what she should know that the scores don't show." },
         word_patterns_note: { type: 'string', description: 'The unscored line: word-choice pattern used well, and one sitting there unused.' },
       },
       required: [...SKILLS, 'asked_for_specific_appointment', 'appointment_set', 'strongest_moment', 'costliest_moment', 'structure_covered', 'magic_words_used', 'magic_words_missed', 'one_thing_to_change', 'drill_again', 'coach_note', 'word_patterns_note'],
