@@ -5483,9 +5483,11 @@ export type Database = {
         Row: {
           agent_talk_pct: number | null
           appointment_set: boolean | null
+          channel: string | null
           coach_note: string | null
           costliest_moment: string | null
           created_at: string
+          delivery: Json | null
           drill_again: string | null
           duration_seconds: number | null
           earn_30_seconds: number | null
@@ -5500,6 +5502,7 @@ export type Database = {
           objection_handling: number | null
           one_thing_to_change: string | null
           org_id: string
+          practice_mode: string | null
           raw_report: string | null
           scenario: string | null
           script_boss_session_id: string | null
@@ -5516,9 +5519,11 @@ export type Database = {
         Insert: {
           agent_talk_pct?: number | null
           appointment_set?: boolean | null
+          channel?: string | null
           coach_note?: string | null
           costliest_moment?: string | null
           created_at?: string
+          delivery?: Json | null
           drill_again?: string | null
           duration_seconds?: number | null
           earn_30_seconds?: number | null
@@ -5533,6 +5538,7 @@ export type Database = {
           objection_handling?: number | null
           one_thing_to_change?: string | null
           org_id?: string
+          practice_mode?: string | null
           raw_report?: string | null
           scenario?: string | null
           script_boss_session_id?: string | null
@@ -5549,9 +5555,11 @@ export type Database = {
         Update: {
           agent_talk_pct?: number | null
           appointment_set?: boolean | null
+          channel?: string | null
           coach_note?: string | null
           costliest_moment?: string | null
           created_at?: string
+          delivery?: Json | null
           drill_again?: string | null
           duration_seconds?: number | null
           earn_30_seconds?: number | null
@@ -5566,6 +5574,7 @@ export type Database = {
           objection_handling?: number | null
           one_thing_to_change?: string | null
           org_id?: string
+          practice_mode?: string | null
           raw_report?: string | null
           scenario?: string | null
           script_boss_session_id?: string | null
@@ -5952,33 +5961,39 @@ export type Database = {
       script_boss_scenarios: {
         Row: {
           active: boolean
+          category: string | null
           created_at: string
           description: string
           id: string
           is_custom: boolean
           name: string
+          number: number | null
           org_id: string
           sort_order: number
           updated_at: string
         }
         Insert: {
           active?: boolean
+          category?: string | null
           created_at?: string
           description?: string
           id?: string
           is_custom?: boolean
           name: string
+          number?: number | null
           org_id?: string
           sort_order?: number
           updated_at?: string
         }
         Update: {
           active?: boolean
+          category?: string | null
           created_at?: string
           description?: string
           id?: string
           is_custom?: boolean
           name?: string
+          number?: number | null
           org_id?: string
           sort_order?: number
           updated_at?: string
@@ -5987,6 +6002,7 @@ export type Database = {
       }
       script_boss_sessions: {
         Row: {
+          channel: string | null
           custom_situation: string | null
           difficulty: string
           ended_at: string | null
@@ -5994,33 +6010,39 @@ export type Database = {
           instructions_version: number | null
           mode: string
           org_id: string
+          practice_mode: string
           practice_session_id: string | null
           scenario_id: string | null
           scenario_name: string
           started_at: string
           status: string
+          timing: Json
           transcript: Json
           updated_at: string
           user_id: string
         }
         Insert: {
+          channel?: string | null
           custom_situation?: string | null
-          difficulty: string
+          difficulty?: string
           ended_at?: string | null
           id?: string
           instructions_version?: number | null
           mode?: string
           org_id: string
+          practice_mode?: string
           practice_session_id?: string | null
           scenario_id?: string | null
           scenario_name: string
           started_at?: string
           status?: string
+          timing?: Json
           transcript?: Json
           updated_at?: string
           user_id: string
         }
         Update: {
+          channel?: string | null
           custom_situation?: string | null
           difficulty?: string
           ended_at?: string | null
@@ -6028,11 +6050,13 @@ export type Database = {
           instructions_version?: number | null
           mode?: string
           org_id?: string
+          practice_mode?: string
           practice_session_id?: string | null
           scenario_id?: string | null
           scenario_name?: string
           started_at?: string
           status?: string
+          timing?: Json
           transcript?: Json
           updated_at?: string
           user_id?: string
