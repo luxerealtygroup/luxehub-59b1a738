@@ -137,7 +137,7 @@ export function parsePracticeReport(text: string): ParsedPracticeReport {
     'appointment\\??',
   ]);
   let appointment_set: boolean | null = null;
-  if (/^(yes|y|true)\b/i.test(apptRaw)) appointment_set = true;
+  if (/^(yes|y|true)\b(?!\s*\/\s*no)/i.test(apptRaw)) appointment_set = true;
   else if (/^(no|n|false)\b/i.test(apptRaw)) appointment_set = false;
 
   const dateRaw = field(src, ['date', 'session date']);
@@ -167,9 +167,9 @@ export function parsePracticeReport(text: string): ParsedPracticeReport {
 
     magic_words_used: field(src, ['magic words used']),
     magic_words_missed: field(src, ['magic words missed']),
-    one_thing_to_change: field(src, ['one thing to change', 'one thing']),
-    drill_again: field(src, ['drill again', 'drill']),
-    coach_note: field(src, ['coach note', "coach's note", 'coaching note']),
+    one_thing_to_change: field(src, ['one thing to change next time', 'one thing to change', 'one thing']),
+    drill_again: field(src, ['drill this again', 'drill again', 'drill']),
+    coach_note: field(src, ["coach'?s note to kristen", 'coach note', "coach's note", 'coaching note']),
   };
 }
 

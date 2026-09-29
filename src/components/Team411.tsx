@@ -373,7 +373,7 @@ const Team411 = () => {
                                     </div>
                                   </div>
                                   <p className="text-sm">
-                                    <span className="text-muted-foreground">Coach note: </span>
+                                    <span className="text-muted-foreground">Coach's note to Kristen: </span>
                                     {p.latest?.coach_note || '—'}
                                   </p>
                                   <p className="text-sm">
