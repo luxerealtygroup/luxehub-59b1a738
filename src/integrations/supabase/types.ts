@@ -5481,11 +5481,13 @@ export type Database = {
       }
       practice_sessions: {
         Row: {
+          agent_talk_pct: number | null
           appointment_set: boolean | null
           coach_note: string | null
           costliest_moment: string | null
           created_at: string
           drill_again: string | null
+          duration_seconds: number | null
           earn_30_seconds: number | null
           exchanges: number | null
           grade: string | null
@@ -5500,20 +5502,25 @@ export type Database = {
           org_id: string
           raw_report: string | null
           scenario: string | null
+          script_boss_session_id: string | null
           session_date: string
+          source: string
           strongest_moment: string | null
           structure_covered: string | null
           talk_less_ratio: number | null
           the_ask: number | null
           total: number | null
+          transcript: Json | null
           user_id: string
         }
         Insert: {
+          agent_talk_pct?: number | null
           appointment_set?: boolean | null
           coach_note?: string | null
           costliest_moment?: string | null
           created_at?: string
           drill_again?: string | null
+          duration_seconds?: number | null
           earn_30_seconds?: number | null
           exchanges?: number | null
           grade?: string | null
@@ -5528,20 +5535,25 @@ export type Database = {
           org_id?: string
           raw_report?: string | null
           scenario?: string | null
+          script_boss_session_id?: string | null
           session_date?: string
+          source?: string
           strongest_moment?: string | null
           structure_covered?: string | null
           talk_less_ratio?: number | null
           the_ask?: number | null
           total?: number | null
+          transcript?: Json | null
           user_id: string
         }
         Update: {
+          agent_talk_pct?: number | null
           appointment_set?: boolean | null
           coach_note?: string | null
           costliest_moment?: string | null
           created_at?: string
           drill_again?: string | null
+          duration_seconds?: number | null
           earn_30_seconds?: number | null
           exchanges?: number | null
           grade?: string | null
@@ -5556,12 +5568,15 @@ export type Database = {
           org_id?: string
           raw_report?: string | null
           scenario?: string | null
+          script_boss_session_id?: string | null
           session_date?: string
+          source?: string
           strongest_moment?: string | null
           structure_covered?: string | null
           talk_less_ratio?: number | null
           the_ask?: number | null
           total?: number | null
+          transcript?: Json | null
           user_id?: string
         }
         Relationships: []
@@ -5903,6 +5918,192 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      script_boss_instructions: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string | null
+          id: string
+          note: string | null
+          org_id: string
+          version: number
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          org_id?: string
+          version: number
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          org_id?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      script_boss_scenarios: {
+        Row: {
+          active: boolean
+          created_at: string
+          description: string
+          id: string
+          is_custom: boolean
+          name: string
+          org_id: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          description?: string
+          id?: string
+          is_custom?: boolean
+          name: string
+          org_id?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          description?: string
+          id?: string
+          is_custom?: boolean
+          name?: string
+          org_id?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      script_boss_sessions: {
+        Row: {
+          custom_situation: string | null
+          difficulty: string
+          ended_at: string | null
+          id: string
+          instructions_version: number | null
+          mode: string
+          org_id: string
+          practice_session_id: string | null
+          scenario_id: string | null
+          scenario_name: string
+          started_at: string
+          status: string
+          transcript: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          custom_situation?: string | null
+          difficulty: string
+          ended_at?: string | null
+          id?: string
+          instructions_version?: number | null
+          mode?: string
+          org_id: string
+          practice_session_id?: string | null
+          scenario_id?: string | null
+          scenario_name: string
+          started_at?: string
+          status?: string
+          transcript?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          custom_situation?: string | null
+          difficulty?: string
+          ended_at?: string | null
+          id?: string
+          instructions_version?: number | null
+          mode?: string
+          org_id?: string
+          practice_session_id?: string | null
+          scenario_id?: string | null
+          scenario_name?: string
+          started_at?: string
+          status?: string
+          transcript?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      script_boss_trainees: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          monthly_cap_usd: number | null
+          org_id: string
+          updated_at: string
+          updated_by: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          monthly_cap_usd?: number | null
+          org_id?: string
+          updated_at?: string
+          updated_by?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          monthly_cap_usd?: number | null
+          org_id?: string
+          updated_at?: string
+          updated_by?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      script_boss_usage: {
+        Row: {
+          cost_usd: number
+          created_at: string
+          id: string
+          kind: string
+          org_id: string
+          session_id: string | null
+          units: number
+          user_id: string
+        }
+        Insert: {
+          cost_usd?: number
+          created_at?: string
+          id?: string
+          kind: string
+          org_id: string
+          session_id?: string | null
+          units?: number
+          user_id: string
+        }
+        Update: {
+          cost_usd?: number
+          created_at?: string
+          id?: string
+          kind?: string
+          org_id?: string
+          session_id?: string | null
+          units?: number
+          user_id?: string
+        }
+        Relationships: []
       }
       submissions: {
         Row: {
@@ -6688,6 +6889,7 @@ export type Database = {
         Args: { _portal_id: string; _user_id: string }
         Returns: boolean
       }
+      can_use_script_boss: { Args: { _uid: string }; Returns: boolean }
       check_table_grants: {
         Args: { _tables: string[] }
         Returns: {

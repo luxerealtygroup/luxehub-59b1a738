@@ -22,6 +22,7 @@ import Pipeline from "./pages/Pipeline";
 import Commissions from "./pages/Commissions";
 import Goals from "./pages/Goals";
 import FourOneOne from "./pages/FourOneOne";
+import ScriptBoss from "./pages/ScriptBoss";
 import Reports from "./pages/Reports";
 import AdminReports from "./pages/AdminReports";
 import AgentProfile from "./pages/AgentProfile";
@@ -169,6 +170,7 @@ const App = () => (
               <Route path="commissions" element={<RoleGuard><Commissions /></RoleGuard>} />
               <Route path="goals" element={<Goals />} />
               <Route path="411" element={<FourOneOne />} />
+              <Route path="script-boss" element={<ScriptBoss />} />
               <Route path="reports" element={<Reports />} />
               <Route path="library" element={<RoleGuard><Library /></RoleGuard>} />
               <Route path="resources/listings" element={<RoleGuard><ListingsResources /></RoleGuard>} />
