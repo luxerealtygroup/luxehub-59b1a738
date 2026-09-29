@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Copy } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
 import { SCORE_FIELDS } from '@/lib/practiceReport';
 
@@ -23,13 +25,17 @@ export interface ScriptBossReportRow {
   one_thing_to_change: string | null;
   drill_again: string | null;
   coach_note: string | null;
-  transcript: { role: 'agent' | 'client'; text: string }[] | null;
+  raw_report?: string | null;
+  delivery?: { wpm?: number | null; avg_pause_after_question_ms?: number | null; hard_rule_applied?: boolean } | null;
+  transcript: { role: 'agent' | 'client' | 'coach'; text: string; paused?: boolean }[] | null;
   [k: string]: unknown;
 }
 
 export function ScriptBossReport({ row, collapsible = false }: { row: ScriptBossReportRow; collapsible?: boolean }) {
   const [open, setOpen] = useState(!collapsible);
   const [showTranscript, setShowTranscript] = useState(false);
+  const { toast } = useToast();
+  const delivery = row.delivery ?? null;
   const mins = row.duration_seconds ? Math.max(1, Math.round(row.duration_seconds / 60)) : null;
 
   return (
