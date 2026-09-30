@@ -67,7 +67,7 @@ const PACES: Record<string, string> = {
   brisk: 'at a brisk, slightly quick pace',
 };
 
-/** Streams 24 kHz PCM speech as SSE from the gateway (first audio arrives in ~1s). */
+/** Streams 24 kHz PCM speech as SSE from the gateway (first audio in ~0.6-0.7s). */
 async function ttsStream(text: string, opts: { voice?: string; pace?: string; coach?: boolean }) {
   const clean = text.replace(/\*[^*]+\*/g, '').replace(/[#_`>]/g, '').slice(0, 1500).trim();
   const voice = VOICES.includes(opts.voice ?? '') ? opts.voice! : (opts.coach ? 'Charon' : 'Kore');
@@ -85,11 +85,11 @@ async function ttsStream(text: string, opts: { voice?: string; pace?: string; co
       stream_format: 'sse',
     }),
   });
-  return { res, chars: clean.length };
+  return { res, chars: clean.length, rate: TTS_PER_CHAR };
 }
 
 /** SSE response: one app event first (reply + transcript), then the gateway's audio events piped through. */
-function sseReply(first: Record<string, unknown> | null, text: string | null, opts: { voice?: string; pace?: string; coach?: boolean }, onChars: (n: number) => void) {
+function sseReply(first: Record<string, unknown> | null, text: string | null, opts: { voice?: string; pace?: string; coach?: boolean }, onChars: (n: number, rate?: number) => void) {
   const enc = new TextEncoder();
   const stream = new ReadableStream({
     async start(c) {
@@ -139,11 +139,12 @@ async function claude(system: string, messages: { role: 'user' | 'assistant'; co
 }
 
 async function loadCtx(userId: string) {
-  const { data: profile } = await db.from('profiles').select('org_id, full_name').eq('id', userId).maybeSingle();
+  const [{ data: profile }, { data: ok }] = await Promise.all([
+    db.from('profiles').select('org_id, full_name').eq('id', userId).maybeSingle(),
+    db.rpc('can_use_script_boss', { _uid: userId }),
+  ]);
   const orgId = profile?.org_id as string | undefined;
-  if (!orgId) return null;
-  const { data: ok } = await db.rpc('can_use_script_boss', { _uid: userId });
-  if (!ok) return null;
+  if (!orgId || !ok) return null;
   return { orgId, name: (profile?.full_name as string) || 'Agent' };
 }
 
@@ -175,12 +176,13 @@ function toMessages(t: Turn[], opener: string) {
 }
 
 async function sessionSystem(orgId: string, session: any, agentName: string) {
-  const inst = await latestInstructions(orgId);
+  const [inst, scRes] = await Promise.all([
+    latestInstructions(orgId),
+    session.scenario_id ? db.from('script_boss_scenarios').select('number, name, description, category').eq('id', session.scenario_id).maybeSingle() : Promise.resolve({ data: null }),
+  ]);
   let scenario = session.scenario_name;
-  if (session.scenario_id) {
-    const { data: sc } = await db.from('script_boss_scenarios').select('number, name, description, category').eq('id', session.scenario_id).maybeSingle();
-    if (sc && sc.number && sc.number < 99) scenario = `#${sc.number} (${sc.category}) ${sc.name}: ${sc.description}`;
-  }
+  const sc = scRes.data as any;
+  if (sc && sc.number && sc.number < 99) scenario = `#${sc.number} (${sc.category}) ${sc.name}: ${sc.description}`;
   return `${inst.content}\n\n${appLayer({ mode: session.practice_mode, scenario, channel: session.channel, custom: session.custom_situation, agentName })}`;
 }
 
@@ -208,7 +210,8 @@ async function claudeStream(system: string, messages: { role: 'user' | 'assistan
     body: JSON.stringify({ model: ROLEPLAY_MODEL, max_tokens: 400, stream: true, system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }], messages }),
   });
   if (!res.ok || !res.body) {
-    const status = res.status; await res.text().catch(() => '');
+    const status = res.status; const errText = await res.text().catch(() => '');
+    console.error('claude stream', status, errText.slice(0, 300));
     throw Object.assign(new Error(status === 429 ? 'AI is busy — try again in a moment.' : 'AI request failed'), { status });
   }
   const u = { input: 0, output: 0, cr: 0, cw: 0 };
@@ -229,7 +232,7 @@ async function claudeStream(system: string, messages: { role: 'user' | 'assistan
         u.input = m.input_tokens ?? 0; u.cr = m.cache_read_input_tokens ?? 0; u.cw = m.cache_creation_input_tokens ?? 0; u.output = m.output_tokens ?? 0;
       } else if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') onText(ev.delta.text);
       else if (ev.type === 'message_delta' && ev.usage) u.output = ev.usage.output_tokens ?? u.output;
-      else if (ev.type === 'error') throw new Error('AI request failed');
+      else if (ev.type === 'error') { console.error('claude stream event', JSON.stringify(ev.error ?? ev).slice(0, 300)); throw new Error('AI request failed'); }
     }
   }
   const cost = u.input * HAIKU.in + u.cr * HAIKU.cacheRead + u.cw * HAIKU.cacheWrite + u.output * HAIKU.out;
@@ -442,8 +445,36 @@ async function gradeAndSave(ctx: { orgId: string; name: string }, userId: string
   return ps.id as string;
 }
 
+const DG_LISTEN = 'wss://api.deepgram.com/v1/listen?model=nova-3&language=en&encoding=linear16&sample_rate=16000&channels=1'
+  + '&interim_results=true&smart_format=true&punctuate=true&endpointing=300';
+
+/** Live transcription relay: browser ⇄ this function ⇄ Deepgram. The key stays here. */
+async function liveRelay(req: Request) {
+  const url = new URL(req.url);
+  const { data: u } = await db.auth.getUser(url.searchParams.get('access_token') ?? '');
+  const userId = u?.user?.id;
+  if (!userId) return new Response('unauthorized', { status: 401 });
+  const ctx = await loadCtx(userId);
+  if (!ctx) return new Response('forbidden', { status: 403 });
+  if (await capReached(ctx.orgId, userId)) return new Response('limit', { status: 402 });
+  const key = Deno.env.get('DEEPGRAM_API_KEY');
+  if (!key) return new Response('not configured', { status: 503 });
+  const { socket, response } = Deno.upgradeWebSocket(req);
+  const up = new WebSocket(DG_LISTEN, ['token', key]);
+  up.binaryType = 'arraybuffer';
+  const queue: (string | ArrayBuffer)[] = [];
+  socket.onmessage = (e) => { if (up.readyState === WebSocket.OPEN) up.send(e.data); else if (up.readyState === WebSocket.CONNECTING) queue.push(e.data); };
+  up.onopen = () => { for (const m of queue.splice(0)) up.send(m); };
+  up.onmessage = (e) => { if (socket.readyState === WebSocket.OPEN) socket.send(e.data); };
+  up.onclose = (e) => { if (e.code !== 1000) console.error('deepgram live closed', e.code, e.reason?.slice(0, 120)); try { socket.close(); } catch { /* gone */ } };
+  up.onerror = () => { /* onclose follows */ };
+  socket.onclose = () => { try { up.close(); } catch { /* gone */ } };
+  return response;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: cors });
+  if ((req.headers.get('upgrade') ?? '').toLowerCase() === 'websocket') return liveRelay(req);
   try {
     const token = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '') ?? '';
     const { data: u } = await db.auth.getUser(token);
@@ -538,25 +569,14 @@ Deno.serve(async (req) => {
       return json({ practice_session_id: id });
     }
 
-    // Short-lived Deepgram token for the browser's live transcription socket.
-    // The API key itself never leaves the server and is never logged.
-    if (action === 'stt_token') {
-      const key = Deno.env.get('DEEPGRAM_API_KEY');
-      if (!key) return json({ error: 'Live transcription is not set up.', fallback: true }, 503);
-      if (await capReached(orgId, userId)) return json({ error: 'Monthly practice limit reached.' }, 402);
-      const r = await fetch('https://api.deepgram.com/v1/auth/grant', {
-        method: 'POST', headers: { Authorization: `Token ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ ttl_seconds: 60 }),
-      });
-      if (!r.ok) { await r.text().catch(() => ''); console.error('deepgram grant failed', r.status); return json({ error: 'Live transcription unavailable.', fallback: true }, 502); }
-      const d = await r.json();
-      return json({ token: d.access_token });
-    }
-
     const { data: session } = await db.from('script_boss_sessions').select('*').eq('id', body.session_id).maybeSingle();
     if (!session || session.user_id !== userId) return json({ error: 'Session not found.' }, 404);
 
     if (action === 'turn') {
       if (session.status !== 'active') return json({ error: 'This session has ended.' }, 400);
+      // Build the prompt while the cap is checked, to save a round trip.
+      const systemP = sessionSystem(orgId, session, ctx.name);
+      systemP.catch(() => {});
       if (await capReached(orgId, userId)) return json({ error: 'Monthly practice limit reached.' }, 402);
       const text = String(body.text ?? '').slice(0, 3000).trim();
       if (!text) return json({ error: 'Say something first.' }, 400);
@@ -575,7 +595,7 @@ Deno.serve(async (req) => {
       }
       if (body.speak && body.stream && !paused && session.practice_mode === 'drill' && session.channel !== 'text') {
         return streamSpokenReply({
-          system: await sessionSystem(orgId, session, ctx.name), messages: toMessages(session.transcript, openerFor(session)),
+          system: await systemP, messages: toMessages(session.transcript, openerFor(session)),
           voice: body.speak.voice, pace: body.speak.pace,
           onClaude: (tk, cost) => { logUsage(orgId, userId, session.id, 'claude', tk, cost).catch(() => {}); },
           onChars: logTts(session.id),

@@ -14,11 +14,11 @@ export type LiveStt = {
   close: () => void;
 };
 
-const URL_BASE = 'wss://api.deepgram.com/v1/listen?model=nova-3&language=en&encoding=linear16&sample_rate=16000&channels=1'
-  + '&interim_results=true&smart_format=true&punctuate=true&endpointing=300';
-
-export async function openLiveStt(stream: MediaStream, ctx: AudioContext, token: string, onFail: () => void): Promise<LiveStt> {
-  const ws = new WebSocket(URL_BASE, ['bearer', token]);
+/** `accessToken` is the signed-in user's session token; the relay checks access and holds the Deepgram key. */
+export async function openLiveStt(stream: MediaStream, ctx: AudioContext, accessToken: string, onFail: () => void): Promise<LiveStt> {
+  const base = String(import.meta.env.VITE_SUPABASE_URL).replace(/^http/, 'ws');
+  const q = new URLSearchParams({ access_token: accessToken, apikey: String(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) });
+  const ws = new WebSocket(`${base}/functions/v1/script-boss?${q}`);
   ws.binaryType = 'arraybuffer';
   await new Promise<void>((resolve, reject) => {
     const t = window.setTimeout(() => reject(new Error('timeout')), 5000);
