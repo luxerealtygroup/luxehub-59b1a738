@@ -38,6 +38,13 @@ const BusinessPlanning = () => {
     setSettings(data ? { ...DEFAULT_SETTINGS, ...(data as any) } : DEFAULT_SETTINGS);
   }, []);
   useEffect(() => { loadSettings(); }, [loadSettings]);
+  // Own Follow Up Boss ID (effectiveFubUserId is only set while viewing as an agent).
+  const [ownFubUserId, setOwnFubUserId] = useState<number | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    supabase.from('profiles').select('fub_user_id').eq('id', user.id).maybeSingle()
+      .then(({ data }) => setOwnFubUserId((data as any)?.fub_user_id ?? null));
+  }, [user]);
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 60000); return () => clearInterval(t); }, []);
 
   if (!settings || !user) {
@@ -72,7 +79,7 @@ const BusinessPlanning = () => {
         <AgentPlanDetail agentId={viewingAgentId!} agentName={viewingAgentName ?? 'Agent'} canReview tabbed />
       ) : (
         <AgentPlanner
-          agentId={user.id} fubUserId={effectiveFubUserId} hasFUB={hasFUB} agentName={null}
+          agentId={user.id} fubUserId={effectiveFubUserId ?? ownFubUserId} hasFUB={hasFUB} agentName={null}
           settings={settings} pastDeadline={pastDeadline} onStatus={setStatus} canRegenerate={admin}
         />
       )}
