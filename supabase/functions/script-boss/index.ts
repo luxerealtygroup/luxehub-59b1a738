@@ -120,7 +120,7 @@ async function ttsStream(text: string, opts: { voice?: string; pace?: string; co
 }
 
 /** SSE response: one app event first (reply + transcript), then the gateway's audio events piped through. */
-function sseReply(first: Record<string, unknown> | null, text: string | null, opts: { voice?: string; pace?: string; coach?: boolean }, onChars: (n: number) => void) {
+function sseReply(first: Record<string, unknown> | null, text: string | null, opts: { voice?: string; pace?: string; coach?: boolean }, onChars: (n: number, rate?: number) => void) {
   const enc = new TextEncoder();
   const stream = new ReadableStream({
     async start(c) {
