@@ -527,9 +527,37 @@ export default function ScriptBoss() {
                         <Button type="button" size="sm" variant={mode === 'voice' ? 'default' : 'outline'} disabled={micOk === false} onClick={() => setMode('voice')}><Mic className="h-4 w-4 mr-1" /> Out loud</Button>
                         <Button type="button" size="sm" variant={mode === 'text' ? 'default' : 'outline'} onClick={() => setMode('text')}><Keyboard className="h-4 w-4 mr-1" /> Type</Button>
                       </div>
-                      {mode === 'voice' && <label className="flex items-center gap-2 text-sm"><Switch checked={handsFree} onCheckedChange={setHandsFree} /> Hands-free</label>}
+
                       {micOk === false && <span className="text-xs text-muted-foreground">Microphone not available — typing instead.</span>}
                     </div>
+                    {mode === 'voice' && (
+                      <div className="grid gap-4 rounded-md border border-border p-3 sm:grid-cols-2">
+                        <div className="space-y-1.5">
+                          <Label>Client voice</Label>
+                          <Select value={prefs.voice} onValueChange={v => setPrefs({ voice: v })}>
+                            <SelectTrigger aria-label="Client voice"><SelectValue /></SelectTrigger>
+                            <SelectContent>{VOICE_OPTIONS.map(v => <SelectItem key={v.id} value={v.id}>{v.label}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>Speaking speed</Label>
+                          <div className="flex gap-2">
+                            {(['relaxed', 'natural', 'brisk'] as const).map(p => (
+                              <Button key={p} type="button" size="sm" variant={prefs.pace === p ? 'default' : 'outline'} onClick={() => setPrefs({ pace: p })} className="capitalize">{p}</Button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>Send after I stop talking for {(prefs.silenceMs / 1000).toFixed(1)}s</Label>
+                          <Slider min={700} max={2500} step={100} value={[prefs.silenceMs]} onValueChange={([v]) => setPrefs({ silenceMs: v })} aria-label="Silence before sending" />
+                        </div>
+                        <div className="flex flex-col gap-2 text-sm">
+                          <label className="flex items-center gap-2"><Switch checked={!prefs.voiceMuted} onCheckedChange={v => setPrefs({ voiceMuted: !v })} /> Client speaks out loud</label>
+                          <label className="flex items-center gap-2"><Switch checked={prefs.pushToTalk} onCheckedChange={v => setPrefs({ pushToTalk: v })} /> Push-to-talk instead of hands-free</label>
+                          {channel === 'text' && practiceMode === 'drill' && <span className="text-xs text-muted-foreground">Text channel stays as text — the lead's replies aren't read aloud.</span>}
+                        </div>
+                      </div>
+                    )}
                     <Button onClick={start} disabled={(practiceMode === 'drill' && !scenarioId) || Boolean(busy)}>
                       {busy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />} {practiceMode === 'clinic' ? 'Open clinic' : 'Start drill'}
                     </Button>
@@ -571,7 +599,7 @@ export default function ScriptBoss() {
                 </CardTitle>
                 <div className="flex gap-1">
                   {paused && <Badge>Paused — talking to the coach</Badge>}
-                  <Badge variant="outline">{mode === 'voice' ? (handsFree ? 'Hands-free' : 'Push-to-talk') : 'Typing'}</Badge>
+                  <Badge variant="outline">{mode === 'voice' ? (prefs.pushToTalk ? 'Push-to-talk' : 'Hands-free') : 'Typing'}</Badge>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -582,6 +610,11 @@ export default function ScriptBoss() {
                       <span className={`inline-block max-w-[85%] rounded-lg px-3 py-2 text-sm ${t.role === 'agent' ? 'bg-primary text-primary-foreground' : t.role === 'coach' ? 'bg-accent text-accent-foreground border border-border' : 'bg-card border border-border'}`}>
                         <span className="block text-[10px] uppercase tracking-wide opacity-70">{t.role === 'agent' ? (t.paused ? 'You (paused)' : 'You') : t.role === 'coach' ? 'Coach' : 'Lead'}</span>
                         {t.text}
+                        {t.role !== 'agent' && (
+                          <button type="button" className="ml-2 inline-flex align-middle opacity-60 hover:opacity-100" aria-label="Play this line" onClick={() => speakText(t.text, t.role === 'coach')}>
+                            <Volume2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </span>
                     </div>
                   ))}
@@ -590,20 +623,32 @@ export default function ScriptBoss() {
                 {busy && <p className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> {busy}</p>}
 
                 {mode === 'voice' ? (
-                  <div className="flex flex-wrap gap-2 items-center">
-                    {handsFree ? (
-                      <Button variant={recording ? 'destructive' : 'default'} disabled={Boolean(busy)} onClick={() => (recording ? stopListening() : startListening(true))}>
-                        {recording ? <><MicOff className="h-4 w-4 mr-2" /> Listening… tap when done</> : <><Mic className="h-4 w-4 mr-2" /> Start listening</>}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3 rounded-md border border-border bg-muted/30 px-3 py-2" data-testid="sb-status" data-phase={micMuted ? 'muted' : phase}>
+                      {micMuted ? <><MicOff className="h-5 w-5 text-muted-foreground" /><span className="font-medium">Mic muted</span></>
+                        : phase === 'listening' ? <><Ear className="h-5 w-5 text-primary animate-pulse" /><span className="font-medium">Listening</span></>
+                        : phase === 'thinking' ? <><Brain className="h-5 w-5 text-muted-foreground animate-pulse" /><span className="font-medium">Thinking</span></>
+                        : phase === 'speaking' ? <><Phone className="h-5 w-5 text-primary" /><span className="font-medium">{paused ? 'Coach speaking' : 'Client speaking'}</span></>
+                        : <><Mic className="h-5 w-5 text-muted-foreground" /><span className="font-medium">{prefs.pushToTalk ? 'Hold to talk' : 'Ready'}</span></>}
+                      {delays.length > 0 && <span className="ml-auto text-xs text-muted-foreground">Reply delay {delays[delays.length - 1].toFixed(1)}s · avg {(delays.reduce((a, b) => a + b, 0) / delays.length).toFixed(1)}s</span>}
+                    </div>
+                    <div className="flex flex-wrap gap-2 items-center">
+                      {prefs.pushToTalk && (
+                        <Button variant={recording ? 'destructive' : 'default'} disabled={phase === 'thinking'}
+                          onPointerDown={e => { e.preventDefault(); pttDown(); }} onPointerUp={pttUp}
+                          onPointerLeave={() => recording && pttUp()} className="select-none touch-none">
+                          <Mic className="h-4 w-4 mr-2" /> {recording ? 'Release to send' : 'Hold to talk'}
+                        </Button>
+                      )}
+                      <Button variant="outline" size="sm" onClick={() => setMicMuted(m => !m)}>
+                        {micMuted ? <><Mic className="h-4 w-4 mr-1" /> Unmute mic</> : <><MicOff className="h-4 w-4 mr-1" /> Mute mic</>}
                       </Button>
-                    ) : (
-                      <Button variant={recording ? 'destructive' : 'default'} disabled={Boolean(busy)}
-                        onPointerDown={e => { e.preventDefault(); startListening(false); }} onPointerUp={stopListening}
-                        onPointerLeave={() => recording && stopListening()} className="select-none touch-none">
-                        <Mic className="h-4 w-4 mr-2" /> {recording ? 'Release to send' : 'Hold to talk'}
+                      <Button variant="outline" size="sm" onClick={() => { setPrefs({ voiceMuted: !prefs.voiceMuted }); }}>
+                        {prefs.voiceMuted ? <><VolumeX className="h-4 w-4 mr-1" /> Voice off</> : <><Volume2 className="h-4 w-4 mr-1" /> Voice on</>}
                       </Button>
-                    )}
-                    <Button variant="outline" size="sm" onClick={() => setMode('text')}><Keyboard className="h-4 w-4 mr-1" /> Type instead</Button>
-                    <span className="text-xs text-muted-foreground">Say "pause", "rewind" or "end" any time.</span>
+                      <Button variant="outline" size="sm" onClick={() => { stopAll(); setMode('text'); }}><Keyboard className="h-4 w-4 mr-1" /> Type instead</Button>
+                      <span className="text-xs text-muted-foreground">Just talk — it sends when you stop. Say "pause", "rewind" or "end" any time.</span>
+                    </div>
                   </div>
                 ) : (
                   <form className="flex gap-2" onSubmit={e => { e.preventDefault(); sendTyped(); }}>
@@ -616,13 +661,13 @@ export default function ScriptBoss() {
                 <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
                   {sessionMode !== 'clinic' && (
                     <>
-                      <Button variant="outline" onClick={() => { setPausedState(!paused); if (paused) resumeListening(); }}>
+                      <Button variant="outline" onClick={() => { setPausedState(!paused); if (!paused) afterReply(); }}>
                         {paused ? <><Play className="h-4 w-4 mr-1" /> Resume</> : <><Pause className="h-4 w-4 mr-1" /> Pause</>}
                       </Button>
                       <Button variant="outline" onClick={doRewind} disabled={Boolean(busy) || !turns.some(t => t.role === 'agent')}><Undo2 className="h-4 w-4 mr-1" /> Rewind</Button>
                     </>
                   )}
-                  <Button onClick={endAndScore} disabled={Boolean(busy) && !busy.startsWith('Speaking')}><Square className="h-4 w-4 mr-1" /> End{sessionMode === 'clinic' ? '' : ' & report'}</Button>
+                  <Button onClick={endAndScore} ><Square className="h-4 w-4 mr-1" /> End{sessionMode === 'clinic' ? '' : ' & Score'}</Button>
                 </div>
               </CardContent>
             </Card>
@@ -631,7 +676,10 @@ export default function ScriptBoss() {
           {report && (
             <div className="space-y-3">
               <ScriptBossReport row={report} />
-              <Button onClick={() => setReport(null)}>Practise again</Button>
+              <div className="flex gap-2">
+                <Button onClick={() => setReport(null)}>Practise again</Button>
+                {report.raw_report && <Button variant="outline" onClick={() => speakText(report.raw_report!, true)}><Volume2 className="h-4 w-4 mr-1" /> Read report aloud</Button>}
+              </div>
             </div>
           )}
         </TabsContent>
