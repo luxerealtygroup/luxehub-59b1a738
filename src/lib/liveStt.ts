@@ -75,7 +75,7 @@ export async function openLiveStt(stream: MediaStream, ctx: AudioContext, access
     finalize: async () => {
       if (interim && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'Finalize' }));
-        await new Promise<void>(r => { waiter = r; window.setTimeout(() => { waiter = null; r(); }, 700); });
+        await new Promise<void>(r => { waiter = r; window.setTimeout(() => { waiter = null; r(); }, 150); });
       }
       const text = [...finals, interim].filter(Boolean).join(' ').trim();
       finals = []; interim = '';
