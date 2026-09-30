@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAgentOptions } from '@/lib/agentOptions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -27,7 +28,7 @@ export function LaunchpadAssignmentCard({ agentId }: { agentId: string }) {
       setLoading(true);
       const [{ data: profile }, { data: others }] = await Promise.all([
         supabase.from('profiles').select('launchpad_track, mentor_id').eq('id', agentId).maybeSingle(),
-        supabase.from('profiles').select('id, full_name').order('full_name'),
+        fetchAgentOptions().then((rows) => ({ data: rows.map((r) => ({ id: r.id, full_name: r.full_name })) })),
       ]);
       setTrack(profile?.launchpad_track || NONE);
       setMentorId(profile?.mentor_id || NONE);

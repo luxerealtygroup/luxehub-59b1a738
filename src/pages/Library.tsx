@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAgentOptions } from '@/lib/agentOptions';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useTenant } from '@/hooks/useTenant';
@@ -299,11 +300,8 @@ const Library = () => {
   }, [user, isAdmin]);
 
   const fetchTeamProfiles = async () => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('id, full_name')
-      .order('full_name', { ascending: true });
-    setTeamProfiles(data || []);
+    const rows = await fetchAgentOptions();
+    setTeamProfiles(rows.map((r) => ({ id: r.id, full_name: r.full_name })));
   };
 
   const fetchDocuments = async () => {

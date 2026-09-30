@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAgentOptions } from '@/lib/agentOptions';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
 
@@ -66,24 +67,13 @@ export function ViewAsAgentProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isAdmin) return;
     const fetch = async () => {
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, full_name, fub_user_id')
-        .not('full_name', 'is', null);
-
-      const [{ data: usersWith411 }, { data: usersWithRoles }] = await Promise.all([
-        supabase.from('weekly_411').select('user_id'),
-        supabase.from('user_roles').select('user_id'),
+      const [allowed, { data: profiles }] = await Promise.all([
+        fetchAgentOptions(),
+        supabase.from('profiles').select('id, full_name, fub_user_id').not('full_name', 'is', null),
       ]);
-
-      const activeIds = new Set((usersWith411 || []).map(w => w.user_id));
-      const roleIds = new Set((usersWithRoles || []).map(r => r.user_id));
-
+      const allowedIds = new Set(allowed.map((a) => a.id));
       const filtered = (profiles || [])
-        .filter(p => {
-          const hasFub = p.fub_user_id != null && p.fub_user_id !== 8;
-          return (hasFub || activeIds.has(p.id) || roleIds.has(p.id)) && p.full_name;
-        })
+        .filter((p) => allowedIds.has(p.id))
         .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
 
       setAgentOptions(filtered as AgentOption[]);

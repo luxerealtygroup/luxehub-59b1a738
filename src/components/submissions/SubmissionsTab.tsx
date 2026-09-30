@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Home, FileText, Building, ShoppingCart, Settings, Check, Loader2, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAgentOptions } from '@/lib/agentOptions';
 import { OpenHouseForm } from './OpenHouseForm';
 import { InvoiceForm } from './InvoiceForm';
 import { ListingForm } from './ListingForm';
@@ -88,10 +89,9 @@ export function SubmissionsTab() {
 
   useEffect(() => {
     const fetchAgents = async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .order('full_name');
+      const rows = await fetchAgentOptions();
+      const data = rows.map((r) => ({ id: r.id, full_name: r.full_name as string | null }));
+      const error = null;
       
       if (!error && data) {
         // Only show agents that match Asana assignees

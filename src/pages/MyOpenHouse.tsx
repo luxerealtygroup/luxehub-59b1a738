@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAgentOptions } from '@/lib/agentOptions';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
@@ -350,15 +351,20 @@ function OpenHouseFormDialog({
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, full_name, email' as any)
-        .not('full_name', 'is', null);
-      const list: AgentOption[] = ((data as any[]) || []).map((p) => ({
+      const rows = await fetchAgentOptions();
+      const list: AgentOption[] = rows.map((p) => ({
         id: p.id,
         full_name: p.full_name ?? '',
         email: p.email ?? '',
       }));
+      // Keep an already-saved agent visible on older open houses so editing
+      // doesn't silently blank the field.
+      for (const savedId of [initial?.hosting_agent_id, initial?.listing_agent_id]) {
+        if (savedId && !list.some((a) => a.id === savedId)) {
+          const { data: p } = await supabase.from('profiles').select('id, full_name, email' as any).eq('id', savedId).maybeSingle();
+          if (p) list.push({ id: (p as any).id, full_name: `${(p as any).full_name ?? 'Unknown'} (not an active agent)`, email: (p as any).email ?? '' });
+        }
+      }
       if (user) {
         const mine = list.find((a) => a.id === user.id);
         const me: AgentOption = mine ?? {
