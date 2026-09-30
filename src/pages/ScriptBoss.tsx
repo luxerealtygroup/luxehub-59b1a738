@@ -36,7 +36,13 @@ const VOICE_OPTIONS = [
 ];
 const DEFAULT_PREFS: VoicePrefs = { voice: 'Charon', pace: 'brisk', voiceStyle: 'plain', voiceMuted: false, silenceMs: 1200, pushToTalk: false };
 function loadPrefs(): VoicePrefs {
-  try { return { ...DEFAULT_PREFS, ...JSON.parse(localStorage.getItem(PREFS_KEY) || '{}') }; } catch { return DEFAULT_PREFS; }
+  try {
+    const saved = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}') as Partial<VoicePrefs>;
+    // Existing preferences predate Voice style. Move those accounts to the new
+    // plain/brisk baseline while preserving their mic and silence preferences.
+    if (!saved.voiceStyle) return { ...DEFAULT_PREFS, ...saved, voice: DEFAULT_PREFS.voice, pace: DEFAULT_PREFS.pace, voiceStyle: 'plain' };
+    return { ...DEFAULT_PREFS, ...saved };
+  } catch { return DEFAULT_PREFS; }
 }
 
 const GROUPS = ['Open houses', 'Paid & portal leads', 'Sphere & past clients', 'Sellers', 'Buyers', 'The calls nobody answers', 'Hard mode', 'Custom'];
