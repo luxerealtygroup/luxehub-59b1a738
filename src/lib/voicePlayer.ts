@@ -34,6 +34,8 @@ export function stopSpeech() {
 export type SpeechEvents = {
   onReply?: (payload: Record<string, unknown>) => void;
   onFirstAudio?: () => void;
+  /** Live mode: one sentence of the reply, sent just before its audio. */
+  onLine?: (text: string) => void;
 };
 
 /**
@@ -59,6 +61,7 @@ export async function playSpeechResponse(res: Response, ev: SpeechEvents = {}): 
       let p: { type?: string; audio?: string; message?: string } & Record<string, unknown>;
       try { p = JSON.parse(e.data); } catch { return; }
       if (p.type === 'reply') { ev.onReply?.(p); return; }
+      if (p.type === 'line') { ev.onLine?.(String(p.text ?? '')); return; }
       if (p.type === 'error') { error = p.message || 'Voice unavailable'; return; }
       if (p.type !== 'speech.audio.delta' || !p.audio) return;
       const inc = Uint8Array.from(atob(p.audio), c => c.charCodeAt(0));
