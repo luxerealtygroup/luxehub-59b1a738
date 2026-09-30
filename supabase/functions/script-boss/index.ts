@@ -33,7 +33,7 @@ const DEFAULT_INSTRUCTIONS = `You are Script Boss, a real-estate call-practice c
 const CHANNELS: Record<string, string> = {
   phone: 'Phone call. Speak like a real person on the phone; answer the way someone answers an unknown number.',
   text: 'Text thread. Write like a real person texting: short, casual, sometimes lowercase, occasionally slow or one-word.',
-  face: 'Face to face (e.g. at the open house or a meeting). Speak naturally in person; you may briefly describe a visible action in *asterisks* only if essential.',
+  face: 'Face to face (e.g. at the open house or a meeting). Speak naturally in person.',
 };
 
 /** App-level rules layered on top of the owner's instructions. */
@@ -41,6 +41,7 @@ function appLayer(opts: { mode: string; scenario?: string; channel?: string; cus
   const base = `--- LUXEHUB APP LAYER (rules for how this app runs; the coaching instructions above still govern coaching and grading) ---
 You are running inside LUXEhub's Script Boss screen. The agent (${opts.agentName}) has already chosen the mode, scenario and channel on the start screen, so do NOT ask which mode, and do NOT send a confirmation message — start immediately.
 The app speaks your replies out loud and transcribes the agent's speech, so the drill is already being run out loud. Keep replies short and natural for speech: 1-3 sentences, no markdown, no lists, no headings.
+When you play the client, speak dialogue ONLY: never write stage directions, actions, tone or sound cues — nothing in [brackets], (parentheses) or *asterisks* (no "*sighs*", "(pauses)", "[laughs]"). Show hesitation or mood through the words themselves.
 PAUSE, REWIND and END are handled by the app with buttons and spoken commands. A message beginning with "[PAUSE]" is the agent stepping out of the roleplay: answer as the coach, briefly, then stop. The next message without "[PAUSE]" means step back into character exactly where you left off.
 Never build a scenario around renters or a rental transaction.
 Difficulty is realistic and escalating, exactly as the instructions describe; there is no separate difficulty setting.`;
@@ -136,6 +137,17 @@ async function claude(system: string, messages: { role: 'user' | 'assistant'; co
   const f = extra.model === ROLEPLAY_MODEL ? 1 / 3 : 1; // Haiku is ~1/3 of Sonnet's price
   const cost = ((data.usage?.input_tokens ?? 0) * CLAUDE_IN + (data.usage?.output_tokens ?? 0) * CLAUDE_OUT) * f;
   return { data, cost, tokens: (data.usage?.input_tokens ?? 0) + (data.usage?.output_tokens ?? 0) };
+}
+
+// Short per-instance cache so repeat drill turns skip lookups that don't change mid-drill.
+const memo = new Map<string, { at: number; v: Promise<unknown> }>();
+function cached<T>(key: string, ttlMs: number, fn: () => Promise<T>): Promise<T> {
+  const hit = memo.get(key);
+  if (hit && Date.now() - hit.at < ttlMs) return hit.v as Promise<T>;
+  const v = fn(); memo.set(key, { at: Date.now(), v });
+  v.catch(() => memo.delete(key));
+  if (memo.size > 500) for (const [k, e] of memo) if (Date.now() - e.at > 120000) memo.delete(k);
+  return v;
 }
 
 async function loadCtx(userId: string) {
@@ -239,6 +251,19 @@ async function claudeStream(system: string, messages: { role: 'user' | 'assistan
   return { cost, tokens: u.input + u.cr + u.cw + u.output, cacheRead: u.cr };
 }
 
+/** Stage directions — [..], (..), *..* — are never spoken or shown. */
+function stripStage(s: string, final: boolean) {
+  let out = s.replace(/\[[^\]]*\]/g, ' ').replace(/\([^)]*\)/g, ' ').replace(/\*[^*]*\*/g, ' ');
+  if (final) out = out.replace(/[[(][^\])]*$/, ' ').replace(/\*[^*]*$/, ' ');
+  return out.replace(/[ \t]{2,}/g, ' ').replace(/\s+([.,!?…])/g, '$1').replace(/^\s*[.,]\s*/, '').trimStart().replace(final ? /\s+$/ : /$^/, '');
+}
+function hasOpenStage(s: string) {
+  return (s.match(/\[/g)?.length ?? 0) > (s.match(/\]/g)?.length ?? 0)
+    || (s.match(/\(/g)?.length ?? 0) > (s.match(/\)/g)?.length ?? 0)
+    || (s.match(/\*/g)?.length ?? 0) % 2 === 1;
+}
+
+
 /**
  * Live reply: Claude streams text; each finished sentence is sent to the voice
  * immediately (in parallel), and audio is piped back in order. Line text is
@@ -288,29 +313,32 @@ function streamSpokenReply(opts: {
       };
       // First chunk may be short so the voice starts quickly; later ones wait for a full sentence.
       const flush = (force: boolean) => {
+        // Never split inside an unfinished [..], (..) or *..* — wait until it closes, then drop it.
+        if (!force && hasOpenStage(pending)) return;
+        pending = stripStage(pending, false);
         while (true) {
-          const m = pending.match(/^([\s\S]*?[.!?…]+["'”’)\]]*)(\s+)/);
+          const m = pending.match(/^([\s\S]*?[.!?…]+["'”’]*)(\s+)/);
           if (!m) break;
           if (m[1].trim().length < (firstSentenceMs ? 25 : 6) && pending.length < 200) {
             // keep merging tiny sentences with the next one
-            const next = pending.slice(m[0].length).match(/^([\s\S]*?[.!?…]+["'”’)\]]*)(\s+)/);
+            const next = pending.slice(m[0].length).match(/^([\s\S]*?[.!?…]+["'”’]*)(\s+)/);
             if (!next) break;
             const merged = m[0] + next[0];
             speakSentence(merged); pending = pending.slice(merged.length); continue;
           }
           speakSentence(m[1]); pending = pending.slice(m[0].length);
         }
-        if (force && pending.trim()) { speakSentence(pending); pending = ''; }
+        if (force) { pending = stripStage(pending, true); if (pending.trim()) speakSentence(pending); pending = ''; }
       };
       try {
         const { cost, tokens } = await claudeStream(opts.system, opts.messages, (t) => {
           if (!firstTokenMs) firstTokenMs = Date.now() - t0;
-          full += t; pending += t.replace(/\*[^*]*\*/g, ''); flush(false);
+          full += t; pending += t; flush(false);
         });
         flush(true);
         opts.onClaude(tokens, cost);
         await chain;
-        const reply = full.trim() || '...';
+        const reply = stripStage(full, true) || '...';
         const payload = await opts.finish(reply, { first_token_ms: firstTokenMs, first_sentence_ms: firstSentenceMs, first_audio_ms: firstAudioMs, total_ms: Date.now() - t0 });
         send({ type: 'reply', ...payload });
       } catch (e) {
@@ -446,7 +474,7 @@ async function gradeAndSave(ctx: { orgId: string; name: string }, userId: string
 }
 
 const DG_LISTEN = 'wss://api.deepgram.com/v1/listen?model=nova-3&language=en&encoding=linear16&sample_rate=16000&channels=1'
-  + '&interim_results=true&smart_format=true&punctuate=true&endpointing=300';
+  + '&interim_results=true&smart_format=true&punctuate=true&endpointing=200&utterance_end_ms=1000&vad_events=true';
 
 /** Live transcription relay: browser ⇄ this function ⇄ Deepgram. The key stays here. */
 async function liveRelay(req: Request) {
@@ -477,10 +505,9 @@ Deno.serve(async (req) => {
   if ((req.headers.get('upgrade') ?? '').toLowerCase() === 'websocket') return liveRelay(req);
   try {
     const token = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '') ?? '';
-    const { data: u } = await db.auth.getUser(token);
-    const userId = u?.user?.id;
+    const userId = await cached(`u:${token}`, 60000, async () => { const { data: u } = await db.auth.getUser(token); if (!u?.user?.id) throw new Error('no user'); return u.user.id; }).catch(() => null);
     if (!userId) return json({ error: 'Please sign in again.' }, 401);
-    const ctx = await loadCtx(userId);
+    const ctx = await cached(`c:${userId}`, 60000, () => loadCtx(userId));
     if (!ctx) return json({ error: "You don't have access to Script Boss." }, 403);
     const { orgId } = ctx;
     const logTts = (sid: string | null) => (n: number) => { logUsage(orgId, userId, sid, 'tts', n, n * TTS_PER_CHAR).catch(() => {}); };
@@ -546,7 +573,8 @@ Deno.serve(async (req) => {
           },
         });
       }
-      const reply = await modelReply(orgId, userId, session, ctx.name);
+      const rawReply = await modelReply(orgId, userId, session, ctx.name);
+      const reply = practiceMode === 'clinic' ? rawReply : (stripStage(rawReply, true) || '...');
       const transcript: Turn[] = [{ role: practiceMode === 'clinic' ? 'coach' : 'client', text: reply, at: new Date().toISOString() }];
       await db.from('script_boss_sessions').update({ transcript, updated_at: new Date().toISOString() }).eq('id', session.id);
       const payload = { session_id: session.id, reply, transcript };
@@ -575,9 +603,9 @@ Deno.serve(async (req) => {
     if (action === 'turn') {
       if (session.status !== 'active') return json({ error: 'This session has ended.' }, 400);
       // Build the prompt while the cap is checked, to save a round trip.
-      const systemP = sessionSystem(orgId, session, ctx.name);
+      const systemP = cached(`s:${session.id}`, 600000, () => sessionSystem(orgId, session, ctx.name));
       systemP.catch(() => {});
-      if (await capReached(orgId, userId)) return json({ error: 'Monthly practice limit reached.' }, 402);
+      if (await cached(`cap:${userId}`, 30000, () => capReached(orgId, userId))) return json({ error: 'Monthly practice limit reached.' }, 402);
       const text = String(body.text ?? '').slice(0, 3000).trim();
       if (!text) return json({ error: 'Say something first.' }, 400);
       const sttSecs = Math.min(600, Math.max(0, Number(body.stt_seconds) || 0));
@@ -607,9 +635,10 @@ Deno.serve(async (req) => {
         });
       }
       const c0 = Date.now();
-      const reply = await modelReply(orgId, userId, session, ctx.name);
+      const rawReply = await modelReply(orgId, userId, session, ctx.name);
       const claudeMs = Date.now() - c0;
       const speaker = paused || session.practice_mode === 'clinic' ? 'coach' : 'client';
+      const reply = speaker === 'client' ? (stripStage(rawReply, true) || '...') : rawReply;
       session.transcript.push({ role: speaker, text: reply, at: new Date().toISOString() });
       await db.from('script_boss_sessions').update({ transcript: session.transcript, timing: session.timing, updated_at: new Date().toISOString() }).eq('id', session.id);
       const payload = { reply, transcript: session.transcript, speaker, claude_ms: claudeMs };
