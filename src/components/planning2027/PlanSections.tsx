@@ -73,7 +73,7 @@ export function RecapSection({ agentId, fubUserId, actuals, goal2026, recap, rec
 
   return (
     <div className="space-y-4">
-      <Card><CardHeader className="pb-2"><CardTitle className="text-base">2026 production <span className="font-normal text-muted-foreground text-sm">· Follow Up Boss</span></CardTitle></CardHeader>
+      <Card><CardHeader className="pb-2"><CardTitle className="text-base">2026 production <span className="font-normal text-muted-foreground text-sm">· LUXEhub transactions</span></CardTitle></CardHeader>
         <CardContent className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {actuals.loading ? <Loader2 className="h-5 w-5 animate-spin text-gold" /> : <>
             <Stat label="Closed · weighted units" value={formatWeightedDeals(actuals.closings)} sub={`${actuals.closingsRaw} deals (${actuals.closedSales} homes + ${actuals.leasesClosed} leases) · ${vsGoal(actuals.closings, goal2026?.deals)}`} />
