@@ -13,7 +13,8 @@ const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-const CLAUDE_MODEL = 'claude-sonnet-4-6';
+const CLAUDE_MODEL = 'claude-sonnet-4-6'; // scoring + clinic
+const ROLEPLAY_MODEL = 'claude-haiku-4-5'; // in-character drill lines: faster replies
 const GATEWAY = 'https://ai.gateway.lovable.dev';
 const STT_MODEL = 'google/gemini-3.5-transcribe';
 const TTS_MODEL = 'google/gemini-3.1-flash-tts-preview';
@@ -183,7 +184,8 @@ async function modelReply(orgId: string, userId: string, session: any, agentName
     ? '[The agent opened a CLINIC session. Greet them in one line and ask what situation they keep fumbling.]'
     : session.channel === 'text' ? '[The agent is about to text you. Wait — reply only to what they send.]' : session.channel === 'face'
       ? '[The agent approaches you. React as the lead would in person.]' : '[Your phone rings from an unknown number and you answer.]';
-  const { data, cost, tokens } = await claude(await sessionSystem(orgId, session, agentName), toMessages(session.transcript, opener));
+  const fast = session.practice_mode === 'drill' && !session.transcript.at(-1)?.paused;
+  const { data, cost, tokens } = await claude(await sessionSystem(orgId, session, agentName), toMessages(session.transcript, opener), fast ? { model: ROLEPLAY_MODEL, max_tokens: 400 } : {});
   await logUsage(orgId, userId, session.id, 'claude', tokens, cost);
   return (data.content?.[0]?.text ?? '').trim() || '...';
 }
