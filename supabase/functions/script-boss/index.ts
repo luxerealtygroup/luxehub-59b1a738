@@ -501,6 +501,20 @@ Deno.serve(async (req) => {
       if (error) throw error;
       // Text-thread drills: the agent sends the first message.
       if (practiceMode === 'drill' && channel === 'text') return json({ session_id: session.id, reply: null, transcript: [] });
+      if (body.speak && body.stream && practiceMode === 'drill') {
+        session.transcript = [];
+        return streamSpokenReply({
+          system: await sessionSystem(orgId, session, ctx.name), messages: toMessages([], openerFor(session)),
+          voice: body.speak.voice, pace: body.speak.pace, first: { session_id: session.id, transcript: [] },
+          onClaude: (tk, cost) => { logUsage(orgId, userId, session.id, 'claude', tk, cost).catch(() => {}); },
+          onChars: logTts(session.id),
+          finish: async (reply, timing) => {
+            const transcript: Turn[] = [{ role: 'client', text: reply, at: new Date().toISOString() }];
+            await db.from('script_boss_sessions').update({ transcript, updated_at: new Date().toISOString() }).eq('id', session.id);
+            return { session_id: session.id, reply, transcript, live: timing };
+          },
+        });
+      }
       const reply = await modelReply(orgId, userId, session, ctx.name);
       const transcript: Turn[] = [{ role: practiceMode === 'clinic' ? 'coach' : 'client', text: reply, at: new Date().toISOString() }];
       await db.from('script_boss_sessions').update({ transcript, updated_at: new Date().toISOString() }).eq('id', session.id);
@@ -524,6 +538,20 @@ Deno.serve(async (req) => {
       return json({ practice_session_id: id });
     }
 
+    // Short-lived Deepgram token for the browser's live transcription socket.
+    // The API key itself never leaves the server and is never logged.
+    if (action === 'stt_token') {
+      const key = Deno.env.get('DEEPGRAM_API_KEY');
+      if (!key) return json({ error: 'Live transcription is not set up.', fallback: true }, 503);
+      if (await capReached(orgId, userId)) return json({ error: 'Monthly practice limit reached.' }, 402);
+      const r = await fetch('https://api.deepgram.com/v1/auth/grant', {
+        method: 'POST', headers: { Authorization: `Token ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ ttl_seconds: 60 }),
+      });
+      if (!r.ok) { await r.text().catch(() => ''); console.error('deepgram grant failed', r.status); return json({ error: 'Live transcription unavailable.', fallback: true }, 502); }
+      const d = await r.json();
+      return json({ token: d.access_token });
+    }
+
     const { data: session } = await db.from('script_boss_sessions').select('*').eq('id', body.session_id).maybeSingle();
     if (!session || session.user_id !== userId) return json({ error: 'Session not found.' }, 404);
 
@@ -532,6 +560,8 @@ Deno.serve(async (req) => {
       if (await capReached(orgId, userId)) return json({ error: 'Monthly practice limit reached.' }, 402);
       const text = String(body.text ?? '').slice(0, 3000).trim();
       if (!text) return json({ error: 'Say something first.' }, 400);
+      const sttSecs = Math.min(600, Math.max(0, Number(body.stt_seconds) || 0));
+      if (sttSecs > 0) logUsage(orgId, userId, session.id, 'stt_live', Math.round(sttSecs), (sttSecs / 60) * DG_STT_PER_MIN).catch(() => {});
       const paused = !!body.paused;
       session.transcript = [...(session.transcript as Turn[]), { role: 'agent', text, paused, at: new Date().toISOString() }];
       const t = body.timing;
@@ -542,6 +572,19 @@ Deno.serve(async (req) => {
           trailing_silence_ms: t.trailing_silence_ms == null ? null : Math.round(Number(t.trailing_silence_ms)), question: /\?\s*$/.test(text) || /\?/.test(text.slice(-60)),
         }];
         session.timing = timing;
+      }
+      if (body.speak && body.stream && !paused && session.practice_mode === 'drill' && session.channel !== 'text') {
+        return streamSpokenReply({
+          system: await sessionSystem(orgId, session, ctx.name), messages: toMessages(session.transcript, openerFor(session)),
+          voice: body.speak.voice, pace: body.speak.pace,
+          onClaude: (tk, cost) => { logUsage(orgId, userId, session.id, 'claude', tk, cost).catch(() => {}); },
+          onChars: logTts(session.id),
+          finish: async (reply, timing) => {
+            session.transcript.push({ role: 'client', text: reply, at: new Date().toISOString() });
+            await db.from('script_boss_sessions').update({ transcript: session.transcript, timing: session.timing, updated_at: new Date().toISOString() }).eq('id', session.id);
+            return { reply, transcript: session.transcript, speaker: 'client', live: timing };
+          },
+        });
       }
       const c0 = Date.now();
       const reply = await modelReply(orgId, userId, session, ctx.name);
