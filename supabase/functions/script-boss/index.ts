@@ -33,7 +33,7 @@ const DEFAULT_INSTRUCTIONS = `You are Script Boss, a real-estate call-practice c
 const CHANNELS: Record<string, string> = {
   phone: 'Phone call. Speak like a real person on the phone; answer the way someone answers an unknown number.',
   text: 'Text thread. Write like a real person texting: short, casual, sometimes lowercase, occasionally slow or one-word.',
-  face: 'Face to face (e.g. at the open house or a meeting). Speak naturally in person; you may briefly describe a visible action in *asterisks* only if essential.',
+  face: 'Face to face (e.g. at the open house or a meeting). Speak naturally in person.',
 };
 
 /** App-level rules layered on top of the owner's instructions. */
@@ -41,6 +41,7 @@ function appLayer(opts: { mode: string; scenario?: string; channel?: string; cus
   const base = `--- LUXEHUB APP LAYER (rules for how this app runs; the coaching instructions above still govern coaching and grading) ---
 You are running inside LUXEhub's Script Boss screen. The agent (${opts.agentName}) has already chosen the mode, scenario and channel on the start screen, so do NOT ask which mode, and do NOT send a confirmation message — start immediately.
 The app speaks your replies out loud and transcribes the agent's speech, so the drill is already being run out loud. Keep replies short and natural for speech: 1-3 sentences, no markdown, no lists, no headings.
+When you play the client, speak dialogue ONLY: never write stage directions, actions, tone or sound cues — nothing in [brackets], (parentheses) or *asterisks* (no "*sighs*", "(pauses)", "[laughs]"). Show hesitation or mood through the words themselves.
 PAUSE, REWIND and END are handled by the app with buttons and spoken commands. A message beginning with "[PAUSE]" is the agent stepping out of the roleplay: answer as the coach, briefly, then stop. The next message without "[PAUSE]" means step back into character exactly where you left off.
 Never build a scenario around renters or a rental transaction.
 Difficulty is realistic and escalating, exactly as the instructions describe; there is no separate difficulty setting.`;
@@ -462,7 +463,7 @@ async function gradeAndSave(ctx: { orgId: string; name: string }, userId: string
 }
 
 const DG_LISTEN = 'wss://api.deepgram.com/v1/listen?model=nova-3&language=en&encoding=linear16&sample_rate=16000&channels=1'
-  + '&interim_results=true&smart_format=true&punctuate=true&endpointing=300';
+  + '&interim_results=true&smart_format=true&punctuate=true&endpointing=200&utterance_end_ms=1000&vad_events=true';
 
 /** Live transcription relay: browser ⇄ this function ⇄ Deepgram. The key stays here. */
 async function liveRelay(req: Request) {
@@ -562,7 +563,8 @@ Deno.serve(async (req) => {
           },
         });
       }
-      const reply = await modelReply(orgId, userId, session, ctx.name);
+      const rawReply = await modelReply(orgId, userId, session, ctx.name);
+      const reply = practiceMode === 'clinic' ? rawReply : (stripStage(rawReply, true) || '...');
       const transcript: Turn[] = [{ role: practiceMode === 'clinic' ? 'coach' : 'client', text: reply, at: new Date().toISOString() }];
       await db.from('script_boss_sessions').update({ transcript, updated_at: new Date().toISOString() }).eq('id', session.id);
       const payload = { session_id: session.id, reply, transcript };
@@ -623,9 +625,10 @@ Deno.serve(async (req) => {
         });
       }
       const c0 = Date.now();
-      const reply = await modelReply(orgId, userId, session, ctx.name);
+      const rawReply = await modelReply(orgId, userId, session, ctx.name);
       const claudeMs = Date.now() - c0;
       const speaker = paused || session.practice_mode === 'clinic' ? 'coach' : 'client';
+      const reply = speaker === 'client' ? (stripStage(rawReply, true) || '...') : rawReply;
       session.transcript.push({ role: speaker, text: reply, at: new Date().toISOString() });
       await db.from('script_boss_sessions').update({ transcript: session.transcript, timing: session.timing, updated_at: new Date().toISOString() }).eq('id', session.id);
       const payload = { reply, transcript: session.transcript, speaker, claude_ms: claudeMs };
