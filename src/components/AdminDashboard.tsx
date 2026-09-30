@@ -458,6 +458,7 @@ const AdminDashboard = () => {
           .from('profiles')
           .select('id, full_name, fub_user_id, avatar_url, member_type')
           .eq('member_type', 'agent')
+          .eq('org_id', orgId)
           .not('fub_user_id', 'is', null);
 
         const agentFubIds = new Set(
@@ -538,7 +539,8 @@ const AdminDashboard = () => {
       const { data: profiles } = await supabase
         .from('profiles')
         .select('id, full_name, fub_user_id, member_type')
-        .eq('member_type', 'agent');
+        .eq('member_type', 'agent')
+        .eq('org_id', orgId);
 
       const agentProfileIds = new Set((profiles || []).map(p => p.id));
 

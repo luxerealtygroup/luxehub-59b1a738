@@ -70,6 +70,7 @@ const TeamSeats = () => {
       supabase
         .from('profiles')
         .select('id, full_name, email, member_type, include_in_team_coaching, access_expires_at')
+        .eq('org_id', tenant.orgId ?? '00000000-0000-0000-0000-000000000000')
         .order('full_name', { ascending: true }),
       tenant.orgId
         ? supabase.from('organizations').select('seat_limit').eq('id', tenant.orgId).maybeSingle()
