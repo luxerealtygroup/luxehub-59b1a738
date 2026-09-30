@@ -170,11 +170,12 @@ async function claude(system: string, messages: { role: 'user' | 'assistant'; co
 }
 
 async function loadCtx(userId: string) {
-  const { data: profile } = await db.from('profiles').select('org_id, full_name').eq('id', userId).maybeSingle();
+  const [{ data: profile }, { data: ok }] = await Promise.all([
+    db.from('profiles').select('org_id, full_name').eq('id', userId).maybeSingle(),
+    db.rpc('can_use_script_boss', { _uid: userId }),
+  ]);
   const orgId = profile?.org_id as string | undefined;
-  if (!orgId) return null;
-  const { data: ok } = await db.rpc('can_use_script_boss', { _uid: userId });
-  if (!ok) return null;
+  if (!orgId || !ok) return null;
   return { orgId, name: (profile?.full_name as string) || 'Agent' };
 }
 
@@ -206,12 +207,13 @@ function toMessages(t: Turn[], opener: string) {
 }
 
 async function sessionSystem(orgId: string, session: any, agentName: string) {
-  const inst = await latestInstructions(orgId);
+  const [inst, scRes] = await Promise.all([
+    latestInstructions(orgId),
+    session.scenario_id ? db.from('script_boss_scenarios').select('number, name, description, category').eq('id', session.scenario_id).maybeSingle() : Promise.resolve({ data: null }),
+  ]);
   let scenario = session.scenario_name;
-  if (session.scenario_id) {
-    const { data: sc } = await db.from('script_boss_scenarios').select('number, name, description, category').eq('id', session.scenario_id).maybeSingle();
-    if (sc && sc.number && sc.number < 99) scenario = `#${sc.number} (${sc.category}) ${sc.name}: ${sc.description}`;
-  }
+  const sc = scRes.data as any;
+  if (sc && sc.number && sc.number < 99) scenario = `#${sc.number} (${sc.category}) ${sc.name}: ${sc.description}`;
   return `${inst.content}\n\n${appLayer({ mode: session.practice_mode, scenario, channel: session.channel, custom: session.custom_situation, agentName })}`;
 }
 
@@ -616,6 +618,9 @@ Deno.serve(async (req) => {
 
     if (action === 'turn') {
       if (session.status !== 'active') return json({ error: 'This session has ended.' }, 400);
+      // Build the prompt while the cap is checked, to save a round trip.
+      const systemP = sessionSystem(orgId, session, ctx.name);
+      systemP.catch(() => {});
       if (await capReached(orgId, userId)) return json({ error: 'Monthly practice limit reached.' }, 402);
       const text = String(body.text ?? '').slice(0, 3000).trim();
       if (!text) return json({ error: 'Say something first.' }, 400);
@@ -634,7 +639,7 @@ Deno.serve(async (req) => {
       }
       if (body.speak && body.stream && !paused && session.practice_mode === 'drill' && session.channel !== 'text') {
         return streamSpokenReply({
-          system: await sessionSystem(orgId, session, ctx.name), messages: toMessages(session.transcript, openerFor(session)),
+          system: await systemP, messages: toMessages(session.transcript, openerFor(session)),
           voice: body.speak.voice, pace: body.speak.pace,
           onClaude: (tk, cost) => { logUsage(orgId, userId, session.id, 'claude', tk, cost).catch(() => {}); },
           onChars: logTts(session.id),
