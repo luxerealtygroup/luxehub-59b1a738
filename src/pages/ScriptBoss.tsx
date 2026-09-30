@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 import { Mic, MicOff, Pause, Play, Square, Send, Keyboard, Loader2, Shuffle, Undo2, Upload, Volume2, VolumeX, Ear, Brain, Phone } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { unlockAudio, playSpeechResponse, stopSpeech, setVolume } from '@/lib/voicePlayer';
+import { openLiveStt, type LiveStt } from '@/lib/liveStt';
 import { ScriptBossSettings } from '@/components/scriptBoss/ScriptBossSettings';
 import { ScriptBossReport, type ScriptBossReportRow } from '@/components/scriptBoss/ScriptBossReport';
 
@@ -125,6 +126,7 @@ export default function ScriptBoss() {
   const [phase, setPhase] = useState<Phase>('idle');
   const [micMuted, setMicMuted] = useState(false);
   const [delays, setDelays] = useState<number[]>([]);
+  const [live, setLive] = useState<boolean | null>(null); // true = live transcription, false = standard fallback
 
   const recRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -134,6 +136,10 @@ export default function ScriptBoss() {
   const phaseRef = useRef<Phase>('idle');
   const loudRef = useRef(0);
   const endSpeechAt = useRef(0);
+  const sentAt = useRef(0);
+  const dgRef = useRef<LiveStt | null>(null);
+  const liveLineRef = useRef(false);
+  const finishingRef = useRef(false);
   const stateRef = useRef({ paused, busy, sessionId, mode, prefs, channel, micMuted, sessionMode });
   stateRef.current = { paused, busy, sessionId, mode, prefs, channel, micMuted, sessionMode };
   const transcriptEnd = useRef<HTMLDivElement>(null);
@@ -141,6 +147,7 @@ export default function ScriptBoss() {
 
   useEffect(() => { transcriptEnd.current?.scrollIntoView({ block: 'nearest' }); }, [turns]);
   useEffect(() => { setVolume(prefs.voiceMuted ? 0 : 1); }, [prefs.voiceMuted]);
+  useEffect(() => { dgRef.current?.setMuted(micMuted); }, [micMuted]);
 
   useEffect(() => {
     supabase.from('script_boss_scenarios' as never).select('id,name,description,is_custom,category,number').eq('active', true).order('sort_order')
@@ -169,6 +176,7 @@ export default function ScriptBoss() {
   const stopAll = useCallback(() => {
     stopSpeech();
     stopRecorder();
+    dgRef.current?.close(); dgRef.current = null;
     if (loopRef.current) { clearInterval(loopRef.current.timer); loopRef.current.ctx.close().catch(() => {}); loopRef.current = null; }
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
@@ -182,18 +190,36 @@ export default function ScriptBoss() {
 
   /** Plays a streamed reply. Shows the transcript as soon as the text arrives, speaks it at the same time. */
   const playStream = useCallback(async (res: Response, onReply?: (p: Record<string, unknown>) => void) => {
+    liveLineRef.current = false;
+    const w = window as unknown as { __sb?: { delays: number[]; sendDelays?: number[]; heard: number; live?: unknown[] } };
     const r = await playSpeechResponse(res, {
-      onReply: p => { onReply?.(p); setBusy(null); go('speaking'); },
+      onReply: p => {
+        onReply?.(p);
+        if (p.live) { w.__sb = w.__sb || { delays: [], heard: 0 }; (w.__sb.live ||= []).push(p.live); }
+        if (phaseRef.current === 'thinking') { setBusy(null); go('speaking'); }
+      },
+      onLine: text => {
+        // Live mode: grow the lead's bubble sentence by sentence, as it's spoken.
+        setTurns(t => {
+          if (liveLineRef.current && t.length && t[t.length - 1].role === 'client') {
+            const c = [...t]; c[c.length - 1] = { ...c[c.length - 1], text: `${c[c.length - 1].text} ${text}` }; return c;
+          }
+          return [...t, { role: 'client', text }];
+        });
+        liveLineRef.current = true;
+        setBusy(null); go('speaking');
+      },
       onFirstAudio: () => {
+        setBusy(null); go('speaking');
+        w.__sb = w.__sb || { delays: [], heard: 0 };
         if (endSpeechAt.current) {
           const d = (Date.now() - endSpeechAt.current) / 1000;
           endSpeechAt.current = 0;
           setDelays(x => [...x, d]);
-          const w = window as unknown as { __sb?: { delays: number[]; heard: number } };
-          w.__sb = w.__sb || { delays: [], heard: 0 }; w.__sb.delays.push(d);
+          w.__sb.delays.push(d);
         }
-        const w = window as unknown as { __sb?: { delays: number[]; heard: number } };
-        w.__sb = w.__sb || { delays: [], heard: 0 }; w.__sb.heard++;
+        if (sentAt.current) { (w.__sb.sendDelays ||= []).push((Date.now() - sentAt.current) / 1000); sentAt.current = 0; }
+        w.__sb.heard++;
       },
     });
     if (r.error) toast({ title: 'Voice unavailable', description: `${r.error} The line is on screen.`, variant: 'destructive' });
