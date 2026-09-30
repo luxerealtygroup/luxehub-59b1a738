@@ -191,12 +191,8 @@ export function AgentPortalDialog({
   // Admins can reassign a portal to another agent.
   useEffect(() => {
     if (!open || !isAdmin) return;
-    supabase.rpc('get_team_agents').then(({ data }) => {
-      setAgents(
-        ((data as any[]) ?? [])
-          .map((a) => ({ id: a.id as string, full_name: (a.full_name as string) ?? a.email }))
-          .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '')),
-      );
+    fetchAgentOptions().then((rows) => {
+      setAgents(rows.map((a) => ({ id: a.id, full_name: a.full_name })));
     });
   }, [open, isAdmin]);
 

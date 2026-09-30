@@ -158,12 +158,8 @@ const Pipeline = () => {
     if (!addDialogOpen || !user) return;
     setAssignedAgentId(user.id);
     if (!isAdmin) return;
-    supabase.rpc('get_team_agents').then(({ data }) => {
-      setTeamAgents(
-        ((data as any[]) ?? [])
-          .map((a) => ({ id: a.id as string, full_name: (a.full_name as string) ?? a.email }))
-          .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '')),
-      );
+    fetchAgentOptions().then((rows) => {
+      setTeamAgents(rows.map((a) => ({ id: a.id, full_name: a.full_name })));
     });
   }, [addDialogOpen, isAdmin, user?.id]);
 

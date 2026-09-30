@@ -27,7 +27,7 @@ export function LaunchpadAssignmentCard({ agentId }: { agentId: string }) {
       setLoading(true);
       const [{ data: profile }, { data: others }] = await Promise.all([
         supabase.from('profiles').select('launchpad_track, mentor_id').eq('id', agentId).maybeSingle(),
-        supabase.from('profiles').select('id, full_name').order('full_name'),
+        fetchAgentOptions().then((rows) => ({ data: rows.map((r) => ({ id: r.id, full_name: r.full_name })) })),
       ]);
       setTrack(profile?.launchpad_track || NONE);
       setMentorId(profile?.mentor_id || NONE);

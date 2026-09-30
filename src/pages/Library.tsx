@@ -299,11 +299,8 @@ const Library = () => {
   }, [user, isAdmin]);
 
   const fetchTeamProfiles = async () => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('id, full_name')
-      .order('full_name', { ascending: true });
-    setTeamProfiles(data || []);
+    const rows = await fetchAgentOptions();
+    setTeamProfiles(rows.map((r) => ({ id: r.id, full_name: r.full_name })));
   };
 
   const fetchDocuments = async () => {

@@ -88,10 +88,9 @@ export function SubmissionsTab() {
 
   useEffect(() => {
     const fetchAgents = async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .order('full_name');
+      const rows = await fetchAgentOptions();
+      const data = rows.map((r) => ({ id: r.id, full_name: r.full_name as string | null }));
+      const error = null;
       
       if (!error && data) {
         // Only show agents that match Asana assignees

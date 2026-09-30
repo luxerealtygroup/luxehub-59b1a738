@@ -53,7 +53,7 @@ export function DealSplitDialog({ fubDealId, label, address, onSaved }: Props) {
     if (!open) return;
     (async () => {
       const [{ data: people }, { data: row }] = await Promise.all([
-        supabase.from('profiles').select('id, full_name').order('full_name'),
+        fetchAgentOptions().then((rows) => ({ data: rows.map((r) => ({ id: r.id, full_name: r.full_name })) })),
         supabase
           .from('deal_metadata' as any)
           .select('producing_agent_id, producing_agent_2_id, producing_split_percent, transaction_admin_id')
