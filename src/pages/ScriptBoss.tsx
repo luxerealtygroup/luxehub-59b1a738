@@ -241,6 +241,14 @@ export default function ScriptBoss() {
     const stream = streamRef.current;
     if (!stream || !stateRef.current.sessionId) return;
     stopRecorder();
+    if (dgRef.current) {
+      // Live transcription is already streaming; just start a fresh turn.
+      dgRef.current.reset();
+      speechRef.current = { start: Date.now(), first: 0, last: 0, stop: 0 };
+      setRecording(true);
+      go('listening');
+      return;
+    }
     const mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : (MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '');
     const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
     chunksRef.current = [];
@@ -318,7 +326,9 @@ export default function ScriptBoss() {
     try {
       const p = stateRef.current.prefs;
       const speak = !isPaused && autoVoice() ? { voice: p.voice, pace: p.pace } : undefined;
-      const res = await fnStream({ action: 'turn', session_id: sid, text, paused: isPaused, timing, speak });
+      const stt_seconds = dgRef.current?.takeSeconds();
+      sentAt.current = Date.now();
+      const res = await fnStream({ action: 'turn', session_id: sid, text, paused: isPaused, timing, speak, stream: true, stt_seconds });
       if ((res.headers.get('content-type') || '').includes('text/event-stream')) {
         await playStream(res, d => setTurns(d.transcript as Turn[]));
       } else {
@@ -354,6 +364,44 @@ export default function ScriptBoss() {
       setBusy(null);
       toast({ title: "Couldn't hear that", description: (e as Error).message, variant: 'destructive' });
       afterReply();
+    }
+  };
+
+  /** Live mode: end of the agent's turn — finalize the words and send them. */
+  const finishLive = async () => {
+    const dg = dgRef.current; const sid = stateRef.current.sessionId;
+    if (!dg || !sid || finishingRef.current) return;
+    finishingRef.current = true;
+    const sp = speechRef.current; sp.stop = Date.now();
+    setRecording(false); go('thinking');
+    try {
+      const text = sp.first ? await dg.finalize() : '';
+      if (!text) { afterReply(); return; }
+      endSpeechAt.current = sp.last || Date.now();
+      await sendAgent(text, { seconds: Math.max(0.5, (sp.last - sp.first) / 1000), trailing_silence_ms: sp.stop - sp.last });
+    } finally { finishingRef.current = false; }
+  };
+  const finishLiveRef = useRef(finishLive); finishLiveRef.current = finishLive;
+  const stopListening = () => { if (dgRef.current) finishLiveRef.current(); else if (recRef.current?.state === 'recording') recRef.current.stop(); };
+  const isListening = () => (dgRef.current ? phaseRef.current === 'listening' : recRef.current?.state === 'recording');
+
+  /** Try live transcription; stay on the standard (slower) path if it isn't available. */
+  const tryLive = async () => {
+    const stream = streamRef.current, ctx = loopRef.current?.ctx;
+    if (!stream || !ctx) return;
+    try {
+      const { token } = await callFn({ action: 'stt_token' });
+      if (!token) throw new Error('no token');
+      dgRef.current = await openLiveStt(stream, ctx, token, () => {
+        // Dropped mid-drill: fall back to the standard path without interrupting.
+        dgRef.current = null; setLive(false);
+        toast({ title: 'Live transcription dropped', description: 'Switched to standard voice — replies will be a bit slower.' });
+        if (phaseRef.current === 'listening') beginRecording();
+      });
+      dgRef.current.setMuted(stateRef.current.micMuted);
+      setLive(true);
+    } catch {
+      dgRef.current = null; setLive(false);
     }
   };
 
@@ -409,7 +457,7 @@ export default function ScriptBoss() {
   }, [beginRecording, toast]);
 
   const pttDown = async () => { if (await openMic()) { stopSpeech(); beginRecording(); } };
-  const pttUp = () => { if (recRef.current?.state === 'recording') { go('thinking'); recRef.current.stop(); } };
+  const pttUp = () => { if (isListening()) { go('thinking'); stopListening(); } };
 
   const surprise = () => {
     const pool = scenarios.filter(s => !s.is_custom);
