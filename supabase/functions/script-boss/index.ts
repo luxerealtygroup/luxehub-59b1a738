@@ -67,40 +67,9 @@ const PACES: Record<string, string> = {
   brisk: 'at a brisk, slightly quick pace',
 };
 
-// Deepgram Aura-2 voices (fast first audio) mapped to the picker's voice ids.
-const AURA: Record<string, string> = { Kore: 'thalia', Aoede: 'andromeda', Leda: 'luna', Zephyr: 'helena', Puck: 'apollo', Charon: 'arcas', Orus: 'orion', Fenrir: 'hermes' };
-const AURA_SPEED: Record<string, number> = { relaxed: 0.9, natural: 1, brisk: 1.12 };
-const AURA_PER_CHAR = 0.03 / 1000;
-
-function b64(bytes: Uint8Array) {
-  let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  return btoa(s);
-}
-
-/** Aura-2 raw 24 kHz PCM, re-wrapped as the same SSE audio events the player already reads. */
-async function auraStream(clean: string, opts: { voice?: string; pace?: string; coach?: boolean }) {
-  const key = Deno.env.get('DEEPGRAM_API_KEY');
-  if (!key || !clean) return null;
-  const voice = AURA[opts.voice ?? ''] ?? (opts.coach ? 'arcas' : 'thalia');
-  const speed = AURA_SPEED[opts.pace ?? ''] ?? 1;
-  try {
-    const res = await fetch(`https://api.deepgram.com/v1/speak?model=aura-2-${voice}-en&encoding=linear16&sample_rate=24000&container=none${speed !== 1 ? `&speed=${speed}` : ''}`, {
-      method: 'POST', headers: { Authorization: `Token ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ text: clean }),
-    });
-    if (!res.ok || !res.body) { console.error('aura', res.status, (await res.text().catch(() => '')).slice(0, 150)); return null; }
-    const enc = new TextEncoder();
-    const body = res.body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
-      transform(chunk, c) { c.enqueue(enc.encode(`data: ${JSON.stringify({ type: 'speech.audio.delta', audio: b64(chunk) })}\n\n`)); },
-    }));
-    return new Response(body, { status: 200 });
-  } catch (e) { console.error('aura', e instanceof Error ? e.message : 'failed'); return null; }
-}
-
-/** Streams 24 kHz PCM speech as SSE: Deepgram Aura-2 first, the built-in voice as fallback. */
+/** Streams 24 kHz PCM speech as SSE from the gateway (first audio in ~0.6-0.7s). */
 async function ttsStream(text: string, opts: { voice?: string; pace?: string; coach?: boolean }) {
   const clean = text.replace(/\*[^*]+\*/g, '').replace(/[#_`>]/g, '').slice(0, 1500).trim();
-  const aura = await auraStream(clean, opts);
-  if (aura) return { res: aura, chars: clean.length, rate: AURA_PER_CHAR };
   const voice = VOICES.includes(opts.voice ?? '') ? opts.voice! : (opts.coach ? 'Charon' : 'Kore');
   const pace = PACES[opts.pace ?? ''] ?? PACES.natural;
   const style = opts.coach
