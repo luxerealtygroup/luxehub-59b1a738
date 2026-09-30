@@ -23,6 +23,10 @@ const CLAUDE_IN = 3 / 1_000_000;
 const CLAUDE_OUT = 15 / 1_000_000;
 const STT_PER_SEC = 0.0001;
 const TTS_PER_CHAR = 0.00002;
+// Haiku 4.5 list prices (per token) incl. prompt-cache reads/writes.
+const HAIKU = { in: 1e-6, out: 5e-6, cacheRead: 0.1e-6, cacheWrite: 1.25e-6 };
+// Deepgram Nova-3 streaming, regular (non-promo) price per minute.
+const DG_STT_PER_MIN = 0.0077;
 
 const DEFAULT_INSTRUCTIONS = `You are Script Boss, a real-estate call-practice coach for a team in Waterloo Region, Ontario. Grade six skills 1-5: Earn the 30 seconds, Motivation discovery, Talk-less ratio, Objection handling, The ask, Next step locked.`;
 
@@ -180,15 +184,140 @@ async function sessionSystem(orgId: string, session: any, agentName: string) {
   return `${inst.content}\n\n${appLayer({ mode: session.practice_mode, scenario, channel: session.channel, custom: session.custom_situation, agentName })}`;
 }
 
-async function modelReply(orgId: string, userId: string, session: any, agentName: string) {
-  const opener = session.practice_mode === 'clinic'
+function openerFor(session: any) {
+  return session.practice_mode === 'clinic'
     ? '[The agent opened a CLINIC session. Greet them in one line and ask what situation they keep fumbling.]'
     : session.channel === 'text' ? '[The agent is about to text you. Wait — reply only to what they send.]' : session.channel === 'face'
       ? '[The agent approaches you. React as the lead would in person.]' : '[Your phone rings from an unknown number and you answer.]';
+}
+
+async function modelReply(orgId: string, userId: string, session: any, agentName: string) {
   const fast = session.practice_mode === 'drill' && !session.transcript.at(-1)?.paused;
-  const { data, cost, tokens } = await claude(await sessionSystem(orgId, session, agentName), toMessages(session.transcript, opener), fast ? { model: ROLEPLAY_MODEL, max_tokens: 400 } : {});
+  const { data, cost, tokens } = await claude(await sessionSystem(orgId, session, agentName), toMessages(session.transcript, openerFor(session)), fast ? { model: ROLEPLAY_MODEL, max_tokens: 400 } : {});
   await logUsage(orgId, userId, session.id, 'claude', tokens, cost);
   return (data.content?.[0]?.text ?? '').trim() || '...';
+}
+
+/** Streams Haiku's in-character reply token by token (instructions prompt-cached). */
+async function claudeStream(system: string, messages: { role: 'user' | 'assistant'; content: string }[], onText: (t: string) => void) {
+  const key = Deno.env.get('ANTHROPIC_API_KEY');
+  if (!key) throw new Error('AI is not configured');
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+    body: JSON.stringify({ model: ROLEPLAY_MODEL, max_tokens: 400, stream: true, system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }], messages }),
+  });
+  if (!res.ok || !res.body) {
+    const status = res.status; await res.text().catch(() => '');
+    throw Object.assign(new Error(status === 429 ? 'AI is busy — try again in a moment.' : 'AI request failed'), { status });
+  }
+  const u = { input: 0, output: 0, cr: 0, cw: 0 };
+  const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buf = '';
+  while (true) {
+    const n = await reader.read();
+    if (n.done) break;
+    buf += n.value;
+    let i;
+    while ((i = buf.indexOf('\n\n')) >= 0) {
+      const block = buf.slice(0, i); buf = buf.slice(i + 2);
+      const line = block.split('\n').find((l) => l.startsWith('data:'));
+      if (!line) continue;
+      let ev: any; try { ev = JSON.parse(line.slice(5)); } catch { continue; }
+      if (ev.type === 'message_start') {
+        const m = ev.message?.usage ?? {};
+        u.input = m.input_tokens ?? 0; u.cr = m.cache_read_input_tokens ?? 0; u.cw = m.cache_creation_input_tokens ?? 0; u.output = m.output_tokens ?? 0;
+      } else if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') onText(ev.delta.text);
+      else if (ev.type === 'message_delta' && ev.usage) u.output = ev.usage.output_tokens ?? u.output;
+      else if (ev.type === 'error') throw new Error('AI request failed');
+    }
+  }
+  const cost = u.input * HAIKU.in + u.cr * HAIKU.cacheRead + u.cw * HAIKU.cacheWrite + u.output * HAIKU.out;
+  return { cost, tokens: u.input + u.cr + u.cw + u.output, cacheRead: u.cr };
+}
+
+/**
+ * Live reply: Claude streams text; each finished sentence is sent to the voice
+ * immediately (in parallel), and audio is piped back in order. Line text is
+ * sent right before its audio, so the transcript appears as it's spoken.
+ */
+function streamSpokenReply(opts: {
+  system: string; messages: { role: 'user' | 'assistant'; content: string }[];
+  voice?: string; pace?: string; first?: Record<string, unknown>;
+  finish: (reply: string, timing: Record<string, number>) => Promise<Record<string, unknown>>;
+  onClaude: (tokens: number, cost: number) => void; onChars: (n: number) => void;
+}) {
+  const enc = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(c) {
+      const send = (o: unknown) => c.enqueue(enc.encode(`data: ${JSON.stringify(o)}\n\n`));
+      if (opts.first) send({ type: 'reply', ...opts.first });
+      const t0 = Date.now();
+      let firstTokenMs = 0, firstSentenceMs = 0, firstAudioMs = 0;
+      let pending = '', full = '', ttsError = false;
+      let chain: Promise<void> = Promise.resolve();
+      const speakSentence = (s: string) => {
+        const text = s.trim(); if (!text) return;
+        if (!firstSentenceMs) firstSentenceMs = Date.now() - t0;
+        const tts = ttsStream(text, { voice: opts.voice, pace: opts.pace }).catch(() => null); // starts now, in parallel
+        chain = chain.then(async () => {
+          send({ type: 'line', text });
+          const r = await tts;
+          if (!r || !r.res.ok || !r.res.body) {
+            if (r) console.error('tts', r.res.status);
+            if (!ttsError) { ttsError = true; send({ type: 'error', status: r?.res.status, message: r?.res.status === 402 ? 'AI credits are used up.' : 'Voice unavailable.' }); }
+            return;
+          }
+          if (!firstAudioMs) firstAudioMs = Date.now() - t0;
+          // Re-emit whole SSE events so our own events never split an audio event.
+          const reader = r.res.body.pipeThrough(new TextDecoderStream()).getReader();
+          let b = '';
+          while (true) {
+            const n = await reader.read(); if (n.done) break;
+            b += n.value;
+            let i; while ((i = b.indexOf('\n\n')) >= 0) {
+              const ev = b.slice(0, i); b = b.slice(i + 2);
+              if (ev.includes('speech.audio.delta')) c.enqueue(enc.encode(`${ev}\n\n`));
+            }
+          }
+          opts.onChars(r.chars);
+        });
+      };
+      // First chunk may be short so the voice starts quickly; later ones wait for a full sentence.
+      const flush = (force: boolean) => {
+        while (true) {
+          const m = pending.match(/^([\s\S]*?[.!?…]+["'”’)\]]*)(\s+)/);
+          if (!m) break;
+          if (m[1].trim().length < (firstSentenceMs ? 25 : 6) && pending.length < 200) {
+            // keep merging tiny sentences with the next one
+            const next = pending.slice(m[0].length).match(/^([\s\S]*?[.!?…]+["'”’)\]]*)(\s+)/);
+            if (!next) break;
+            const merged = m[0] + next[0];
+            speakSentence(merged); pending = pending.slice(merged.length); continue;
+          }
+          speakSentence(m[1]); pending = pending.slice(m[0].length);
+        }
+        if (force && pending.trim()) { speakSentence(pending); pending = ''; }
+      };
+      try {
+        const { cost, tokens } = await claudeStream(opts.system, opts.messages, (t) => {
+          if (!firstTokenMs) firstTokenMs = Date.now() - t0;
+          full += t; pending += t.replace(/\*[^*]*\*/g, ''); flush(false);
+        });
+        flush(true);
+        opts.onClaude(tokens, cost);
+        await chain;
+        const reply = full.trim() || '...';
+        const payload = await opts.finish(reply, { first_token_ms: firstTokenMs, first_sentence_ms: firstSentenceMs, first_audio_ms: firstAudioMs, total_ms: Date.now() - t0 });
+        send({ type: 'reply', ...payload });
+      } catch (e) {
+        await chain.catch(() => {});
+        send({ type: 'error', message: e instanceof Error ? e.message : 'AI request failed' });
+      }
+      c.close();
+    },
+  });
+  return new Response(stream, { headers: { ...cors, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } });
 }
 
 const words = (s: string) => s.trim().split(/\s+/).filter(Boolean).length;
