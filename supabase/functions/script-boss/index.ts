@@ -239,6 +239,19 @@ async function claudeStream(system: string, messages: { role: 'user' | 'assistan
   return { cost, tokens: u.input + u.cr + u.cw + u.output, cacheRead: u.cr };
 }
 
+/** Stage directions — [..], (..), *..* — are never spoken or shown. */
+function stripStage(s: string, final: boolean) {
+  let out = s.replace(/\[[^\]]*\]/g, ' ').replace(/\([^)]*\)/g, ' ').replace(/\*[^*]*\*/g, ' ');
+  if (final) out = out.replace(/[[(][^\])]*$/, ' ').replace(/\*[^*]*$/, ' ');
+  return out.replace(/[ \t]{2,}/g, ' ').replace(/\s+([.,!?…])/g, '$1').replace(/^\s*[.,]\s*/, '').trimStart().replace(final ? /\s+$/ : /$^/, '');
+}
+function hasOpenStage(s: string) {
+  return (s.match(/\[/g)?.length ?? 0) > (s.match(/\]/g)?.length ?? 0)
+    || (s.match(/\(/g)?.length ?? 0) > (s.match(/\)/g)?.length ?? 0)
+    || (s.match(/\*/g)?.length ?? 0) % 2 === 1;
+}
+
+
 /**
  * Live reply: Claude streams text; each finished sentence is sent to the voice
  * immediately (in parallel), and audio is piped back in order. Line text is
@@ -288,29 +301,32 @@ function streamSpokenReply(opts: {
       };
       // First chunk may be short so the voice starts quickly; later ones wait for a full sentence.
       const flush = (force: boolean) => {
+        // Never split inside an unfinished [..], (..) or *..* — wait until it closes, then drop it.
+        if (!force && hasOpenStage(pending)) return;
+        pending = stripStage(pending, false);
         while (true) {
-          const m = pending.match(/^([\s\S]*?[.!?…]+["'”’)\]]*)(\s+)/);
+          const m = pending.match(/^([\s\S]*?[.!?…]+["'”’]*)(\s+)/);
           if (!m) break;
           if (m[1].trim().length < (firstSentenceMs ? 25 : 6) && pending.length < 200) {
             // keep merging tiny sentences with the next one
-            const next = pending.slice(m[0].length).match(/^([\s\S]*?[.!?…]+["'”’)\]]*)(\s+)/);
+            const next = pending.slice(m[0].length).match(/^([\s\S]*?[.!?…]+["'”’]*)(\s+)/);
             if (!next) break;
             const merged = m[0] + next[0];
             speakSentence(merged); pending = pending.slice(merged.length); continue;
           }
           speakSentence(m[1]); pending = pending.slice(m[0].length);
         }
-        if (force && pending.trim()) { speakSentence(pending); pending = ''; }
+        if (force) { pending = stripStage(pending, true); if (pending.trim()) speakSentence(pending); pending = ''; }
       };
       try {
         const { cost, tokens } = await claudeStream(opts.system, opts.messages, (t) => {
           if (!firstTokenMs) firstTokenMs = Date.now() - t0;
-          full += t; pending += t.replace(/\*[^*]*\*/g, ''); flush(false);
+          full += t; pending += t; flush(false);
         });
         flush(true);
         opts.onClaude(tokens, cost);
         await chain;
-        const reply = full.trim() || '...';
+        const reply = stripStage(full, true) || '...';
         const payload = await opts.finish(reply, { first_token_ms: firstTokenMs, first_sentence_ms: firstSentenceMs, first_audio_ms: firstAudioMs, total_ms: Date.now() - t0 });
         send({ type: 'reply', ...payload });
       } catch (e) {
