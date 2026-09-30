@@ -26,17 +26,23 @@ type Scenario = { id: string; name: string; description: string; is_custom: bool
 type PracticeMode = 'drill' | 'review' | 'clinic';
 type Channel = 'phone' | 'text' | 'face';
 type Phase = 'idle' | 'listening' | 'thinking' | 'speaking';
-type VoicePrefs = { voice: string; pace: 'relaxed' | 'natural' | 'brisk'; voiceMuted: boolean; silenceMs: number; pushToTalk: boolean };
+type VoicePrefs = { voice: string; pace: 'relaxed' | 'natural' | 'brisk'; voiceStyle: 'plain' | 'expressive'; voiceMuted: boolean; silenceMs: number; pushToTalk: boolean };
 const PREFS_KEY = 'scriptBoss.voicePrefs';
 const VOICE_OPTIONS = [
-  { id: 'Kore', label: 'Kore — calm, clear (female)' }, { id: 'Aoede', label: 'Aoede — easygoing (female)' },
+  { id: 'Kore', label: 'Kore — clear, understated (female)' }, { id: 'Aoede', label: 'Aoede — easygoing (female)' },
   { id: 'Leda', label: 'Leda — younger (female)' }, { id: 'Zephyr', label: 'Zephyr — bright (female)' },
-  { id: 'Puck', label: 'Puck — upbeat (male)' }, { id: 'Charon', label: 'Charon — steady (male)' },
+  { id: 'Puck', label: 'Puck — upbeat (male)' }, { id: 'Charon', label: 'Charon — plain, steady (male)' },
   { id: 'Orus', label: 'Orus — firm (male)' }, { id: 'Fenrir', label: 'Fenrir — energetic (male)' },
 ];
-const DEFAULT_PREFS: VoicePrefs = { voice: 'Kore', pace: 'natural', voiceMuted: false, silenceMs: 1200, pushToTalk: false };
+const DEFAULT_PREFS: VoicePrefs = { voice: 'Charon', pace: 'brisk', voiceStyle: 'plain', voiceMuted: false, silenceMs: 1200, pushToTalk: false };
 function loadPrefs(): VoicePrefs {
-  try { return { ...DEFAULT_PREFS, ...JSON.parse(localStorage.getItem(PREFS_KEY) || '{}') }; } catch { return DEFAULT_PREFS; }
+  try {
+    const saved = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}') as Partial<VoicePrefs>;
+    // Existing preferences predate Voice style. Move those accounts to the new
+    // plain/brisk baseline while preserving their mic and silence preferences.
+    if (!saved.voiceStyle) return { ...DEFAULT_PREFS, ...saved, voice: DEFAULT_PREFS.voice, pace: DEFAULT_PREFS.pace, voiceStyle: 'plain' };
+    return { ...DEFAULT_PREFS, ...saved };
+  } catch { return DEFAULT_PREFS; }
 }
 
 const GROUPS = ['Open houses', 'Paid & portal leads', 'Sphere & past clients', 'Sellers', 'Buyers', 'The calls nobody answers', 'Hard mode', 'Custom'];
@@ -232,7 +238,7 @@ export default function ScriptBoss() {
     if (!sid || !text) return;
     unlockAudio();
     try {
-      const res = await fnStream({ action: 'speak', session_id: sid, text, voice: coach ? 'coach' : 'client', voice_name: coach ? undefined : stateRef.current.prefs.voice, pace: stateRef.current.prefs.pace });
+      const res = await fnStream({ action: 'speak', session_id: sid, text, voice: coach ? 'coach' : 'client', voice_name: coach ? undefined : stateRef.current.prefs.voice, pace: stateRef.current.prefs.pace, voice_style: stateRef.current.prefs.voiceStyle });
       await playStream(res);
     } catch (e) { toast({ title: 'Voice unavailable', description: (e as Error).message, variant: 'destructive' }); }
   }, [playStream, toast]);
@@ -278,7 +284,7 @@ export default function ScriptBoss() {
       toast({ title: 'Rewound', description: 'Take your last line again.' });
       if (data.replay && autoVoice()) {
         const p = stateRef.current.prefs;
-        await playStream(await fnStream({ action: 'speak', session_id: sid, text: data.replay, voice: 'client', voice_name: p.voice, pace: p.pace }), () => go('speaking'));
+        await playStream(await fnStream({ action: 'speak', session_id: sid, text: data.replay, voice: 'client', voice_name: p.voice, pace: p.pace, voice_style: p.voiceStyle }), () => go('speaking'));
       }
     } catch (e) { setBusy(null); toast({ title: 'Rewind failed', description: (e as Error).message, variant: 'destructive' }); }
     afterReply();
@@ -325,7 +331,7 @@ export default function ScriptBoss() {
     setBusy(isPaused ? 'Coach is thinking…' : 'Thinking…'); go('thinking');
     try {
       const p = stateRef.current.prefs;
-      const speak = !isPaused && autoVoice() ? { voice: p.voice, pace: p.pace } : undefined;
+      const speak = !isPaused && autoVoice() ? { voice: p.voice, pace: p.pace, style: p.voiceStyle } : undefined;
       const stt_seconds = dgRef.current?.takeSeconds();
       sentAt.current = Date.now();
       const res = await fnStream({ action: 'turn', session_id: sid, text, paused: isPaused, timing, speak, stream: true, stt_seconds });
@@ -479,7 +485,7 @@ export default function ScriptBoss() {
     // Live transcription connects while the lead picks up.
     const liveReady = mode === 'voice' ? tryLive() : Promise.resolve();
     try {
-      const speak = mode === 'voice' && channel !== 'text' && practiceMode === 'drill' ? { voice: prefs.voice, pace: prefs.pace } : undefined;
+      const speak = mode === 'voice' && channel !== 'text' && practiceMode === 'drill' ? { voice: prefs.voice, pace: prefs.pace, style: prefs.voiceStyle } : undefined;
       const res = await fnStream({ action: 'start', practice_mode: practiceMode, scenario_id: scenarioId, custom_situation: custom, channel, mode, speak, stream: true });
       const onData = (d: Record<string, unknown>) => {
         setSessionId(d.session_id as string); setSessionMode(practiceMode);
@@ -621,6 +627,14 @@ export default function ScriptBoss() {
                           <div className="flex gap-2">
                             {(['relaxed', 'natural', 'brisk'] as const).map(p => (
                               <Button key={p} type="button" size="sm" variant={prefs.pace === p ? 'default' : 'outline'} onClick={() => setPrefs({ pace: p })} className="capitalize">{p}</Button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>Voice style</Label>
+                          <div className="flex gap-2" role="group" aria-label="Voice style">
+                            {(['plain', 'expressive'] as const).map(style => (
+                              <Button key={style} type="button" size="sm" variant={prefs.voiceStyle === style ? 'default' : 'outline'} aria-pressed={prefs.voiceStyle === style} onClick={() => setPrefs({ voiceStyle: style })} className="capitalize">{style}</Button>
                             ))}
                           </div>
                         </div>

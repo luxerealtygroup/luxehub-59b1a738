@@ -40,7 +40,7 @@ const CHANNELS: Record<string, string> = {
 function appLayer(opts: { mode: string; scenario?: string; channel?: string; custom?: string | null; agentName: string }) {
   const base = `--- LUXEHUB APP LAYER (rules for how this app runs; the coaching instructions above still govern coaching and grading) ---
 You are running inside LUXEhub's Script Boss screen. The agent (${opts.agentName}) has already chosen the mode, scenario and channel on the start screen, so do NOT ask which mode, and do NOT send a confirmation message — start immediately.
-The app speaks your replies out loud and transcribes the agent's speech, so the drill is already being run out loud. Keep replies short and natural for speech: 1-3 sentences, no markdown, no lists, no headings.
+ The app speaks your replies out loud and transcribes the agent's speech, so the drill is already being run out loud. As the client, answer like a busy Ontario homeowner on the phone: short, direct replies, usually 1–2 sentences. Use minimal filler words and no monologues, markdown, lists or headings. Keep the same realistic difficulty, resistance and objections from the coaching instructions.
 When you play the client, speak dialogue ONLY: never write stage directions, actions, tone or sound cues — nothing in [brackets], (parentheses) or *asterisks* (no "*sighs*", "(pauses)", "[laughs]"). Show hesitation or mood through the words themselves.
 PAUSE, REWIND and END are handled by the app with buttons and spoken commands. A message beginning with "[PAUSE]" is the agent stepping out of the roleplay: answer as the coach, briefly, then stop. The next message without "[PAUSE]" means step back into character exactly where you left off.
 Never build a scenario around renters or a rental transaction.
@@ -69,13 +69,15 @@ const PACES: Record<string, string> = {
 };
 
 /** Streams 24 kHz PCM speech as SSE from the gateway (first audio in ~0.6-0.7s). */
-async function ttsStream(text: string, opts: { voice?: string; pace?: string; coach?: boolean }) {
+async function ttsStream(text: string, opts: { voice?: string; pace?: string; style?: string; coach?: boolean }) {
   const clean = text.replace(/\*[^*]+\*/g, '').replace(/[#_`>]/g, '').slice(0, 1500).trim();
-  const voice = VOICES.includes(opts.voice ?? '') ? opts.voice! : (opts.coach ? 'Charon' : 'Kore');
-  const pace = PACES[opts.pace ?? ''] ?? PACES.natural;
+  const voice = VOICES.includes(opts.voice ?? '') ? opts.voice! : 'Charon';
+  const pace = PACES[opts.pace ?? ''] ?? PACES.brisk;
   const style = opts.coach
     ? `In a neutral Canadian English accent, say warmly and directly like a coach, ${pace}`
-    : `In a neutral Canadian English accent, say naturally like a real person on a call, ${pace}`;
+    : opts.style === 'expressive'
+      ? `In a neutral Canadian English accent, say naturally and conversationally like a person on a call, ${pace}`
+      : `In a neutral Canadian English accent, speak in a plain, steady, matter-of-fact voice like a busy Ontario homeowner on the phone, ${pace}. Low expressiveness, even delivery, no acting, dramatic sighs, stretched words, or long pauses`;
   const res = await fetch(`${GATEWAY}/v1/audio/speech`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${Deno.env.get('LOVABLE_API_KEY')}`, 'Content-Type': 'application/json' },
@@ -90,7 +92,7 @@ async function ttsStream(text: string, opts: { voice?: string; pace?: string; co
 }
 
 /** SSE response: one app event first (reply + transcript), then the gateway's audio events piped through. */
-function sseReply(first: Record<string, unknown> | null, text: string | null, opts: { voice?: string; pace?: string; coach?: boolean }, onChars: (n: number, rate?: number) => void) {
+function sseReply(first: Record<string, unknown> | null, text: string | null, opts: { voice?: string; pace?: string; style?: string; coach?: boolean }, onChars: (n: number, rate?: number) => void) {
   const enc = new TextEncoder();
   const stream = new ReadableStream({
     async start(c) {
@@ -271,7 +273,7 @@ function hasOpenStage(s: string) {
  */
 function streamSpokenReply(opts: {
   system: string; messages: { role: 'user' | 'assistant'; content: string }[];
-  voice?: string; pace?: string; first?: Record<string, unknown>;
+  voice?: string; pace?: string; style?: string; first?: Record<string, unknown>;
   finish: (reply: string, timing: Record<string, number>) => Promise<Record<string, unknown>>;
   onClaude: (tokens: number, cost: number) => void; onChars: (n: number) => void;
 }) {
@@ -287,7 +289,7 @@ function streamSpokenReply(opts: {
       const speakSentence = (s: string) => {
         const text = s.trim(); if (!text) return;
         if (!firstSentenceMs) firstSentenceMs = Date.now() - t0;
-        const tts = ttsStream(text, { voice: opts.voice, pace: opts.pace }).catch(() => null); // starts now, in parallel
+        const tts = ttsStream(text, { voice: opts.voice, pace: opts.pace, style: opts.style }).catch(() => null); // starts now, in parallel
         chain = chain.then(async () => {
           send({ type: 'line', text });
           const r = await tts;
@@ -563,7 +565,7 @@ Deno.serve(async (req) => {
         session.transcript = [];
         return streamSpokenReply({
           system: await sessionSystem(orgId, session, ctx.name), messages: toMessages([], openerFor(session)),
-          voice: body.speak.voice, pace: body.speak.pace, first: { session_id: session.id, transcript: [] },
+           voice: body.speak.voice, pace: body.speak.pace, style: body.speak.style, first: { session_id: session.id, transcript: [] },
           onClaude: (tk, cost) => { logUsage(orgId, userId, session.id, 'claude', tk, cost).catch(() => {}); },
           onChars: logTts(session.id),
           finish: async (reply, timing) => {
@@ -579,7 +581,7 @@ Deno.serve(async (req) => {
       await db.from('script_boss_sessions').update({ transcript, updated_at: new Date().toISOString() }).eq('id', session.id);
       const payload = { session_id: session.id, reply, transcript };
       if (body.speak && practiceMode === 'drill') {
-        return sseReply(payload, reply, { voice: body.speak.voice, pace: body.speak.pace }, logTts(session.id));
+         return sseReply(payload, reply, { voice: body.speak.voice, pace: body.speak.pace, style: body.speak.style }, logTts(session.id));
       }
       return json(payload);
     }
@@ -624,7 +626,7 @@ Deno.serve(async (req) => {
       if (body.speak && body.stream && !paused && session.practice_mode === 'drill' && session.channel !== 'text') {
         return streamSpokenReply({
           system: await systemP, messages: toMessages(session.transcript, openerFor(session)),
-          voice: body.speak.voice, pace: body.speak.pace,
+           voice: body.speak.voice, pace: body.speak.pace, style: body.speak.style,
           onClaude: (tk, cost) => { logUsage(orgId, userId, session.id, 'claude', tk, cost).catch(() => {}); },
           onChars: logTts(session.id),
           finish: async (reply, timing) => {
@@ -644,7 +646,7 @@ Deno.serve(async (req) => {
       const payload = { reply, transcript: session.transcript, speaker, claude_ms: claudeMs };
       // In-character lines on Phone/Face to face are spoken automatically, streamed with the reply.
       if (body.speak && speaker === 'client' && session.channel !== 'text') {
-        return sseReply(payload, reply, { voice: body.speak.voice, pace: body.speak.pace }, logTts(session.id));
+         return sseReply(payload, reply, { voice: body.speak.voice, pace: body.speak.pace, style: body.speak.style }, logTts(session.id));
       }
       return json(payload);
     }
@@ -665,7 +667,7 @@ Deno.serve(async (req) => {
       const text = String(body.text ?? '').trim();
       if (!text) return json({ error: 'Nothing to say.' }, 400);
       if (await capReached(orgId, userId)) return json({ error: 'Monthly practice limit reached.' }, 402);
-      return sseReply(null, text, { voice: body.voice_name, pace: body.pace, coach: body.voice === 'coach' }, logTts(session.id));
+      return sseReply(null, text, { voice: body.voice_name, pace: body.pace, style: body.voice_style, coach: body.voice === 'coach' }, logTts(session.id));
     }
 
     if (action === 'score') {
