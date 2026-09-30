@@ -3,7 +3,6 @@
 // APP_LAYER is a separate, app-level prompt layered on top; it never edits them.
 // Actions: start, turn, rewind, speak, score, review, (multipart) transcribe.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-import { encode as b64 } from 'https://deno.land/std@0.168.0/encoding/base64.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -56,13 +55,72 @@ async function logUsage(org: string, user: string, session: string | null, kind:
   await db.from('script_boss_usage').insert({ org_id: org, user_id: user, session_id: session, kind, units, cost_usd: cost });
 }
 
+const VOICES = ['Kore', 'Aoede', 'Leda', 'Zephyr', 'Puck', 'Charon', 'Orus', 'Fenrir'];
+const PACES: Record<string, string> = {
+  relaxed: 'at a relaxed, unhurried pace',
+  natural: 'at a natural conversational pace',
+  brisk: 'at a brisk, slightly quick pace',
+};
+
+/** Streams 24 kHz PCM speech as SSE from the gateway (first audio arrives in ~1s). */
+async function ttsStream(text: string, opts: { voice?: string; pace?: string; coach?: boolean }) {
+  const clean = text.replace(/\*[^*]+\*/g, '').replace(/[#_`>]/g, '').slice(0, 1500).trim();
+  const voice = VOICES.includes(opts.voice ?? '') ? opts.voice! : (opts.coach ? 'Charon' : 'Kore');
+  const pace = PACES[opts.pace ?? ''] ?? PACES.natural;
+  const style = opts.coach
+    ? `In a neutral Canadian English accent, say warmly and directly like a coach, ${pace}`
+    : `In a neutral Canadian English accent, say naturally like a real person on a call, ${pace}`;
+  const res = await fetch(`${GATEWAY}/v1/audio/speech`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${Deno.env.get('LOVABLE_API_KEY')}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: TTS_MODEL,
+      contents: [{ role: 'user', parts: [{ text: `${style}: ${clean || '...'}` }] }],
+      generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } },
+      stream_format: 'sse',
+    }),
+  });
+  return { res, chars: clean.length };
+}
+
+/** SSE response: one app event first (reply + transcript), then the gateway's audio events piped through. */
+function sseReply(first: Record<string, unknown> | null, text: string | null, opts: { voice?: string; pace?: string; coach?: boolean }, onChars: (n: number) => void) {
+  const enc = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(c) {
+      const send = (o: unknown) => c.enqueue(enc.encode(`data: ${JSON.stringify(o)}\n\n`));
+      if (first) send({ type: 'reply', ...first });
+      if (!text) { send({ type: 'speech.audio.done' }); c.close(); return; }
+      try {
+        const t0 = Date.now();
+        const { res, chars } = await ttsStream(text, opts);
+        if (!res.ok || !res.body) {
+          const t = await res.text();
+          console.error('tts', res.status, t.slice(0, 300));
+          send({ type: 'error', status: res.status, message: res.status === 402 ? 'AI credits are used up.' : 'Voice unavailable.' });
+        } else {
+          send({ type: 'tts_start', ms: Date.now() - t0 });
+          const reader = res.body.getReader();
+          while (true) { const n = await reader.read(); if (n.done) break; c.enqueue(n.value); }
+          onChars(chars);
+        }
+      } catch (e) {
+        send({ type: 'error', message: e instanceof Error ? e.message : 'Voice unavailable.' });
+      }
+      c.close();
+    },
+  });
+  return new Response(stream, { headers: { ...cors, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } });
+}
+
 async function claude(system: string, messages: { role: 'user' | 'assistant'; content: string }[], extra: Record<string, unknown> = {}) {
   const key = Deno.env.get('ANTHROPIC_API_KEY');
   if (!key) throw new Error('AI is not configured');
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    body: JSON.stringify({ model: CLAUDE_MODEL, max_tokens: 2000, system, messages, ...extra }),
+    // Cache the long instructions so each turn starts faster and costs less.
+    body: JSON.stringify({ model: CLAUDE_MODEL, max_tokens: 2000, system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }], messages, ...extra }),
   });
   if (!res.ok) {
     const status = res.status;
@@ -262,6 +320,7 @@ Deno.serve(async (req) => {
     const ctx = await loadCtx(userId);
     if (!ctx) return json({ error: "You don't have access to Script Boss." }, 403);
     const { orgId } = ctx;
+    const logTts = (sid: string | null) => (n: number) => { logUsage(orgId, userId, sid, 'tts', n, n * TTS_PER_CHAR).catch(() => {}); };
 
     // Audio upload (multipart) → transcript. Used for spoken turns and REVIEW recordings.
     if ((req.headers.get('content-type') ?? '').startsWith('multipart/form-data')) {
@@ -313,7 +372,11 @@ Deno.serve(async (req) => {
       const reply = await modelReply(orgId, userId, session, ctx.name);
       const transcript: Turn[] = [{ role: practiceMode === 'clinic' ? 'coach' : 'client', text: reply, at: new Date().toISOString() }];
       await db.from('script_boss_sessions').update({ transcript, updated_at: new Date().toISOString() }).eq('id', session.id);
-      return json({ session_id: session.id, reply, transcript });
+      const payload = { session_id: session.id, reply, transcript };
+      if (body.speak && practiceMode === 'drill') {
+        return sseReply(payload, reply, { voice: body.speak.voice, pace: body.speak.pace }, logTts(session.id));
+      }
+      return json(payload);
     }
 
     if (action === 'review') {
@@ -348,10 +411,18 @@ Deno.serve(async (req) => {
         }];
         session.timing = timing;
       }
+      const c0 = Date.now();
       const reply = await modelReply(orgId, userId, session, ctx.name);
-      session.transcript.push({ role: paused || session.practice_mode === 'clinic' ? 'coach' : 'client', text: reply, at: new Date().toISOString() });
+      const claudeMs = Date.now() - c0;
+      const speaker = paused || session.practice_mode === 'clinic' ? 'coach' : 'client';
+      session.transcript.push({ role: speaker, text: reply, at: new Date().toISOString() });
       await db.from('script_boss_sessions').update({ transcript: session.transcript, timing: session.timing, updated_at: new Date().toISOString() }).eq('id', session.id);
-      return json({ reply, transcript: session.transcript, speaker: paused ? 'coach' : 'client' });
+      const payload = { reply, transcript: session.transcript, speaker, claude_ms: claudeMs };
+      // In-character lines on Phone/Face to face are spoken automatically, streamed with the reply.
+      if (body.speak && speaker === 'client' && session.channel !== 'text') {
+        return sseReply(payload, reply, { voice: body.speak.voice, pace: body.speak.pace }, logTts(session.id));
+      }
+      return json(payload);
     }
 
     if (action === 'rewind') {
@@ -366,24 +437,11 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'speak') {
-      const text = String(body.text ?? '').replace(/\*[^*]+\*/g, '').slice(0, 1200).trim();
+      // Speaker button (coach answers, reports, replays): streamed PCM speech.
+      const text = String(body.text ?? '').trim();
       if (!text) return json({ error: 'Nothing to say.' }, 400);
-      const voice = body.voice === 'coach' ? 'Charon' : 'Kore';
-      const style = body.voice === 'coach' ? 'Say warmly and directly, like a coach' : 'Say naturally, like a real person in conversation';
-      const res = await fetch(`${GATEWAY}/v1/audio/speech`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${Deno.env.get('LOVABLE_API_KEY')}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: TTS_MODEL,
-          contents: [{ role: 'user', parts: [{ text: `${style}: ${text}` }] }],
-          generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } },
-          stream_format: 'audio',
-        }),
-      });
-      if (!res.ok) { const t = await res.text(); console.error('tts', res.status, t.slice(0, 300)); return json({ error: 'Voice unavailable.' }, res.status === 402 ? 402 : 502); }
-      const buf = new Uint8Array(await res.arrayBuffer());
-      await logUsage(orgId, userId, session.id, 'tts', text.length, text.length * TTS_PER_CHAR);
-      return json({ audio: b64(buf), mime: res.headers.get('content-type') || 'audio/wav' });
+      if (await capReached(orgId, userId)) return json({ error: 'Monthly practice limit reached.' }, 402);
+      return sseReply(null, text, { voice: body.voice_name, pace: body.pace, coach: body.voice === 'coach' }, logTts(session.id));
     }
 
     if (action === 'score') {
