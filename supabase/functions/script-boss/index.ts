@@ -547,7 +547,7 @@ Deno.serve(async (req) => {
       const r = await fetch('https://api.deepgram.com/v1/auth/grant', {
         method: 'POST', headers: { Authorization: `Token ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ ttl_seconds: 60 }),
       });
-      if (!r.ok) { await r.text().catch(() => ''); console.error('deepgram grant failed', r.status); return json({ error: 'Live transcription unavailable.', fallback: true }, 502); }
+      if (!r.ok) { const bt = (await r.text().catch(() => '')).slice(0, 200); console.error('deepgram grant failed', r.status, bt); return json({ error: 'Live transcription unavailable.', fallback: true }, 502); }
       const d = await r.json();
       return json({ token: d.access_token });
     }
