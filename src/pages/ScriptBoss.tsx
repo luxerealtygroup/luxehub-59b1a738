@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 import { Mic, MicOff, Pause, Play, Square, Send, Keyboard, Loader2, Shuffle, Undo2, Upload, Volume2, VolumeX, Ear, Brain, Phone } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { unlockAudio, playSpeechResponse, stopSpeech, setVolume } from '@/lib/voicePlayer';
+import { openLiveStt, type LiveStt } from '@/lib/liveStt';
 import { ScriptBossSettings } from '@/components/scriptBoss/ScriptBossSettings';
 import { ScriptBossReport, type ScriptBossReportRow } from '@/components/scriptBoss/ScriptBossReport';
 
@@ -125,6 +126,7 @@ export default function ScriptBoss() {
   const [phase, setPhase] = useState<Phase>('idle');
   const [micMuted, setMicMuted] = useState(false);
   const [delays, setDelays] = useState<number[]>([]);
+  const [live, setLive] = useState<boolean | null>(null); // true = live transcription, false = standard fallback
 
   const recRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -134,6 +136,10 @@ export default function ScriptBoss() {
   const phaseRef = useRef<Phase>('idle');
   const loudRef = useRef(0);
   const endSpeechAt = useRef(0);
+  const sentAt = useRef(0);
+  const dgRef = useRef<LiveStt | null>(null);
+  const liveLineRef = useRef(false);
+  const finishingRef = useRef(false);
   const stateRef = useRef({ paused, busy, sessionId, mode, prefs, channel, micMuted, sessionMode });
   stateRef.current = { paused, busy, sessionId, mode, prefs, channel, micMuted, sessionMode };
   const transcriptEnd = useRef<HTMLDivElement>(null);
@@ -141,6 +147,7 @@ export default function ScriptBoss() {
 
   useEffect(() => { transcriptEnd.current?.scrollIntoView({ block: 'nearest' }); }, [turns]);
   useEffect(() => { setVolume(prefs.voiceMuted ? 0 : 1); }, [prefs.voiceMuted]);
+  useEffect(() => { dgRef.current?.setMuted(micMuted); }, [micMuted]);
 
   useEffect(() => {
     supabase.from('script_boss_scenarios' as never).select('id,name,description,is_custom,category,number').eq('active', true).order('sort_order')
@@ -169,6 +176,7 @@ export default function ScriptBoss() {
   const stopAll = useCallback(() => {
     stopSpeech();
     stopRecorder();
+    dgRef.current?.close(); dgRef.current = null;
     if (loopRef.current) { clearInterval(loopRef.current.timer); loopRef.current.ctx.close().catch(() => {}); loopRef.current = null; }
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
@@ -182,18 +190,36 @@ export default function ScriptBoss() {
 
   /** Plays a streamed reply. Shows the transcript as soon as the text arrives, speaks it at the same time. */
   const playStream = useCallback(async (res: Response, onReply?: (p: Record<string, unknown>) => void) => {
+    liveLineRef.current = false;
+    const w = window as unknown as { __sb?: { delays: number[]; sendDelays?: number[]; heard: number; live?: unknown[] } };
     const r = await playSpeechResponse(res, {
-      onReply: p => { onReply?.(p); setBusy(null); go('speaking'); },
+      onReply: p => {
+        onReply?.(p);
+        if (p.live) { w.__sb = w.__sb || { delays: [], heard: 0 }; (w.__sb.live ||= []).push(p.live); }
+        if (phaseRef.current === 'thinking') { setBusy(null); go('speaking'); }
+      },
+      onLine: text => {
+        // Live mode: grow the lead's bubble sentence by sentence, as it's spoken.
+        setTurns(t => {
+          if (liveLineRef.current && t.length && t[t.length - 1].role === 'client') {
+            const c = [...t]; c[c.length - 1] = { ...c[c.length - 1], text: `${c[c.length - 1].text} ${text}` }; return c;
+          }
+          return [...t, { role: 'client', text }];
+        });
+        liveLineRef.current = true;
+        setBusy(null); go('speaking');
+      },
       onFirstAudio: () => {
+        setBusy(null); go('speaking');
+        w.__sb = w.__sb || { delays: [], heard: 0 };
         if (endSpeechAt.current) {
           const d = (Date.now() - endSpeechAt.current) / 1000;
           endSpeechAt.current = 0;
           setDelays(x => [...x, d]);
-          const w = window as unknown as { __sb?: { delays: number[]; heard: number } };
-          w.__sb = w.__sb || { delays: [], heard: 0 }; w.__sb.delays.push(d);
+          w.__sb.delays.push(d);
         }
-        const w = window as unknown as { __sb?: { delays: number[]; heard: number } };
-        w.__sb = w.__sb || { delays: [], heard: 0 }; w.__sb.heard++;
+        if (sentAt.current) { (w.__sb.sendDelays ||= []).push((Date.now() - sentAt.current) / 1000); sentAt.current = 0; }
+        w.__sb.heard++;
       },
     });
     if (r.error) toast({ title: 'Voice unavailable', description: `${r.error} The line is on screen.`, variant: 'destructive' });
@@ -215,6 +241,14 @@ export default function ScriptBoss() {
     const stream = streamRef.current;
     if (!stream || !stateRef.current.sessionId) return;
     stopRecorder();
+    if (dgRef.current) {
+      // Live transcription is already streaming; just start a fresh turn.
+      dgRef.current.reset();
+      speechRef.current = { start: Date.now(), first: 0, last: 0, stop: 0 };
+      setRecording(true);
+      go('listening');
+      return;
+    }
     const mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : (MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '');
     const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
     chunksRef.current = [];
@@ -292,7 +326,9 @@ export default function ScriptBoss() {
     try {
       const p = stateRef.current.prefs;
       const speak = !isPaused && autoVoice() ? { voice: p.voice, pace: p.pace } : undefined;
-      const res = await fnStream({ action: 'turn', session_id: sid, text, paused: isPaused, timing, speak });
+      const stt_seconds = dgRef.current?.takeSeconds();
+      sentAt.current = Date.now();
+      const res = await fnStream({ action: 'turn', session_id: sid, text, paused: isPaused, timing, speak, stream: true, stt_seconds });
       if ((res.headers.get('content-type') || '').includes('text/event-stream')) {
         await playStream(res, d => setTurns(d.transcript as Turn[]));
       } else {
@@ -331,6 +367,44 @@ export default function ScriptBoss() {
     }
   };
 
+  /** Live mode: end of the agent's turn — finalize the words and send them. */
+  const finishLive = async () => {
+    const dg = dgRef.current; const sid = stateRef.current.sessionId;
+    if (!dg || !sid || finishingRef.current) return;
+    finishingRef.current = true;
+    const sp = speechRef.current; sp.stop = Date.now();
+    setRecording(false); go('thinking');
+    try {
+      const text = sp.first ? await dg.finalize() : '';
+      if (!text) { afterReply(); return; }
+      endSpeechAt.current = sp.last || Date.now();
+      await sendAgent(text, { seconds: Math.max(0.5, (sp.last - sp.first) / 1000), trailing_silence_ms: sp.stop - sp.last });
+    } finally { finishingRef.current = false; }
+  };
+  const finishLiveRef = useRef(finishLive); finishLiveRef.current = finishLive;
+  const stopListening = () => { if (dgRef.current) finishLiveRef.current(); else if (recRef.current?.state === 'recording') recRef.current.stop(); };
+  const isListening = () => (dgRef.current ? phaseRef.current === 'listening' : recRef.current?.state === 'recording');
+
+  /** Try live transcription; stay on the standard (slower) path if it isn't available. */
+  const tryLive = async () => {
+    const stream = streamRef.current, ctx = loopRef.current?.ctx;
+    if (!stream || !ctx) return;
+    try {
+      const { token } = await callFn({ action: 'stt_token' });
+      if (!token) throw new Error('no token');
+      dgRef.current = await openLiveStt(stream, ctx, token, () => {
+        // Dropped mid-drill: fall back to the standard path without interrupting.
+        dgRef.current = null; setLive(false);
+        toast({ title: 'Live transcription dropped', description: 'Switched to standard voice — replies will be a bit slower.' });
+        if (phaseRef.current === 'listening') beginRecording();
+      });
+      dgRef.current.setMuted(stateRef.current.micMuted);
+      setLive(true);
+    } catch {
+      dgRef.current = null; setLive(false);
+    }
+  };
+
   /** Opens the mic once for the whole session and watches the level every 50 ms. */
   const openMic = useCallback(async () => {
     if (streamRef.current) return true;
@@ -354,10 +428,10 @@ export default function ScriptBoss() {
         if (ph === 'listening') {
           const sp = speechRef.current;
           if (rms > 6) { sp.first ||= now; sp.last = now; }
-          if (isHandsFree() && recRef.current?.state === 'recording'
+          if (isHandsFree() && isListening()
             && ((sp.first && now - sp.last > st.prefs.silenceMs) || now - sp.start > 90000)) {
             go('thinking');
-            recRef.current.stop();
+            stopListening();
           }
         } else if (ph === 'speaking' && isHandsFree()) {
           // Agent talks over the client: stop the client and listen.
@@ -383,7 +457,7 @@ export default function ScriptBoss() {
   }, [beginRecording, toast]);
 
   const pttDown = async () => { if (await openMic()) { stopSpeech(); beginRecording(); } };
-  const pttUp = () => { if (recRef.current?.state === 'recording') { go('thinking'); recRef.current.stop(); } };
+  const pttUp = () => { if (isListening()) { go('thinking'); stopListening(); } };
 
   const surprise = () => {
     const pool = scenarios.filter(s => !s.is_custom);
@@ -400,11 +474,13 @@ export default function ScriptBoss() {
     // Unlock audio + open the mic inside the Start tap, so nothing is blocked later.
     unlockAudio();
     if (mode === 'voice' && !(await openMic())) return;
-    setReport(null); setTurns([]); setPausedState(false); setDelays([]);
+    setReport(null); setTurns([]); setPausedState(false); setDelays([]); setLive(null);
     setBusy(practiceMode === 'clinic' ? 'Opening the clinic…' : channel === 'phone' ? 'Dialling…' : 'Starting…'); go('thinking');
+    // Live transcription connects while the lead picks up.
+    const liveReady = mode === 'voice' ? tryLive() : Promise.resolve();
     try {
       const speak = mode === 'voice' && channel !== 'text' && practiceMode === 'drill' ? { voice: prefs.voice, pace: prefs.pace } : undefined;
-      const res = await fnStream({ action: 'start', practice_mode: practiceMode, scenario_id: scenarioId, custom_situation: custom, channel, mode, speak });
+      const res = await fnStream({ action: 'start', practice_mode: practiceMode, scenario_id: scenarioId, custom_situation: custom, channel, mode, speak, stream: true });
       const onData = (d: Record<string, unknown>) => {
         setSessionId(d.session_id as string); setSessionMode(practiceMode);
         stateRef.current.sessionId = d.session_id as string; stateRef.current.sessionMode = practiceMode;
@@ -412,6 +488,7 @@ export default function ScriptBoss() {
       };
       if ((res.headers.get('content-type') || '').includes('text/event-stream')) await playStream(res, onData);
       else { onData(await res.json()); setBusy(null); }
+      await liveReady;
       afterReply();
     } catch (e) {
       setBusy(null); stopAll();
@@ -600,6 +677,7 @@ export default function ScriptBoss() {
                 <div className="flex gap-1">
                   {paused && <Badge>Paused — talking to the coach</Badge>}
                   <Badge variant="outline">{mode === 'voice' ? (prefs.pushToTalk ? 'Push-to-talk' : 'Hands-free') : 'Typing'}</Badge>
+                  {mode === 'voice' && live !== null && <Badge variant="outline" data-testid="sb-live" data-live={live ? '1' : '0'}>{live ? 'Live voice' : 'Standard voice'}</Badge>}
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
