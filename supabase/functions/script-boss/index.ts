@@ -3,7 +3,6 @@
 // APP_LAYER is a separate, app-level prompt layered on top; it never edits them.
 // Actions: start, turn, rewind, speak, score, review, (multipart) transcribe.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-import { encode as b64 } from 'https://deno.land/std@0.168.0/encoding/base64.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -321,6 +320,7 @@ Deno.serve(async (req) => {
     const ctx = await loadCtx(userId);
     if (!ctx) return json({ error: "You don't have access to Script Boss." }, 403);
     const { orgId } = ctx;
+    const logTts = (sid: string | null) => (n: number) => { logUsage(orgId, userId, sid, 'tts', n, n * TTS_PER_CHAR).catch(() => {}); };
 
     // Audio upload (multipart) → transcript. Used for spoken turns and REVIEW recordings.
     if ((req.headers.get('content-type') ?? '').startsWith('multipart/form-data')) {
