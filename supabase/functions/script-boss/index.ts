@@ -210,7 +210,8 @@ async function claudeStream(system: string, messages: { role: 'user' | 'assistan
     body: JSON.stringify({ model: ROLEPLAY_MODEL, max_tokens: 400, stream: true, system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }], messages }),
   });
   if (!res.ok || !res.body) {
-    const status = res.status; await res.text().catch(() => '');
+    const status = res.status; const errText = await res.text().catch(() => '');
+    console.error('claude stream', status, errText.slice(0, 300));
     throw Object.assign(new Error(status === 429 ? 'AI is busy — try again in a moment.' : 'AI request failed'), { status });
   }
   const u = { input: 0, output: 0, cr: 0, cw: 0 };
@@ -231,7 +232,7 @@ async function claudeStream(system: string, messages: { role: 'user' | 'assistan
         u.input = m.input_tokens ?? 0; u.cr = m.cache_read_input_tokens ?? 0; u.cw = m.cache_creation_input_tokens ?? 0; u.output = m.output_tokens ?? 0;
       } else if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') onText(ev.delta.text);
       else if (ev.type === 'message_delta' && ev.usage) u.output = ev.usage.output_tokens ?? u.output;
-      else if (ev.type === 'error') throw new Error('AI request failed');
+      else if (ev.type === 'error') { console.error('claude stream event', JSON.stringify(ev.error ?? ev).slice(0, 300)); throw new Error('AI request failed'); }
     }
   }
   const cost = u.input * HAIKU.in + u.cr * HAIKU.cacheRead + u.cw * HAIKU.cacheWrite + u.output * HAIKU.out;
