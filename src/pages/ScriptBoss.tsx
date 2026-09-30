@@ -14,7 +14,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Mic, MicOff, Pause, Play, Square, Send, Keyboard, Loader2, Shuffle, Undo2, Upload } from 'lucide-react';
+import { Mic, MicOff, Pause, Play, Square, Send, Keyboard, Loader2, Shuffle, Undo2, Upload, Volume2, VolumeX, Ear, Brain, Phone } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
+import { unlockAudio, playSpeechResponse, stopSpeech, setVolume } from '@/lib/voicePlayer';
 import { ScriptBossSettings } from '@/components/scriptBoss/ScriptBossSettings';
 import { ScriptBossReport, type ScriptBossReportRow } from '@/components/scriptBoss/ScriptBossReport';
 
@@ -22,6 +24,19 @@ type Turn = { role: 'agent' | 'client' | 'coach'; text: string; paused?: boolean
 type Scenario = { id: string; name: string; description: string; is_custom: boolean; category: string | null; number: number | null };
 type PracticeMode = 'drill' | 'review' | 'clinic';
 type Channel = 'phone' | 'text' | 'face';
+type Phase = 'idle' | 'listening' | 'thinking' | 'speaking';
+type VoicePrefs = { voice: string; pace: 'relaxed' | 'natural' | 'brisk'; voiceMuted: boolean; silenceMs: number; pushToTalk: boolean };
+const PREFS_KEY = 'scriptBoss.voicePrefs';
+const VOICE_OPTIONS = [
+  { id: 'Kore', label: 'Kore — calm, clear (female)' }, { id: 'Aoede', label: 'Aoede — easygoing (female)' },
+  { id: 'Leda', label: 'Leda — younger (female)' }, { id: 'Zephyr', label: 'Zephyr — bright (female)' },
+  { id: 'Puck', label: 'Puck — upbeat (male)' }, { id: 'Charon', label: 'Charon — steady (male)' },
+  { id: 'Orus', label: 'Orus — firm (male)' }, { id: 'Fenrir', label: 'Fenrir — energetic (male)' },
+];
+const DEFAULT_PREFS: VoicePrefs = { voice: 'Kore', pace: 'natural', voiceMuted: false, silenceMs: 1200, pushToTalk: false };
+function loadPrefs(): VoicePrefs {
+  try { return { ...DEFAULT_PREFS, ...JSON.parse(localStorage.getItem(PREFS_KEY) || '{}') }; } catch { return DEFAULT_PREFS; }
+}
 
 const GROUPS = ['Open houses', 'Paid & portal leads', 'Sphere & past clients', 'Sellers', 'Buyers', 'The calls nobody answers', 'Hard mode', 'Custom'];
 const CHANNELS: { key: Channel; label: string }[] = [
@@ -44,6 +59,18 @@ async function callFn(body: unknown) {
     throw new Error(msg);
   }
   return data;
+}
+
+/** Calls the function and returns the raw Response (JSON or a streamed spoken reply). */
+async function fnStream(body: unknown): Promise<Response> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/script-boss`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session?.access_token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || 'Something went wrong'); }
+  return res;
 }
 
 async function transcribeFile(file: Blob, name: string, sessionId: string | null, seconds: number): Promise<string> {
@@ -82,7 +109,6 @@ export default function ScriptBoss() {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
-  const [handsFree, setHandsFree] = useState(false);
   const [recording, setRecording] = useState(false);
   const [typed, setTyped] = useState('');
   const [report, setReport] = useState<ScriptBossReportRow | null>(null);
