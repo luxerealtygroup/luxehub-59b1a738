@@ -129,7 +129,8 @@ async function claude(system: string, messages: { role: 'user' | 'assistant'; co
     throw Object.assign(new Error(status === 429 ? 'AI is busy — try again in a moment.' : 'AI request failed'), { status });
   }
   const data = await res.json();
-  const cost = (data.usage?.input_tokens ?? 0) * CLAUDE_IN + (data.usage?.output_tokens ?? 0) * CLAUDE_OUT;
+  const f = extra.model === ROLEPLAY_MODEL ? 1 / 3 : 1; // Haiku is ~1/3 of Sonnet's price
+  const cost = ((data.usage?.input_tokens ?? 0) * CLAUDE_IN + (data.usage?.output_tokens ?? 0) * CLAUDE_OUT) * f;
   return { data, cost, tokens: (data.usage?.input_tokens ?? 0) + (data.usage?.output_tokens ?? 0) };
 }
 
