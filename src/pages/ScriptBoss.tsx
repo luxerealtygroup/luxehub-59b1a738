@@ -428,10 +428,10 @@ export default function ScriptBoss() {
         if (ph === 'listening') {
           const sp = speechRef.current;
           if (rms > 6) { sp.first ||= now; sp.last = now; }
-          if (isHandsFree() && recRef.current?.state === 'recording'
+          if (isHandsFree() && isListening()
             && ((sp.first && now - sp.last > st.prefs.silenceMs) || now - sp.start > 90000)) {
             go('thinking');
-            recRef.current.stop();
+            stopListening();
           }
         } else if (ph === 'speaking' && isHandsFree()) {
           // Agent talks over the client: stop the client and listen.
@@ -474,11 +474,13 @@ export default function ScriptBoss() {
     // Unlock audio + open the mic inside the Start tap, so nothing is blocked later.
     unlockAudio();
     if (mode === 'voice' && !(await openMic())) return;
-    setReport(null); setTurns([]); setPausedState(false); setDelays([]);
+    setReport(null); setTurns([]); setPausedState(false); setDelays([]); setLive(null);
     setBusy(practiceMode === 'clinic' ? 'Opening the clinic…' : channel === 'phone' ? 'Dialling…' : 'Starting…'); go('thinking');
+    // Live transcription connects while the lead picks up.
+    const liveReady = mode === 'voice' ? tryLive() : Promise.resolve();
     try {
       const speak = mode === 'voice' && channel !== 'text' && practiceMode === 'drill' ? { voice: prefs.voice, pace: prefs.pace } : undefined;
-      const res = await fnStream({ action: 'start', practice_mode: practiceMode, scenario_id: scenarioId, custom_situation: custom, channel, mode, speak });
+      const res = await fnStream({ action: 'start', practice_mode: practiceMode, scenario_id: scenarioId, custom_situation: custom, channel, mode, speak, stream: true });
       const onData = (d: Record<string, unknown>) => {
         setSessionId(d.session_id as string); setSessionMode(practiceMode);
         stateRef.current.sessionId = d.session_id as string; stateRef.current.sessionMode = practiceMode;
@@ -486,6 +488,7 @@ export default function ScriptBoss() {
       };
       if ((res.headers.get('content-type') || '').includes('text/event-stream')) await playStream(res, onData);
       else { onData(await res.json()); setBusy(null); }
+      await liveReady;
       afterReply();
     } catch (e) {
       setBusy(null); stopAll();
@@ -674,6 +677,7 @@ export default function ScriptBoss() {
                 <div className="flex gap-1">
                   {paused && <Badge>Paused — talking to the coach</Badge>}
                   <Badge variant="outline">{mode === 'voice' ? (prefs.pushToTalk ? 'Push-to-talk' : 'Hands-free') : 'Typing'}</Badge>
+                  {mode === 'voice' && live !== null && <Badge variant="outline" data-testid="sb-live" data-live={live ? '1' : '0'}>{live ? 'Live voice' : 'Standard voice'}</Badge>}
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
