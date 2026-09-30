@@ -372,7 +372,11 @@ Deno.serve(async (req) => {
       const reply = await modelReply(orgId, userId, session, ctx.name);
       const transcript: Turn[] = [{ role: practiceMode === 'clinic' ? 'coach' : 'client', text: reply, at: new Date().toISOString() }];
       await db.from('script_boss_sessions').update({ transcript, updated_at: new Date().toISOString() }).eq('id', session.id);
-      return json({ session_id: session.id, reply, transcript });
+      const payload = { session_id: session.id, reply, transcript };
+      if (body.speak && practiceMode === 'drill') {
+        return sseReply(payload, reply, { voice: body.speak.voice, pace: body.speak.pace }, logTts(session.id));
+      }
+      return json(payload);
     }
 
     if (action === 'review') {
@@ -407,10 +411,18 @@ Deno.serve(async (req) => {
         }];
         session.timing = timing;
       }
+      const c0 = Date.now();
       const reply = await modelReply(orgId, userId, session, ctx.name);
-      session.transcript.push({ role: paused || session.practice_mode === 'clinic' ? 'coach' : 'client', text: reply, at: new Date().toISOString() });
+      const claudeMs = Date.now() - c0;
+      const speaker = paused || session.practice_mode === 'clinic' ? 'coach' : 'client';
+      session.transcript.push({ role: speaker, text: reply, at: new Date().toISOString() });
       await db.from('script_boss_sessions').update({ transcript: session.transcript, timing: session.timing, updated_at: new Date().toISOString() }).eq('id', session.id);
-      return json({ reply, transcript: session.transcript, speaker: paused ? 'coach' : 'client' });
+      const payload = { reply, transcript: session.transcript, speaker, claude_ms: claudeMs };
+      // In-character lines on Phone/Face to face are spoken automatically, streamed with the reply.
+      if (body.speak && speaker === 'client' && session.channel !== 'text') {
+        return sseReply(payload, reply, { voice: body.speak.voice, pace: body.speak.pace }, logTts(session.id));
+      }
+      return json(payload);
     }
 
     if (action === 'rewind') {
@@ -425,24 +437,11 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'speak') {
-      const text = String(body.text ?? '').replace(/\*[^*]+\*/g, '').slice(0, 1200).trim();
+      // Speaker button (coach answers, reports, replays): streamed PCM speech.
+      const text = String(body.text ?? '').trim();
       if (!text) return json({ error: 'Nothing to say.' }, 400);
-      const voice = body.voice === 'coach' ? 'Charon' : 'Kore';
-      const style = body.voice === 'coach' ? 'Say warmly and directly, like a coach' : 'Say naturally, like a real person in conversation';
-      const res = await fetch(`${GATEWAY}/v1/audio/speech`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${Deno.env.get('LOVABLE_API_KEY')}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: TTS_MODEL,
-          contents: [{ role: 'user', parts: [{ text: `${style}: ${text}` }] }],
-          generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } },
-          stream_format: 'audio',
-        }),
-      });
-      if (!res.ok) { const t = await res.text(); console.error('tts', res.status, t.slice(0, 300)); return json({ error: 'Voice unavailable.' }, res.status === 402 ? 402 : 502); }
-      const buf = new Uint8Array(await res.arrayBuffer());
-      await logUsage(orgId, userId, session.id, 'tts', text.length, text.length * TTS_PER_CHAR);
-      return json({ audio: b64(buf), mime: res.headers.get('content-type') || 'audio/wav' });
+      if (await capReached(orgId, userId)) return json({ error: 'Monthly practice limit reached.' }, 402);
+      return sseReply(null, text, { voice: body.voice_name, pace: body.pace, coach: body.voice === 'coach' }, logTts(session.id));
     }
 
     if (action === 'score') {
