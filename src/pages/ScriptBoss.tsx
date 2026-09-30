@@ -390,9 +390,9 @@ export default function ScriptBoss() {
     const stream = streamRef.current, ctx = loopRef.current?.ctx;
     if (!stream || !ctx) return;
     try {
-      const { token } = await callFn({ action: 'stt_token' });
-      if (!token) throw new Error('no token');
-      dgRef.current = await openLiveStt(stream, ctx, token, () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('no session');
+      dgRef.current = await openLiveStt(stream, ctx, session.access_token, () => {
         // Dropped mid-drill: fall back to the standard path without interrupting.
         dgRef.current = null; setLive(false);
         toast({ title: 'Live transcription dropped', description: 'Switched to standard voice — replies will be a bit slower.' });

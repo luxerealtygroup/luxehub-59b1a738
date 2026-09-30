@@ -442,8 +442,36 @@ async function gradeAndSave(ctx: { orgId: string; name: string }, userId: string
   return ps.id as string;
 }
 
+const DG_LISTEN = 'wss://api.deepgram.com/v1/listen?model=nova-3&language=en&encoding=linear16&sample_rate=16000&channels=1'
+  + '&interim_results=true&smart_format=true&punctuate=true&endpointing=300';
+
+/** Live transcription relay: browser ⇄ this function ⇄ Deepgram. The key stays here. */
+async function liveRelay(req: Request) {
+  const url = new URL(req.url);
+  const { data: u } = await db.auth.getUser(url.searchParams.get('access_token') ?? '');
+  const userId = u?.user?.id;
+  if (!userId) return new Response('unauthorized', { status: 401 });
+  const ctx = await loadCtx(userId);
+  if (!ctx) return new Response('forbidden', { status: 403 });
+  if (await capReached(ctx.orgId, userId)) return new Response('limit', { status: 402 });
+  const key = Deno.env.get('DEEPGRAM_API_KEY');
+  if (!key) return new Response('not configured', { status: 503 });
+  const { socket, response } = Deno.upgradeWebSocket(req);
+  const up = new WebSocket(DG_LISTEN, ['token', key]);
+  up.binaryType = 'arraybuffer';
+  const queue: (string | ArrayBuffer)[] = [];
+  socket.onmessage = (e) => { if (up.readyState === WebSocket.OPEN) up.send(e.data); else if (up.readyState === WebSocket.CONNECTING) queue.push(e.data); };
+  up.onopen = () => { for (const m of queue.splice(0)) up.send(m); };
+  up.onmessage = (e) => { if (socket.readyState === WebSocket.OPEN) socket.send(e.data); };
+  up.onclose = (e) => { if (e.code !== 1000) console.error('deepgram live closed', e.code, e.reason?.slice(0, 120)); try { socket.close(); } catch { /* gone */ } };
+  up.onerror = () => { /* onclose follows */ };
+  socket.onclose = () => { try { up.close(); } catch { /* gone */ } };
+  return response;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: cors });
+  if ((req.headers.get('upgrade') ?? '').toLowerCase() === 'websocket') return liveRelay(req);
   try {
     const token = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '') ?? '';
     const { data: u } = await db.auth.getUser(token);
