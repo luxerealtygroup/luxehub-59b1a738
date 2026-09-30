@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAgentOptions } from '@/lib/agentOptions';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
