@@ -139,6 +139,17 @@ async function claude(system: string, messages: { role: 'user' | 'assistant'; co
   return { data, cost, tokens: (data.usage?.input_tokens ?? 0) + (data.usage?.output_tokens ?? 0) };
 }
 
+// Short per-instance cache so repeat drill turns skip lookups that don't change mid-drill.
+const memo = new Map<string, { at: number; v: Promise<unknown> }>();
+function cached<T>(key: string, ttlMs: number, fn: () => Promise<T>): Promise<T> {
+  const hit = memo.get(key);
+  if (hit && Date.now() - hit.at < ttlMs) return hit.v as Promise<T>;
+  const v = fn(); memo.set(key, { at: Date.now(), v });
+  v.catch(() => memo.delete(key));
+  if (memo.size > 500) for (const [k, e] of memo) if (Date.now() - e.at > 120000) memo.delete(k);
+  return v;
+}
+
 async function loadCtx(userId: string) {
   const [{ data: profile }, { data: ok }] = await Promise.all([
     db.from('profiles').select('org_id, full_name').eq('id', userId).maybeSingle(),
@@ -494,10 +505,9 @@ Deno.serve(async (req) => {
   if ((req.headers.get('upgrade') ?? '').toLowerCase() === 'websocket') return liveRelay(req);
   try {
     const token = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '') ?? '';
-    const { data: u } = await db.auth.getUser(token);
-    const userId = u?.user?.id;
+    const userId = await cached(`u:${token}`, 60000, async () => { const { data: u } = await db.auth.getUser(token); if (!u?.user?.id) throw new Error('no user'); return u.user.id; }).catch(() => null);
     if (!userId) return json({ error: 'Please sign in again.' }, 401);
-    const ctx = await loadCtx(userId);
+    const ctx = await cached(`c:${userId}`, 60000, () => loadCtx(userId));
     if (!ctx) return json({ error: "You don't have access to Script Boss." }, 403);
     const { orgId } = ctx;
     const logTts = (sid: string | null) => (n: number) => { logUsage(orgId, userId, sid, 'tts', n, n * TTS_PER_CHAR).catch(() => {}); };
@@ -593,9 +603,9 @@ Deno.serve(async (req) => {
     if (action === 'turn') {
       if (session.status !== 'active') return json({ error: 'This session has ended.' }, 400);
       // Build the prompt while the cap is checked, to save a round trip.
-      const systemP = sessionSystem(orgId, session, ctx.name);
+      const systemP = cached(`s:${session.id}`, 600000, () => sessionSystem(orgId, session, ctx.name));
       systemP.catch(() => {});
-      if (await capReached(orgId, userId)) return json({ error: 'Monthly practice limit reached.' }, 402);
+      if (await cached(`cap:${userId}`, 30000, () => capReached(orgId, userId))) return json({ error: 'Monthly practice limit reached.' }, 402);
       const text = String(body.text ?? '').slice(0, 3000).trim();
       if (!text) return json({ error: 'Say something first.' }, 400);
       const sttSecs = Math.min(600, Math.max(0, Number(body.stt_seconds) || 0));
