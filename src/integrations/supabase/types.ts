@@ -7020,6 +7020,15 @@ export type Database = {
       is_strict_owner: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
       is_team_member: { Args: { _user_id: string }; Returns: boolean }
+      list_agent_options: {
+        Args: { _include_demo?: boolean }
+        Returns: {
+          email: string
+          full_name: string
+          id: string
+          member_type: string
+        }[]
+      }
       mark_portal_messages_seen: {
         Args: { _portal_id: string }
         Returns: undefined
