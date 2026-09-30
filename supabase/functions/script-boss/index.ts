@@ -569,20 +569,6 @@ Deno.serve(async (req) => {
       return json({ practice_session_id: id });
     }
 
-    // Short-lived Deepgram token for the browser's live transcription socket.
-    // The API key itself never leaves the server and is never logged.
-    if (action === 'stt_token') {
-      const key = Deno.env.get('DEEPGRAM_API_KEY');
-      if (!key) return json({ error: 'Live transcription is not set up.', fallback: true }, 503);
-      if (await capReached(orgId, userId)) return json({ error: 'Monthly practice limit reached.' }, 402);
-      const r = await fetch('https://api.deepgram.com/v1/auth/grant', {
-        method: 'POST', headers: { Authorization: `Token ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ ttl_seconds: 60 }),
-      });
-      if (!r.ok) { const bt = (await r.text().catch(() => '')).slice(0, 200); console.error('deepgram grant failed', r.status, bt); return json({ error: 'Live transcription unavailable.', fallback: true }, 502); }
-      const d = await r.json();
-      return json({ token: d.access_token });
-    }
-
     const { data: session } = await db.from('script_boss_sessions').select('*').eq('id', body.session_id).maybeSingle();
     if (!session || session.user_id !== userId) return json({ error: 'Session not found.' }, 404);
 
