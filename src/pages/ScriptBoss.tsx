@@ -94,17 +94,27 @@ export default function ScriptBoss() {
   const [reviewSeconds, setReviewSeconds] = useState<number | null>(null);
   const [fromRecording, setFromRecording] = useState(false);
 
+  const [prefs, setPrefsState] = useState<VoicePrefs>(() => loadPrefs());
+  const setPrefs = (p: Partial<VoicePrefs>) => setPrefsState(prev => { const n = { ...prev, ...p }; localStorage.setItem(PREFS_KEY, JSON.stringify(n)); return n; });
+  const [phase, setPhase] = useState<Phase>('idle');
+  const [micMuted, setMicMuted] = useState(false);
+  const [delays, setDelays] = useState<number[]>([]);
+
   const recRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const speechRef = useRef({ start: 0, first: 0, last: 0, stop: 0 });
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const vadRef = useRef<{ ctx: AudioContext; raf: number } | null>(null);
-  const stateRef = useRef({ paused, handsFree, busy, sessionId, mode });
-  stateRef.current = { paused, handsFree, busy, sessionId, mode };
+  const loopRef = useRef<{ ctx: AudioContext; timer: number; an: AnalyserNode } | null>(null);
+  const phaseRef = useRef<Phase>('idle');
+  const loudRef = useRef(0);
+  const endSpeechAt = useRef(0);
+  const stateRef = useRef({ paused, busy, sessionId, mode, prefs, channel, micMuted, sessionMode });
+  stateRef.current = { paused, busy, sessionId, mode, prefs, channel, micMuted, sessionMode };
   const transcriptEnd = useRef<HTMLDivElement>(null);
+  const go = (p: Phase) => { phaseRef.current = p; setPhase(p); };
 
   useEffect(() => { transcriptEnd.current?.scrollIntoView({ block: 'nearest' }); }, [turns]);
+  useEffect(() => { setVolume(prefs.voiceMuted ? 0 : 1); }, [prefs.voiceMuted]);
 
   useEffect(() => {
     supabase.from('script_boss_scenarios' as never).select('id,name,description,is_custom,category,number').eq('active', true).order('sort_order')
@@ -129,62 +139,102 @@ export default function ScriptBoss() {
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') { setMicOk(false); setMode('text'); }
   }, []);
 
-  const stopVad = () => { if (vadRef.current) { cancelAnimationFrame(vadRef.current.raf); vadRef.current.ctx.close().catch(() => {}); vadRef.current = null; } };
+  const stopRecorder = () => { if (recRef.current?.state === 'recording') { recRef.current.onstop = null; recRef.current.stop(); } recRef.current = null; };
   const stopAll = useCallback(() => {
-    stopVad();
-    if (recRef.current?.state === 'recording') { recRef.current.onstop = null; recRef.current.stop(); }
+    stopSpeech();
+    stopRecorder();
+    if (loopRef.current) { clearInterval(loopRef.current.timer); loopRef.current.ctx.close().catch(() => {}); loopRef.current = null; }
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
-    audioRef.current?.pause();
     setRecording(false);
+    go('idle');
   }, []);
   useEffect(() => () => stopAll(), [stopAll]);
 
-  const speak = useCallback(async (text: string, sid: string, voice: 'client' | 'coach' = 'client') => {
-    if (stateRef.current.mode !== 'voice' || !text) return;
+  const isHandsFree = () => stateRef.current.mode === 'voice' && !stateRef.current.prefs.pushToTalk;
+  const autoVoice = () => stateRef.current.mode === 'voice' && stateRef.current.channel !== 'text' && stateRef.current.sessionMode === 'drill';
+
+  /** Plays a streamed reply. Shows the transcript as soon as the text arrives, speaks it at the same time. */
+  const playStream = useCallback(async (res: Response, onReply?: (p: Record<string, unknown>) => void) => {
+    const r = await playSpeechResponse(res, {
+      onReply: p => { onReply?.(p); setBusy(null); go('speaking'); },
+      onFirstAudio: () => {
+        if (endSpeechAt.current) {
+          const d = (Date.now() - endSpeechAt.current) / 1000;
+          endSpeechAt.current = 0;
+          setDelays(x => [...x, d]);
+          const w = window as unknown as { __sb?: { delays: number[]; heard: number } };
+          w.__sb = w.__sb || { delays: [], heard: 0 }; w.__sb.delays.push(d);
+        }
+        const w = window as unknown as { __sb?: { delays: number[]; heard: number } };
+        w.__sb = w.__sb || { delays: [], heard: 0 }; w.__sb.heard++;
+      },
+    });
+    if (r.error) toast({ title: 'Voice unavailable', description: `${r.error} The line is on screen.`, variant: 'destructive' });
+    return r;
+  }, [toast]);
+
+  /** Speaker button: coach answers, replays, the report. */
+  const speakText = useCallback(async (text: string, coach: boolean) => {
+    const sid = stateRef.current.sessionId ?? lastSessionRef.current;
+    if (!sid || !text) return;
+    unlockAudio();
     try {
-      setBusy(voice === 'coach' ? 'Coach is speaking…' : 'Speaking…');
-      const data = await callFn({ action: 'speak', session_id: sid, text, voice });
-      await new Promise<void>((resolve) => {
-        const a = new Audio(`data:${data.mime};base64,${data.audio}`);
-        audioRef.current = a;
-        a.onended = () => resolve();
-        a.onerror = () => resolve();
-        a.onpause = () => resolve();
-        a.play().catch(() => resolve());
-      });
-    } catch { /* the transcript still shows the reply */ }
-    finally { setBusy(null); }
+      const res = await fnStream({ action: 'speak', session_id: sid, text, voice: coach ? 'coach' : 'client', voice_name: coach ? undefined : stateRef.current.prefs.voice, pace: stateRef.current.prefs.pace });
+      await playStream(res);
+    } catch (e) { toast({ title: 'Voice unavailable', description: (e as Error).message, variant: 'destructive' }); }
+  }, [playStream, toast]);
+
+  const beginRecording = useCallback(() => {
+    const stream = streamRef.current;
+    if (!stream || !stateRef.current.sessionId) return;
+    stopRecorder();
+    const mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : (MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '');
+    const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+    chunksRef.current = [];
+    rec.ondataavailable = e => { if (e.data.size) chunksRef.current.push(e.data); };
+    rec.onstop = () => { speechRef.current.stop = Date.now(); setRecording(false); finishRecordingRef.current(); };
+    recRef.current = rec;
+    speechRef.current = { start: Date.now(), first: 0, last: 0, stop: 0 };
+    rec.start(250);
+    setRecording(true);
+    go('listening');
   }, []);
 
-  const resumeListening = () => {
-    if (stateRef.current.handsFree && stateRef.current.mode === 'voice') startListening(true);
-  };
+  /** After the client (or coach) finishes: reopen the mic in hands-free, otherwise wait for push-to-talk. */
+  const afterReply = useCallback(() => {
+    if (!stateRef.current.sessionId) return;
+    if (isHandsFree()) beginRecording(); else go('idle');
+  }, [beginRecording]);
 
   const doRewind = useCallback(async () => {
     const sid = stateRef.current.sessionId; if (!sid) return;
-    audioRef.current?.pause();
-    setBusy('Rewinding…');
+    stopSpeech(); stopRecorder();
+    setBusy('Rewinding…'); go('thinking');
     try {
       const data = await callFn({ action: 'rewind', session_id: sid });
       setTurns(data.transcript);
       setBusy(null);
       toast({ title: 'Rewound', description: 'Take your last line again.' });
-      if (data.replay) await speak(data.replay, sid);
-      resumeListening();
+      if (data.replay && autoVoice()) {
+        const p = stateRef.current.prefs;
+        await playStream(await fnStream({ action: 'speak', session_id: sid, text: data.replay, voice: 'client', voice_name: p.voice, pace: p.pace }), () => go('speaking'));
+      }
     } catch (e) { setBusy(null); toast({ title: 'Rewind failed', description: (e as Error).message, variant: 'destructive' }); }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [speak, toast]);
+    afterReply();
+  }, [playStream, toast, afterReply]);
 
   const setPausedState = (next: boolean) => {
     setPaused(next);
     stateRef.current.paused = next;
-    if (next) audioRef.current?.pause();
+    if (next) stopSpeech();
   };
 
+  const lastSessionRef = useRef<string | null>(null);
   const endAndScore = useCallback(async () => {
     const sid = stateRef.current.sessionId; if (!sid) return;
     stopAll();
+    lastSessionRef.current = sid;
     setBusy('Writing your LUXE Practice Report…');
     try {
       const data = await callFn({ action: 'score', session_id: sid });
@@ -192,10 +242,11 @@ export default function ScriptBoss() {
         const { data: row } = await supabase.from('practice_sessions').select('*').eq('id', data.practice_session_id).maybeSingle();
         setReport(row as unknown as ScriptBossReportRow);
       } else toast({ title: 'Clinic ended' });
-      setSessionId(null); setPausedState(false);
+      setSessionId(null); stateRef.current.sessionId = null; setPausedState(false);
       loadHistory();
     } catch (e) {
       toast({ title: "Couldn't score", description: (e as Error).message, variant: 'destructive' });
+      setSessionId(null); stateRef.current.sessionId = null;
     } finally { setBusy(null); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stopAll, toast, loadHistory]);
@@ -204,92 +255,109 @@ export default function ScriptBoss() {
     const sid = stateRef.current.sessionId;
     const text = raw.trim();
     if (!sid || !text) return;
-    // Spoken or typed commands
     const cmd = COMMAND(text);
     if (cmd === 'end') return endAndScore();
     if (cmd === 'rewind') return doRewind();
-    if (cmd === 'pause') { setPausedState(true); toast({ title: 'Paused', description: 'Ask the coach anything. Say "resume" or tap Resume to go back in.' }); resumeListening(); return; }
-    if (cmd === 'resume') { setPausedState(false); toast({ title: 'Back in character' }); resumeListening(); return; }
+    if (cmd === 'pause') { setPausedState(true); toast({ title: 'Paused', description: 'Ask the coach anything. Say "resume" or tap Resume to go back in.' }); afterReply(); return; }
+    if (cmd === 'resume') { setPausedState(false); toast({ title: 'Back in character' }); afterReply(); return; }
     const isPaused = stateRef.current.paused;
     setTurns(t => [...t, { role: 'agent', text, paused: isPaused }]);
-    setBusy(isPaused ? 'Coach is thinking…' : 'Thinking…');
+    setBusy(isPaused ? 'Coach is thinking…' : 'Thinking…'); go('thinking');
     try {
-      const data = await callFn({ action: 'turn', session_id: sid, text, paused: isPaused, timing });
-      setTurns(data.transcript);
-      setBusy(null);
-      await speak(data.reply, sid, data.speaker === 'coach' || sessionMode === 'clinic' ? 'coach' : 'client');
-      resumeListening();
+      const p = stateRef.current.prefs;
+      const speak = !isPaused && autoVoice() ? { voice: p.voice, pace: p.pace } : undefined;
+      const res = await fnStream({ action: 'turn', session_id: sid, text, paused: isPaused, timing, speak });
+      if ((res.headers.get('content-type') || '').includes('text/event-stream')) {
+        await playStream(res, d => setTurns(d.transcript as Turn[]));
+      } else {
+        const data = await res.json();
+        setTurns(data.transcript);
+        setBusy(null);
+      }
     } catch (e) {
       setBusy(null);
       toast({ title: 'Turn failed', description: (e as Error).message, variant: 'destructive' });
     }
+    afterReply();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [speak, toast, endAndScore, doRewind, sessionMode]);
+  }, [playStream, toast, endAndScore, doRewind, afterReply]);
 
-  const finishRecording = useCallback(async () => {
+  const finishRecordingRef = useRef<() => void>(() => {});
+  finishRecordingRef.current = async () => {
     const blob = new Blob(chunksRef.current, { type: chunksRef.current[0]?.type || 'audio/webm' });
     const sp = speechRef.current;
     const secs = (sp.stop - sp.start) / 1000;
     const sid = stateRef.current.sessionId;
-    if (!sid || blob.size < 2000 || secs < 0.6 || !sp.first) { resumeListening(); return; }
+    if (!sid) return;
+    if (blob.size < 2000 || secs < 0.4 || !sp.first) { afterReply(); return; }
+    endSpeechAt.current = sp.last || Date.now();
     const speakingSecs = Math.max(0.5, (sp.last - sp.first) / 1000);
     const trailing = sp.stop - sp.last;
-    setBusy('Transcribing…');
+    setBusy('Thinking…'); go('thinking');
     try {
       const text = await transcribeFile(blob, 'speech.webm', sid, secs);
-      setBusy(null);
       if (text) await sendAgent(text, { seconds: speakingSecs, trailing_silence_ms: trailing });
-      else resumeListening();
+      else { setBusy(null); afterReply(); }
     } catch (e) {
       setBusy(null);
       toast({ title: "Couldn't hear that", description: (e as Error).message, variant: 'destructive' });
+      afterReply();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sendAgent, toast]);
+  };
 
-  const startListening = useCallback(async (auto = false) => {
-    if (recRef.current?.state === 'recording') return;
+  /** Opens the mic once for the whole session and watches the level every 50 ms. */
+  const openMic = useCallback(async () => {
+    if (streamRef.current) return true;
     try {
-      const stream = streamRef.current ?? await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
       streamRef.current = stream;
       setMicOk(true);
-      const mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : (MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '');
-      const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
-      chunksRef.current = [];
-      rec.ondataavailable = e => { if (e.data.size) chunksRef.current.push(e.data); };
-      rec.onstop = () => { speechRef.current.stop = Date.now(); stopVad(); setRecording(false); finishRecording(); };
-      recRef.current = rec;
-      speechRef.current = { start: Date.now(), first: 0, last: 0, stop: 0 };
-      rec.start(250);
-      setRecording(true);
-      // Level meter: measures speech onset/offset for pace and pause data; in hands-free it also ends the turn after ~1.5s of silence.
-      stopVad();
       const ctx = new AudioContext();
-      const src = ctx.createMediaStreamSource(stream);
-      const an = ctx.createAnalyser(); an.fftSize = 1024; src.connect(an);
+      ctx.resume().catch(() => {});
+      const an = ctx.createAnalyser(); an.fftSize = 1024;
+      ctx.createMediaStreamSource(stream).connect(an);
       const buf = new Uint8Array(an.fftSize);
-      const tick = () => {
+      const timer = window.setInterval(() => {
         an.getByteTimeDomainData(buf);
         let sum = 0; for (const v of buf) sum += (v - 128) ** 2;
         const rms = Math.sqrt(sum / buf.length);
         const now = Date.now();
-        const sp = speechRef.current;
-        if (rms > 6) { sp.first ||= now; sp.last = now; }
-        if (auto && ((sp.last && now - sp.last > 1500) || now - sp.start > 90000)) {
-          if (rec.state === 'recording') rec.stop();
-          return;
+        const st = stateRef.current;
+        if (st.micMuted) return;
+        const ph = phaseRef.current;
+        if (ph === 'listening') {
+          const sp = speechRef.current;
+          if (rms > 6) { sp.first ||= now; sp.last = now; }
+          if (isHandsFree() && recRef.current?.state === 'recording'
+            && ((sp.first && now - sp.last > st.prefs.silenceMs) || now - sp.start > 90000)) {
+            go('thinking');
+            recRef.current.stop();
+          }
+        } else if (ph === 'speaking' && isHandsFree()) {
+          // Agent talks over the client: stop the client and listen.
+          loudRef.current = rms > 16 ? loudRef.current + 1 : 0;
+          if (loudRef.current >= 6) {
+            loudRef.current = 0;
+            const w = window as unknown as { __sb?: { barges?: number } };
+            w.__sb = w.__sb || {}; w.__sb.barges = (w.__sb.barges ?? 0) + 1;
+            stopSpeech();
+            beginRecording();
+            speechRef.current.first = now - 300; speechRef.current.last = now;
+          }
         }
-        if (vadRef.current) vadRef.current.raf = requestAnimationFrame(tick);
-      };
-      vadRef.current = { ctx, raf: requestAnimationFrame(tick) };
+      }, 50);
+      loopRef.current = { ctx, timer, an };
+      return true;
     } catch {
       setMicOk(false);
       setMode('text');
       toast({ title: 'Microphone unavailable', description: 'Switched to typing.' });
+      return false;
     }
-  }, [finishRecording, toast]);
+  }, [beginRecording, toast]);
 
-  const stopListening = () => { if (recRef.current?.state === 'recording') recRef.current.stop(); };
+  const pttDown = async () => { if (await openMic()) { stopSpeech(); beginRecording(); } };
+  const pttUp = () => { if (recRef.current?.state === 'recording') { go('thinking'); recRef.current.stop(); } };
 
   const surprise = () => {
     const pool = scenarios.filter(s => !s.is_custom);
@@ -303,19 +371,24 @@ export default function ScriptBoss() {
   const start = async () => {
     const sc = scenarios.find(s => s.id === scenarioId);
     if (practiceMode === 'drill' && sc?.is_custom && !custom.trim()) { toast({ title: 'Describe the situation first' }); return; }
-    setReport(null); setTurns([]); setPausedState(false);
-    setBusy(practiceMode === 'clinic' ? 'Opening the clinic…' : channel === 'phone' ? 'Dialling…' : 'Starting…');
+    // Unlock audio + open the mic inside the Start tap, so nothing is blocked later.
+    unlockAudio();
+    if (mode === 'voice' && !(await openMic())) return;
+    setReport(null); setTurns([]); setPausedState(false); setDelays([]);
+    setBusy(practiceMode === 'clinic' ? 'Opening the clinic…' : channel === 'phone' ? 'Dialling…' : 'Starting…'); go('thinking');
     try {
-      const data = await callFn({ action: 'start', practice_mode: practiceMode, scenario_id: scenarioId, custom_situation: custom, channel, mode });
-      setSessionId(data.session_id);
-      setSessionMode(practiceMode);
-      stateRef.current.sessionId = data.session_id;
-      setTurns(data.transcript);
-      setBusy(null);
-      if (data.reply) await speak(data.reply, data.session_id, practiceMode === 'clinic' ? 'coach' : 'client');
-      if (mode === 'voice' && handsFree) startListening(true);
+      const speak = mode === 'voice' && channel !== 'text' && practiceMode === 'drill' ? { voice: prefs.voice, pace: prefs.pace } : undefined;
+      const res = await fnStream({ action: 'start', practice_mode: practiceMode, scenario_id: scenarioId, custom_situation: custom, channel, mode, speak });
+      const onData = (d: Record<string, unknown>) => {
+        setSessionId(d.session_id as string); setSessionMode(practiceMode);
+        stateRef.current.sessionId = d.session_id as string; stateRef.current.sessionMode = practiceMode;
+        setTurns(d.transcript as Turn[]);
+      };
+      if ((res.headers.get('content-type') || '').includes('text/event-stream')) await playStream(res, onData);
+      else { onData(await res.json()); setBusy(null); }
+      afterReply();
     } catch (e) {
-      setBusy(null);
+      setBusy(null); stopAll();
       toast({ title: "Couldn't start", description: (e as Error).message, variant: 'destructive' });
     }
   };
