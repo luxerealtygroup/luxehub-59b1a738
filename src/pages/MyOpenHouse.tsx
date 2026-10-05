@@ -1157,8 +1157,9 @@ function ReportSection({ openHouse, guests, canManage, hostName, onChanged }: {
   const avgInterestLabel = !withInterest.length ? '—'
     : avgInterestRaw >= 2.5 ? 'High' : avgInterestRaw >= 1.5 ? 'Medium' : 'Low';
 
-  const sendToListingAgent = async () => {
-    if (!openHouse.listing_agent_email) return;
+  const [showSendListing, setShowSendListing] = useState(false);
+
+  const listingReportData = () => {
     const rows = [
       { label: 'Total guests', value: String(total) },
       { label: 'Signed themselves in', value: String(signedIn) },
@@ -1176,27 +1177,14 @@ function ReportSection({ openHouse, guests, canManage, hostName, onChanged }: {
       ].filter(Boolean);
       return `• ${parts.join(' · ')}`;
     }).join('\n');
-
-    const { error } = await supabase.functions.invoke('send-transactional-email', {
-      body: {
-        templateName: 'open-house-feedback',
-        recipientEmail: openHouse.listing_agent_email,
-        idempotencyKey: `oh-report-${openHouse.id}-${Date.now()}`,
-        templateData: {
-          propertyAddress: openHouse.property_address,
-          openHouseDate: formatDate(openHouse.open_house_date),
-          attendeeName: `${total} guest${total === 1 ? '' : 's'}`,
-          listingAgentName: openHouse.listing_agent_name || '',
-          rows,
-          notes: notesLines || 'No guests recorded.',
-        },
-      },
-    });
-    if (error) {
-      toast.error('Email failed', { description: error.message });
-    } else {
-      toast.success(`Report emailed to ${openHouse.listing_agent_email}`);
-    }
+    return {
+      propertyAddress: openHouse.property_address,
+      openHouseDate: formatDate(openHouse.open_house_date),
+      attendeeName: `${total} guest${total === 1 ? '' : 's'}`,
+      listingAgentName: openHouse.listing_agent_name || '',
+      rows,
+      notes: notesLines || 'No guests recorded.',
+    };
   };
 
   const pdfFileName = () => {
