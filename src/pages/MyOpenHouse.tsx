@@ -43,7 +43,7 @@ import { SendListingReportDialog } from '@/components/openhouse/SendListingRepor
 import { SendReportToPortalDialog } from '@/components/openhouse/SendReportToPortalDialog';
 
 import {
-  CONDITION_LABEL, GUEST_COLUMNS, Guest, INTEREST_LABEL, PRICE_LABEL, guestName,
+  CONDITION_LABEL, GUEST_COLUMNS, Guest, INTEREST_LABEL, PRICE_LABEL, guestName, guestInitials, redactGuestText,
 } from '@/lib/openHouse/guests';
 
 
@@ -1171,12 +1171,12 @@ function ReportSection({ openHouse, guests, canManage, hostName, onChanged }: {
     ];
     const notesLines = guests.map(g => {
       const parts = [
-        guestName(g),
+        guestInitials(g),
         g.temperature ? g.temperature.toUpperCase() : null,
         g.interest_level ? `Interest: ${INTEREST_LABEL[g.interest_level]}` : null,
         g.price_feedback ? `Price: ${PRICE_LABEL[g.price_feedback]}` : null,
         g.condition_feedback ? `Condition: ${CONDITION_LABEL[g.condition_feedback]}` : null,
-        g.notes ? `"${g.notes}"` : null,
+        g.notes ? `"${redactGuestText(g.notes, guests)}"` : null,
       ].filter(Boolean);
       return `• ${parts.join(' · ')}`;
     }).join('\n');
