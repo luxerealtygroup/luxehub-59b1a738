@@ -39,6 +39,7 @@ import { canManageOpenHouse } from '@/lib/openHouse/permissions';
 import { OpenHouseSendToPortalButton } from '@/components/openhouse/OpenHouseSendToPortalButton';
 import { PrepChecklist } from '@/components/openhouse/PrepChecklist';
 import { SellerReportSection } from '@/components/openhouse/SellerReportSection';
+import { SendListingReportDialog } from '@/components/openhouse/SendListingReportDialog';
 import { SendReportToPortalDialog } from '@/components/openhouse/SendReportToPortalDialog';
 
 import {
@@ -85,6 +86,8 @@ type OpenHouse = {
   portal_account_id?: string | null;
   portal_document_id?: string | null;
   portal_sent_at?: string | null;
+  listing_report_sent_at?: string | null;
+  listing_report_sent_to?: string | null;
 };
 
 
@@ -1276,8 +1279,7 @@ function ReportSection({ openHouse, guests, canManage, hostName, onChanged }: {
           <Button
             variant="outline"
             size="sm"
-            onClick={sendToListingAgent}
-            disabled={!openHouse.listing_agent_email}
+            onClick={() => setShowSendListing(true)}
           >
             <Mail className="h-4 w-4 mr-1" /> Send to Listing Agent
           </Button>
@@ -1296,6 +1298,22 @@ function ReportSection({ openHouse, guests, canManage, hostName, onChanged }: {
         <p className="text-xs text-muted-foreground">
           Sent to the client portal on {new Date(openHouse.portal_sent_at).toLocaleString()}.
         </p>
+      )}
+
+      {openHouse.listing_report_sent_at && (
+        <p className="text-xs text-muted-foreground">
+          Report emailed to {openHouse.listing_report_sent_to} on {new Date(openHouse.listing_report_sent_at).toLocaleString()}.
+        </p>
+      )}
+
+      {showSendListing && (
+        <SendListingReportDialog
+          openHouseId={openHouse.id}
+          defaultRecipient={openHouse.listing_agent_email || ''}
+          templateData={listingReportData()}
+          onClose={() => setShowSendListing(false)}
+          onSent={onChanged}
+        />
       )}
 
       {showSendPortal && (
