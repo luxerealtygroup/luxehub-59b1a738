@@ -129,4 +129,5 @@ const tableCellText = { color: '#000000', fontSize: '11px', margin: '0' }
 const notesSection = { marginTop: '16px' }
 const notesLabel = { color: '#000000', fontSize: '12px', fontWeight: 700, margin: '0 0 4px 0' }
 const notesText = { color: '#000000', fontSize: '12px', margin: '0', whiteSpace: 'pre-wrap' as const }
-const footer = { color: '#787878', fontSize: '11px', marginTop: '24px' }const personalNoteText = { color: '#000000', fontSize: '14px', margin: '0 0 20px 0', whiteSpace: 'pre-wrap' as const }
+const footer = { color: '#787878', fontSize: '11px', marginTop: '24px' }
+const personalNoteText = { color: '#000000', fontSize: '14px', margin: '0 0 20px 0', whiteSpace: 'pre-wrap' as const }
