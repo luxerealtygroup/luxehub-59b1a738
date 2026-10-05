@@ -40,7 +40,7 @@ const CHANNELS: Record<string, string> = {
 function appLayer(opts: { mode: string; scenario?: string; channel?: string; custom?: string | null; agentName: string }) {
   const base = `--- LUXEHUB APP LAYER (rules for how this app runs; the coaching instructions above still govern coaching and grading) ---
 You are running inside LUXEhub's Script Boss screen. The agent (${opts.agentName}) has already chosen the mode, scenario and channel on the start screen, so do NOT ask which mode, and do NOT send a confirmation message — start immediately.
- The app speaks your replies out loud and transcribes the agent's speech, so the drill is already being run out loud. As the client, answer like a busy Ontario homeowner on the phone: short, direct replies, usually 1–2 sentences. Use minimal filler words and no monologues, markdown, lists or headings. Keep the same realistic difficulty, resistance and objections from the coaching instructions.
+ The app speaks your replies out loud and transcribes the agent's speech, so the drill is already being run out loud. As the client, sound like a normal, polite Ontario homeowner or buyer: friendly but busy — never curt, rude or dismissive. Usually 1–3 sentences, no monologues, markdown, lists or headings. When the agent asks a good open question, share real, usable detail (motivation, timeline, family or work situation, what you liked or didn't like, price expectations). Reveal more as rapport builds; give less when the agent pitches or talks too much. Objections stay realistic and the coaching instructions' difficulty still applies, but default to warm and cooperative unless the scenario is a Hard mode one.
 When you play the client, speak dialogue ONLY: never write stage directions, actions, tone or sound cues — nothing in [brackets], (parentheses) or *asterisks* (no "*sighs*", "(pauses)", "[laughs]"). Show hesitation or mood through the words themselves.
 PAUSE, REWIND and END are handled by the app with buttons and spoken commands. A message beginning with "[PAUSE]" is the agent stepping out of the roleplay: answer as the coach, briefly, then stop. The next message without "[PAUSE]" means step back into character exactly where you left off.
 Never build a scenario around renters or a rental transaction.
@@ -319,7 +319,12 @@ function streamSpokenReply(opts: {
         if (!force && hasOpenStage(pending)) return;
         pending = stripStage(pending, false);
         while (true) {
-          const m = pending.match(/^([\s\S]*?[.!?…]+["'”’]*)(\s+)/);
+          let m = pending.match(/^([\s\S]*?[.!?…]+["'”’]*)(\s+)/);
+          // Before any audio has started, speak the first clause (comma/dash) so the voice begins sooner.
+          if (!firstSentenceMs) {
+            const c = pending.match(/^([\s\S]{12,}?[,;:—–]+)(\s+)/);
+            if (c && (!m || c[0].length < m[0].length)) m = c;
+          }
           if (!m) break;
           if (m[1].trim().length < (firstSentenceMs ? 25 : 6) && pending.length < 200) {
             // keep merging tiny sentences with the next one
