@@ -43,7 +43,7 @@ import { SendListingReportDialog } from '@/components/openhouse/SendListingRepor
 import { SendReportToPortalDialog } from '@/components/openhouse/SendReportToPortalDialog';
 
 import {
-  CONDITION_LABEL, GUEST_COLUMNS, Guest, INTEREST_LABEL, PRICE_LABEL, guestName,
+  CONDITION_LABEL, GUEST_COLUMNS, Guest, INTEREST_LABEL, PRICE_LABEL, guestName, guestInitials, redactGuestText,
 } from '@/lib/openHouse/guests';
 
 
