@@ -261,6 +261,6 @@ export function redactGuestText(text: string, everyone: Pick<Guest, 'first_name'
     out = out.replace(new RegExp(`\\b${pattern}\\b`, 'giu'), guestInitials(g));
   }
   return out
-    .replace(/[^\s@]+@[^\s@]+\.[^\s@]+/g, '[email removed]')
+    .replace(/[^\s@]+@[^\s@]+\.[A-Za-z]{2,}/g, '[email removed]')
     .replace(/(\+?\d[\d\s().-]{8,}\d)/g, '[phone removed]');
 }
