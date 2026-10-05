@@ -18,6 +18,7 @@ interface Props {
   submittedBy?: string
   rows?: FeedbackRow[]
   notes?: string
+  personalNote?: string
 }
 
 // Styled to mirror the in-app PDF: white page, Helvetica, dark slate table header.
@@ -29,12 +30,14 @@ const Email = ({
   submittedBy = '',
   rows = [],
   notes = '',
+  personalNote = '',
 }: Props) => (
   <Html lang="en" dir="ltr">
     <Head />
     <Preview>Open House Report — {propertyAddress}</Preview>
     <Body style={main}>
       <Container style={container}>
+        {personalNote && <Text style={personalNoteText}>{personalNote}</Text>}
         <Heading style={h1}>Open House Report</Heading>
         <Text style={addressText}>{propertyAddress}</Text>
         {openHouseDate && <Text style={dateText}>{openHouseDate}</Text>}
@@ -127,3 +130,4 @@ const notesSection = { marginTop: '16px' }
 const notesLabel = { color: '#000000', fontSize: '12px', fontWeight: 700, margin: '0 0 4px 0' }
 const notesText = { color: '#000000', fontSize: '12px', margin: '0', whiteSpace: 'pre-wrap' as const }
 const footer = { color: '#787878', fontSize: '11px', marginTop: '24px' }
+const personalNoteText = { color: '#000000', fontSize: '14px', margin: '0 0 20px 0', whiteSpace: 'pre-wrap' as const }
