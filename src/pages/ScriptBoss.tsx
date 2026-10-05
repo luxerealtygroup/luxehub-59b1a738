@@ -34,13 +34,15 @@ const VOICE_OPTIONS = [
   { id: 'Puck', label: 'Puck — upbeat (male)' }, { id: 'Charon', label: 'Charon — plain, steady (male)' },
   { id: 'Orus', label: 'Orus — firm (male)' }, { id: 'Fenrir', label: 'Fenrir — energetic (male)' },
 ];
-const DEFAULT_PREFS: VoicePrefs = { voice: 'Charon', pace: 'brisk', voiceStyle: 'plain', voiceMuted: false, silenceMs: 1200, pushToTalk: false };
+const DEFAULT_PREFS: VoicePrefs = { voice: 'Charon', pace: 'brisk', voiceStyle: 'plain', voiceMuted: false, silenceMs: 1000, pushToTalk: false };
 function loadPrefs(): VoicePrefs {
   try {
     const saved = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}') as Partial<VoicePrefs>;
     // Existing preferences predate Voice style. Move those accounts to the new
     // plain/brisk baseline while preserving their mic and silence preferences.
     if (!saved.voiceStyle) return { ...DEFAULT_PREFS, ...saved, voice: DEFAULT_PREFS.voice, pace: DEFAULT_PREFS.pace, voiceStyle: 'plain' };
+    // The old 1.2 s default moves to the new 1.0 s default; custom values are kept.
+    if (saved.silenceMs === 1200) saved.silenceMs = DEFAULT_PREFS.silenceMs;
     return { ...DEFAULT_PREFS, ...saved };
   } catch { return DEFAULT_PREFS; }
 }
