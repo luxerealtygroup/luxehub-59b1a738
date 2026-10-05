@@ -3371,6 +3371,9 @@ export type Database = {
           listing_agent_email: string | null
           listing_agent_id: string | null
           listing_agent_name: string | null
+          listing_report_sent_at: string | null
+          listing_report_sent_by: string | null
+          listing_report_sent_to: string | null
           mls_number: string | null
           open_house_date: string
           org_id: string | null
@@ -3410,6 +3413,9 @@ export type Database = {
           listing_agent_email?: string | null
           listing_agent_id?: string | null
           listing_agent_name?: string | null
+          listing_report_sent_at?: string | null
+          listing_report_sent_by?: string | null
+          listing_report_sent_to?: string | null
           mls_number?: string | null
           open_house_date: string
           org_id?: string | null
@@ -3449,6 +3455,9 @@ export type Database = {
           listing_agent_email?: string | null
           listing_agent_id?: string | null
           listing_agent_name?: string | null
+          listing_report_sent_at?: string | null
+          listing_report_sent_by?: string | null
+          listing_report_sent_to?: string | null
           mls_number?: string | null
           open_house_date?: string
           org_id?: string | null
