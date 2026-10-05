@@ -116,13 +116,6 @@ export function GuestCard({
   };
 
   const reportLink = guest.report_token ? buyerReportUrl(guest.report_token) : '';
-  const values = { first_name: guest.first_name, address, agent_name: hostName, report_link: reportLink };
-  const smsBody = fillTemplate(templates.sms, values);
-  const emailSubject = fillTemplate(templates.emailSubject, values);
-  const emailBody = fillTemplate(templates.emailBody, values);
-
-  const markFollowedUp = (channel: 'sms' | 'email') =>
-    patch({ follow_up_sent_at: new Date().toISOString(), follow_up_channel: channel } as Partial<Guest>);
 
   const saveFeatured = async (next: ReportListing[]) => {
     const { error } = await supabase
@@ -247,11 +240,6 @@ export function GuestCard({
         ) : (
           <Badge variant="outline" className="text-[10px]">Not in Follow Up Boss yet</Badge>
         )}
-            {guest.follow_up_sent_at && (
-              <Badge className="gap-1 border-success/30 bg-success/15 text-success text-[10px]">
-                <CheckCircle2 className="h-3 w-3" /> Followed up
-              </Badge>
-            )}
           </div>
           <p className="mt-0.5 text-sm text-muted-foreground">
             {[guest.phone, guest.email].filter(Boolean).join(' · ') || 'No contact details yet'}
@@ -399,39 +387,24 @@ export function GuestCard({
         {guest.condition_feedback && <Badge variant="outline">{CONDITION_LABEL[guest.condition_feedback]}</Badge>}
       </div>
 
-      {/* Follow-up: the device's own apps, nothing to pay for */}
+      {/* Follow-up happens in Follow Up Boss only */}
       {canManage && (
       <div className="flex flex-wrap gap-2">
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={!guest.phone}
-          asChild={!!guest.phone}
-          onClick={guest.phone ? () => markFollowedUp('sms') : undefined}
-        >
-          {guest.phone ? (
-            <a href={smsHref(guest.phone, smsBody)}>
-              <MessageSquare className="mr-1.5 h-4 w-4" /> Text
+        {guest.fub_contact_id ? (
+          <Button size="sm" variant="outline" asChild>
+            <a
+              href={`https://app.followupboss.com/2/people/view/${encodeURIComponent(guest.fub_contact_id)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <ExternalLink className="mr-1.5 h-4 w-4" /> Open in Follow Up Boss
             </a>
-          ) : (
-            <span><MessageSquare className="mr-1.5 inline h-4 w-4" /> Text</span>
-          )}
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={!guest.email}
-          asChild={!!guest.email}
-          onClick={guest.email ? () => markFollowedUp('email') : undefined}
-        >
-          {guest.email ? (
-            <a href={mailtoHref(guest.email, emailSubject, emailBody)}>
-              <Mail className="mr-1.5 h-4 w-4" /> Email
-            </a>
-          ) : (
-            <span><Mail className="mr-1.5 inline h-4 w-4" /> Email</span>
-          )}
-        </Button>
+          </Button>
+        ) : (
+          <Button size="sm" variant="outline" disabled title="Send this guest to Follow Up Boss first">
+            <ExternalLink className="mr-1.5 h-4 w-4" /> Open in Follow Up Boss
+          </Button>
+        )}
         {reportLink && (
           <>
             <Button size="sm" variant="outline" asChild>
@@ -458,19 +431,13 @@ export function GuestCard({
         <Button size="sm" variant="outline" onClick={() => setShowFeatured(true)}>
           <Building2 className="mr-1.5 h-4 w-4" /> Feature listings
         </Button>
-        {guest.follow_up_sent_at && (
-          <span className="self-center text-xs text-muted-foreground">
-            {guest.follow_up_channel === 'sms' ? 'Texted' : 'Emailed'}{' '}
-            {new Date(guest.follow_up_sent_at).toLocaleString()}
-          </span>
-        )}
       </div>
       )}
 
       {canManage && reportLink && (
         <p className="-mt-1 text-xs text-muted-foreground">
-          Text and Email already include this link. Preview is your own look at the page{' '}
-          {guest.first_name} receives — copy the link to send it another way.
+          Preview is your own look at the page {guest.first_name} receives — copy the link to
+          send it from Follow Up Boss.
         </p>
       )}
 
