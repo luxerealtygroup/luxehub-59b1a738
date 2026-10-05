@@ -230,3 +230,37 @@ export function smsHref(phone: string, body: string): string {
 export function mailtoHref(email: string, subject: string, body: string): string {
   return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
+
+// ---------------------------------------------------------------------------
+// Privacy for reports that leave the team (listing agent report)
+// ---------------------------------------------------------------------------
+
+/** "Kenneth Ames" -> "K.A." ; first name only -> "K." */
+export function guestInitials(g: Pick<Guest, 'first_name' | 'last_name'>): string {
+  const words = [g.first_name, g.last_name]
+    .filter(Boolean)
+    .join(' ')
+    .split(/\s+/)
+    .filter((w) => /[\p{L}\p{N}]/u.test(w) && !w.includes('@'));
+  const initials = words.map((w) => (w.match(/[\p{L}\p{N}]/u)?.[0] ?? '').toUpperCase()).filter(Boolean);
+  return initials.length ? `${initials.join('.')}.` : 'Guest';
+}
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Feedback text with every guest's full name swapped for their initials and
+ * any email address or phone number removed.
+ */
+export function redactGuestText(text: string, everyone: Pick<Guest, 'first_name' | 'last_name'>[]): string {
+  let out = text;
+  for (const g of everyone) {
+    const full = [g.first_name, g.last_name].filter(Boolean).join(' ').trim();
+    if (!g.last_name || full.length < 3) continue;
+    const pattern = full.split(/\s+/).map(escapeRe).join('\\s+');
+    out = out.replace(new RegExp(`\\b${pattern}\\b`, 'giu'), guestInitials(g));
+  }
+  return out
+    .replace(/[^\s@]+@[^\s@]+\.[^\s@]+/g, '[email removed]')
+    .replace(/(\+?\d[\d\s().-]{8,}\d)/g, '[phone removed]');
+}
