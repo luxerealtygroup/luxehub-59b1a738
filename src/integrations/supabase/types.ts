@@ -2877,6 +2877,44 @@ export type Database = {
           },
         ]
       }
+      level_unlocks: {
+        Row: {
+          agent_id: string
+          id: string
+          level: number
+          note: string | null
+          org_id: string
+          unlocked_at: string
+          unlocked_by: string
+        }
+        Insert: {
+          agent_id: string
+          id?: string
+          level: number
+          note?: string | null
+          org_id: string
+          unlocked_at?: string
+          unlocked_by?: string
+        }
+        Update: {
+          agent_id?: string
+          id?: string
+          level?: number
+          note?: string | null
+          org_id?: string
+          unlocked_at?: string
+          unlocked_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "level_unlocks_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       manual_production: {
         Row: {
           closed_deals: number
@@ -5488,6 +5526,56 @@ export type Database = {
           },
         ]
       }
+      practice_goals: {
+        Row: {
+          agent_id: string
+          created_at: string
+          created_by: string | null
+          due_date: string
+          goal_type: string
+          id: string
+          org_id: string
+          start_date: string
+          status: string
+          target: number
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          created_by?: string | null
+          due_date: string
+          goal_type: string
+          id?: string
+          org_id?: string
+          start_date?: string
+          status?: string
+          target: number
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          created_by?: string | null
+          due_date?: string
+          goal_type?: string
+          id?: string
+          org_id?: string
+          start_date?: string
+          status?: string
+          target?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_goals_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       practice_sessions: {
         Row: {
           agent_talk_pct: number | null
@@ -5503,6 +5591,7 @@ export type Database = {
           exchanges: number | null
           grade: string | null
           id: string
+          level: number | null
           magic_words_missed: string | null
           magic_words_used: string | null
           mode: string | null
@@ -5511,9 +5600,11 @@ export type Database = {
           objection_handling: number | null
           one_thing_to_change: string | null
           org_id: string
+          passed: boolean | null
           practice_mode: string | null
           raw_report: string | null
           scenario: string | null
+          score_pct: number | null
           script_boss_session_id: string | null
           session_date: string
           source: string
@@ -5539,6 +5630,7 @@ export type Database = {
           exchanges?: number | null
           grade?: string | null
           id?: string
+          level?: number | null
           magic_words_missed?: string | null
           magic_words_used?: string | null
           mode?: string | null
@@ -5547,9 +5639,11 @@ export type Database = {
           objection_handling?: number | null
           one_thing_to_change?: string | null
           org_id?: string
+          passed?: boolean | null
           practice_mode?: string | null
           raw_report?: string | null
           scenario?: string | null
+          score_pct?: number | null
           script_boss_session_id?: string | null
           session_date?: string
           source?: string
@@ -5575,6 +5669,7 @@ export type Database = {
           exchanges?: number | null
           grade?: string | null
           id?: string
+          level?: number | null
           magic_words_missed?: string | null
           magic_words_used?: string | null
           mode?: string | null
@@ -5583,9 +5678,11 @@ export type Database = {
           objection_handling?: number | null
           one_thing_to_change?: string | null
           org_id?: string
+          passed?: boolean | null
           practice_mode?: string | null
           raw_report?: string | null
           scenario?: string | null
+          score_pct?: number | null
           script_boss_session_id?: string | null
           session_date?: string
           source?: string
@@ -5975,6 +6072,7 @@ export type Database = {
           description: string
           id: string
           is_custom: boolean
+          level: number | null
           name: string
           number: number | null
           org_id: string
@@ -5988,6 +6086,7 @@ export type Database = {
           description?: string
           id?: string
           is_custom?: boolean
+          level?: number | null
           name: string
           number?: number | null
           org_id?: string
@@ -6001,6 +6100,7 @@ export type Database = {
           description?: string
           id?: string
           is_custom?: boolean
+          level?: number | null
           name?: string
           number?: number | null
           org_id?: string
@@ -6017,6 +6117,7 @@ export type Database = {
           ended_at: string | null
           id: string
           instructions_version: number | null
+          level: number | null
           mode: string
           org_id: string
           practice_mode: string
@@ -6037,6 +6138,7 @@ export type Database = {
           ended_at?: string | null
           id?: string
           instructions_version?: number | null
+          level?: number | null
           mode?: string
           org_id: string
           practice_mode?: string
@@ -6057,6 +6159,7 @@ export type Database = {
           ended_at?: string | null
           id?: string
           instructions_version?: number | null
+          level?: number | null
           mode?: string
           org_id?: string
           practice_mode?: string
@@ -6137,6 +6240,56 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      script_levels: {
+        Row: {
+          description: string
+          grading_notes: string
+          id: string
+          level: number
+          name: string
+          org_id: string
+          pass_pct: number
+          passes_required: number
+          persona_prompt: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          description?: string
+          grading_notes?: string
+          id?: string
+          level: number
+          name: string
+          org_id: string
+          pass_pct?: number
+          passes_required?: number
+          persona_prompt?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          description?: string
+          grading_notes?: string
+          id?: string
+          level?: number
+          name?: string
+          org_id?: string
+          pass_pct?: number
+          passes_required?: number
+          persona_prompt?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "script_levels_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       submissions: {
         Row: {
