@@ -44,6 +44,11 @@ export function ScriptBossReport({ row, collapsible = false }: { row: ScriptBoss
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="font-display text-lg">{row.scenario}</CardTitle>
           <div className="flex items-center gap-2">
+            {row.level != null && (
+              <Badge variant={row.passed ? 'default' : 'outline'} data-testid="sb-report-level">
+                L{String(row.level)} · {String(row.score_pct)}% · {row.passed ? 'Counted as a pass' : 'Not a pass'}
+              </Badge>
+            )}
             <Badge className="text-base px-3">{row.total ?? '–'}/30</Badge>
             <Badge variant="outline" className="text-base px-3">{row.grade || '–'}</Badge>
           </div>

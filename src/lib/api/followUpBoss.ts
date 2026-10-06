@@ -1,5 +1,13 @@
 import { supabase } from '@/integrations/supabase/client';
 
+// Skip the call when nobody is signed in (e.g. after sign-out or on the login page),
+// so a stale page never fires an unauthenticated Follow Up Boss request.
+async function invokeFub(opts: { body: any; headers?: Record<string, string> }): Promise<{ data: any; error: { message: string } | null }> {
+  const headers = opts.headers ?? {};
+  if (!headers.Authorization) return { data: null, error: { message: 'Not signed in' } };
+  return supabase.functions.invoke('follow-up-boss', opts) as any;
+}
+
 async function getFollowUpBossHeaders(): Promise<Record<string, string>> {
   const headers: Record<string, string> = {};
 
@@ -126,7 +134,7 @@ export interface FUBResponse<T = any> {
 
 export const followUpBossApi = {
   async searchPeople(query: string, limit = 20): Promise<FUBResponse<{ people: FUBPerson[] }>> {
-    const { data, error } = await supabase.functions.invoke('follow-up-boss', {
+    const { data, error } = await invokeFub({
       body: { action: 'search_people', params: { query, limit } },
       headers: await getFollowUpBossHeaders(),
     });
@@ -138,7 +146,7 @@ export const followUpBossApi = {
   },
 
   async getPeople(limit = 50, offset = 0): Promise<FUBResponse<{ people: FUBPerson[] }>> {
-    const { data, error } = await supabase.functions.invoke('follow-up-boss', {
+    const { data, error } = await invokeFub({
       body: { action: 'get_people', params: { limit, offset } },
       headers: await getFollowUpBossHeaders(),
     });
@@ -150,7 +158,7 @@ export const followUpBossApi = {
   },
 
   async getPerson(id: number): Promise<FUBResponse<FUBPerson>> {
-    const { data, error } = await supabase.functions.invoke('follow-up-boss', {
+    const { data, error } = await invokeFub({
       body: { action: 'get_person', params: { id } },
       headers: await getFollowUpBossHeaders(),
     });
@@ -162,7 +170,7 @@ export const followUpBossApi = {
   },
 
   async getPersonDeals(personId: number): Promise<FUBResponse<{ deals: FUBDeal[] }>> {
-    const { data, error } = await supabase.functions.invoke('follow-up-boss', {
+    const { data, error } = await invokeFub({
       body: { action: 'get_person_deals', params: { personId } },
       headers: await getFollowUpBossHeaders(),
     });
@@ -171,7 +179,7 @@ export const followUpBossApi = {
   },
 
   async getDeals(limit = 50, offset = 0, stage?: string): Promise<FUBResponse<{ deals: FUBDeal[] }>> {
-    const { data, error } = await supabase.functions.invoke('follow-up-boss', {
+    const { data, error } = await invokeFub({
       body: { action: 'get_deals', params: { limit, offset, stage } },
       headers: await getFollowUpBossHeaders(),
     });
@@ -183,7 +191,7 @@ export const followUpBossApi = {
   },
 
   async getNotes(limit = 50, offset = 0, personId?: number): Promise<FUBResponse<{ notes: FUBNote[] }>> {
-    const { data, error } = await supabase.functions.invoke('follow-up-boss', {
+    const { data, error } = await invokeFub({
       body: { action: 'get_notes', params: { limit, offset, personId } },
       headers: await getFollowUpBossHeaders(),
     });
@@ -195,7 +203,7 @@ export const followUpBossApi = {
   },
 
   async getCalls(limit = 50, offset = 0, personId?: number): Promise<FUBResponse<{ calls: FUBCall[] }>> {
-    const { data, error } = await supabase.functions.invoke('follow-up-boss', {
+    const { data, error } = await invokeFub({
       body: { action: 'get_calls', params: { limit, offset, personId } },
       headers: await getFollowUpBossHeaders(),
     });
@@ -207,7 +215,7 @@ export const followUpBossApi = {
   },
 
   async getSmartLists(limit = 100, offset = 0): Promise<FUBResponse<{ smartlists: FUBSmartList[] }>> {
-    const { data, error } = await supabase.functions.invoke('follow-up-boss', {
+    const { data, error } = await invokeFub({
       body: { action: 'get_smartlists', params: { limit, offset } },
       headers: await getFollowUpBossHeaders(),
     });
@@ -219,7 +227,7 @@ export const followUpBossApi = {
   },
 
   async getSmartListPeople(id: number, limit = 50, offset = 0): Promise<FUBResponse<{ people: FUBPerson[] }>> {
-    const { data, error } = await supabase.functions.invoke('follow-up-boss', {
+    const { data, error } = await invokeFub({
       body: { action: 'get_smartlist_people', params: { id, limit, offset } },
       headers: await getFollowUpBossHeaders(),
     });

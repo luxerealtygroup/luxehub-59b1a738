@@ -8,6 +8,13 @@
       "when": 1791230019390,
       "tag": "0000_open_house_listing_report_log",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791305284554,
+      "tag": "0001_script_boss_levels_progression_goals",
+      "breakpoints": true
     }
   ]
 }

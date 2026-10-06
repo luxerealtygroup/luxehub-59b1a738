@@ -190,14 +190,19 @@ function toMessages(t: Turn[], opener: string) {
 }
 
 async function sessionSystem(orgId: string, session: any, agentName: string) {
-  const [inst, scRes] = await Promise.all([
+  const [inst, scRes, lvRes] = await Promise.all([
     latestInstructions(orgId),
     session.scenario_id ? db.from('script_boss_scenarios').select('number, name, description, category').eq('id', session.scenario_id).maybeSingle() : Promise.resolve({ data: null }),
+    session.level ? db.from('script_levels').select('level, name, persona_prompt').eq('org_id', orgId).eq('level', session.level).maybeSingle() : Promise.resolve({ data: null }),
   ]);
   let scenario = session.scenario_name;
   const sc = scRes.data as any;
   if (sc && sc.number && sc.number < 99) scenario = `#${sc.number} (${sc.category}) ${sc.name}: ${sc.description}`;
-  return `${inst.content}\n\n${appLayer({ mode: session.practice_mode, scenario, channel: session.channel, custom: session.custom_situation, agentName })}`;
+  const lv = lvRes.data as any;
+  // The level sets the lead's warmth or hostility; it overrides the default "warm and cooperative" tone above.
+  const levelLayer = session.practice_mode !== 'clinic' && lv?.persona_prompt
+    ? `\nLEAD TEMPERATURE — this overrides the default tone above: ${lv.persona_prompt}` : '';
+  return `${inst.content}\n\n${appLayer({ mode: session.practice_mode, scenario, channel: session.channel, custom: session.custom_situation, agentName })}${levelLayer}`;
 }
 
 function openerFor(session: any) {
@@ -404,10 +409,11 @@ function deliverySummary(transcript: Turn[], timing: Timing[]) {
   return { agent_talk_pct: agentPct, agent_words: aw, client_words: cw, wpm, avg_pause_after_question_ms: pause, spoken_turns: spoken.length };
 }
 
-function reportText(r: any, meta: { agent: string; date: string; scenario: string; mode: string; exchanges: number }) {
+function reportText(r: any, meta: { agent: string; date: string; scenario: string; mode: string; exchanges: number; levelLine?: string | null }) {
   const line = (label: string, v: number) => `${label.padEnd(24)}${v}/5`;
   return [
-    'LUXE PRACTICE REPORT', `Agent: ${meta.agent}`, `Date: ${meta.date}`, `Scenario: ${meta.scenario}`, `Mode: ${meta.mode}`, `Exchanges: ${meta.exchanges}`, '',
+    'LUXE PRACTICE REPORT', `Agent: ${meta.agent}`, `Date: ${meta.date}`, `Scenario: ${meta.scenario}`, `Mode: ${meta.mode}`, `Exchanges: ${meta.exchanges}`,
+    ...(meta.levelLine ? [meta.levelLine] : []), '',
     ...SKILLS.map((k) => line(SKILL_LABEL[k], r[k])), `${'TOTAL'.padEnd(24)}${r.total}/30`, `GRADE: ${r.grade}`, '',
     `Would this call have produced an appointment?  ${r.appointment_set ? 'Yes' : 'No'}`, '',
     `Strongest moment:  ${r.strongest_moment}`, `Costliest moment:  ${r.costliest_moment}`, `Structure covered:  ${r.structure_covered}`,
@@ -416,11 +422,38 @@ function reportText(r: any, meta: { agent: string; date: string; scenario: strin
   ].join('\n');
 }
 
+// ---------------- Levels ----------------
+type LevelCfg = { level: number; name: string; pass_pct: number; passes_required: number; persona_prompt: string; grading_notes: string };
+const DEFAULT_LEVEL_NAMES = ['Warm', 'Lukewarm', 'Real objections', 'Price and tough negotiation', 'Brutal'];
+async function levelCfg(orgId: string, level: number): Promise<LevelCfg> {
+  const { data } = await db.from('script_levels').select('level, name, pass_pct, passes_required, persona_prompt, grading_notes').eq('org_id', orgId).eq('level', level).maybeSingle();
+  return (data as LevelCfg) ?? { level, name: DEFAULT_LEVEL_NAMES[level - 1], pass_pct: 80, passes_required: 3, persona_prompt: '', grading_notes: '' };
+}
+async function currentLevel(userId: string) {
+  const { data } = await db.from('level_unlocks').select('level').eq('agent_id', userId).order('level', { ascending: false }).limit(1).maybeSingle();
+  return Math.max(1, Number(data?.level ?? 1));
+}
+/** Unlock the next level after enough graded passing drills at the agent's current level. Counts are derived, never stored. */
+async function maybeUnlock(orgId: string, userId: string, level: number) {
+  const cur = await currentLevel(userId);
+  if (level !== cur || cur >= 5) return null;
+  const cfg = await levelCfg(orgId, cur);
+  const { count } = await db.from('practice_sessions').select('id', { count: 'exact', head: true })
+    .eq('user_id', userId).eq('level', cur).eq('passed', true).eq('practice_mode', 'drill');
+  if ((count ?? 0) < cfg.passes_required) return null;
+  const { error } = await db.from('level_unlocks').insert({ org_id: orgId, agent_id: userId, level: cur + 1, unlocked_by: 'system' });
+  if (error && !String(error.message).includes('duplicate')) throw error;
+  const next = await levelCfg(orgId, cur + 1);
+  return { level: cur + 1, name: next.name };
+}
+
 async function gradeAndSave(ctx: { orgId: string; name: string }, userId: string, opts: {
   transcriptText: string; transcript: Turn[] | null; scenario: string; mode: string; channel: string | null; practiceMode: string;
   exchanges: number; delivery: Record<string, unknown> | null; sessionId: string | null; durationSeconds: number | null; source: string;
+  level?: number | null;
 }) {
   const inst = await latestInstructions(ctx.orgId);
+  const lv = opts.level ? await levelCfg(ctx.orgId, opts.level) : null;
   const n = { type: 'integer', minimum: 1, maximum: 5 };
   const s = { type: 'string' };
   const tool = {
@@ -447,8 +480,9 @@ async function gradeAndSave(ctx: { orgId: string; name: string }, userId: string
   const deliveryText = d
     ? `Delivery data measured by the app: agent ${d.agent_talk_pct}% of words vs lead ${100 - Number(d.agent_talk_pct)}% (${d.agent_words} vs ${d.client_words} words).${d.wpm ? ` Speaking pace ≈ ${d.wpm} words per minute across ${d.spoken_turns} spoken turns.` : ' No spoken audio timing (typed or pasted).'}${d.avg_pause_after_question_ms != null ? ` Average silence held after asking a question ≈ ${(Number(d.avg_pause_after_question_ms) / 1000).toFixed(1)}s.` : ''} Tone and inflection are partly inferred from the transcript and these numbers — say so if you comment on them.`
     : '';
+  const levelText = lv ? `\nLEVEL ${lv.level} (${lv.name}) — stricter expectations for this level, on top of the six standards: ${lv.grading_notes}` : '';
   const { data, cost, tokens } = await claude(
-    `${inst.content}\n\n--- LUXEHUB APP LAYER: SCORING ---\nThe session has ENDED. Grade it now using the six standards, 1-5 each, strictly, and fill in the LUXE PRACTICE REPORT fields with the luxe_practice_report tool. The app computes the total, the grade bands, and enforces the hard rule (no specific appointment asked → max 17/30). Lines marked [PAUSE] or (coach) are out-of-character and are not part of the call.\n${deliveryText}\n${await cadence(userId)} Comment on cadence in the one thing to change or coach's note if it matters.`,
+    `${inst.content}\n\n--- LUXEHUB APP LAYER: SCORING ---\nThe session has ENDED. Grade it now using the six standards, 1-5 each, strictly, and fill in the LUXE PRACTICE REPORT fields with the luxe_practice_report tool. The app computes the total, the grade bands, and enforces the hard rule (no specific appointment asked → max 17/30). Lines marked [PAUSE] or (coach) are out-of-character and are not part of the call.${levelText}\n${deliveryText}\n${await cadence(userId)} Comment on cadence in the one thing to change or coach's note if it matters.`,
     [{ role: 'user', content: `Mode: ${opts.mode}\nScenario: ${opts.scenario}\nChannel: ${opts.channel ?? 'unknown'}\n\nTRANSCRIPT:\n${opts.transcriptText}` }],
     { tools: [tool], tool_choice: { type: 'tool', name: 'luxe_practice_report' } },
   );
@@ -463,9 +497,13 @@ async function gradeAndSave(ctx: { orgId: string; name: string }, userId: string
   const grade = gradeFor(total);
   const appointment = asked ? !!r.appointment_set : false;
   const date = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Toronto' });
+  const scorePct = Math.round((total / 30) * 100);
+  // Levels: only graded live drills count. The no-appointment cap (17/30 = 57%) already applies to the score.
+  const passed = lv && opts.practiceMode === 'drill' ? scorePct >= lv.pass_pct : null;
+  const levelLine = lv ? `Level: ${lv.level} — ${lv.name} · ${scorePct}% · ${passed ? `Counted as a pass (${lv.pass_pct}%+)` : `Not a pass (needs ${lv.pass_pct}%+)`}` : null;
   const full = { ...r, ...scores, total, grade, appointment_set: appointment,
     one_thing_to_change: `${r.one_thing_to_change}${r.word_patterns_note ? ` (Word choice: ${r.word_patterns_note})` : ''}` };
-  const report = reportText(full, { agent: ctx.name, date, scenario: opts.scenario, mode: opts.mode, exchanges: opts.exchanges });
+  const report = reportText(full, { agent: ctx.name, date, scenario: opts.scenario, mode: opts.mode, exchanges: opts.exchanges, levelLine });
   const { data: ps, error } = await db.from('practice_sessions').insert({
     user_id: userId, org_id: ctx.orgId, session_date: date, scenario: opts.scenario, mode: opts.mode, exchanges: opts.exchanges,
     ...scores, total, grade, appointment_set: appointment,
@@ -475,6 +513,7 @@ async function gradeAndSave(ctx: { orgId: string; name: string }, userId: string
     transcript: opts.transcript ?? [{ role: 'agent', text: opts.transcriptText }], agent_talk_pct: d?.agent_talk_pct ?? null,
     duration_seconds: opts.durationSeconds, script_boss_session_id: opts.sessionId, practice_mode: opts.practiceMode,
     channel: opts.channel, delivery: { ...(d ?? {}), hard_rule_applied: !asked && SKILLS.reduce((a, k) => a + raw[k], 0) > 17 },
+    level: lv ? lv.level : null, score_pct: lv ? scorePct : null, passed,
   }).select('id').single();
   if (error) throw error;
   return ps.id as string;
@@ -547,10 +586,14 @@ Deno.serve(async (req) => {
       const practiceMode = body.practice_mode === 'clinic' ? 'clinic' : 'drill';
       const channel = ['phone', 'text', 'face'].includes(body.channel) ? body.channel : 'phone';
       let sc: any = null;
+      let level: number | null = null;
       if (practiceMode === 'drill') {
-        const r = await db.from('script_boss_scenarios').select('id, name, number, is_custom, active, org_id').eq('id', body.scenario_id ?? '').maybeSingle();
+        const r = await db.from('script_boss_scenarios').select('id, name, number, is_custom, active, org_id, level').eq('id', body.scenario_id ?? '').maybeSingle();
         sc = r.data;
         if (!sc || sc.org_id !== orgId || !sc.active) return json({ error: 'Pick a scenario.' }, 400);
+        const cur = await currentLevel(userId);
+        level = sc.level ? Number(sc.level) : Math.min(cur, Math.max(1, Math.round(Number(body.level) || cur)));
+        if (level > cur) return json({ error: `Level ${level} is locked. Pass Level ${cur} first.` }, 403);
       }
       const custom = String(body.custom_situation ?? '').slice(0, 1500).trim();
       if (sc?.is_custom && !custom) return json({ error: 'Describe the situation for a custom scenario.' }, 400);
@@ -561,7 +604,7 @@ Deno.serve(async (req) => {
       const scenarioName = practiceMode === 'clinic' ? 'Clinic' : sc.number && sc.number < 99 ? `${sc.number}. ${sc.name}` : 'Custom';
       const { data: session, error } = await db.from('script_boss_sessions').insert({
         org_id: orgId, user_id: userId, scenario_id: sc?.id ?? null, scenario_name: scenarioName, custom_situation: custom || null,
-        difficulty: 'Realistic', mode: body.mode === 'text' ? 'text' : 'voice', instructions_version: inst.version, practice_mode: practiceMode, channel,
+        difficulty: 'Realistic', mode: body.mode === 'text' ? 'text' : 'voice', instructions_version: inst.version, practice_mode: practiceMode, channel, level,
       }).select('*').single();
       if (error) throw error;
       // Text-thread drills: the agent sends the first message.
@@ -689,14 +732,33 @@ Deno.serve(async (req) => {
       const channelLabel = { phone: 'Phone', text: 'Text', face: 'Face to face' }[session.channel as string] ?? 'Phone';
       const transcriptText = t.map((x) => `${x.paused ? '[PAUSE] ' : ''}${x.role === 'agent' ? 'AGENT' : x.role === 'coach' ? '(coach)' : 'LEAD'}: ${x.text}`).join('\n');
       const delivery = deliverySummary(t, session.timing as Timing[]);
+      const lvl = session.level ? Number(session.level) : null;
       const id = await gradeAndSave(ctx, userId, {
         transcriptText, transcript: t, scenario: session.custom_situation ? `Custom — ${session.custom_situation}` : session.scenario_name,
         mode: `DRILL · ${channelLabel} · ${session.mode === 'voice' ? 'voice' : 'typed'}`, channel: session.channel, practiceMode: 'drill',
         exchanges: agentTurns.length, delivery, sessionId: session.id,
         durationSeconds: Math.round((ended.getTime() - new Date(session.started_at).getTime()) / 1000), source: `script_boss_${session.mode}`,
+        level: lvl,
       });
       await db.from('script_boss_sessions').update({ status: 'scored', practice_session_id: id, ended_at: ended.toISOString(), updated_at: ended.toISOString() }).eq('id', session.id);
-      return json({ practice_session_id: id });
+      const unlocked = lvl ? await maybeUnlock(orgId, userId, lvl) : null;
+      return json({ practice_session_id: id, unlocked });
+    }
+
+    // Owner/admin override: raise an agent to a level (logged with who did it).
+    if (action === 'set_level') {
+      const { data: isAdm } = await db.rpc('is_admin_or_owner', { _user_id: userId });
+      if (!isAdm) return json({ error: 'Only owners and admins can set levels.' }, 403);
+      const agentId = String(body.agent_id ?? ''); const target = Math.round(Number(body.level));
+      if (!(target >= 1 && target <= 5)) return json({ error: 'Pick a level from 1 to 5.' }, 400);
+      const { data: ag } = await db.from('profiles').select('org_id').eq('id', agentId).maybeSingle();
+      if (!ag || ag.org_id !== orgId) return json({ error: 'Agent not found.' }, 404);
+      const current = await currentLevel(agentId);
+      if (target < current) return json({ error: `Already at Level ${current}. Levels can only be raised.` }, 400);
+      const rows = [];
+      for (let l = current + 1; l <= target; l++) rows.push({ org_id: orgId, agent_id: agentId, level: l, unlocked_by: userId, note: 'Manual set level' });
+      if (rows.length) { const { error } = await db.from('level_unlocks').insert(rows); if (error) throw error; }
+      return json({ level: target });
     }
 
     return json({ error: 'Unknown action' }, 400);
