@@ -41,7 +41,7 @@ function appLayer(opts: { mode: string; scenario?: string; channel?: string; cus
   const base = `--- LUXEHUB APP LAYER (rules for how this app runs; the coaching instructions above still govern coaching and grading) ---
 You are running inside LUXEhub's Script Boss screen. The agent (${opts.agentName}) has already chosen the mode, scenario and channel on the start screen, so do NOT ask which mode, and do NOT send a confirmation message — start immediately.
  The app speaks your replies out loud and transcribes the agent's speech, so the drill is already being run out loud. As the client, sound like a normal, polite Ontario homeowner or buyer: friendly but busy — never curt, rude or dismissive. Usually 1–3 sentences, no monologues, markdown, lists or headings. When the agent asks a good open question, share real, usable detail (motivation, timeline, family or work situation, what you liked or didn't like, price expectations). Reveal more as rapport builds; give less when the agent pitches or talks too much. Objections stay realistic and the coaching instructions' difficulty still applies, but default to warm and cooperative unless the scenario is a Hard mode one.
-When you play the client, speak dialogue ONLY: never write stage directions, actions, tone or sound cues — nothing in [brackets], (parentheses) or *asterisks* (no "*sighs*", "(pauses)", "[laughs]"). Show hesitation or mood through the words themselves.
+When you play the client, speak dialogue ONLY: never write stage directions, actions, tone or sound cues — nothing in [brackets], (parentheses) or *asterisks* (no "*sighs*", "(pauses)", "[laughs]"). Show hesitation or mood through the words themselves. As the client you NEVER say or write END, PAUSE, REWIND, scores, grades or any part of a practice report — only the agent can end the call, and the app writes the report. If the conversation seems finished, just say a natural goodbye in character.
 PAUSE, REWIND and END are handled by the app with buttons and spoken commands. A message beginning with "[PAUSE]" is the agent stepping out of the roleplay: answer as the coach, briefly, then stop. The next message without "[PAUSE]" means step back into character exactly where you left off.
 Never build a scenario around renters or a rental transaction.
 Difficulty is realistic and escalating, exactly as the instructions describe; there is no separate difficulty setting.`;
@@ -264,6 +264,14 @@ function stripStage(s: string, final: boolean) {
   if (final) out = out.replace(/[[(][^\])]*$/, ' ').replace(/\*[^*]*$/, ' ');
   return out.replace(/[ \t]{2,}/g, ' ').replace(/\s+([.,!?…])/g, '$1').replace(/^\s*[.,]\s*/, '').trimStart().replace(final ? /\s+$/ : /$^/, '');
 }
+/** The lead only speaks in character: anything that looks like a command or a report is cut off. */
+const OUT_OF_CHARACTER = /(?:^|[\s"'“(\[*])(?:END|PAUSE|REWIND|SCORE|GRADE)\b(?![a-z])|LUXE\s+PRACTICE|PRACTICE\s+REPORT|\b(?:Score|Grade|Total|Agent|Scenario|Mode|Exchanges|Date|Result|Standard)\s*:|\b\d{1,2}\s*\/\s*(?:30|5)\b|^\s*(?:#|---|===|\*\*)/m;
+function cutOutOfCharacter(s: string): { text: string; cut: boolean } {
+  const m = s.match(OUT_OF_CHARACTER);
+  if (!m || m.index === undefined) return { text: s, cut: false };
+  return { text: s.slice(0, m.index).replace(/[\s\-–—:]+$/, ''), cut: true };
+}
+function cleanClient(s: string) { return stripStage(cutOutOfCharacter(s).text, true); }
 function hasOpenStage(s: string) {
   return (s.match(/\[/g)?.length ?? 0) > (s.match(/\]/g)?.length ?? 0)
     || (s.match(/\(/g)?.length ?? 0) > (s.match(/\)/g)?.length ?? 0)
@@ -289,7 +297,7 @@ function streamSpokenReply(opts: {
       if (opts.first) send({ type: 'reply', ...opts.first });
       const t0 = Date.now();
       let firstTokenMs = 0, firstSentenceMs = 0, firstAudioMs = 0;
-      let pending = '', full = '', ttsError = false;
+      let pending = '', full = '', ttsError = false, stopped = false;
       let chain: Promise<void> = Promise.resolve();
       const speakSentence = (s: string) => {
         const text = s.trim(); if (!text) return;
@@ -345,12 +353,16 @@ function streamSpokenReply(opts: {
       try {
         const { cost, tokens } = await claudeStream(opts.system, opts.messages, (t) => {
           if (!firstTokenMs) firstTokenMs = Date.now() - t0;
-          full += t; pending += t; flush(false);
+          if (stopped) return;
+          full += t; pending += t;
+          const k = cutOutOfCharacter(full);
+          if (k.cut) { stopped = true; pending = cutOutOfCharacter(pending).text; full = k.text; flush(true); return; }
+          flush(false);
         });
-        flush(true);
+        if (!stopped) flush(true);
         opts.onClaude(tokens, cost);
         await chain;
-        const reply = stripStage(full, true) || '...';
+        const reply = cleanClient(full) || '...';
         const payload = await opts.finish(reply, { first_token_ms: firstTokenMs, first_sentence_ms: firstSentenceMs, first_audio_ms: firstAudioMs, total_ms: Date.now() - t0 });
         send({ type: 'reply', ...payload });
       } catch (e) {
@@ -624,7 +636,7 @@ Deno.serve(async (req) => {
         });
       }
       const rawReply = await modelReply(orgId, userId, session, ctx.name);
-      const reply = practiceMode === 'clinic' ? rawReply : (stripStage(rawReply, true) || '...');
+      const reply = practiceMode === 'clinic' ? rawReply : (cleanClient(rawReply) || '...');
       const transcript: Turn[] = [{ role: practiceMode === 'clinic' ? 'coach' : 'client', text: reply, at: new Date().toISOString() }];
       await db.from('script_boss_sessions').update({ transcript, updated_at: new Date().toISOString() }).eq('id', session.id);
       const payload = { session_id: session.id, reply, transcript };
@@ -688,7 +700,7 @@ Deno.serve(async (req) => {
       const rawReply = await modelReply(orgId, userId, session, ctx.name);
       const claudeMs = Date.now() - c0;
       const speaker = paused || session.practice_mode === 'clinic' ? 'coach' : 'client';
-      const reply = speaker === 'client' ? (stripStage(rawReply, true) || '...') : rawReply;
+      const reply = speaker === 'client' ? (cleanClient(rawReply) || '...') : rawReply;
       session.transcript.push({ role: speaker, text: reply, at: new Date().toISOString() });
       await db.from('script_boss_sessions').update({ transcript: session.transcript, timing: session.timing, updated_at: new Date().toISOString() }).eq('id', session.id);
       const payload = { reply, transcript: session.transcript, speaker, claude_ms: claudeMs };
