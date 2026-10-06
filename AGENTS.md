@@ -1,3 +1,4 @@
 
 - Script Boss: role-play runs through the `script-boss` function (Claude for the client and scoring, built-in voice for speech in and out); scored calls save into `practice_sessions` so they share the Practice history and the Team 4-1-1 column. Why: one practice history, and the AI keys stay on the server.
 - Every agent picker loads people via `fetchAgentOptions()` (`list_agent_options` RPC: active team-role agent/operations in caller's org, demo only in demo mode). Why: clients and test accounts must never appear in agent dropdowns.
+- Script Boss levels: lead temperature and stricter grading come from `script_levels` (per-org, owner-editable) layered after the app rules; pass counts are derived from `practice_sessions.passed`, and only the `script-boss` function (service role) may set level/score_pct/passed or write `level_unlocks`. Why: the Scripting Boss instructions stay verbatim and agents can't fake passes or unlocks.
