@@ -20,9 +20,14 @@ import { unlockAudio, playSpeechResponse, stopSpeech, setVolume } from '@/lib/vo
 import { openLiveStt, type LiveStt } from '@/lib/liveStt';
 import { ScriptBossSettings } from '@/components/scriptBoss/ScriptBossSettings';
 import { ScriptBossReport, type ScriptBossReportRow } from '@/components/scriptBoss/ScriptBossReport';
+import { LevelPath } from '@/components/scriptBoss/LevelPath';
+import { LevelUpDialog } from '@/components/scriptBoss/LevelUpDialog';
+import { GoalsCard } from '@/components/scriptBoss/GoalsCard';
+import { LevelSettings } from '@/components/scriptBoss/LevelSettings';
+import { useScriptProgress, currentLevelOf } from '@/lib/scriptLevels';
 
 type Turn = { role: 'agent' | 'client' | 'coach'; text: string; paused?: boolean };
-type Scenario = { id: string; name: string; description: string; is_custom: boolean; category: string | null; number: number | null };
+type Scenario = { id: string; name: string; description: string; is_custom: boolean; category: string | null; number: number | null; level: number | null };
 type PracticeMode = 'drill' | 'review' | 'clinic';
 type Channel = 'phone' | 'text' | 'face';
 type Phase = 'idle' | 'listening' | 'thinking' | 'speaking';
@@ -101,6 +106,9 @@ async function transcribeFile(file: Blob, name: string, sessionId: string | null
 
 export default function ScriptBoss() {
   const { user } = useAuth();
+  const progress = useScriptProgress(user?.id);
+  const curLevel = user ? currentLevelOf(progress.unlocks, user.id) : 1;
+  const [unlocked, setUnlocked] = useState<{ level: number; name: string } | null>(null);
   const { isAdmin } = useUserRole();
   const access = useScriptBossAccess();
   const { toast } = useToast();
@@ -158,7 +166,7 @@ export default function ScriptBoss() {
   useEffect(() => { dgRef.current?.setMuted(micMuted); }, [micMuted]);
 
   useEffect(() => {
-    supabase.from('script_boss_scenarios' as never).select('id,name,description,is_custom,category,number').eq('active', true).order('sort_order')
+    supabase.from('script_boss_scenarios' as never).select('id,name,description,is_custom,category,number,level').eq('active', true).order('sort_order')
       .then(({ data }) => {
         const list = ((data as unknown as Scenario[]) || []).filter(s => s.category);
         setScenarios(list);
@@ -309,6 +317,8 @@ export default function ScriptBoss() {
       if (data.practice_session_id) {
         const { data: row } = await supabase.from('practice_sessions').select('*').eq('id', data.practice_session_id).maybeSingle();
         setReport(row as unknown as ScriptBossReportRow);
+        if (data.unlocked) setUnlocked(data.unlocked as { level: number; name: string });
+        progress.reload();
       } else toast({ title: 'Clinic ended' });
       setSessionId(null); stateRef.current.sessionId = null; setPausedState(false);
       loadHistory();
@@ -468,12 +478,13 @@ export default function ScriptBoss() {
   const pttUp = () => { if (isListening()) { go('thinking'); stopListening(); } };
 
   const surprise = () => {
-    const pool = scenarios.filter(s => !s.is_custom);
-    const oh = pool.filter(s => s.category === 'Open houses');
-    const rest = pool.filter(s => s.category !== 'Open houses');
-    const from = Math.random() < 0.5 && oh.length ? oh : (rest.length ? rest : oh);
+    // Mostly the current level; now and then a lower-level warm-up.
+    const pool = scenarios.filter(s => !s.is_custom && s.level);
+    const here = pool.filter(s => s.level === curLevel);
+    const lower = pool.filter(s => (s.level ?? 0) < curLevel);
+    const from = lower.length && Math.random() < 0.2 ? lower : (here.length ? here : pool.filter(s => (s.level ?? 0) <= curLevel));
     const pick = from[Math.floor(Math.random() * from.length)];
-    if (pick) { setScenarioId(pick.id); toast({ title: `Surprise: ${pick.number}. ${pick.name}` }); }
+    if (pick) { setScenarioId(pick.id); toast({ title: `Surprise: ${pick.number}. ${pick.name}`, description: pick.level !== curLevel ? `Level ${pick.level} warm-up` : `Level ${pick.level}` }); }
   };
 
   const start = async () => {
@@ -488,7 +499,7 @@ export default function ScriptBoss() {
     const liveReady = mode === 'voice' ? tryLive() : Promise.resolve();
     try {
       const speak = mode === 'voice' && channel !== 'text' && practiceMode === 'drill' ? { voice: prefs.voice, pace: prefs.pace, style: prefs.voiceStyle } : undefined;
-      const res = await fnStream({ action: 'start', practice_mode: practiceMode, scenario_id: scenarioId, custom_situation: custom, channel, mode, speak, stream: true });
+      const res = await fnStream({ action: 'start', practice_mode: practiceMode, scenario_id: scenarioId, level: curLevel, custom_situation: custom, channel, mode, speak, stream: true });
       const onData = (d: Record<string, unknown>) => {
         setSessionId(d.session_id as string); setSessionMode(practiceMode);
         stateRef.current.sessionId = d.session_id as string; stateRef.current.sessionMode = practiceMode;
@@ -555,6 +566,13 @@ export default function ScriptBoss() {
         </TabsList>
 
         <TabsContent value="practice" className="space-y-4">
+          {!inSession && !report && user && (
+            <div className="grid gap-4">
+              <LevelPath levels={progress.levels} unlocks={progress.unlocks} sessions={progress.sessions} agentId={user.id} />
+              <GoalsCard agentId={user.id} goals={progress.goals} unlocks={progress.unlocks} sessions={progress.sessions} onChange={progress.reload} />
+            </div>
+          )}
+          <LevelUpDialog unlocked={unlocked} onClose={() => setUnlocked(null)} />
           {!inSession && !report && (
             <Card>
               <CardHeader><CardTitle className="font-display text-xl">Start a session</CardTitle></CardHeader>
@@ -581,7 +599,10 @@ export default function ScriptBoss() {
                             {grouped.map(({ g, items }) => (
                               <SelectGroup key={g}>
                                 <SelectLabel>{g}</SelectLabel>
-                                {items.map(s => <SelectItem key={s.id} value={s.id}>{s.is_custom ? 'Custom — describe your own' : `${s.number}. ${s.name}`}</SelectItem>)}
+                                {items.map(s => {
+                                  const locked = (s.level ?? 0) > curLevel;
+                                  return <SelectItem key={s.id} value={s.id} disabled={locked}>{s.is_custom ? `Custom — describe your own (Level ${curLevel})` : `${s.number}. ${s.name} · L${s.level ?? '–'}${locked ? ' 🔒' : ''}`}</SelectItem>;
+                                })}
                               </SelectGroup>
                             ))}
                           </SelectContent>
@@ -783,7 +804,7 @@ export default function ScriptBoss() {
           {history.map(h => <ScriptBossReport key={h.id} row={h} collapsible />)}
         </TabsContent>
 
-        {isAdmin && <TabsContent value="settings"><ScriptBossSettings canEditInstructions /></TabsContent>}
+        {isAdmin && <TabsContent value="settings" className="space-y-4"><LevelSettings /><ScriptBossSettings canEditInstructions /></TabsContent>}
       </Tabs>
     </div>
   );

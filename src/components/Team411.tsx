@@ -10,6 +10,7 @@ import { Target, Trophy, TrendingUp, ChevronLeft, ChevronRight, Users, Loader2, 
 import { Button } from '@/components/ui/button';
 import { CollapsibleMetricSection, summarise } from '@/components/CollapsibleMetricSection';
 import { PracticeSession, practiceSummary } from '@/components/PracticeTab';
+import { TeamLevels } from '@/components/scriptBoss/TeamLevels';
 import { TeamFubKpiTable } from '@/components/FubWeeklyKpis';
 import FubWeeklySyncStatus from '@/components/FubWeeklySyncStatus';
 
@@ -248,6 +249,7 @@ const Team411 = () => {
 
           <FubWeeklySyncStatus weekStart={format(currentWeek, 'yyyy-MM-dd')} onSynced={() => setCurrentWeek(new Date(currentWeek))} />
           <TeamFubKpiTable agents={filteredAgents} rows={weeklyData as any} />
+          <TeamLevels agents={filteredAgents as any} />
 
           {filteredAgents.map(agent => {
             const data = weeklyData.find(w => w.user_id === agent.id);
