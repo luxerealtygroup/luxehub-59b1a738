@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { inferDealCategory, getDealWeight, DealMetadataMap } from '@/lib/utils/dealWeight';
+import { fetchDealAttribution, type DealAttributionMap } from '@/lib/dealAttribution';
 
 /**
  * Closed + Firm counting for the 2026 numbers, straight from Follow Up Boss.
@@ -9,7 +10,8 @@ import { inferDealCategory, getDealWeight, DealMetadataMap } from '@/lib/utils/d
  *  - Conditional: stage "Offer" (or any stage named conditional). Shown, never counted.
  *  - Lease / weighting: the shared app-wide rule (deal_metadata marks, lease keywords, then rent-sized price);
  *    sale = 1 unit, lease = 1/3 unit, lease with GCI >= threshold = 1 unit. GCI always in full.
- * Shared deals split evenly between producing agents; support staff are left out.
+ * Shared deals use the owner-confirmed split (deal_metadata); otherwise split evenly between producing agents.
+ * Support staff are left out.
  */
 export const SUPPORT_NAMES = /^marie zinger$/i;
 /** Share of conditional deals assumed to firm up for the year-end projection. */
@@ -56,7 +58,7 @@ export interface FirmSummary {
 }
 
 export type DealFlags = Map<number, { personal: boolean; doubleEnd: boolean }>;
-type Loaded = { at: Date; deals: any[]; meta: DealMetadataMap; flags: DealFlags };
+type Loaded = { at: Date; deals: any[]; meta: DealMetadataMap; flags: DealFlags; attribution: DealAttributionMap };
 let cache: Loaded | null = null;
 let inflight: Promise<Loaded> | null = null;
 export async function loadDeals(): Promise<Loaded> {
@@ -64,26 +66,39 @@ export async function loadDeals(): Promise<Loaded> {
   inflight ??= (async () => {
     const { data, error } = await supabase.functions.invoke('follow-up-boss', { body: { action: 'get_deals', params: { limit: 100, paginate: true } } });
     if (error || !(data as any)?.success) throw new Error(error?.message ?? 'Could not load Follow Up Boss deals');
-    const { data: md } = await supabase.from('deal_metadata').select('fub_deal_id, deal_category, weight_override, personal_transaction, double_end');
+    const [{ data: md }, attribution] = await Promise.all([
+      supabase.from('deal_metadata').select('fub_deal_id, deal_category, weight_override, personal_transaction, double_end'),
+      fetchDealAttribution().catch(() => new Map() as DealAttributionMap),
+    ]);
     const meta: DealMetadataMap = new Map(); const flags: DealFlags = new Map();
     for (const r of (md as any[]) ?? []) { if (r.deal_category || r.weight_override != null) meta.set(Number(r.fub_deal_id), { deal_category: r.deal_category, weight_override: r.weight_override });
       if (r.personal_transaction || r.double_end) flags.set(Number(r.fub_deal_id), { personal: !!r.personal_transaction, doubleEnd: !!r.double_end }); }
-    cache = { at: new Date(), deals: (data as any)?.data?.deals ?? [], meta, flags };
+    cache = { at: new Date(), deals: (data as any)?.data?.deals ?? [], meta, flags, attribution };
     return cache;
   })().finally(() => { inflight = null; });
   return inflight;
 }
 
-export function summarize(deals: any[], year: number, fubUserId?: number | null, meta?: DealMetadataMap): FirmSummary {
+/** This agent's share (0-1) of a deal: the owner-confirmed split when recorded, else an even split of the FUB producers. */
+function agentShare(d: any, fubUserId: number, attribution?: DealAttributionMap): number {
+  const override = attribution?.get(Number(d.id));
+  if (override && override.shares.length) {
+    const mine = override.shares.find(s => Number(s.fubUserId) === Number(fubUserId));
+    return mine ? mine.percent / 100 : 0;
+  }
+  const producers = (d.users ?? []).filter((u: any) => !SUPPORT_NAMES.test(String(u.name ?? '')));
+  return producers.some((u: any) => Number(u.id) === Number(fubUserId)) ? 1 / producers.length : 0;
+}
+
+export function summarize(deals: any[], year: number, fubUserId?: number | null, meta?: DealMetadataMap, attribution?: DealAttributionMap): FirmSummary {
   const y = String(year), today = new Date().toISOString().slice(0, 10);
   const out: FirmSummary = { closed: empty(), firm: empty(), conditional: empty(), firmNextYear: empty(), firmNoDate: 0, deals: [] };
   for (const d of deals) {
     const kind = dealKind(d); if (!kind) continue;
-    const producers = (d.users ?? []).filter((u: any) => !SUPPORT_NAMES.test(String(u.name ?? '')));
     let share = 1;
     if (fubUserId != null) {
-      if (!producers.some((u: any) => Number(u.id) === Number(fubUserId))) continue;
-      share = 1 / producers.length;
+      share = agentShare(d, fubUserId, attribution);
+      if (share <= 0) continue;
     }
     const date = dealDate(d), price = Number(d.price || 0), gci = Number(d.commissionValue || 0);
     const lease = inferDealCategory(d, meta).category === 'lease', weight = getDealWeight(d, meta);
@@ -110,7 +125,7 @@ export function useFirmDeals(year = 2026, fubUserId?: number | null, enabled = t
   useEffect(() => {
     if (!enabled) return;
     let off = false;
-    loadDeals().then(c => { if (!off) setS({ loading: false, error: null, data: summarize(c.deals, year, fubUserId, c.meta), asOf: c.at }); })
+    loadDeals().then(c => { if (!off) setS({ loading: false, error: null, data: summarize(c.deals, year, fubUserId, c.meta, c.attribution), asOf: c.at }); })
       .catch(e => { if (!off) setS({ loading: false, error: e.message, data: null, asOf: null }); });
     return () => { off = true; };
   }, [year, fubUserId, enabled]);
@@ -118,16 +133,17 @@ export function useFirmDeals(year = 2026, fubUserId?: number | null, enabled = t
 }
 
 /** Per producing agent (FUB user) breakdown for the team view. */
-export function perAgent(deals: any[], year: number, meta?: DealMetadataMap) {
+export function perAgent(deals: any[], year: number, meta?: DealMetadataMap, attribution?: DealAttributionMap) {
   const users = new Map<number, string>();
   for (const d of deals) for (const u of d.users ?? []) if (!SUPPORT_NAMES.test(String(u.name ?? ''))) users.set(Number(u.id), u.name);
-  return [...users].map(([id, name]) => ({ id, name, s: summarize(deals, year, id, meta) }))
+  for (const a of attribution?.values() ?? []) for (const sh of a.shares) if (sh.fubUserId != null && !users.has(Number(sh.fubUserId))) users.set(Number(sh.fubUserId), sh.name ?? `FUB #${sh.fubUserId}`);
+  return [...users].map(([id, name]) => ({ id, name, s: summarize(deals, year, id, meta, attribution) }))
     .filter(a => a.s.closed.count + a.s.firm.count + a.s.conditional.count + a.s.firmNextYear.count > 0)
     .sort((a, b) => (b.s.closed.gci + b.s.firm.gci) - (a.s.closed.gci + a.s.firm.gci));
 }
 export function useFirmDealsRaw() {
-  const [s, setS] = useState<{ deals: any[]; asOf: Date | null; meta?: DealMetadataMap }>({ deals: [], asOf: null });
-  useEffect(() => { loadDeals().then(c => setS({ deals: c.deals, asOf: c.at, meta: c.meta })).catch(() => {}); }, []);
+  const [s, setS] = useState<{ deals: any[]; asOf: Date | null; meta?: DealMetadataMap; attribution?: DealAttributionMap }>({ deals: [], asOf: null });
+  useEffect(() => { loadDeals().then(c => setS({ deals: c.deals, asOf: c.at, meta: c.meta, attribution: c.attribution })).catch(() => {}); }, []);
   return s;
 }
 
