@@ -30,7 +30,7 @@ export function ClosedFirmSummary({ fubUserId, year = 2026, showAgents = false, 
   const { closed: c, firm: f, conditional: q, firmNextYear: nx } = data;
   const stamp = asOfLabel(asOf);
   const proj = { units: c.units + f.units + q.units * CONDITIONAL_SHARE, gci: c.gci + f.gci + q.gci * CONDITIONAL_SHARE, homes: c.homes + f.homes + q.homes * CONDITIONAL_SHARE };
-  const agents = showAgents ? perAgent(raw.deals, year, raw.meta) : [];
+  const agents = showAgents ? perAgent(raw.deals, year, raw.meta, raw.attribution) : [];
 
   return (
     <div className="space-y-3">
@@ -83,7 +83,7 @@ export function ClosedFirmSummary({ fubUserId, year = 2026, showAgents = false, 
               </tr>
             ))}</tbody>
           </table>
-          <p className="p-2 text-[11px] text-muted-foreground">Shared deals split evenly between the agents on them; Marie (support) left out. Units weighted: sale 1 · lease ⅓ · lease with $4K+ GCI 1. Homes/leases are closed deals. Pending = Follow Up Boss "Pending" stage (conditions waived); conditional = "Offer" stage. {stamp}</p>
+          <p className="p-2 text-[11px] text-muted-foreground">Shared deals use the confirmed split, otherwise split evenly between the agents on them; Marie (support) left out. Units weighted: sale 1 · lease ⅓ · lease with $4K+ GCI 1. Homes/leases are closed deals. Pending = Follow Up Boss "Pending" stage (conditions waived); conditional = "Offer" stage. {stamp}</p>
         </div>
       )}
       {details}
