@@ -85,7 +85,7 @@ export function RecapSection({ agentId, fubUserId, actuals, goal2026, recap, rec
         </CardContent>
       </Card>
 
-      <Card><CardHeader className="pb-2"><CardTitle className="text-base">2026 closed + pending</CardTitle></CardHeader>
+      <Card><CardHeader className="pb-2"><CardTitle className="text-base">2026 deal breakdown</CardTitle></CardHeader>
         <CardContent><ClosedFirmSummary fubUserId={fubUserId ?? null} /></CardContent>
       </Card>
 
@@ -190,7 +190,7 @@ export function GoalComparison({ actuals, r }: { actuals: PriorYearActuals; r: G
     ['Leads', actuals.leads, r.leads_needed, false],
   ];
   return (
-    <Card><CardHeader className="pb-2"><CardTitle className="text-base">2026 actual vs 2027 goal</CardTitle></CardHeader>
+    <Card><CardHeader className="pb-2"><CardTitle className="text-base">2026 (closed + pending) vs 2027 goal</CardTitle></CardHeader>
       <CardContent className="space-y-2">
         <div className="hidden sm:grid grid-cols-4 gap-2 text-xs uppercase tracking-wider text-muted-foreground px-3">
           <span /> <span className="text-right">2026 closed + pending</span><span className="text-right">2027 goal</span><span className="text-right">Change</span>
