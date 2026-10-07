@@ -102,6 +102,8 @@ export interface DealMetrics {
   gci_pending: number;
   /** Sum of sale price for closed deals (volume) */
   sales_volume_closed: number;
+  /** Sum of sale price for pending deals (agent's share), conditional excluded */
+  sales_volume_pending: number;
   /** Weighted deal counts (leases = 0.33) */
   weighted_closed: number;
   weighted_pending: number;
@@ -171,7 +173,7 @@ export function useFubDealMetrics({
 }: UseFubDealMetricsOptions) {
   const [metrics, setMetrics] = useState<DealMetrics>({
     deals_closed: 0, deals_pending: 0, gci_earned: 0, gci_pending: 0,
-    sales_volume_closed: 0,
+    sales_volume_closed: 0, sales_volume_pending: 0,
     weighted_closed: 0, weighted_pending: 0, weighted_debug_closed: null, weighted_debug_pending: null,
     sales_count_closed: 0, lease_count_closed: 0, gci_sales_closed: 0, gci_leases_closed: 0,
     sales_count_pending: 0, lease_count_pending: 0, sales_count_conditional: 0,
@@ -332,6 +334,10 @@ export function useFubDealMetrics({
       (sum, d: any) => sum + Number(d.price || 0) * (typeof d.__share === 'number' ? d.__share : 1),
       0
     );
+    const salesVolumePending = pendingDealsArr.reduce(
+      (sum, d: any) => sum + Number(d.price || 0) * (typeof d.__share === 'number' ? d.__share : 1),
+      0
+    );
     const weightedDebugClosed = buildWeightedDebug(closedDealsArr, dealMetadataMap);
     const salesCountClosed = closedDealsArr.length > 0 ? weightedDebugClosed.saleCount : dealsClosed;
     // Split GCI by sale vs lease. Sales-only planning uses full GCI from closed,
@@ -381,6 +387,7 @@ export function useFubDealMetrics({
       deals_closed: dealsClosed, deals_pending: dealsPending,
       gci_earned: gciEarned, gci_pending: gciPending,
       sales_volume_closed: salesVolumeClosed,
+      sales_volume_pending: salesVolumePending,
       weighted_closed: Math.round(weightedClosed * 100) / 100,
       weighted_pending: Math.round(weightedPending * 100) / 100,
       weighted_debug_closed: weightedDebugClosed,

@@ -14,6 +14,18 @@ export interface PriorYearActuals {
   closingsRaw: number;
   leasesClosed: number;
   closedSales: number;
+  /** Pending (conditions waived) — conditional/offer never counted. */
+  pendingUnits: number;
+  pendingRaw: number;
+  pendingSales: number;
+  pendingLeases: number;
+  pendingGci: number;
+  pendingVolume: number;
+  /** Closed + pending — what agents see as their 2026 numbers on the planning page. */
+  totalUnits: number;
+  totalGci: number;
+  totalVolume: number;
+  totalSales: number;
   avgSalePrice: number | null;
   commissionRate: number | null;
   apptToClose: number | null;
@@ -87,6 +99,16 @@ export function usePriorYearActuals(userId: string | null, fubUserId: number | n
     closingsRaw: metrics.deals_closed,
     leasesClosed: metrics.lease_count_closed,
     closedSales: sales,
+    pendingUnits: metrics.weighted_pending,
+    pendingRaw: metrics.deals_pending,
+    pendingSales: metrics.sales_count_pending,
+    pendingLeases: metrics.lease_count_pending,
+    pendingGci: Math.round(metrics.gci_pending),
+    pendingVolume: Math.round(metrics.sales_volume_pending),
+    totalUnits: Math.round((closings + metrics.weighted_pending) * 100) / 100,
+    totalGci: Math.round(metrics.gci_earned + metrics.gci_pending),
+    totalVolume: Math.round(vol + metrics.sales_volume_pending),
+    totalSales: sales + metrics.sales_count_pending,
     avgSalePrice: sales >= 2 && vol > 0 ? Math.round(vol / sales) : null,
     commissionRate: sales >= 2 && vol > 0 && metrics.gci_sales_closed > 0 ? round1((metrics.gci_sales_closed / vol) * 100) : null,
     apptToClose: ratesTrusted && closings > 0 ? a2cRaw : null,

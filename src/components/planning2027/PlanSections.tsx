@@ -19,6 +19,7 @@ import { ReflectionExercises, KpiTargets, ContractSection } from './SessionExerc
 type SetPrework = (fn: (p: PreworkRow) => PreworkRow) => void;
 const m = (v: number | null | undefined) => (v == null ? '—' : formatCurrency(v));
 const n = (v: number | null | undefined) => (v == null ? '—' : formatNumber(v));
+const plural = (c: number, w: string) => `${formatNumber(c)} ${w}${c === 1 ? '' : 's'}`;
 const pct = (v: number | null | undefined) => (v == null ? '—' : `${v}%`);
 
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -73,18 +74,19 @@ export function RecapSection({ agentId, fubUserId, actuals, goal2026, recap, rec
 
   return (
     <div className="space-y-4">
-      <Card><CardHeader className="pb-2"><CardTitle className="text-base">2026 production <span className="font-normal text-muted-foreground text-sm">· LUXEhub transactions</span></CardTitle></CardHeader>
+      <Card><CardHeader className="pb-2"><CardTitle className="text-base">2026 production <span className="font-normal text-muted-foreground text-sm">· closed + pending · LUXEhub transactions</span></CardTitle></CardHeader>
         <CardContent className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {actuals.loading ? <Loader2 className="h-5 w-5 animate-spin text-gold" /> : <>
-            <Stat label="Closed · weighted units" value={formatWeightedDeals(actuals.closings)} sub={`${actuals.closingsRaw} deals (${actuals.closedSales} homes + ${actuals.leasesClosed} leases) · ${vsGoal(actuals.closings, goal2026?.deals)}`} />
-            <Stat label="Volume" value={m(actuals.volume)} sub={vsGoal(actuals.volume, goal2026?.volume, true)} />
-            <Stat label="GCI" value={m(actuals.gci)} sub={vsGoal(actuals.gci, goal2026?.gci, true)} />
-            <Stat label="Avg sale price" value={actuals.closedSales ? m(Math.round(actuals.volume / actuals.closedSales)) : '—'} sub={`${actuals.closedSales} sales`} />
+            <Stat label="Closed + pending · weighted units" value={formatWeightedDeals(actuals.totalUnits)}
+              sub={`${formatWeightedDeals(actuals.closings)} closed (${plural(actuals.closedSales, 'home')} + ${plural(actuals.leasesClosed, 'lease')}) + ${formatWeightedDeals(actuals.pendingUnits)} pending (${plural(actuals.pendingSales, 'home')} + ${plural(actuals.pendingLeases, 'lease')}) · ${vsGoal(actuals.totalUnits, goal2026?.deals)}`} />
+            <Stat label="Volume" value={m(actuals.totalVolume)} sub={`${m(actuals.volume)} closed + ${m(actuals.pendingVolume)} pending · ${vsGoal(actuals.totalVolume, goal2026?.volume, true)}`} />
+            <Stat label="GCI" value={m(actuals.totalGci)} sub={`${m(actuals.gci)} closed + ${m(actuals.pendingGci)} pending · ${vsGoal(actuals.totalGci, goal2026?.gci, true)}`} />
+            <Stat label="Avg sale price" value={actuals.totalSales ? m(Math.round(actuals.totalVolume / actuals.totalSales)) : '—'} sub={`${actuals.totalSales} sales (closed + pending)`} />
           </>}
         </CardContent>
       </Card>
 
-      <Card><CardHeader className="pb-2"><CardTitle className="text-base">2026 closed + pending</CardTitle></CardHeader>
+      <Card><CardHeader className="pb-2"><CardTitle className="text-base">2026 deal breakdown</CardTitle></CardHeader>
         <CardContent><ClosedFirmSummary fubUserId={fubUserId ?? null} /></CardContent>
       </Card>
 
@@ -182,17 +184,17 @@ export function ReflectionSection({ prework, setPrework, editable }: { prework: 
 /* ─────────────── TAB 3 — 2026 vs 2027 ─────────────── */
 export function GoalComparison({ actuals, r }: { actuals: PriorYearActuals; r: GoalResults }) {
   const rows: [string, number, number | null, boolean][] = [
-    ['GCI', actuals.gci, r.gci_goal, true],
-    ['Deals (weighted units)', actuals.closings, r.deals_needed, false],
-    ['Volume', actuals.volume, r.volume_needed, true],
+    ['GCI', actuals.totalGci, r.gci_goal, true],
+    ['Deals (weighted units)', actuals.totalUnits, r.deals_needed, false],
+    ['Volume', actuals.totalVolume, r.volume_needed, true],
     ['Appointments', actuals.appointments, r.appointments_needed, false],
     ['Leads', actuals.leads, r.leads_needed, false],
   ];
   return (
-    <Card><CardHeader className="pb-2"><CardTitle className="text-base">2026 actual vs 2027 goal</CardTitle></CardHeader>
+    <Card><CardHeader className="pb-2"><CardTitle className="text-base">2026 (closed + pending) vs 2027 goal</CardTitle></CardHeader>
       <CardContent className="space-y-2">
         <div className="hidden sm:grid grid-cols-4 gap-2 text-xs uppercase tracking-wider text-muted-foreground px-3">
-          <span /> <span className="text-right">2026 actual</span><span className="text-right">2027 goal</span><span className="text-right">Change</span>
+          <span /> <span className="text-right">2026 closed + pending</span><span className="text-right">2027 goal</span><span className="text-right">Change</span>
         </div>
         {rows.map(([label, a, g, money]) => {
           const c = pctChange(a, g);

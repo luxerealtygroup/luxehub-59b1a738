@@ -37,6 +37,7 @@ export const DEMO_FUB_METRICS: DealMetrics = {
   gci_earned: 287500,
   gci_pending: 96200,
   sales_volume_closed: 18400000,
+  sales_volume_pending: 6900000,
   weighted_closed: 28,
   weighted_pending: 14,
   weighted_debug_closed: null,
