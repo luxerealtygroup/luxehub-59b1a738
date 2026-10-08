@@ -328,8 +328,11 @@ export function useFubDealMetrics({
       debug.dealsInClosedStagesAndDateRange = dealsClosed;
     }
 
-    const weightedClosed = sumWeightedDeals(closedDealsArr, dealMetadataMap);
-    const weightedPending = sumWeightedDeals(pendingDealsArr, dealMetadataMap);
+    // Units follow the same split as the money: an agent's half of a shared deal is half a unit.
+    const shareOf = (d: any) => (typeof d.__share === 'number' ? d.__share : 1);
+    const weightedSum = (arr: any[]) => arr.reduce((s, d) => s + getDealWeight(d, dealMetadataMap) * shareOf(d), 0);
+    const weightedClosed = weightedSum(closedDealsArr);
+    const weightedPending = weightedSum(pendingDealsArr);
     const salesVolumeClosed = closedDealsArr.reduce(
       (sum, d: any) => sum + Number(d.price || 0) * (typeof d.__share === 'number' ? d.__share : 1),
       0
@@ -339,7 +342,7 @@ export function useFubDealMetrics({
       0
     );
     const weightedDebugClosed = buildWeightedDebug(closedDealsArr, dealMetadataMap);
-    const salesCountClosed = closedDealsArr.length > 0 ? weightedDebugClosed.saleCount : dealsClosed;
+    let salesCountClosed = closedDealsArr.length > 0 ? 0 : dealsClosed;
     // Split GCI by sale vs lease. Sales-only planning uses full GCI from closed,
     // pending, and conditional activity so early-year closed deals don't skew the average.
     let gciSalesClosed = 0;
@@ -355,8 +358,8 @@ export function useFubDealMetrics({
       for (const d of closedDealsArr) {
         const cat = inferDealCategory(d, dealMetadataMap).category;
         const gci = getDealGci(d);
-        if (cat === 'lease') { gciLeasesClosed += gci; leaseCountClosed++; }
-        else { gciSalesClosed += gci; }
+        if (cat === 'lease') { gciLeasesClosed += gci; leaseCountClosed += shareOf(d); }
+        else { gciSalesClosed += gci; salesCountClosed += shareOf(d); }
       }
     } else {
       // Local/manual fallback: treat everything as sales
@@ -367,14 +370,14 @@ export function useFubDealMetrics({
         const cat = inferDealCategory(d, dealMetadataMap).category;
         const gci = getDealGci(d);
         if (cat === 'lease') {
-          if (!isConditionalStage((d as any).stageName)) { leaseCountPending++; gciLeasesPending += gci; }
+          if (!isConditionalStage((d as any).stageName)) { leaseCountPending += shareOf(d); gciLeasesPending += gci; }
           continue;
         }
         if (isConditionalStage((d as any).stageName)) {
-          salesCountConditional++;
+          salesCountConditional += shareOf(d);
           gciSalesConditional += gci;
         } else {
-          salesCountPending++;
+          salesCountPending += shareOf(d);
           gciSalesPending += gci;
         }
       }
