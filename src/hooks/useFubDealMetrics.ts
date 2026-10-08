@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
 import { getDealWeight, buildWeightedDebug, WeightedDebugInfo, DealMetadataMap } from '@/lib/utils/dealWeight';
+import { getDealWeight as _gdw } from '@/lib/utils/dealWeight';
 import { inferDealCategory } from '@/lib/utils/dealWeight';
 import { productionKind } from '@/lib/firmDeals';
 import { fetchDealAttribution, isDealCreditedTo, dealShareFor } from '@/lib/dealAttribution';
@@ -330,7 +331,7 @@ export function useFubDealMetrics({
 
     // Units follow the same split as the money: an agent's half of a shared deal is half a unit.
     const shareOf = (d: any) => (typeof d.__share === 'number' ? d.__share : 1);
-    const weightedSum = (arr: any[]) => arr.reduce((s, d) => s + getDealWeight(d, dealMetadataMap) * shareOf(d), 0);
+    const weightedSum = (arr: any[]) => arr.reduce((s, d) => s + _gdw(d, dealMetadataMap) * shareOf(d), 0);
     const weightedClosed = weightedSum(closedDealsArr);
     const weightedPending = weightedSum(pendingDealsArr);
     const salesVolumeClosed = closedDealsArr.reduce(
