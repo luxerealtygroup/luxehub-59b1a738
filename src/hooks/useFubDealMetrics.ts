@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { followUpBossApi, FUBDeal } from '@/lib/api/followUpBoss';
-import { sumWeightedDeals, buildWeightedDebug, WeightedDebugInfo, DealMetadataMap } from '@/lib/utils/dealWeight';
+import { getDealWeight, buildWeightedDebug, WeightedDebugInfo, DealMetadataMap } from '@/lib/utils/dealWeight';
 import { inferDealCategory } from '@/lib/utils/dealWeight';
 import { productionKind } from '@/lib/firmDeals';
 import { fetchDealAttribution, isDealCreditedTo, dealShareFor } from '@/lib/dealAttribution';
@@ -274,7 +274,7 @@ export function useFubDealMetrics({
         });
         debug.dealsInClosedStagesAndDateRange = closedInYear.length;
 
-        dealsClosed = closedInYear.length;
+        dealsClosed = closedInYear.reduce((s: number, d: any) => s + (typeof d.__share === 'number' ? d.__share : 1), 0);
         gciEarned = closedInYear.reduce((sum, d) => sum + getDealGci(d), 0);
         closedDealsArr = closedInYear;
 
@@ -282,7 +282,7 @@ export function useFubDealMetrics({
         // Pending = conditions waived, closing this year. Conditional (Offer) kept apart, never counted.
         const pendingDeals = agentDeals.filter(d => productionKind(d, year) === 'pending');
         conditionalDealsArr = agentDeals.filter(d => productionKind(d, year) === 'conditional');
-        dealsPending = pendingDeals.length;
+        dealsPending = pendingDeals.reduce((s: number, d: any) => s + (typeof d.__share === 'number' ? d.__share : 1), 0);
         gciPending = pendingDeals.reduce((sum, d) => sum + getDealGci(d), 0);
         pendingDealsArr = pendingDeals;
 
