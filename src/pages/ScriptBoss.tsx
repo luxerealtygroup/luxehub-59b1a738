@@ -174,6 +174,24 @@ export default function ScriptBoss() {
       });
   }, []);
 
+  // Agent's saved standard settings live on their own account so they follow them to any device.
+  const savedStd = (user?.user_metadata as { script_boss_defaults?: Record<string, unknown> } | undefined)?.script_boss_defaults;
+  const stdApplied = useRef(false);
+  useEffect(() => {
+    if (stdApplied.current || !savedStd) return;
+    stdApplied.current = true;
+    const s = savedStd as { practiceMode?: PracticeMode; channel?: Channel; mode?: 'voice' | 'text'; scenarioId?: string; prefs?: Partial<VoicePrefs> };
+    if (s.practiceMode) setPracticeMode(s.practiceMode);
+    if (s.channel) setChannel(s.channel);
+    if (s.mode) setMode(s.mode);
+    if (s.scenarioId) setScenarioId(s.scenarioId);
+    if (s.prefs) setPrefs(s.prefs);
+  }, [savedStd]); // eslint-disable-line react-hooks/exhaustive-deps
+  const saveStandard = async () => {
+    const { error } = await supabase.auth.updateUser({ data: { script_boss_defaults: { practiceMode, channel, mode, scenarioId, prefs } } });
+    toast(error ? { title: "Couldn't save your settings", description: error.message, variant: 'destructive' } : { title: 'Saved as your standard settings', description: 'Script Boss will open this way next time, on any device.' });
+  };
+
   const grouped = useMemo(() => GROUPS.map(g => ({ g, items: scenarios.filter(s => s.category === g) })).filter(x => x.items.length), [scenarios]);
 
   const loadHistory = useCallback(async () => {
@@ -672,9 +690,12 @@ export default function ScriptBoss() {
                         </div>
                       </div>
                     )}
-                    <Button onClick={start} disabled={(practiceMode === 'drill' && !scenarioId) || Boolean(busy)}>
-                      {busy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />} {practiceMode === 'clinic' ? 'Open clinic' : 'Start drill'}
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button onClick={start} disabled={(practiceMode === 'drill' && !scenarioId) || Boolean(busy)}>
+                        {busy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />} {practiceMode === 'clinic' ? 'Open clinic' : 'Start drill'}
+                      </Button>
+                      <Button type="button" variant="outline" onClick={saveStandard}>Save as my standard settings</Button>
+                    </div>
                   </>
                 )}
 
