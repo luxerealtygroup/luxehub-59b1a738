@@ -37,7 +37,8 @@ Deno.serve(async (req) => {
     const bytes = crypto.getRandomValues(new Uint8Array(24));
     const password = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('') + 'Aa1!';
     const { data, error } = await admin.auth.admin.updateUserById(targetId, { password, ban_duration: '876000h' });
-    if (error || !data.user?.banned_until) return json({ error: 'Could not disable login' }, 500);
+    if (error) return json({ error: error.message, code: error.code }, 500);
+    if (!data.user?.banned_until) return json({ error: 'Could not disable login' }, 500);
     const { error: profileError } = await admin.from('profiles').update({
       access_expires_at: new Date().toISOString(),
     }).eq('id', targetId);
