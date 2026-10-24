@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
       return json({ error: 'Forbidden' }, 403);
     }
     // Never return, persist, or log the replacement password. Banning prevents recovery from restoring access.
-    const bytes = crypto.getRandomValues(new Uint8Array(48));
+    const bytes = crypto.getRandomValues(new Uint8Array(24));
     const password = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('') + 'Aa1!';
     const { data, error } = await admin.auth.admin.updateUserById(targetId, { password, ban_duration: '876000h' });
     if (error || !data.user?.banned_until) return json({ error: 'Could not disable login' }, 500);
