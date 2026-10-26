@@ -83,7 +83,7 @@ export function ClosedFirmSummary({ fubUserId, year = 2026, showAgents = false, 
               </tr>
             ))}</tbody>
           </table>
-          <p className="p-2 text-[11px] text-muted-foreground">Shared deals use the confirmed split, otherwise split evenly between the agents on them; Marie (support) left out. Units weighted: sale 1 · lease ⅓ · lease with $4K+ GCI 1. Homes/leases are closed deals. Pending = Follow Up Boss "Pending" stage (conditions waived); conditional = "Offer" stage. {stamp}</p>
+          <p className="p-2 text-[11px] text-muted-foreground">Shared deals count fully toward each agent on them, so agent totals add up to more than the team total; Marie (support) left out. Units weighted: sale 1 · lease ⅓ · lease with $4K+ GCI 1. Homes/leases are closed deals. Pending = Follow Up Boss "Pending" stage (conditions waived); conditional = "Offer" stage. {stamp}</p>
         </div>
       )}
       {details}
