@@ -79,15 +79,16 @@ export async function loadDeals(): Promise<Loaded> {
   return inflight;
 }
 
-/** This agent's share (0-1) of a deal: the owner-confirmed split when recorded, else an even split of the FUB producers. */
+/** Whether this agent is a producing agent on the deal: 1 when credited, 0 when not.
+ *  Shared deals count fully toward every producing agent (same convention as the
+ *  FUB per-agent reports); recorded splits are kept for commission math only. */
 function agentShare(d: any, fubUserId: number, attribution?: DealAttributionMap): number {
   const override = attribution?.get(Number(d.id));
   if (override && override.shares.length) {
-    const mine = override.shares.find(s => Number(s.fubUserId) === Number(fubUserId));
-    return mine ? mine.percent / 100 : 0;
+    return override.shares.some(s => Number(s.fubUserId) === Number(fubUserId)) ? 1 : 0;
   }
   const producers = (d.users ?? []).filter((u: any) => !SUPPORT_NAMES.test(String(u.name ?? '')));
-  return producers.some((u: any) => Number(u.id) === Number(fubUserId)) ? 1 / producers.length : 0;
+  return producers.some((u: any) => Number(u.id) === Number(fubUserId)) ? 1 : 0;
 }
 
 export function summarize(deals: any[], year: number, fubUserId?: number | null, meta?: DealMetadataMap, attribution?: DealAttributionMap): FirmSummary {

@@ -241,12 +241,13 @@ export function useFubDealMetrics({
         }
 
         // Filter to the deals this agent actually produced (not ones they only administer).
-        // On a split deal the agent keeps only their share of the money.
+        // Shared deals count fully toward each producing agent (same convention as the
+        // FUB per-agent reports): every producing agent gets 100% of units, GCI and volume.
         const agentDeals = collected
           .filter((d: any) => isDealCreditedTo(d, targetFubUserId as number, attribution))
           .map((d: any) => ({
             ...d,
-            __share: dealShareFor(d, targetFubUserId as number, attribution),
+            __share: 1,
           }));
 
         debug.totalDealsForAgent = agentDeals.length;
