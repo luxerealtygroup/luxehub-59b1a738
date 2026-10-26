@@ -5,7 +5,7 @@ import { getDealWeight, buildWeightedDebug, WeightedDebugInfo, DealMetadataMap }
 import { getDealWeight as _gdw } from '@/lib/utils/dealWeight';
 import { inferDealCategory } from '@/lib/utils/dealWeight';
 import { productionKind } from '@/lib/firmDeals';
-import { fetchDealAttribution, isDealCreditedTo, dealShareFor } from '@/lib/dealAttribution';
+import { fetchDealAttribution, isDealCreditedTo } from '@/lib/dealAttribution';
 
 // ── Single source of truth for stage classification ──────────────────────
 export const CLOSED_STAGES = ['closed', 'won', 'sold', 'settled', 'completed'];
@@ -24,12 +24,11 @@ export const isConditionalStage = (stageName: string): boolean => {
   return s.includes('conditional') || s.includes('offer');
 };
 
-// Agent-facing GCI must respect the agent's split. FUB's `commissionValue` is the
-// gross/total commission on the deal; `agentCommission` is the agent's share.
-// `__share` (0-1) is set when a deal is split between two producing agents.
+// Agent-facing GCI credits the full deal to each producing agent. FUB's
+// `commissionValue` is the gross/total commission on the deal. `__share` is 1 for
+// every producing agent — shared deals count fully toward each of them.
 const getDealGci = (deal: any): number => {
   const share = typeof deal.__share === 'number' ? deal.__share : 1;
-  // Same as Team Recap: full deal GCI, split evenly across producing agents.
   const gross = Number(deal.commissionValue ?? 0) || Number(deal.agentCommission ?? 0) || 0;
   return gross * share;
 };
@@ -241,12 +240,13 @@ export function useFubDealMetrics({
         }
 
         // Filter to the deals this agent actually produced (not ones they only administer).
-        // On a split deal the agent keeps only their share of the money.
+        // Shared deals count fully toward each producing agent (same convention as the
+        // FUB per-agent reports): every producing agent gets 100% of units, GCI and volume.
         const agentDeals = collected
           .filter((d: any) => isDealCreditedTo(d, targetFubUserId as number, attribution))
           .map((d: any) => ({
             ...d,
-            __share: dealShareFor(d, targetFubUserId as number, attribution),
+            __share: 1,
           }));
 
         debug.totalDealsForAgent = agentDeals.length;
@@ -329,7 +329,7 @@ export function useFubDealMetrics({
       debug.dealsInClosedStagesAndDateRange = dealsClosed;
     }
 
-    // Units follow the same split as the money: an agent's half of a shared deal is half a unit.
+    // Units follow the same full-credit convention as the money: each producing agent gets the whole deal.
     const shareOf = (d: any) => (typeof d.__share === 'number' ? d.__share : 1);
     const weightedSum = (arr: any[]) => arr.reduce((s, d) => s + _gdw(d, dealMetadataMap) * shareOf(d), 0);
     const weightedClosed = weightedSum(closedDealsArr);
