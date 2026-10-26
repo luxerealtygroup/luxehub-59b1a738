@@ -10,8 +10,8 @@ import { fetchDealAttribution, type DealAttributionMap } from '@/lib/dealAttribu
  *  - Conditional: stage "Offer" (or any stage named conditional). Shown, never counted.
  *  - Lease / weighting: the shared app-wide rule (deal_metadata marks, lease keywords, then rent-sized price);
  *    sale = 1 unit, lease = 1/3 unit, lease with GCI >= threshold = 1 unit. GCI always in full.
- * Shared deals use the owner-confirmed split (deal_metadata); otherwise split evenly between producing agents.
- * Support staff are left out.
+ * Shared deals count fully toward every producing agent on them (FUB per-agent report convention);
+ * support staff are left out.
  */
 export const SUPPORT_NAMES = /^marie zinger$/i;
 /** Share of conditional deals assumed to firm up for the year-end projection. */

@@ -5,7 +5,7 @@ import { getDealWeight, buildWeightedDebug, WeightedDebugInfo, DealMetadataMap }
 import { getDealWeight as _gdw } from '@/lib/utils/dealWeight';
 import { inferDealCategory } from '@/lib/utils/dealWeight';
 import { productionKind } from '@/lib/firmDeals';
-import { fetchDealAttribution, isDealCreditedTo, dealShareFor } from '@/lib/dealAttribution';
+import { fetchDealAttribution, isDealCreditedTo } from '@/lib/dealAttribution';
 
 // ── Single source of truth for stage classification ──────────────────────
 export const CLOSED_STAGES = ['closed', 'won', 'sold', 'settled', 'completed'];
