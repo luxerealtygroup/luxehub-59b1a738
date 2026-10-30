@@ -451,7 +451,7 @@ async function maybeUnlock(orgId: string, userId: string, level: number) {
   if (level !== cur || cur >= 5) return null;
   const cfg = await levelCfg(orgId, cur);
   const { count } = await db.from('practice_sessions').select('id', { count: 'exact', head: true })
-    .eq('user_id', userId).eq('level', cur).eq('passed', true).eq('practice_mode', 'drill');
+    .eq('user_id', userId).eq('level', cur).eq('passed', true).or('practice_mode.eq.drill,source.eq.script_boss_review_recording');
   if ((count ?? 0) < cfg.passes_required) return null;
   const { error } = await db.from('level_unlocks').insert({ org_id: orgId, agent_id: userId, level: cur + 1, unlocked_by: 'system' });
   if (error && !String(error.message).includes('duplicate')) throw error;
@@ -511,7 +511,7 @@ async function gradeAndSave(ctx: { orgId: string; name: string }, userId: string
   const date = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Toronto' });
   const scorePct = Math.round((total / 30) * 100);
   // Levels: only graded live drills count. The no-appointment cap (17/30 = 57%) already applies to the score.
-  const passed = lv && opts.practiceMode === 'drill' ? scorePct >= lv.pass_pct : null;
+  const passed = lv && (opts.practiceMode === 'drill' || opts.source === 'script_boss_review_recording') ? scorePct >= lv.pass_pct : null;
   const levelLine = lv ? `Level: ${lv.level} — ${lv.name} · ${scorePct}% · ${passed ? `Counted as a pass (${lv.pass_pct}%+)` : `Not a pass (needs ${lv.pass_pct}%+)`}` : null;
   const full = { ...r, ...scores, total, grade, appointment_set: appointment,
     one_thing_to_change: `${r.one_thing_to_change}${r.word_patterns_note ? ` (Word choice: ${r.word_patterns_note})` : ''}` };
@@ -651,12 +651,16 @@ Deno.serve(async (req) => {
       const text = String(body.text ?? '').slice(0, 60000).trim();
       if (words(text) < 15) return json({ error: 'Paste or upload the full conversation first.' }, 400);
       const context = String(body.context ?? '').slice(0, 500).trim();
+      // Uploaded real-call recordings count toward levels at the agent's current level; pasted text does not.
+      const recLevel = body.from_recording ? await currentLevel(userId) : null;
       const id = await gradeAndSave(ctx, userId, {
         transcriptText: text, transcript: null, scenario: context || 'Real conversation', mode: 'REVIEW', channel: body.channel ?? null,
         practiceMode: 'review', exchanges: text.split('\n').filter((l) => l.trim()).length, delivery: null, sessionId: null,
         durationSeconds: body.seconds ? Math.round(Number(body.seconds)) : null, source: body.from_recording ? 'script_boss_review_recording' : 'script_boss_review',
+        level: recLevel,
       });
-      return json({ practice_session_id: id });
+      const unlocked = recLevel ? await maybeUnlock(orgId, userId, recLevel) : null;
+      return json({ practice_session_id: id, unlocked });
     }
 
     const { data: session } = await db.from('script_boss_sessions').select('*').eq('id', body.session_id).maybeSingle();
