@@ -114,7 +114,9 @@ const Team411 = () => {
         .select('id, full_name')
         .eq('member_type', 'agent')
         .neq('include_in_team_coaching', false)
-        .not('full_name', 'is', null);
+        .not('full_name', 'is', null)
+        // Departed team members (access expired) drop off the 4-1-1 list; their history is kept.
+        .or(`access_expires_at.is.null,access_expires_at.gt.${new Date().toISOString()}`);
 
       const { data: usersWith411 } = await supabase
         .from('weekly_411')
