@@ -469,15 +469,26 @@ const Goals = () => {
                 : 'Track your annual targets'}
           </p>
         </div>
-        {!isReadOnly && (
-          <Button 
-            variant="outline" 
-            className="border-gold/30 text-gold hover:bg-gold/10"
-            onClick={() => setShowSetup(true)}
-          >
-            <Edit2 className="h-4 w-4 mr-2" /> {hasGoalsSet ? 'Edit Goals' : 'Set Goals'}
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <Select value={String(selectedYear)} onValueChange={(v) => setSelectedYear(parseInt(v, 10))}>
+            <SelectTrigger className="w-[110px] border-gold/30 text-gold" aria-label="Goal year">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="2026">2026</SelectItem>
+              <SelectItem value="2027">2027</SelectItem>
+            </SelectContent>
+          </Select>
+          {!isReadOnly && (
+            <Button
+              variant="outline"
+              className="border-gold/30 text-gold hover:bg-gold/10"
+              onClick={() => setShowSetup(true)}
+            >
+              <Edit2 className="h-4 w-4 mr-2" /> {hasGoalsSet ? 'Edit Goals' : 'Set Goals'}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Goal Setup Dialog */}
