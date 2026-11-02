@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { applyAnnualVolume } from '@/lib/goalVolume';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useViewAsAgent } from '@/hooks/useViewAsAgent';
@@ -20,6 +21,7 @@ import { logAgentGoalChanges, fetchAgentGoalAudit, AgentGoalAuditEntry, AGENT_GO
 
 interface AnnualGoals {
   id?: string;
+  volume_goal: number;
   deals_goal: number;
   gci_goal: number;
   avg_sale_price: number;
@@ -36,6 +38,7 @@ interface ActualMetrics {
 }
 
 interface MonthlyGoal {
+  volume?: number;
   deals: number;
   gci: number;
   focus?: string;
@@ -91,6 +94,7 @@ const Goals = () => {
   const [editingQuarter, setEditingQuarter] = useState<number | null>(null);
   
   const [annualGoals, setAnnualGoals] = useState<AnnualGoals>({
+    volume_goal: 0,
     deals_goal: 0,
     gci_goal: 0,
     avg_sale_price: 350000,
@@ -106,6 +110,7 @@ const Goals = () => {
   const [auditEntries, setAuditEntries] = useState<AgentGoalAuditEntry[]>([]);
   
   const [formData, setFormData] = useState({
+    volume_goal: '',
     deals_goal: '',
     gci_goal: '',
     avg_sale_price: '350000',
@@ -121,6 +126,7 @@ const Goals = () => {
    */
   const persistPlan = async (opts: {
     monthlyPlan?: MonthlyGoal[];
+    annualVolume?: number;
     assumptions?: Record<string, number>;
     rowId?: string | null;
     silent?: boolean;
@@ -128,6 +134,7 @@ const Goals = () => {
     if (!user || !targetUserId) return;
     const rowId = opts.rowId !== undefined ? opts.rowId : planRowId;
     const payload: Record<string, unknown> = {};
+    if (opts.annualVolume !== undefined) payload.annual_volume_goal = opts.annualVolume;
     if (opts.monthlyPlan) payload.monthly_plan = JSON.parse(JSON.stringify(opts.monthlyPlan));
     if (opts.assumptions) payload.plan_assumptions = JSON.parse(JSON.stringify(opts.assumptions));
     if (Object.keys(payload).length === 0) return;
@@ -184,7 +191,7 @@ const Goals = () => {
     // Also fetch 411 monthly goals from production_goals
     const { data: productionData } = await supabase
       .from('production_goals')
-      .select('id, monthly_goals, monthly_plan, plan_assumptions')
+      .select('id, annual_volume_goal, monthly_goals, monthly_plan, plan_assumptions')
       .eq('user_id', queryUserId)
       .eq('year', currentYear)
       .maybeSingle();
@@ -210,11 +217,13 @@ const Goals = () => {
     }
 
     const effectiveAssumptions = storedAssumptions || legacyCalc;
-    const effectivePlan = storedPlan || legacyPlan;
+    const volumeValue = productionData?.annual_volume_goal || 0;
+    const rawPlan = storedPlan || legacyPlan;
+    const effectivePlan = rawPlan ? rawPlan.map((m, i) => ({ ...m, volume: m.volume ?? applyAnnualVolume(createDefaultMonthlyGoals(0, 0), volumeValue)[i].volume })) : null;
     
-    if (data && data.length > 0) {
-      const dealsGoal = data.find(g => g.goal_type === 'deals_closed');
-      const gciGoal = data.find(g => g.goal_type === 'revenue');
+    if ((data && data.length > 0) || volumeValue > 0 || effectivePlan) {
+      const dealsGoal = data?.find(g => g.goal_type === 'deals_closed');
+      const gciGoal = data?.find(g => g.goal_type === 'revenue');
       
       const dealsValue = dealsGoal?.target_value || 0;
       const gciValue = gciGoal?.target_value || 0;
@@ -229,6 +238,7 @@ const Goals = () => {
       
       setAnnualGoals({
         id: dealsGoal?.id || gciGoal?.id,
+        volume_goal: volumeValue,
         deals_goal: dealsValue,
         gci_goal: gciValue,
         avg_sale_price: calcValues.avg_sale_price,
@@ -238,6 +248,7 @@ const Goals = () => {
       });
       
       setFormData({
+        volume_goal: volumeValue.toString(),
         deals_goal: dealsValue?.toString() || '',
         gci_goal: gciValue?.toString() || '',
         avg_sale_price: calcValues.avg_sale_price.toString(),
@@ -260,7 +271,7 @@ const Goals = () => {
         });
         setMonthlyGoals(merged);
       } else {
-        const defaultGoals = createDefaultMonthlyGoals(dealsValue, gciValue);
+        const defaultGoals = applyAnnualVolume(createDefaultMonthlyGoals(dealsValue, gciValue), volumeValue);
         // Merge with 411 goals
         const merged = defaultGoals.map((goal, idx) => {
           const fourOneOneGoal = fourOneOneGoals.find(g => g.month === idx);
@@ -273,6 +284,8 @@ const Goals = () => {
         setMonthlyGoals(merged);
       }
     } else {
+      setAnnualGoals({ volume_goal: 0, deals_goal: 0, gci_goal: 0, avg_sale_price: 350000, commission_rate: 3, split_percent: 70, fallout_rate: 50 });
+      setFormData({ volume_goal: '', deals_goal: '', gci_goal: '', avg_sale_price: '350000', commission_rate: '3', split_percent: '70', fallout_rate: '50' });
       // No annual goals set yet, but still load 411 monthly goals
       const defaultGoals = createDefaultMonthlyGoals(0, 0);
       const merged = defaultGoals.map((goal, idx) => {
@@ -305,6 +318,7 @@ const Goals = () => {
   const handleSaveGoals = async () => {
     if (!user || !targetUserId) return;
     
+    const volumeTarget = Math.max(0, Math.round(parseFloat(formData.volume_goal) || 0));
     const dealsTarget = parseFloat(formData.deals_goal) || 0;
     const gciTarget = parseFloat(formData.gci_goal) || 0;
     
@@ -362,7 +376,12 @@ const Goals = () => {
     const falloutRate = parseFloat(formData.fallout_rate) || 50;
     
     // Save planning assumptions to the database (scoped to the agent being edited)
+    const updatedMonths = volumeTarget !== annualGoals.volume_goal
+      ? applyAnnualVolume(monthlyGoals, volumeTarget)
+      : monthlyGoals;
     await persistPlan({
+      annualVolume: volumeTarget,
+      monthlyPlan: updatedMonths,
       assumptions: {
         avg_sale_price: avgPrice,
         commission_rate: commRate,
@@ -384,7 +403,9 @@ const Goals = () => {
       loadAudit();
     }
     
+    setMonthlyGoals(updatedMonths);
     setAnnualGoals({ 
+      volume_goal: volumeTarget,
       deals_goal: dealsTarget, 
       gci_goal: gciTarget,
       avg_sale_price: avgPrice,
@@ -397,9 +418,11 @@ const Goals = () => {
     fetchAnnualGoals();
   };
 
-  const hasGoalsSet = annualGoals.deals_goal > 0 || annualGoals.gci_goal > 0 || monthlyGoals.some(m => m.deals > 0 || m.gci > 0);
+  const hasGoalsSet = annualGoals.volume_goal > 0 || annualGoals.deals_goal > 0 || annualGoals.gci_goal > 0 || monthlyGoals.some(m => (m.volume || 0) > 0 || m.deals > 0 || m.gci > 0);
   
   // Calculate totals from monthly breakdown (these are the "real" goals after editing)
+  const totalVolumeGoal = monthlyGoals.reduce((sum, m) => sum + (m.volume || 0), 0);
+  const volumeProgress = totalVolumeGoal > 0 ? Math.min(100, Math.round(actualMetrics.sales_volume_closed / totalVolumeGoal * 100)) : 0;
   const totalDealsGoal = monthlyGoals.reduce((sum, m) => sum + (m.deals || 0), 0);
   const totalGciGoal = monthlyGoals.reduce((sum, m) => sum + (m.gci || 0), 0);
   
@@ -423,6 +446,7 @@ const Goals = () => {
       .map((m, idx) => ({ month: monthNames[startMonth + idx], focus: m.focus, target: m.target }))
       .filter(m => m.focus || m.target);
     return {
+      volume: quarterMonths.reduce((sum, m) => sum + (m.volume || 0), 0),
       deals: quarterMonths.reduce((sum, m) => sum + m.deals, 0),
       gci: quarterMonths.reduce((sum, m) => sum + m.gci, 0),
       fourOneOneGoals: quarterFocuses
@@ -434,16 +458,15 @@ const Goals = () => {
     return deals * annualGoals.avg_sale_price * (annualGoals.commission_rate / 100) * (annualGoals.split_percent / 100);
   };
 
-  const updateMonthlyGoal = (monthIndex: number, deals: number) => {
+  const updateMonthlyGoal = (monthIndex: number, volume: number) => {
     const updated = [...monthlyGoals];
-    const calculatedGci = calculateGciFromDeals(deals);
-    updated[monthIndex] = { ...updated[monthIndex], deals, gci: calculatedGci };
+    updated[monthIndex] = { ...updated[monthIndex], volume: Math.max(0, Math.round(volume)) };
     setMonthlyGoals(updated);
     persistPlan({ monthlyPlan: updated });
   };
 
   const resetToEvenDistribution = () => {
-    const newGoals = createDefaultMonthlyGoals(annualGoals.deals_goal, annualGoals.gci_goal);
+    const newGoals = applyAnnualVolume(createDefaultMonthlyGoals(annualGoals.deals_goal, annualGoals.gci_goal), annualGoals.volume_goal);
     setMonthlyGoals(newGoals);
     persistPlan({ monthlyPlan: newGoals });
     toast({ title: 'Goals reset to even distribution' });
@@ -456,7 +479,7 @@ const Goals = () => {
   return (
     <div className="space-y-6">
       <DebugMetricsPanel debugInfo={debugInfo} isAdmin={isAdmin} />
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-3xl font-display font-bold text-foreground">
             {isViewingAsAgent ? `${viewingAgentName}'s ${currentYear} Goals` : `${currentYear} Goals`}
@@ -509,13 +532,20 @@ const Goals = () => {
       )}
 
       <Dialog open={!isReadOnly && (showSetup || (!hasGoalsSet && !isViewingAsAgent))} onOpenChange={setShowSetup}>
-        <DialogContent className="border-gold/20 bg-card">
+        <DialogContent className="border-gold/20 bg-card max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-gold font-display text-xl">
               {editingOnBehalf ? `Set ${viewingAgentName}'s ${currentYear} Goals` : `Set Your ${currentYear} Goals`}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-6 pt-4">
+            <div className="space-y-2">
+              <Label htmlFor="annual-volume">Annual Volume Goal</Label>
+              <div className="flex items-center gap-3">
+                <DollarSign className="h-5 w-5 text-gold shrink-0" />
+                <Input id="annual-volume" type="number" min="0" step="1" placeholder="e.g., 5000000" value={formData.volume_goal} onChange={(e) => setFormData({ ...formData, volume_goal: e.target.value })} />
+              </div>
+            </div>
             {/* Calculation inputs section */}
             <div className="p-4 rounded-lg bg-background/50 border border-gold/20 space-y-4">
               <p className="text-sm font-medium text-gold">Calculate GCI from deals</p>
@@ -616,7 +646,7 @@ const Goals = () => {
                   }}
                   className="text-lg"
                 />
-                <span className="text-muted-foreground">deals</span>
+                <span className="text-muted-foreground shrink-0">deals</span>
               </div>
               <p className="text-xs text-muted-foreground">How many deals do you want to close this year?</p>
             </div>
@@ -690,7 +720,7 @@ const Goals = () => {
             <Button 
               onClick={handleSaveGoals} 
               className="w-full bg-gold text-gold-foreground hover:bg-gold/90"
-              disabled={!formData.deals_goal && !formData.gci_goal}
+              disabled={!formData.volume_goal && !formData.deals_goal && !formData.gci_goal}
             >
               Save Goals
             </Button>
@@ -702,36 +732,18 @@ const Goals = () => {
       {hasGoalsSet && (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Deals Progress */}
-            <Card className="border-gold/20 bg-gradient-to-br from-card to-gold/5">
+            <Card className="border-gold/20 bg-card">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg font-display text-foreground flex items-center gap-2">
-                    <Home className="h-5 w-5 text-gold" />
-                    Sales Closed
-                  </CardTitle>
-                  <span className={`text-2xl font-bold ${dealsProgress >= 100 ? 'text-green-400' : 'text-gold'}`}>
-                    {dealsProgress}%
-                  </span>
+                  <CardTitle className="text-lg font-display flex items-center gap-2"><TrendingUp className="h-5 w-5 text-gold" />Volume Closed</CardTitle>
+                  <span className="text-2xl font-bold text-gold">{volumeProgress}%</span>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <Progress value={dealsProgress} className="h-3" />
-                <div className="flex justify-between text-sm">
-                  <div>
-                    <span className="text-3xl font-bold text-foreground">{actualMetrics.deals_closed}</span>
-                    <span className="text-muted-foreground ml-2">/ {Math.round(totalDealsGoal).toLocaleString()} goal</span>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-amber-400 font-medium">+{actualMetrics.deals_pending} pending sales</p>
-                    <p className="text-xs text-muted-foreground">{totalDeals} people in pipeline</p>
-                  </div>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {totalDealsGoal - actualMetrics.deals_closed > 0 
-                    ? `${Math.round(totalDealsGoal - actualMetrics.deals_closed).toLocaleString()} more sales to reach your goal`
-                    : '🎉 Goal achieved!'}
-                </div>
+                <Progress value={volumeProgress} className="h-3" />
+                <p className="text-2xl font-bold text-foreground break-words">{formatCurrency(actualMetrics.sales_volume_closed)}</p>
+                <p className="text-sm text-muted-foreground">/ {formatCurrency(totalVolumeGoal)} volume goal</p>
+                <p className="text-sm text-gold">+{formatCurrency(actualMetrics.sales_volume_pending)} pending volume</p>
               </CardContent>
             </Card>
 
@@ -812,19 +824,20 @@ const Goals = () => {
                       {editingMonth === index ? (
                         <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
                           <div className="space-y-1">
-                            <label className="text-xs text-muted-foreground">Deals</label>
+                            <Label htmlFor={`volume-month-${index}`} className="text-xs text-muted-foreground">Volume ($)</Label>
                             <Input
                               type="number"
-                              step="0.1"
-                              value={monthlyGoals[index]?.deals || 0}
+                              id={`volume-month-${index}`}
+                              min="0" step="1"
+                              value={monthlyGoals[index]?.volume || 0}
                               onChange={(e) => updateMonthlyGoal(index, parseFloat(e.target.value) || 0)}
                               className="h-7 text-xs"
                             />
                           </div>
                           <div className="p-2 rounded bg-green-500/10 border border-green-500/20">
-                            <p className="text-xs text-muted-foreground">Auto GCI</p>
+                            <p className="text-xs text-muted-foreground">GCI Goal</p>
                             <p className="text-sm font-bold text-green-400">
-                              {formatCurrency(Math.round(calculateGciFromDeals(monthlyGoals[index]?.deals || 0)))}
+                              {formatCurrency(Math.round(monthlyGoals[index]?.gci || 0))}
                             </p>
                           </div>
                           <Button 
@@ -837,10 +850,10 @@ const Goals = () => {
                         </div>
                       ) : (
                         <div className="space-y-1">
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 flex-wrap">
                             <Home className="h-3 w-3 text-gold" />
-                            <span className="text-xs text-muted-foreground">Sales:</span>
-                            <span className="text-xs font-medium text-gold">{Math.round(monthlyGoals[index]?.deals || 0).toLocaleString()}</span>
+                            <span className="text-xs text-muted-foreground">Volume:</span>
+                            <span className="text-xs font-medium text-gold">{formatCurrency(monthlyGoals[index]?.volume || 0)}</span>
                           </div>
                           <div className="flex items-center gap-1">
                             <DollarSign className="h-3 w-3 text-green-400" />
@@ -867,7 +880,7 @@ const Goals = () => {
                   ))}
                 </div>
               ) : (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   {quarterNames.map((quarter, index) => {
                     const quarterGoals = getQuarterlyGoals(index);
                     return (
@@ -879,24 +892,25 @@ const Goals = () => {
                         <p className="text-sm font-medium text-foreground mb-3">{quarter}</p>
                         {editingQuarter === index ? (
                           <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
-                            <p className="text-xs text-muted-foreground">Edit deals per month (GCI auto-calculates)</p>
+                            <p className="text-xs text-muted-foreground">Monthly volume goals ($)</p>
                             <div className="space-y-2">
                               {[0, 1, 2].map((monthOffset) => {
                                 const monthIndex = index * 3 + monthOffset;
-                                const monthDeals = monthlyGoals[monthIndex]?.deals || 0;
+                                const monthVolume = monthlyGoals[monthIndex]?.volume || 0;
                                 return (
                                   <div key={monthIndex} className="flex items-center gap-2">
                                     <span className="text-xs w-8">{monthNames[monthIndex]}</span>
                                     <Input
                                       type="number"
-                                      step="0.1"
-                                      placeholder="Deals"
-                                      value={monthDeals}
+                                      aria-label={`${monthNames[monthIndex]} volume`}
+                                      min="0" step="1"
+                                      placeholder="Volume"
+                                      value={monthVolume}
                                       onChange={(e) => updateMonthlyGoal(monthIndex, parseFloat(e.target.value) || 0)}
                                       className="h-6 text-xs flex-1"
                                     />
                                     <span className="text-xs text-green-400 w-20 text-right">
-                                      {formatCurrency(Math.round(calculateGciFromDeals(monthDeals)))}
+                                      {formatCurrency(Math.round(monthlyGoals[monthIndex]?.gci || 0))}
                                     </span>
                                   </div>
                                 );
@@ -912,14 +926,14 @@ const Goals = () => {
                           </div>
                         ) : (
                           <div className="space-y-2">
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between flex-wrap gap-1">
                               <div className="flex items-center gap-1">
                                 <Home className="h-4 w-4 text-gold" />
-                                <span className="text-sm text-muted-foreground">Deals</span>
+                                <span className="text-sm text-muted-foreground">Volume</span>
                               </div>
-                              <span className="text-lg font-bold text-gold">{formatCurrency(quarterGoals.deals)}</span>
+                              <span className="text-lg font-bold text-gold">{formatCurrency(quarterGoals.volume)}</span>
                             </div>
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between flex-wrap gap-1">
                               <div className="flex items-center gap-1">
                                 <DollarSign className="h-4 w-4 text-green-400" />
                                 <span className="text-sm text-muted-foreground">GCI</span>
@@ -950,7 +964,7 @@ const Goals = () => {
                 </div>
               )}
               <p className="text-xs text-muted-foreground mt-4 text-center">
-                Total: {Math.round(monthlyGoals.reduce((sum, m) => sum + m.deals, 0)).toLocaleString()} deals / {formatCurrency(Math.round(monthlyGoals.reduce((sum, m) => sum + m.gci, 0)))} GCI
+                Total: {formatCurrency(totalVolumeGoal)} volume / {formatCurrency(Math.round(monthlyGoals.reduce((sum, m) => sum + m.gci, 0)))} GCI
               </p>
             </CardContent>
           </Card>
