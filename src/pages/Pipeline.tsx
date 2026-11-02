@@ -192,7 +192,7 @@ const Pipeline = () => {
       supabase.from('planning_assumptions').select('gci_target, avg_commission, contact_to_appt_rate, appt_to_contract_rate, dials_to_appt_rate, cma_to_listing_rate')
         .eq('user_id', queryUserId).eq('year', currentYear).eq('quarter', currentQuarter).maybeSingle(),
       supabase.from('agent_goals').select('target_value')
-        .eq('user_id', queryUserId).eq('period', 'yearly').eq('goal_type', 'deals_closed').maybeSingle(),
+        .eq('user_id', queryUserId).eq('period', 'yearly').eq('year', currentYear).eq('goal_type', 'deals_closed').maybeSingle(),
       supabase.from('production_goals').select('annual_gci_goal')
         .eq('user_id', queryUserId).eq('year', currentYear).maybeSingle(),
       supabase.from('cma_reports').select('listing_status')

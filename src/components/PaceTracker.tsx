@@ -115,7 +115,7 @@ export function PaceTracker({ userId, pipelineDeficit, currentPipelineCount, con
       // YTD closed + pending from deals/commissions or manual_production
       supabase.from('manual_production').select('*').eq('user_id', userId).eq('year', currentYear),
       supabase.from('agent_goals').select('target_value, goal_type, period')
-        .eq('user_id', userId).eq('period', 'yearly'),
+        .eq('user_id', userId).eq('period', 'yearly').eq('year', currentYear),
       supabase.from('production_goals').select('annual_gci_goal, annual_units_goal')
         .eq('user_id', userId).eq('year', currentYear).maybeSingle(),
       supabase.from('planning_assumptions').select('*')

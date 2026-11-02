@@ -349,6 +349,7 @@ export type Database = {
           target_value: number
           updated_at: string
           user_id: string
+          year: number | null
         }
         Insert: {
           category?: string
@@ -363,6 +364,7 @@ export type Database = {
           target_value: number
           updated_at?: string
           user_id: string
+          year?: number | null
         }
         Update: {
           category?: string
@@ -377,6 +379,7 @@ export type Database = {
           target_value?: number
           updated_at?: string
           user_id?: string
+          year?: number | null
         }
         Relationships: [
           {

@@ -15,6 +15,13 @@
       "when": 1791305284554,
       "tag": "0001_script_boss_levels_progression_goals",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793646082378,
+      "tag": "0002_agent_goals_year_column",
+      "breakpoints": true
     }
   ]
 }

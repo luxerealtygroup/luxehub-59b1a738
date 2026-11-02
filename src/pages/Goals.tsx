@@ -68,6 +68,9 @@ const Goals = () => {
   const { toast } = useToast();
   // Owners/admins may set goals for the agent they are viewing; plain agents only their own.
   const isReadOnly = isViewingAsAgent && !isAdmin;
+  // Year being viewed — 2026 is the live year; 2027 can be set ahead of the new year.
+  const [selectedYear, setSelectedYear] = useState<number>(2026);
+  const currentYear = selectedYear;
   const queryUserId = effectiveUserId; // Use effective user for all READ queries
   const targetUserId = effectiveUserId; // Goals always save against the agent being viewed
   const editingOnBehalf = !!user && targetUserId !== user.id;
@@ -76,7 +79,7 @@ const Goals = () => {
   const { metrics: actualMetrics, debugInfo, loading: metricsLoading } = useFubDealMetrics({
     userId: queryUserId,
     fubUserId: effectiveFubUserId,
-    year: 2026,
+    year: selectedYear,
     hasFUB,
     agentName: viewingAgentName,
   });
@@ -111,7 +114,6 @@ const Goals = () => {
     fallout_rate: '50'
   });
 
-  const currentYear = 2026;
 
   /**
    * Store the monthly breakdown and planning assumptions in the database,
@@ -176,6 +178,7 @@ const Goals = () => {
       .select('*')
       .eq('user_id', queryUserId)
       .eq('period', 'yearly')
+      .eq('year', currentYear)
       .in('goal_type', ['deals_closed', 'revenue']);
     
     // Also fetch 411 monthly goals from production_goals
@@ -287,7 +290,12 @@ const Goals = () => {
   useEffect(() => {
     fetchAnnualGoals();
     loadAudit();
-  }, [queryUserId, hasFUB, effectiveFubUserId]);
+  }, [queryUserId, hasFUB, effectiveFubUserId, currentYear]);
+
+  // Reset the page while the newly selected year's data loads.
+  useEffect(() => {
+    setLoading(true);
+  }, [selectedYear]);
 
   // Loading is done when both goals + metrics are loaded
   useEffect(() => {
@@ -306,6 +314,7 @@ const Goals = () => {
       .select('id, goal_type')
       .eq('user_id', targetUserId)
       .eq('period', 'yearly')
+      .eq('year', currentYear)
       .in('goal_type', ['deals_closed', 'revenue']);
     
     const existingDealsGoal = existingGoals?.find(g => g.goal_type === 'deals_closed');
@@ -324,6 +333,7 @@ const Goals = () => {
         target_value: dealsTarget,
         current_value: actualMetrics.deals_closed,
         period: 'yearly',
+        year: currentYear,
         category: 'business'
       });
     }
@@ -341,6 +351,7 @@ const Goals = () => {
         target_value: gciTarget,
         current_value: actualMetrics.gci_earned,
         period: 'yearly',
+        year: currentYear,
         category: 'business'
       });
     }
@@ -458,15 +469,26 @@ const Goals = () => {
                 : 'Track your annual targets'}
           </p>
         </div>
-        {!isReadOnly && (
-          <Button 
-            variant="outline" 
-            className="border-gold/30 text-gold hover:bg-gold/10"
-            onClick={() => setShowSetup(true)}
-          >
-            <Edit2 className="h-4 w-4 mr-2" /> {hasGoalsSet ? 'Edit Goals' : 'Set Goals'}
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <Select value={String(selectedYear)} onValueChange={(v) => setSelectedYear(parseInt(v, 10))}>
+            <SelectTrigger className="w-[110px] border-gold/30 text-gold" aria-label="Goal year">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="2026">2026</SelectItem>
+              <SelectItem value="2027">2027</SelectItem>
+            </SelectContent>
+          </Select>
+          {!isReadOnly && (
+            <Button
+              variant="outline"
+              className="border-gold/30 text-gold hover:bg-gold/10"
+              onClick={() => setShowSetup(true)}
+            >
+              <Edit2 className="h-4 w-4 mr-2" /> {hasGoalsSet ? 'Edit Goals' : 'Set Goals'}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Goal Setup Dialog */}
