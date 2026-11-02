@@ -68,6 +68,9 @@ const Goals = () => {
   const { toast } = useToast();
   // Owners/admins may set goals for the agent they are viewing; plain agents only their own.
   const isReadOnly = isViewingAsAgent && !isAdmin;
+  // Year being viewed — 2026 is the live year; 2027 can be set ahead of the new year.
+  const [selectedYear, setSelectedYear] = useState<number>(2026);
+  const currentYear = selectedYear;
   const queryUserId = effectiveUserId; // Use effective user for all READ queries
   const targetUserId = effectiveUserId; // Goals always save against the agent being viewed
   const editingOnBehalf = !!user && targetUserId !== user.id;
@@ -76,7 +79,7 @@ const Goals = () => {
   const { metrics: actualMetrics, debugInfo, loading: metricsLoading } = useFubDealMetrics({
     userId: queryUserId,
     fubUserId: effectiveFubUserId,
-    year: 2026,
+    year: selectedYear,
     hasFUB,
     agentName: viewingAgentName,
   });
