@@ -114,7 +114,6 @@ const Goals = () => {
     fallout_rate: '50'
   });
 
-  const currentYear = 2026;
 
   /**
    * Store the monthly breakdown and planning assumptions in the database,
@@ -179,6 +178,7 @@ const Goals = () => {
       .select('*')
       .eq('user_id', queryUserId)
       .eq('period', 'yearly')
+      .eq('year', currentYear)
       .in('goal_type', ['deals_closed', 'revenue']);
     
     // Also fetch 411 monthly goals from production_goals
@@ -309,6 +309,7 @@ const Goals = () => {
       .select('id, goal_type')
       .eq('user_id', targetUserId)
       .eq('period', 'yearly')
+      .eq('year', currentYear)
       .in('goal_type', ['deals_closed', 'revenue']);
     
     const existingDealsGoal = existingGoals?.find(g => g.goal_type === 'deals_closed');
