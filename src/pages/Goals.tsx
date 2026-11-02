@@ -646,7 +646,7 @@ const Goals = () => {
                   }}
                   className="text-lg"
                 />
-                <span className="text-muted-foreground">deals</span>
+                <span className="text-muted-foreground shrink-0">deals</span>
               </div>
               <p className="text-xs text-muted-foreground">How many deals do you want to close this year?</p>
             </div>
