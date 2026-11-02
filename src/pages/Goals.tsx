@@ -290,7 +290,12 @@ const Goals = () => {
   useEffect(() => {
     fetchAnnualGoals();
     loadAudit();
-  }, [queryUserId, hasFUB, effectiveFubUserId]);
+  }, [queryUserId, hasFUB, effectiveFubUserId, currentYear]);
+
+  // Reset the page while the newly selected year's data loads.
+  useEffect(() => {
+    setLoading(true);
+  }, [selectedYear]);
 
   // Loading is done when both goals + metrics are loaded
   useEffect(() => {
@@ -328,6 +333,7 @@ const Goals = () => {
         target_value: dealsTarget,
         current_value: actualMetrics.deals_closed,
         period: 'yearly',
+        year: currentYear,
         category: 'business'
       });
     }
@@ -345,6 +351,7 @@ const Goals = () => {
         target_value: gciTarget,
         current_value: actualMetrics.gci_earned,
         period: 'yearly',
+        year: currentYear,
         category: 'business'
       });
     }
