@@ -155,6 +155,7 @@ const Reports = () => {
       .select('target_value, goal_type')
       .eq('user_id', queryUserId)
       .eq('period', 'yearly')
+      .eq('year', currentYear)
       .in('goal_type', ['deals_closed', 'revenue']);
     
     const dealsGoal = goalsData?.find(g => g.goal_type === 'deals_closed')?.target_value || 0;

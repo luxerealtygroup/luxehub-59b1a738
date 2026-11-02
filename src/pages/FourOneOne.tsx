@@ -331,6 +331,7 @@ const FourOneOne = () => {
       .select('*')
       .eq('user_id', queryUserId)
       .eq('period', 'yearly')
+      .eq('year', currentYear)
       .in('goal_type', ['deals_closed', 'revenue']);
     
     const { data: pipelineClients } = await supabase

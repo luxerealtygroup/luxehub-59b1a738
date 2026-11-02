@@ -191,7 +191,7 @@ const Dashboard = () => {
         supabase.from('deals').select('*').eq('user_id', dataUserId),
         supabase.from('commissions').select('gross_commission, amount, status, paid_at').eq('user_id', dataUserId),
         supabase.from('agent_activities').select('*').eq('user_id', dataUserId),
-        supabase.from('agent_goals').select('*').eq('user_id', dataUserId).eq('period', 'yearly')
+        supabase.from('agent_goals').select('*').eq('user_id', dataUserId).eq('period', 'yearly').eq('year', currentYear)
       ]);
 
       const deals = dealsRes.data || [];

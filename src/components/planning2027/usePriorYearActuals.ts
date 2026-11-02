@@ -137,6 +137,7 @@ export function usePriorYearGoal(userId: string | null): PriorYearGoal | null {
       const [pg, ag] = await Promise.all([
         supabase.from('production_goals').select('annual_units_goal, annual_gci_goal, annual_volume_goal').eq('user_id', userId).eq('year', 2026).maybeSingle(),
         supabase.from('agent_goals').select('goal_type, target_value, start_date').eq('user_id', userId).eq('period', 'yearly')
+          .eq('year', 2026)
           .gte('start_date', '2025-12-01').lte('start_date', '2026-12-31'),
       ]);
       if (cancelled) return;
