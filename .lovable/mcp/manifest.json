@@ -148,14 +148,16 @@
             },
             "expected_pending_date": {
               "type": "string",
-              "description": "ISO date (YYYY-MM-DD)."
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "Required ISO date (YYYY-MM-DD)."
             },
             "notes": {
               "type": "string"
             }
           },
           "required": [
-            "client_name"
+            "client_name",
+            "expected_pending_date"
           ],
           "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
