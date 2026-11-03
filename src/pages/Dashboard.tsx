@@ -180,7 +180,8 @@ const Dashboard = () => {
     stage: '5',
     notes: '',
     property_interest: '',
-    source: ''
+    source: '',
+    expected_pending_date: ''
   });
 
   useEffect(() => {
@@ -345,6 +346,10 @@ const Dashboard = () => {
   const handleAddClient = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+    if (!newClient.expected_pending_date?.trim()) {
+      toast({ title: 'Expected pending date required', description: 'Please enter an expected pending date for this client.', variant: 'destructive' });
+      return;
+    }
     
     setSubmitting(true);
 
@@ -356,7 +361,8 @@ const Dashboard = () => {
       stage: parseInt(newClient.stage),
       notes: newClient.notes || null,
       property_interest: newClient.property_interest || null,
-      source: newClient.source || null
+      source: newClient.source || null,
+      expected_pending_date: newClient.expected_pending_date
     });
 
     if (error) {
@@ -380,7 +386,7 @@ const Dashboard = () => {
     }
     
     setAddClientOpen(false);
-    setNewClient({ client_name: '', email: '', phone: '', stage: '5', notes: '', property_interest: '', source: '' });
+    setNewClient({ client_name: '', email: '', phone: '', stage: '5', notes: '', property_interest: '', source: '', expected_pending_date: '' });
     setSyncToFUB(true);
     setSubmitting(false);
   };
@@ -660,6 +666,10 @@ const Dashboard = () => {
                   ))}
                 </SelectContent>
               </Select>
+              <div>
+                <Label>Expected Pending Date *</Label>
+                <Input type="date" required value={newClient.expected_pending_date} onChange={(e) => setNewClient({ ...newClient, expected_pending_date: e.target.value })} />
+              </div>
               <Textarea
                 placeholder="Notes"
                 value={newClient.notes}
