@@ -36,7 +36,7 @@ describe('required pipeline pending dates', () => {
     it(`${path} ${handlerName} blocks blank dates and saves a supplied date`, async () => {
       const result = { data: { id: 'client-1' }, error: null };
       const chain = { select: () => chain, single: async () => result, eq: async () => result, then: (resolve: (value: unknown) => unknown) => Promise.resolve(result).then(resolve) };
-      const write = vi.fn(() => chain);
+      const write = vi.fn((_payload: Record<string, unknown>) => chain);
       const toast = vi.fn();
       const client: Record<string, unknown> = { id: 'client-1', client_name: 'Test client', client_type: 'buyer', stage: '1', expected_pending_date: '' };
       const scope = {
