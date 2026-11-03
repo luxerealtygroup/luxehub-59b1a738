@@ -162,7 +162,7 @@ var add_pipeline_client_default = defineTool4({
     source: z4.string().trim().optional().describe("Source of business."),
     projected_sale_amount: z4.number().nonnegative().optional(),
     projected_gci: z4.number().nonnegative().optional(),
-    expected_pending_date: z4.string().trim().optional().describe("ISO date (YYYY-MM-DD)."),
+    expected_pending_date: z4.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, "expected_pending_date must be YYYY-MM-DD").describe("Required ISO date (YYYY-MM-DD)."),
     notes: z4.string().trim().optional()
   },
   annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
