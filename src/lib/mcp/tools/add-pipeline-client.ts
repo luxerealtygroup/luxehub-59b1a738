@@ -16,7 +16,7 @@ export default defineTool({
     source: z.string().trim().optional().describe("Source of business."),
     projected_sale_amount: z.number().nonnegative().optional(),
     projected_gci: z.number().nonnegative().optional(),
-    expected_pending_date: z.string().trim().optional().describe("ISO date (YYYY-MM-DD)."),
+    expected_pending_date: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, 'expected_pending_date must be YYYY-MM-DD').describe("Required ISO date (YYYY-MM-DD)."),
     notes: z.string().trim().optional(),
   },
   annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },

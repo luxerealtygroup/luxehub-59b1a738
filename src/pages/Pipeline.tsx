@@ -332,6 +332,10 @@ const Pipeline = () => {
       toast({ title: 'Error', description: 'Please fill in required fields', variant: 'destructive' });
       return;
     }
+    if (!newClient.expected_pending_date?.trim()) {
+      toast({ title: 'Expected pending date required', description: 'Please enter an expected pending date for this client.', variant: 'destructive' });
+      return;
+    }
 
     const gci = calculateGCI(newClient.projected_sale_amount, newClient.commission_percent, newClient.split_percent);
 
@@ -350,7 +354,7 @@ const Pipeline = () => {
       notes: newClient.notes,
       projected_sale_amount: newClient.projected_sale_amount,
       projected_gci: gci,
-      expected_pending_date: newClient.expected_pending_date || null,
+      expected_pending_date: newClient.expected_pending_date,
       property_address: newClient.client_type === 'seller' ? (newClient.property_address || null) : null,
     }).select('id').single();
 
@@ -390,6 +394,10 @@ const Pipeline = () => {
 
   const handleUpdateClient = async () => {
     if (!editingClient) return;
+    if (!editingClient.expected_pending_date?.trim()) {
+      toast({ title: 'Expected pending date required', description: 'Please enter an expected pending date for this client.', variant: 'destructive' });
+      return;
+    }
     const before = clients.find((c) => c.id === editingClient.id);
 
     // The assigned agent is never part of this update: commission attribution
@@ -406,7 +414,7 @@ const Pipeline = () => {
         notes: editingClient.notes,
         projected_sale_amount: editingClient.projected_sale_amount,
         projected_gci: editingClient.projected_gci,
-        expected_pending_date: editingClient.expected_pending_date || null,
+        expected_pending_date: editingClient.expected_pending_date,
         property_address: editingClient.client_type === 'seller' ? (editingClient.property_address || null) : null,
       })
       .eq('id', editingClient.id);
@@ -667,7 +675,7 @@ const Pipeline = () => {
                 <div><Label>Split %</Label><Input type="number" step="1" value={newClient.split_percent || ''} onChange={(e) => setNewClient({ ...newClient, split_percent: parseFloat(e.target.value) || 0 })} placeholder="70" /></div>
               </div>
 
-              <div><Label>Expected Pending Date</Label><Input type="date" value={newClient.expected_pending_date} onChange={(e) => setNewClient({ ...newClient, expected_pending_date: e.target.value })} /></div>
+              <div><Label>Expected Pending Date *</Label><Input type="date" required value={newClient.expected_pending_date} onChange={(e) => setNewClient({ ...newClient, expected_pending_date: e.target.value })} /></div>
 
               <div><Label>Notes</Label><Textarea value={newClient.notes} onChange={(e) => setNewClient({ ...newClient, notes: e.target.value })} placeholder="Additional notes..." rows={3} /></div>
 
@@ -1111,7 +1119,7 @@ const Pipeline = () => {
                 <div><Label>Commission %</Label><Input type="number" step="0.1" value={editingClient.commission_percent || ''} onChange={(e) => setEditingClient({ ...editingClient, commission_percent: parseFloat(e.target.value) || 0 })} /></div>
                 <div><Label>Split %</Label><Input type="number" step="1" value={editingClient.split_percent || ''} onChange={(e) => setEditingClient({ ...editingClient, split_percent: parseFloat(e.target.value) || 0 })} /></div>
               </div>
-              <div><Label>Expected Pending Date</Label><Input type="date" value={editingClient.expected_pending_date || ''} onChange={(e) => setEditingClient({ ...editingClient, expected_pending_date: e.target.value })} /></div>
+              <div><Label>Expected Pending Date *</Label><Input type="date" required value={editingClient.expected_pending_date || ''} onChange={(e) => setEditingClient({ ...editingClient, expected_pending_date: e.target.value })} /></div>
               <div><Label>Notes</Label><Textarea value={editingClient.notes || ''} onChange={(e) => setEditingClient({ ...editingClient, notes: e.target.value })} rows={3} /></div>
               <div className="p-4 bg-muted rounded-lg">
                 <div className="flex justify-between items-center">
