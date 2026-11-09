@@ -3920,6 +3920,7 @@ export type Database = {
           fub_deal_price: number | null
           fub_deal_stage: string | null
           fub_deal_synced_at: string | null
+          fub_person_id: number | null
           id: string
           notes: string | null
           org_id: string | null
@@ -3950,6 +3951,7 @@ export type Database = {
           fub_deal_price?: number | null
           fub_deal_stage?: string | null
           fub_deal_synced_at?: string | null
+          fub_person_id?: number | null
           id?: string
           notes?: string | null
           org_id?: string | null
@@ -3980,6 +3982,7 @@ export type Database = {
           fub_deal_price?: number | null
           fub_deal_stage?: string | null
           fub_deal_synced_at?: string | null
+          fub_person_id?: number | null
           id?: string
           notes?: string | null
           org_id?: string | null
