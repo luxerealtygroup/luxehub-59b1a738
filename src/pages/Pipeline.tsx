@@ -401,8 +401,8 @@ const Pipeline = () => {
     const before = clients.find((c) => c.id === editingClient.id);
     // Recalculate GCI from the dialog's inputs; keep the saved GCI only when
     // commission/split weren't entered (they aren't stored on the record).
-    const recalculatedGci = editingClient.commission_percent > 0 && editingClient.split_percent > 0
-      ? calculateGCI(editingClient.projected_sale_amount, editingClient.commission_percent, editingClient.split_percent)
+    const recalculatedGci = editingClient.commission_percent > 0
+      ? calculateGCI(editingClient.projected_sale_amount, editingClient.commission_percent, editingClient.split_percent > 0 ? editingClient.split_percent : 70)
       : editingClient.projected_gci;
 
     // The assigned agent is never part of this update: commission attribution
@@ -1135,8 +1135,9 @@ const Pipeline = () => {
               <div className="p-4 bg-muted rounded-lg">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Projected GCI:</span>
-                  <span className="text-xl font-bold text-green-400">{formatCurrency(calculateGCI(editingClient.projected_sale_amount, editingClient.commission_percent, editingClient.split_percent))}</span>
+                  <span className="text-xl font-bold text-green-400">{formatCurrency(editingClient.commission_percent > 0 ? calculateGCI(editingClient.projected_sale_amount, editingClient.commission_percent, editingClient.split_percent > 0 ? editingClient.split_percent : 70) : editingClient.projected_gci)}</span>
                 </div>
+                <p className="text-xs text-muted-foreground mt-1">Enter Commission % to recalculate (Split defaults to 70%). Leave blank to keep the current GCI.</p>
               </div>
               <Button onClick={handleUpdateClient} className="w-full bg-gold hover:bg-gold/90">Update Client</Button>
             </div>
