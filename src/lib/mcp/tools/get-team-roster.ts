@@ -10,7 +10,7 @@ export default defineTool({
   annotations: READ_ONLY,
   handler: async (_args, ctx) => {
     const gate = await requireAdmin(ctx);
-    if (!gate.ok) return gate.result;
+    if ("result" in gate) return gate.result;
     const { supabase } = gate;
     const { data, error } = await supabase
       .from("profiles")

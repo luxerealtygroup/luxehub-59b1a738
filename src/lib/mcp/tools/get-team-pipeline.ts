@@ -17,7 +17,7 @@ export default defineTool({
   annotations: READ_ONLY,
   handler: async ({ limit, status, agent_email }, ctx) => {
     const gate = await requireAdmin(ctx);
-    if (!gate.ok) return gate.result;
+    if ("result" in gate) return gate.result;
     const { supabase } = gate;
     let q = supabase
       .from("pipeline_clients")

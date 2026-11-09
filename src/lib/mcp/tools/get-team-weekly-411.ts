@@ -45,7 +45,7 @@ export default defineTool({
   annotations: READ_ONLY,
   handler: async ({ week_start_from, week_start_to, weeks, agent_email, limit }, ctx) => {
     const gate = await requireAdmin(ctx);
-    if (!gate.ok) return gate.result;
+    if ("result" in gate) return gate.result;
     const { supabase } = gate;
     const from = week_start_from ?? mondayMinusWeeks(weeks ?? 8);
     let q = supabase

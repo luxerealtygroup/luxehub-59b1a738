@@ -18,7 +18,7 @@ export default defineTool({
   annotations: READ_ONLY,
   handler: async ({ week_from, agent_email, include_transcript, limit }, ctx) => {
     const gate = await requireAdmin(ctx);
-    if (!gate.ok) return gate.result;
+    if ("result" in gate) return gate.result;
     const { supabase } = gate;
     const cols = "id, agent_id, week_of, generated_notes, created_by, created_at" + (include_transcript ? ", transcript_text" : "");
     let q = supabase.from("coaching_sessions").select(cols).order("week_of", { ascending: false }).limit(limit ?? 50);
