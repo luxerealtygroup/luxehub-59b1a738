@@ -241,18 +241,361 @@ var record_weekly_411_actuals_default = defineTool5({
   }
 });
 
+// src/lib/mcp/tools/get-team-roster.ts
+import { defineTool as defineTool6 } from "npm:@lovable.dev/mcp-js@0.28.0";
+
+// src/lib/mcp/admin.ts
+var errorResult = (text) => ({ content: [{ type: "text", text }], isError: true });
+async function requireAdmin(ctx) {
+  if (!ctx.isAuthenticated()) return { ok: false, result: errorResult("Not authenticated") };
+  const supabase = supabaseForUser(ctx);
+  const { data, error } = await supabase.rpc("is_admin_or_owner", { _user_id: ctx.getUserId() });
+  if (error || data !== true) {
+    return { ok: false, result: errorResult("Only owners and admins can use team-wide LUXEhub tools.") };
+  }
+  return { ok: true, supabase };
+}
+async function loadAgentDirectory(supabase) {
+  const { data, error } = await supabase.from("profiles").select("id, full_name, email, org_id");
+  const map = /* @__PURE__ */ new Map();
+  if (error || !data) return map;
+  for (const p of data) {
+    map.set(p.id, { full_name: p.full_name ?? null, email: p.email ?? null });
+  }
+  return map;
+}
+async function resolveAgentId(supabase, agent_email) {
+  const { data } = await supabase.from("profiles").select("id").ilike("email", agent_email.trim()).limit(1);
+  return data?.[0]?.id ?? null;
+}
+function enrich(rows, dir, key) {
+  return (rows ?? []).map((r) => {
+    const row = r;
+    const info = dir.get(String(row[key] ?? ""));
+    return { ...row, agent_name: info?.full_name ?? null, agent_email: info?.email ?? null };
+  });
+}
+var notFound = (email) => errorResult(`No agent with the email ${email} exists in your brokerage.`);
+function okResult(payload) {
+  return {
+    content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+    structuredContent: JSON.parse(JSON.stringify(payload))
+  };
+}
+var DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+var READ_ONLY = { readOnlyHint: true, idempotentHint: true, openWorldHint: false };
+
+// src/lib/mcp/tools/get-team-roster.ts
+var get_team_roster_default = defineTool6({
+  name: "get_team_roster",
+  title: "Get team roster (admin)",
+  description: "Owners/admins only, read-only: returns every agent profile and role in the signed-in user's brokerage.",
+  inputSchema: {},
+  annotations: READ_ONLY,
+  handler: async (_args, ctx) => {
+    const gate = await requireAdmin(ctx);
+    if ("result" in gate) return gate.result;
+    const { supabase } = gate;
+    const { data, error } = await supabase.from("profiles").select("id, full_name, email, member_type, display_title, include_in_team_coaching").order("full_name");
+    if (error) return errorResult(error.message);
+    const { data: roles, error: rErr } = await supabase.from("user_roles").select("user_id, role");
+    if (rErr) return errorResult(rErr.message);
+    const byUser = /* @__PURE__ */ new Map();
+    for (const r of roles ?? []) {
+      byUser.set(r.user_id, [...byUser.get(r.user_id) ?? [], String(r.role)]);
+    }
+    const agents = (data ?? []).map((p) => ({
+      ...p,
+      roles: byUser.get(String(p.id)) ?? []
+    }));
+    return okResult({ count: agents.length, agents });
+  }
+});
+
+// src/lib/mcp/tools/get-team-goals.ts
+import { defineTool as defineTool7 } from "npm:@lovable.dev/mcp-js@0.28.0";
+import { z as z6 } from "npm:zod@^3.25.76";
+var get_team_goals_default = defineTool7({
+  name: "get_team_goals",
+  title: "Get team goals (admin)",
+  description: "Owners/admins only, read-only: returns agent goals, production goals and business-planning goals for every agent in the signed-in user's brokerage.",
+  inputSchema: {
+    year: z6.number().int().optional().describe("Optional goal year, e.g. 2027."),
+    agent_email: z6.string().trim().email().optional().describe("Optional: limit to one agent by email.")
+  },
+  annotations: READ_ONLY,
+  handler: async ({ year, agent_email }, ctx) => {
+    const gate = await requireAdmin(ctx);
+    if ("result" in gate) return gate.result;
+    const { supabase } = gate;
+    let agentId = null;
+    if (agent_email) {
+      agentId = await resolveAgentId(supabase, agent_email);
+      if (!agentId) return notFound(agent_email);
+    }
+    let ag = supabase.from("agent_goals").select(
+      "id, user_id, goal_type, category, target_value, current_value, period, start_date, end_date, year, updated_at"
+    );
+    if (year !== void 0) ag = ag.eq("year", year);
+    if (agentId) ag = ag.eq("user_id", agentId);
+    let pg = supabase.from("production_goals").select(
+      "id, user_id, year, annual_units_goal, annual_gci_goal, annual_volume_goal, annual_focus, monthly_goals, monthly_plan, plan_assumptions, updated_at"
+    );
+    if (year !== void 0) pg = pg.eq("year", year);
+    if (agentId) pg = pg.eq("user_id", agentId);
+    let pl = supabase.from("planning_goals").select(
+      "id, agent_id, plan_year, goal_input_type, net_income_goal, gci_goal, avg_sale_price, commission_rate, agent_split_pct, appt_to_close_rate, lead_to_appt_rate, gci_per_deal, net_per_deal, deals_needed, volume_needed, appointments_needed, leads_needed, status, submitted_at, approved_at, updated_at"
+    );
+    if (year !== void 0) pl = pl.eq("plan_year", year);
+    if (agentId) pl = pl.eq("agent_id", agentId);
+    const [a, p, q, dir] = await Promise.all([ag, pg, pl, loadAgentDirectory(supabase)]);
+    const err = a.error ?? p.error ?? q.error;
+    if (err) return errorResult(err.message);
+    const agent_goals = enrich(a.data, dir, "user_id");
+    const production_goals = enrich(p.data, dir, "user_id");
+    const planning_goals = enrich(q.data, dir, "agent_id");
+    return okResult({
+      year: year ?? "all",
+      agent_goals_count: agent_goals.length,
+      production_goals_count: production_goals.length,
+      planning_goals_count: planning_goals.length,
+      agent_goals,
+      production_goals,
+      planning_goals
+    });
+  }
+});
+
+// src/lib/mcp/tools/get-team-pipeline.ts
+import { defineTool as defineTool8 } from "npm:@lovable.dev/mcp-js@0.28.0";
+import { z as z7 } from "npm:zod@^3.25.76";
+var get_team_pipeline_default = defineTool8({
+  name: "get_team_pipeline",
+  title: "Get team pipeline (admin)",
+  description: "Owners/admins only, read-only: returns pipeline clients for every agent in the signed-in user's brokerage.",
+  inputSchema: {
+    limit: z7.number().int().min(1).max(1e3).default(500).describe("Maximum rows."),
+    status: z7.string().trim().optional().describe("Optional status filter."),
+    agent_email: z7.string().trim().email().optional().describe("Optional: limit to one agent by email.")
+  },
+  annotations: READ_ONLY,
+  handler: async ({ limit, status, agent_email }, ctx) => {
+    const gate = await requireAdmin(ctx);
+    if ("result" in gate) return gate.result;
+    const { supabase } = gate;
+    let q = supabase.from("pipeline_clients").select(
+      "id, user_id, client_name, client_type, deal_category, stage, status, source, property_address, projected_sale_amount, projected_gci, expected_pending_date, fub_deal_stage, fub_deal_price, fub_deal_close_date, created_at, updated_at"
+    ).order("created_at", { ascending: false }).limit(limit ?? 500);
+    if (status) q = q.eq("status", status);
+    if (agent_email) {
+      const id = await resolveAgentId(supabase, agent_email);
+      if (!id) return notFound(agent_email);
+      q = q.eq("user_id", id);
+    }
+    const [{ data, error }, dir] = await Promise.all([q, loadAgentDirectory(supabase)]);
+    if (error) return errorResult(error.message);
+    const clients = enrich(data, dir, "user_id");
+    return okResult({ count: clients.length, status: status ?? "all", clients });
+  }
+});
+
+// src/lib/mcp/tools/get-team-deals.ts
+import { defineTool as defineTool9 } from "npm:@lovable.dev/mcp-js@0.28.0";
+import { z as z8 } from "npm:zod@^3.25.76";
+var get_team_deals_default = defineTool9({
+  name: "get_team_deals",
+  title: "Get team deals (admin)",
+  description: "Owners/admins only, read-only: returns deals for every agent in the signed-in user's brokerage.",
+  inputSchema: {
+    stage: z8.string().trim().optional().describe("Optional deal stage filter."),
+    limit: z8.number().int().min(1).max(1e3).default(500).describe("Maximum rows."),
+    agent_email: z8.string().trim().email().optional().describe("Optional: limit to one agent by email.")
+  },
+  annotations: READ_ONLY,
+  handler: async ({ stage, limit, agent_email }, ctx) => {
+    const gate = await requireAdmin(ctx);
+    if ("result" in gate) return gate.result;
+    const { supabase } = gate;
+    let q = supabase.from("deals").select(
+      "id, user_id, client_name, property_address, stage, deal_value, commission_rate, company_split_percentage, source, expected_close_date, created_at, updated_at"
+    ).order("created_at", { ascending: false }).limit(limit ?? 500);
+    if (stage) q = q.eq("stage", stage);
+    if (agent_email) {
+      const id = await resolveAgentId(supabase, agent_email);
+      if (!id) return notFound(agent_email);
+      q = q.eq("user_id", id);
+    }
+    const [{ data, error }, dir] = await Promise.all([q, loadAgentDirectory(supabase)]);
+    if (error) return errorResult(error.message);
+    const deals = enrich(data, dir, "user_id");
+    return okResult({ count: deals.length, stage: stage ?? "all", deals });
+  }
+});
+
+// src/lib/mcp/tools/get-team-weekly-411.ts
+import { defineTool as defineTool10 } from "npm:@lovable.dev/mcp-js@0.28.0";
+import { z as z9 } from "npm:zod@^3.25.76";
+var COLUMNS = [
+  "id",
+  "user_id",
+  "week_start_date",
+  "calls_goal",
+  "calls_actual",
+  "appointments_goal",
+  "appointments_actual",
+  "listings_goal",
+  "listings_actual",
+  "contracts_goal",
+  "contracts_actual",
+  "priority_1",
+  "priority_1_completed",
+  "priority_2",
+  "priority_2_completed",
+  "priority_3",
+  "priority_3_completed",
+  "priority_4",
+  "priority_4_completed",
+  "personal_priority_1",
+  "personal_priority_1_completed",
+  "personal_priority_2",
+  "personal_priority_2_completed",
+  "personal_priority_3",
+  "personal_priority_3_completed",
+  "wins",
+  "challenges",
+  "next_steps",
+  "notes",
+  "contacts_made",
+  "dials",
+  "doors_knocked",
+  "appointments_set",
+  "appointments_held",
+  "pipeline_additions",
+  "contracts_signed",
+  "firm_deals",
+  "database_size",
+  "leads_received",
+  "connects",
+  "conversations",
+  "texts_sent",
+  "talk_time_minutes",
+  "speed_to_first_touch_minutes",
+  "contacts_held",
+  "contacts_unstaged",
+  "contacts_per_live_deal",
+  "contacts_goal",
+  "new_leads",
+  "leads_claimed_from_pond",
+  "calls_total",
+  "calls_outbound",
+  "calls_connected",
+  "talk_time_seconds",
+  "texts_received",
+  "deals_active",
+  "deals_created",
+  "fub_conversations",
+  "fub_pipeline_adds",
+  "fub_agreements",
+  "fub_pending",
+  "fub_closed",
+  "fub_closed_units",
+  "fub_gci",
+  "fub_speed_to_lead_minutes",
+  "fub_emails_sent",
+  "fub_appointments_set",
+  "fub_appointments_held",
+  "fub_synced_at",
+  "fub_sync_status",
+  "updated_at"
+].join(", ");
+function mondayMinusWeeks(weeks) {
+  const d = /* @__PURE__ */ new Date();
+  d.setUTCHours(0, 0, 0, 0);
+  d.setUTCDate(d.getUTCDate() - (d.getUTCDay() + 6) % 7 - (weeks - 1) * 7);
+  return d.toISOString().slice(0, 10);
+}
+var get_team_weekly_411_default = defineTool10({
+  name: "get_team_weekly_411",
+  title: "Get team weekly 4-1-1 / coaching (admin)",
+  description: "Owners/admins only, read-only: returns weekly 4-1-1 accountability entries for every agent in the signed-in user's brokerage.",
+  inputSchema: {
+    week_start_from: z9.string().trim().regex(DATE_RE, "Use YYYY-MM-DD").optional().describe("Earliest week start (YYYY-MM-DD)."),
+    week_start_to: z9.string().trim().regex(DATE_RE, "Use YYYY-MM-DD").optional().describe("Latest week start (YYYY-MM-DD)."),
+    weeks: z9.number().int().min(1).max(52).default(8).describe("Weeks back from this Monday when week_start_from is omitted."),
+    agent_email: z9.string().trim().email().optional().describe("Optional: limit to one agent by email."),
+    limit: z9.number().int().min(1).max(2e3).default(1e3).describe("Maximum rows.")
+  },
+  annotations: READ_ONLY,
+  handler: async ({ week_start_from, week_start_to, weeks, agent_email, limit }, ctx) => {
+    const gate = await requireAdmin(ctx);
+    if ("result" in gate) return gate.result;
+    const { supabase } = gate;
+    const from = week_start_from ?? mondayMinusWeeks(weeks ?? 8);
+    let q = supabase.from("weekly_411").select(COLUMNS).gte("week_start_date", from).order("week_start_date", { ascending: false }).order("user_id").limit(limit ?? 1e3);
+    if (week_start_to) q = q.lte("week_start_date", week_start_to);
+    if (agent_email) {
+      const id = await resolveAgentId(supabase, agent_email);
+      if (!id) return notFound(agent_email);
+      q = q.eq("user_id", id);
+    }
+    const [{ data, error }, dir] = await Promise.all([q, loadAgentDirectory(supabase)]);
+    if (error) return errorResult(error.message);
+    const entries = enrich(data, dir, "user_id");
+    return okResult({
+      count: entries.length,
+      week_start_from: from,
+      week_start_to: week_start_to ?? null,
+      weeks: week_start_from ? null : weeks ?? 8,
+      entries
+    });
+  }
+});
+
+// src/lib/mcp/tools/get-team-coaching-sessions.ts
+import { defineTool as defineTool11 } from "npm:@lovable.dev/mcp-js@0.28.0";
+import { z as z10 } from "npm:zod@^3.25.76";
+var get_team_coaching_sessions_default = defineTool11({
+  name: "get_team_coaching_sessions",
+  title: "Get team coaching sessions (admin)",
+  description: "Owners/admins only, read-only: returns coaching sessions for every agent in the signed-in user's brokerage.",
+  inputSchema: {
+    week_from: z10.string().trim().regex(DATE_RE, "Use YYYY-MM-DD").optional().describe("Earliest week_of (YYYY-MM-DD)."),
+    agent_email: z10.string().trim().email().optional().describe("Optional: limit to one agent by email."),
+    include_transcript: z10.boolean().default(false).describe("Include full transcript text."),
+    limit: z10.number().int().min(1).max(200).default(50).describe("Maximum rows.")
+  },
+  annotations: READ_ONLY,
+  handler: async ({ week_from, agent_email, include_transcript, limit }, ctx) => {
+    const gate = await requireAdmin(ctx);
+    if ("result" in gate) return gate.result;
+    const { supabase } = gate;
+    const cols = "id, agent_id, week_of, generated_notes, created_by, created_at" + (include_transcript ? ", transcript_text" : "");
+    let q = supabase.from("coaching_sessions").select(cols).order("week_of", { ascending: false }).limit(limit ?? 50);
+    if (week_from) q = q.gte("week_of", week_from);
+    if (agent_email) {
+      const id = await resolveAgentId(supabase, agent_email);
+      if (!id) return notFound(agent_email);
+      q = q.eq("agent_id", id);
+    }
+    const [{ data, error }, dir] = await Promise.all([q, loadAgentDirectory(supabase)]);
+    if (error) return errorResult(error.message);
+    const sessions = enrich(data, dir, "agent_id");
+    return okResult({ count: sessions.length, sessions });
+  }
+});
+
 // src/lib/mcp/index.ts
 var projectRef = "sxpfxmlxegpmfamlmjyg";
 var mcp_default = defineMcp({
   name: "luxehub",
   title: "LUXEhub",
   version: "1.0.0",
-  instructions: "Tools for LUXEhub, a real estate agent hub. Read the signed-in agent's pipeline clients, deals and weekly 4-1-1 accountability entries, and add new pipeline clients. Owners and admins can also record weekly 4-1-1 actuals for agents in their own brokerage. All data is scoped to the signed-in user's brokerage.",
+  instructions: "Tools for LUXEhub, a real estate agent hub. Read the signed-in agent's pipeline clients, deals and weekly 4-1-1 accountability entries, and add new pipeline clients. Owners and admins can also record weekly 4-1-1 actuals for agents in their own brokerage. All data is scoped to the signed-in user's brokerage. Owners and admins can also read team-wide roster, goals, pipeline, deals, weekly 4-1-1 accountability and coaching sessions for every agent in their brokerage (read-only).",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated"
   }),
-  tools: [get_my_pipeline_default, get_my_deals_default, get_my_weekly_411_default, add_pipeline_client_default, record_weekly_411_actuals_default]
+  tools: [get_my_pipeline_default, get_my_deals_default, get_my_weekly_411_default, add_pipeline_client_default, record_weekly_411_actuals_default, get_team_roster_default, get_team_goals_default, get_team_pipeline_default, get_team_deals_default, get_team_weekly_411_default, get_team_coaching_sessions_default]
 });
 
 // lovable-mcp-supabase-entry.ts

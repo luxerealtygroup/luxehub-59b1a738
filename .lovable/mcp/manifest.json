@@ -262,6 +262,204 @@
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "outputSchema": null
+      },
+      {
+        "name": "get_team_roster",
+        "title": "Get team roster (admin)",
+        "description": "Owners/admins only, read-only: returns every agent profile and role in the signed-in user's brokerage.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_team_goals",
+        "title": "Get team goals (admin)",
+        "description": "Owners/admins only, read-only: returns agent goals, production goals and business-planning goals for every agent in the signed-in user's brokerage.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "year": {
+              "type": "integer",
+              "description": "Optional goal year, e.g. 2027."
+            },
+            "agent_email": {
+              "type": "string",
+              "format": "email",
+              "description": "Optional: limit to one agent by email."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_team_pipeline",
+        "title": "Get team pipeline (admin)",
+        "description": "Owners/admins only, read-only: returns pipeline clients for every agent in the signed-in user's brokerage.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 500,
+              "description": "Maximum rows."
+            },
+            "status": {
+              "type": "string",
+              "description": "Optional status filter."
+            },
+            "agent_email": {
+              "type": "string",
+              "format": "email",
+              "description": "Optional: limit to one agent by email."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_team_deals",
+        "title": "Get team deals (admin)",
+        "description": "Owners/admins only, read-only: returns deals for every agent in the signed-in user's brokerage.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "stage": {
+              "type": "string",
+              "description": "Optional deal stage filter."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 500,
+              "description": "Maximum rows."
+            },
+            "agent_email": {
+              "type": "string",
+              "format": "email",
+              "description": "Optional: limit to one agent by email."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_team_weekly_411",
+        "title": "Get team weekly 4-1-1 / coaching (admin)",
+        "description": "Owners/admins only, read-only: returns weekly 4-1-1 accountability entries for every agent in the signed-in user's brokerage.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "week_start_from": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "Earliest week start (YYYY-MM-DD)."
+            },
+            "week_start_to": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "Latest week start (YYYY-MM-DD)."
+            },
+            "weeks": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 52,
+              "default": 8,
+              "description": "Weeks back from this Monday when week_start_from is omitted."
+            },
+            "agent_email": {
+              "type": "string",
+              "format": "email",
+              "description": "Optional: limit to one agent by email."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2000,
+              "default": 1000,
+              "description": "Maximum rows."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_team_coaching_sessions",
+        "title": "Get team coaching sessions (admin)",
+        "description": "Owners/admins only, read-only: returns coaching sessions for every agent in the signed-in user's brokerage.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "week_from": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "Earliest week_of (YYYY-MM-DD)."
+            },
+            "agent_email": {
+              "type": "string",
+              "format": "email",
+              "description": "Optional: limit to one agent by email."
+            },
+            "include_transcript": {
+              "type": "boolean",
+              "default": false,
+              "description": "Include full transcript text."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50,
+              "description": "Maximum rows."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
       }
     ]
   }
