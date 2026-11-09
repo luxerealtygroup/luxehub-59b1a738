@@ -401,8 +401,8 @@ const Pipeline = () => {
     const before = clients.find((c) => c.id === editingClient.id);
     // Recalculate GCI from the dialog's inputs; keep the saved GCI only when
     // commission/split weren't entered (they aren't stored on the record).
-    const recalculatedGci = editingClient.commission_percent > 0 && editingClient.split_percent > 0
-      ? calculateGCI(editingClient.projected_sale_amount, editingClient.commission_percent, editingClient.split_percent)
+    const recalculatedGci = editingClient.commission_percent > 0
+      ? calculateGCI(editingClient.projected_sale_amount, editingClient.commission_percent, editingClient.split_percent > 0 ? editingClient.split_percent : 70)
       : editingClient.projected_gci;
 
     // The assigned agent is never part of this update: commission attribution
