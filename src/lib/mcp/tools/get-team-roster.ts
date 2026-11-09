@@ -11,16 +11,19 @@ export default defineTool({
   handler: async (_args, ctx) => {
     const gate = await requireAdmin(ctx);
     if ("result" in gate) return gate.result;
-    const { supabase } = gate;
+    const { supabase, orgId } = gate;
     const { data, error } = await supabase
       .from("profiles")
       .select("id, full_name, email, member_type, display_title, include_in_team_coaching")
+      .eq("org_id", orgId)
       .order("full_name");
     if (error) return errorResult(error.message);
     const { data: roles, error: rErr } = await supabase.from("user_roles").select("user_id, role");
     if (rErr) return errorResult(rErr.message);
+    const inOrg = new Set(((data ?? []) as { id: string }[]).map((p) => p.id));
     const byUser = new Map<string, string[]>();
     for (const r of (roles ?? []) as { user_id: string; role: string }[]) {
+      if (!inOrg.has(r.user_id)) continue;
       byUser.set(r.user_id, [...(byUser.get(r.user_id) ?? []), String(r.role)]);
     }
     const agents = ((data ?? []) as Record<string, unknown>[]).map((p) => ({

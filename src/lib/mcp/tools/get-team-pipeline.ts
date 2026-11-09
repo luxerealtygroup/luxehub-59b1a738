@@ -18,7 +18,7 @@ export default defineTool({
   handler: async ({ limit, status, agent_email }, ctx) => {
     const gate = await requireAdmin(ctx);
     if ("result" in gate) return gate.result;
-    const { supabase } = gate;
+    const { supabase, orgId } = gate;
     let q = supabase
       .from("pipeline_clients")
       .select(
@@ -28,11 +28,11 @@ export default defineTool({
       .limit(limit ?? 500);
     if (status) q = q.eq("status", status);
     if (agent_email) {
-      const id = await resolveAgentId(supabase, agent_email);
+      const id = await resolveAgentId(supabase, orgId, agent_email);
       if (!id) return notFound(agent_email);
       q = q.eq("user_id", id);
     }
-    const [{ data, error }, dir] = await Promise.all([q, loadAgentDirectory(supabase)]);
+    const [{ data, error }, dir] = await Promise.all([q, loadAgentDirectory(supabase, orgId)]);
     if (error) return errorResult(error.message);
     const clients = enrich(data, dir, "user_id");
     return okResult({ count: clients.length, status: status ?? "all", clients });
