@@ -399,10 +399,15 @@ const Pipeline = () => {
       return;
     }
     const before = clients.find((c) => c.id === editingClient.id);
+    // Recalculate GCI from the dialog's inputs; keep the saved GCI only when
+    // commission/split weren't entered (they aren't stored on the record).
+    const recalculatedGci = editingClient.commission_percent > 0 && editingClient.split_percent > 0
+      ? calculateGCI(editingClient.projected_sale_amount, editingClient.commission_percent, editingClient.split_percent)
+      : editingClient.projected_gci;
 
     // The assigned agent is never part of this update: commission attribution
     // stays with the producing agent no matter who does the admin work.
-    const { error } = await supabase
+    const { data: updated, error } = await supabase
       .from('pipeline_clients')
       .update({
         client_name: editingClient.client_name,
@@ -413,11 +418,17 @@ const Pipeline = () => {
         email: editingClient.email,
         notes: editingClient.notes,
         projected_sale_amount: editingClient.projected_sale_amount,
-        projected_gci: editingClient.projected_gci,
+        projected_gci: recalculatedGci,
         expected_pending_date: editingClient.expected_pending_date,
         property_address: editingClient.client_type === 'seller' ? (editingClient.property_address || null) : null,
       })
-      .eq('id', editingClient.id);
+      .eq('id', editingClient.id)
+      .select('id');
+
+    if (!error && (!updated || updated.length === 0)) {
+      toast({ title: 'Not saved', description: "You don't have permission to edit this client, so nothing changed.", variant: 'destructive' });
+      return;
+    }
 
     if (error) {
       console.error('Pipeline update error:', error);
