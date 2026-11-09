@@ -19,16 +19,16 @@ export default defineTool({
   handler: async ({ week_from, agent_email, include_transcript, limit }, ctx) => {
     const gate = await requireAdmin(ctx);
     if ("result" in gate) return gate.result;
-    const { supabase } = gate;
+    const { supabase, orgId } = gate;
     const cols = "id, agent_id, week_of, generated_notes, created_by, created_at" + (include_transcript ? ", transcript_text" : "");
     let q = supabase.from("coaching_sessions").select(cols).order("week_of", { ascending: false }).limit(limit ?? 50);
     if (week_from) q = q.gte("week_of", week_from);
     if (agent_email) {
-      const id = await resolveAgentId(supabase, agent_email);
+      const id = await resolveAgentId(supabase, orgId, agent_email);
       if (!id) return notFound(agent_email);
       q = q.eq("agent_id", id);
     }
-    const [{ data, error }, dir] = await Promise.all([q, loadAgentDirectory(supabase)]);
+    const [{ data, error }, dir] = await Promise.all([q, loadAgentDirectory(supabase, orgId)]);
     if (error) return errorResult(error.message);
     const sessions = enrich(data as unknown[] | null, dir, "agent_id");
     return okResult({ count: sessions.length, sessions });

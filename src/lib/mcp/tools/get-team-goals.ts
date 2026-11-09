@@ -17,10 +17,10 @@ export default defineTool({
   handler: async ({ year, agent_email }, ctx) => {
     const gate = await requireAdmin(ctx);
     if ("result" in gate) return gate.result;
-    const { supabase } = gate;
+    const { supabase, orgId } = gate;
     let agentId: string | null = null;
     if (agent_email) {
-      agentId = await resolveAgentId(supabase, agent_email);
+      agentId = await resolveAgentId(supabase, orgId, agent_email);
       if (!agentId) return notFound(agent_email);
     }
 
@@ -42,7 +42,7 @@ export default defineTool({
     if (year !== undefined) pl = pl.eq("plan_year", year);
     if (agentId) pl = pl.eq("agent_id", agentId);
 
-    const [a, p, q, dir] = await Promise.all([ag, pg, pl, loadAgentDirectory(supabase)]);
+    const [a, p, q, dir] = await Promise.all([ag, pg, pl, loadAgentDirectory(supabase, orgId)]);
     const err = a.error ?? p.error ?? q.error;
     if (err) return errorResult(err.message);
 

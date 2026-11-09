@@ -253,10 +253,12 @@ async function requireAdmin(ctx) {
   if (error || data !== true) {
     return { ok: false, result: errorResult("Only owners and admins can use team-wide LUXEhub tools.") };
   }
-  return { ok: true, supabase };
+  const { data: orgId, error: orgErr } = await supabase.rpc("current_user_org_id");
+  if (orgErr || !orgId) return { ok: false, result: errorResult("Could not determine your brokerage.") };
+  return { ok: true, supabase, orgId: String(orgId) };
 }
-async function loadAgentDirectory(supabase) {
-  const { data, error } = await supabase.from("profiles").select("id, full_name, email, org_id");
+async function loadAgentDirectory(supabase, orgId) {
+  const { data, error } = await supabase.from("profiles").select("id, full_name, email, org_id").eq("org_id", orgId);
   const map = /* @__PURE__ */ new Map();
   if (error || !data) return map;
   for (const p of data) {
@@ -264,8 +266,8 @@ async function loadAgentDirectory(supabase) {
   }
   return map;
 }
-async function resolveAgentId(supabase, agent_email) {
-  const { data } = await supabase.from("profiles").select("id").ilike("email", agent_email.trim()).limit(1);
+async function resolveAgentId(supabase, orgId, agent_email) {
+  const { data } = await supabase.from("profiles").select("id").eq("org_id", orgId).ilike("email", agent_email.trim()).limit(1);
   return data?.[0]?.id ?? null;
 }
 function enrich(rows, dir, key) {
@@ -295,13 +297,15 @@ var get_team_roster_default = defineTool6({
   handler: async (_args, ctx) => {
     const gate = await requireAdmin(ctx);
     if ("result" in gate) return gate.result;
-    const { supabase } = gate;
-    const { data, error } = await supabase.from("profiles").select("id, full_name, email, member_type, display_title, include_in_team_coaching").order("full_name");
+    const { supabase, orgId } = gate;
+    const { data, error } = await supabase.from("profiles").select("id, full_name, email, member_type, display_title, include_in_team_coaching").eq("org_id", orgId).order("full_name");
     if (error) return errorResult(error.message);
     const { data: roles, error: rErr } = await supabase.from("user_roles").select("user_id, role");
     if (rErr) return errorResult(rErr.message);
+    const inOrg = new Set((data ?? []).map((p) => p.id));
     const byUser = /* @__PURE__ */ new Map();
     for (const r of roles ?? []) {
+      if (!inOrg.has(r.user_id)) continue;
       byUser.set(r.user_id, [...byUser.get(r.user_id) ?? [], String(r.role)]);
     }
     const agents = (data ?? []).map((p) => ({
@@ -327,10 +331,10 @@ var get_team_goals_default = defineTool7({
   handler: async ({ year, agent_email }, ctx) => {
     const gate = await requireAdmin(ctx);
     if ("result" in gate) return gate.result;
-    const { supabase } = gate;
+    const { supabase, orgId } = gate;
     let agentId = null;
     if (agent_email) {
-      agentId = await resolveAgentId(supabase, agent_email);
+      agentId = await resolveAgentId(supabase, orgId, agent_email);
       if (!agentId) return notFound(agent_email);
     }
     let ag = supabase.from("agent_goals").select(
@@ -348,7 +352,7 @@ var get_team_goals_default = defineTool7({
     );
     if (year !== void 0) pl = pl.eq("plan_year", year);
     if (agentId) pl = pl.eq("agent_id", agentId);
-    const [a, p, q, dir] = await Promise.all([ag, pg, pl, loadAgentDirectory(supabase)]);
+    const [a, p, q, dir] = await Promise.all([ag, pg, pl, loadAgentDirectory(supabase, orgId)]);
     const err = a.error ?? p.error ?? q.error;
     if (err) return errorResult(err.message);
     const agent_goals = enrich(a.data, dir, "user_id");
@@ -382,17 +386,17 @@ var get_team_pipeline_default = defineTool8({
   handler: async ({ limit, status, agent_email }, ctx) => {
     const gate = await requireAdmin(ctx);
     if ("result" in gate) return gate.result;
-    const { supabase } = gate;
+    const { supabase, orgId } = gate;
     let q = supabase.from("pipeline_clients").select(
       "id, user_id, client_name, client_type, deal_category, stage, status, source, property_address, projected_sale_amount, projected_gci, expected_pending_date, fub_deal_stage, fub_deal_price, fub_deal_close_date, created_at, updated_at"
     ).order("created_at", { ascending: false }).limit(limit ?? 500);
     if (status) q = q.eq("status", status);
     if (agent_email) {
-      const id = await resolveAgentId(supabase, agent_email);
+      const id = await resolveAgentId(supabase, orgId, agent_email);
       if (!id) return notFound(agent_email);
       q = q.eq("user_id", id);
     }
-    const [{ data, error }, dir] = await Promise.all([q, loadAgentDirectory(supabase)]);
+    const [{ data, error }, dir] = await Promise.all([q, loadAgentDirectory(supabase, orgId)]);
     if (error) return errorResult(error.message);
     const clients = enrich(data, dir, "user_id");
     return okResult({ count: clients.length, status: status ?? "all", clients });
@@ -415,17 +419,17 @@ var get_team_deals_default = defineTool9({
   handler: async ({ stage, limit, agent_email }, ctx) => {
     const gate = await requireAdmin(ctx);
     if ("result" in gate) return gate.result;
-    const { supabase } = gate;
+    const { supabase, orgId } = gate;
     let q = supabase.from("deals").select(
       "id, user_id, client_name, property_address, stage, deal_value, commission_rate, company_split_percentage, source, expected_close_date, created_at, updated_at"
     ).order("created_at", { ascending: false }).limit(limit ?? 500);
     if (stage) q = q.eq("stage", stage);
     if (agent_email) {
-      const id = await resolveAgentId(supabase, agent_email);
+      const id = await resolveAgentId(supabase, orgId, agent_email);
       if (!id) return notFound(agent_email);
       q = q.eq("user_id", id);
     }
-    const [{ data, error }, dir] = await Promise.all([q, loadAgentDirectory(supabase)]);
+    const [{ data, error }, dir] = await Promise.all([q, loadAgentDirectory(supabase, orgId)]);
     if (error) return errorResult(error.message);
     const deals = enrich(data, dir, "user_id");
     return okResult({ count: deals.length, stage: stage ?? "all", deals });
@@ -529,16 +533,16 @@ var get_team_weekly_411_default = defineTool10({
   handler: async ({ week_start_from, week_start_to, weeks, agent_email, limit }, ctx) => {
     const gate = await requireAdmin(ctx);
     if ("result" in gate) return gate.result;
-    const { supabase } = gate;
+    const { supabase, orgId } = gate;
     const from = week_start_from ?? mondayMinusWeeks(weeks ?? 8);
     let q = supabase.from("weekly_411").select(COLUMNS).gte("week_start_date", from).order("week_start_date", { ascending: false }).order("user_id").limit(limit ?? 1e3);
     if (week_start_to) q = q.lte("week_start_date", week_start_to);
     if (agent_email) {
-      const id = await resolveAgentId(supabase, agent_email);
+      const id = await resolveAgentId(supabase, orgId, agent_email);
       if (!id) return notFound(agent_email);
       q = q.eq("user_id", id);
     }
-    const [{ data, error }, dir] = await Promise.all([q, loadAgentDirectory(supabase)]);
+    const [{ data, error }, dir] = await Promise.all([q, loadAgentDirectory(supabase, orgId)]);
     if (error) return errorResult(error.message);
     const entries = enrich(data, dir, "user_id");
     return okResult({
@@ -568,16 +572,16 @@ var get_team_coaching_sessions_default = defineTool11({
   handler: async ({ week_from, agent_email, include_transcript, limit }, ctx) => {
     const gate = await requireAdmin(ctx);
     if ("result" in gate) return gate.result;
-    const { supabase } = gate;
+    const { supabase, orgId } = gate;
     const cols = "id, agent_id, week_of, generated_notes, created_by, created_at" + (include_transcript ? ", transcript_text" : "");
     let q = supabase.from("coaching_sessions").select(cols).order("week_of", { ascending: false }).limit(limit ?? 50);
     if (week_from) q = q.gte("week_of", week_from);
     if (agent_email) {
-      const id = await resolveAgentId(supabase, agent_email);
+      const id = await resolveAgentId(supabase, orgId, agent_email);
       if (!id) return notFound(agent_email);
       q = q.eq("agent_id", id);
     }
-    const [{ data, error }, dir] = await Promise.all([q, loadAgentDirectory(supabase)]);
+    const [{ data, error }, dir] = await Promise.all([q, loadAgentDirectory(supabase, orgId)]);
     if (error) return errorResult(error.message);
     const sessions = enrich(data, dir, "agent_id");
     return okResult({ count: sessions.length, sessions });

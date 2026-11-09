@@ -46,7 +46,7 @@ export default defineTool({
   handler: async ({ week_start_from, week_start_to, weeks, agent_email, limit }, ctx) => {
     const gate = await requireAdmin(ctx);
     if ("result" in gate) return gate.result;
-    const { supabase } = gate;
+    const { supabase, orgId } = gate;
     const from = week_start_from ?? mondayMinusWeeks(weeks ?? 8);
     let q = supabase
       .from("weekly_411")
@@ -57,11 +57,11 @@ export default defineTool({
       .limit(limit ?? 1000);
     if (week_start_to) q = q.lte("week_start_date", week_start_to);
     if (agent_email) {
-      const id = await resolveAgentId(supabase, agent_email);
+      const id = await resolveAgentId(supabase, orgId, agent_email);
       if (!id) return notFound(agent_email);
       q = q.eq("user_id", id);
     }
-    const [{ data, error }, dir] = await Promise.all([q, loadAgentDirectory(supabase)]);
+    const [{ data, error }, dir] = await Promise.all([q, loadAgentDirectory(supabase, orgId)]);
     if (error) return errorResult(error.message);
     const entries = enrich(data as unknown[] | null, dir, "user_id");
     return okResult({

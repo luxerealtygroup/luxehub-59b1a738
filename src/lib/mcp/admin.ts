@@ -8,20 +8,22 @@ export const errorResult = (text: string): ErrorResult => ({ content: [{ type: "
 
 export async function requireAdmin(
   ctx: ToolContext,
-): Promise<{ ok: true; supabase: Client } | { ok: false; result: ErrorResult }> {
+): Promise<{ ok: true; supabase: Client; orgId: string } | { ok: false; result: ErrorResult }> {
   if (!ctx.isAuthenticated()) return { ok: false, result: errorResult("Not authenticated") };
   const supabase = supabaseForUser(ctx);
   const { data, error } = await supabase.rpc("is_admin_or_owner", { _user_id: ctx.getUserId() });
   if (error || data !== true) {
     return { ok: false, result: errorResult("Only owners and admins can use team-wide LUXEhub tools.") };
   }
-  return { ok: true, supabase };
+  const { data: orgId, error: orgErr } = await supabase.rpc("current_user_org_id");
+  if (orgErr || !orgId) return { ok: false, result: errorResult("Could not determine your brokerage.") };
+  return { ok: true, supabase, orgId: String(orgId) };
 }
 
 export type AgentInfo = { full_name: string | null; email: string | null };
 
-export async function loadAgentDirectory(supabase: Client): Promise<Map<string, AgentInfo>> {
-  const { data, error } = await supabase.from("profiles").select("id, full_name, email, org_id");
+export async function loadAgentDirectory(supabase: Client, orgId: string): Promise<Map<string, AgentInfo>> {
+  const { data, error } = await supabase.from("profiles").select("id, full_name, email, org_id").eq("org_id", orgId);
   const map = new Map<string, AgentInfo>();
   if (error || !data) return map;
   for (const p of data as { id: string; full_name: string | null; email: string | null }[]) {
@@ -30,8 +32,8 @@ export async function loadAgentDirectory(supabase: Client): Promise<Map<string, 
   return map;
 }
 
-export async function resolveAgentId(supabase: Client, agent_email: string): Promise<string | null> {
-  const { data } = await supabase.from("profiles").select("id").ilike("email", agent_email.trim()).limit(1);
+export async function resolveAgentId(supabase: Client, orgId: string, agent_email: string): Promise<string | null> {
+  const { data } = await supabase.from("profiles").select("id").eq("org_id", orgId).ilike("email", agent_email.trim()).limit(1);
   return (data as { id: string }[] | null)?.[0]?.id ?? null;
 }
 
