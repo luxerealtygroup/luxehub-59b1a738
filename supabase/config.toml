@@ -97,7 +97,7 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.sync-fub-weekly]
-verify_jwt = true
+verify_jwt = false
 
 [functions.portal-fub-link]
 verify_jwt = true
