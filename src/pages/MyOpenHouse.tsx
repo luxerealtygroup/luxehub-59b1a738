@@ -1234,19 +1234,7 @@ function ReportSection({ openHouse, guests, canManage, hostName, onChanged, refr
     return `open-house-${safeAddr}-${openHouse.open_house_date}.pdf`;
   };
 
-  // Built from the snapshot passed in, never the list captured on mount, so a
-  // visitor who signs in after the page opened still appears in the download.
-  const buildPdf = (list: Guest[]) => {
-    const total = list.length;
-    const signedIn = list.filter(g => g.source === 'visitor').length;
-    const hot = list.filter(g => g.temperature === 'hot').length;
-    const pdfInterest = list.filter(g => g.interest_level);
-    const pdfRaw = pdfInterest.length
-      ? pdfInterest.reduce((s, g) => s + interestScore(g.interest_level), 0) / pdfInterest.length
-      : 0;
-    const avgInterestLabel = !pdfInterest.length ? '—'
-      : pdfRaw >= 2.5 ? 'High' : pdfRaw >= 1.5 ? 'Medium' : 'Low';
-
+  const buildPdf = () => {
     const doc = new jsPDF({ unit: 'pt', format: 'letter' });
 
     const margin = 40;
@@ -1281,11 +1269,11 @@ function ReportSection({ openHouse, guests, canManage, hostName, onChanged, refr
     });
     y += 6;
 
-    if (list.length > 0) {
+    if (guests.length > 0) {
       autoTable(doc, {
         startY: y,
         head: [['Guest', 'How', 'Temp', 'Interest', 'Price', 'Condition', 'Timeline', 'Notes']],
-        body: list.map(g => [
+        body: guests.map(g => [
           guestName(g),
           g.source === 'visitor' ? 'Signed in' : 'Agent',
           g.temperature ? g.temperature : '—',
@@ -1308,41 +1296,16 @@ function ReportSection({ openHouse, guests, canManage, hostName, onChanged, refr
     return doc;
   };
 
-  const [downloadingPdf, setDownloadingPdf] = useState(false);
-
-  const downloadPdf = async () => {
-    setDownloadingPdf(true);
+  const downloadPdf = () => {
     try {
-      const fresh = refreshGuests ? await refreshGuests() : guests;
-      if (!fresh) return; // the read failed; the problem has already been shown
-      buildPdf(fresh).save(pdfFileName());
+      buildPdf().save(pdfFileName());
       toast.success('PDF downloaded');
     } catch (err: any) {
       console.error('PDF generation failed', err);
       toast.error('PDF download failed', { description: err?.message });
-    } finally {
-      setDownloadingPdf(false);
     }
   };
   const [showSendPortal, setShowSendPortal] = useState(false);
-  const [portalGuests, setPortalGuests] = useState<Guest[] | null>(null);
-  const [preparingPortal, setPreparingPortal] = useState(false);
-
-  // Same rule as the emailed report: read the visitor list again so the seller's
-  // copy is never built from the snapshot taken when the page opened.
-  const openSendPortal = async () => {
-    setPreparingPortal(true);
-    try {
-      const fresh = refreshGuests ? await refreshGuests() : guests;
-      if (!fresh) return;
-      setPortalGuests(fresh);
-      setShowSendPortal(true);
-    } catch (err: any) {
-      toast.error('Could not load the latest guest list', { description: err?.message });
-    } finally {
-      setPreparingPortal(false);
-    }
-  };
 
   return (
     <Card className="p-5 space-y-4">
@@ -1363,16 +1326,12 @@ function ReportSection({ openHouse, guests, canManage, hostName, onChanged, refr
               : <Mail className="h-4 w-4 mr-1" />} Send to Listing Agent
           </Button>
           {canManage && (
-            <Button variant="outline" size="sm" onClick={openSendPortal} disabled={preparingPortal}>
-              {preparingPortal
-                ? <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                : <Share2 className="h-4 w-4 mr-1" />} Send to Client Portal
+            <Button variant="outline" size="sm" onClick={() => setShowSendPortal(true)}>
+              <Share2 className="h-4 w-4 mr-1" /> Send to Client Portal
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={downloadPdf} disabled={downloadingPdf}>
-            {downloadingPdf
-              ? <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-              : <FileDown className="h-4 w-4 mr-1" />} Download PDF
+          <Button variant="outline" size="sm" onClick={downloadPdf}>
+            <FileDown className="h-4 w-4 mr-1" /> Download PDF
           </Button>
         </div>
       </div>
@@ -1402,7 +1361,7 @@ function ReportSection({ openHouse, guests, canManage, hostName, onChanged, refr
       {showSendPortal && (
         <SendReportToPortalDialog
           openHouse={openHouse}
-          guests={portalGuests ?? guests}
+          guests={guests}
           agentName={hostName}
           onClose={() => setShowSendPortal(false)}
           onSent={() => { setShowSendPortal(false); onChanged(); }}
