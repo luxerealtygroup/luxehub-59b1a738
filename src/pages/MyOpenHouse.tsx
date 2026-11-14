@@ -990,7 +990,9 @@ function OpenHouseDetail({
   const [showFubImport, setShowFubImport] = useState(false);
   const [showCsvImport, setShowCsvImport] = useState(false);
 
-  const loadGuests = async () => {
+  // Reads the current guest list straight from the database, keeps local state in
+  // sync, and returns null when the read fails so callers can avoid stale data.
+  const loadGuests = async (): Promise<Guest[] | null> => {
     const { data, error } = await supabase
       .from('open_house_visitors')
       .select(GUEST_COLUMNS)
@@ -998,9 +1000,11 @@ function OpenHouseDetail({
       .order('signed_in_at', { ascending: true });
     if (error) {
       toast.error('Failed to load the guest list', { description: error.message });
-    } else {
-      setGuests((data || []) as unknown as Guest[]);
+      return null;
     }
+    const fresh = (data || []) as unknown as Guest[];
+    setGuests(fresh);
+    return fresh;
   };
 
   useEffect(() => { loadGuests(); }, [openHouse.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1128,6 +1132,7 @@ function OpenHouseDetail({
         canManage={canManage}
         hostName={hostName}
         onChanged={onChanged}
+        refreshGuests={loadGuests}
       />
 
     </div>
@@ -1140,12 +1145,13 @@ function OpenHouseDetail({
 // Report section
 // ============================================================================
 
-function ReportSection({ openHouse, guests, canManage, hostName, onChanged }: {
+function ReportSection({ openHouse, guests, canManage, hostName, onChanged, refreshGuests }: {
   openHouse: OpenHouse;
   guests: Guest[];
   canManage: boolean;
   hostName?: string | null;
   onChanged: () => void;
+  refreshGuests?: () => Promise<Guest[] | null>;
 }) {
 
   const total = guests.length;
@@ -1161,22 +1167,41 @@ function ReportSection({ openHouse, guests, canManage, hostName, onChanged }: {
     : avgInterestRaw >= 2.5 ? 'High' : avgInterestRaw >= 1.5 ? 'Medium' : 'Low';
 
   const [showSendListing, setShowSendListing] = useState(false);
+  const [reportGuests, setReportGuests] = useState<Guest[] | null>(null);
+  const [preparingSend, setPreparingSend] = useState(false);
 
-  const listingReportData = () => {
+  // Visitors can sign in after this page is opened, so the emailed report is built
+  // from a freshly read snapshot instead of the list captured on mount.
+  const summarize = (list: Guest[]) => {
+    const withInterest = list.filter(g => g.interest_level);
+    const raw = withInterest.length
+      ? withInterest.reduce((s, g) => s + interestScore(g.interest_level), 0) / withInterest.length
+      : 0;
+    return {
+      total: list.length,
+      signedIn: list.filter(g => g.source === 'visitor').length,
+      preApproved: list.filter(g => g.lender_status === 'pre_approved').length,
+      avgInterestLabel: !withInterest.length ? '—'
+        : raw >= 2.5 ? 'High' : raw >= 1.5 ? 'Medium' : 'Low',
+    };
+  };
+
+  const listingReportData = (list: Guest[]) => {
+    const { total, signedIn, preApproved, avgInterestLabel } = summarize(list);
     const rows = [
       { label: 'Total guests', value: String(total) },
       { label: 'Signed themselves in', value: String(signedIn) },
       { label: 'Pre-approved', value: String(preApproved) },
       { label: 'Avg interest', value: avgInterestLabel },
     ];
-    const notesLines = guests.map(g => {
+    const notesLines = list.map(g => {
       const parts = [
         guestInitials(g),
         g.temperature ? g.temperature.toUpperCase() : null,
         g.interest_level ? `Interest: ${INTEREST_LABEL[g.interest_level]}` : null,
         g.price_feedback ? `Price: ${PRICE_LABEL[g.price_feedback]}` : null,
         g.condition_feedback ? `Condition: ${CONDITION_LABEL[g.condition_feedback]}` : null,
-        g.notes ? `"${redactGuestText(g.notes, guests)}"` : null,
+        g.notes ? `"${redactGuestText(g.notes, list)}"` : null,
       ].filter(Boolean);
       return `• ${parts.join(' · ')}`;
     }).join('\n');
@@ -1188,6 +1213,20 @@ function ReportSection({ openHouse, guests, canManage, hostName, onChanged }: {
       rows,
       notes: notesLines || 'No guests recorded.',
     };
+  };
+
+  const openSendListing = async () => {
+    setPreparingSend(true);
+    try {
+      const fresh = refreshGuests ? await refreshGuests() : guests;
+      if (!fresh) return; // the read failed; the problem has already been shown
+      setReportGuests(fresh);
+      setShowSendListing(true);
+    } catch (err: any) {
+      toast.error('Could not load the latest guest list', { description: err?.message });
+    } finally {
+      setPreparingSend(false);
+    }
   };
 
   const pdfFileName = () => {
@@ -1279,9 +1318,12 @@ function ReportSection({ openHouse, guests, canManage, hostName, onChanged }: {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setShowSendListing(true)}
+            onClick={openSendListing}
+            disabled={preparingSend}
           >
-            <Mail className="h-4 w-4 mr-1" /> Send to Listing Agent
+            {preparingSend
+              ? <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              : <Mail className="h-4 w-4 mr-1" />} Send to Listing Agent
           </Button>
           {canManage && (
             <Button variant="outline" size="sm" onClick={() => setShowSendPortal(true)}>
@@ -1310,7 +1352,7 @@ function ReportSection({ openHouse, guests, canManage, hostName, onChanged }: {
         <SendListingReportDialog
           openHouseId={openHouse.id}
           defaultRecipient={openHouse.listing_agent_email || ''}
-          templateData={listingReportData()}
+          templateData={listingReportData(reportGuests ?? guests)}
           onClose={() => setShowSendListing(false)}
           onSent={onChanged}
         />
