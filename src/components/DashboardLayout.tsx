@@ -11,8 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Eye, Sparkles } from 'lucide-react';
+import DemoWorkspace from '@/components/DemoWorkspace';
 
 const ViewAsAgentControls = () => {
+  const { demoMode } = useDemoMode();
   const {
     canViewAsAgent,
     isViewingAsAgent,
@@ -23,7 +25,7 @@ const ViewAsAgentControls = () => {
     viewingAgentName,
   } = useViewAsAgent();
 
-  if (!canViewAsAgent) return null;
+  if (!canViewAsAgent || demoMode) return null;
 
   return (
     <div className="flex flex-wrap items-center gap-2 ml-auto min-w-0">
@@ -99,10 +101,9 @@ const ViewAsAgentBanner = () => {
   );
 };
 
-const DashboardLayout = () => {
+const DashboardContent = () => {
+  const { demoMode } = useDemoMode();
   return (
-    <DemoModeProvider>
-     <ViewAsAgentProvider>
       <SidebarProvider>
         <div className="min-h-[100dvh] flex w-full max-w-full bg-background">
           <AppSidebar />
@@ -115,22 +116,28 @@ const DashboardLayout = () => {
               <ViewAsAgentControls />
               <DemoModeControls />
               <div className="shrink-0">
-                <NotificationsBell />
+                {!demoMode && <NotificationsBell />}
               </div>
             </header>
-            <SetupBanner />
+            {!demoMode && <SetupBanner />}
             <ViewAsAgentBanner />
             <div className="flex-1 min-w-0 max-w-full p-4 sm:p-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
-              <Outlet />
+              {demoMode ? <DemoWorkspace /> : <Outlet />}
             </div>
 
-            <SupportChatWidget userType="realtor" />
+            {!demoMode && <SupportChatWidget userType="realtor" />}
           </main>
         </div>
       </SidebarProvider>
-     </ViewAsAgentProvider>
-    </DemoModeProvider>
   );
 };
+
+const DashboardLayout = () => (
+  <DemoModeProvider>
+    <ViewAsAgentProvider>
+      <DashboardContent />
+    </ViewAsAgentProvider>
+  </DemoModeProvider>
+);
 
 export default DashboardLayout;

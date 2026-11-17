@@ -1,5 +1,6 @@
 import { useInPlanning2027 } from '@/hooks/useInPlanning2027';
 import { useViewAsAgent } from '@/hooks/useViewAsAgent';
+import { useDemoMode } from '@/hooks/useDemoMode';
 import { 
   LayoutDashboard, 
   Building2, 
@@ -143,6 +144,7 @@ const agentResourcesItems = [
 const planningPerformanceItems = ['Goals', 'Weekly Coaching', 'Reports', 'Business Planning'];
 
 export function AppSidebar() {
+  const { demoMode } = useDemoMode();
   const { signOut, user } = useAuth();
   const { isAdmin, isOwner, isOperations, isPlanningAccess, isAgent } = useUserRole();
   const {
@@ -256,7 +258,7 @@ export function AppSidebar() {
                                     )}
                                   </div>
                                 )}
-                                {item.title === 'Messages' && unreadMessages > 0 && (
+                                {!demoMode && item.title === 'Messages' && unreadMessages > 0 && (
                                   <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">
                                     {unreadMessages > 9 ? '9+' : unreadMessages}
                                   </span>
@@ -535,7 +537,7 @@ export function AppSidebar() {
             <div className="mb-3 px-2">
               <div className="flex items-center gap-2">
                 <p className="text-sm font-medium text-foreground truncate">
-                  {user.user_metadata?.full_name || user.email}
+                  {demoMode ? 'Demo Owner' : user.user_metadata?.full_name || user.email}
                 </p>
                 {isOwner && (
                   <Badge variant="outline" className="text-[10px] border-gold text-gold px-1">
@@ -553,7 +555,7 @@ export function AppSidebar() {
                   </Badge>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+              <p className="text-xs text-muted-foreground truncate">{demoMode ? 'owner@example.com' : user.email}</p>
             </div>
           )}
           <div className="flex flex-col gap-1">

@@ -2,3 +2,4 @@
 - Next: finish CMA Studio PDF/data acceptance checks after urgent open-house work.
 - Verify secure client invitation claims, team-only realtor creation, dashboard denial, and admin mismatch warnings in preview.
 - [x] Admin read-only team MCP tools
+- [x] Prevent live team data from appearing inside Demo Mode; verify signed-in switching and navigation.
