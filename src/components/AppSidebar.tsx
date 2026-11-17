@@ -30,7 +30,6 @@ import {
   Users2,
   FileBarChart,
   Bell,
-  Heart,
   Headset,
   MessageSquare,
 } from 'lucide-react';
@@ -98,7 +97,6 @@ const allSections: MenuSection[] = [
       { title: 'Client Portals', url: '/dashboard/client-portals', icon: Users2 },
       { title: 'Messages', url: '/dashboard/messages', icon: MessageSquare },
       { title: 'Business Planning', url: '/dashboard/business-planning', icon: Compass },
-      { title: 'Nominations', url: '/dashboard/nominations', icon: Heart, adminOnly: true },
     ],
   },
   {
@@ -151,7 +149,6 @@ export function AppSidebar() {
     canAccessCompanyDashboard,
     canAccessCompanyBusinessPlanning,
     canAccessClientPortals,
-    canAccessNominations,
   } = useOrgTier();
   const unreadMessages = useUnreadMessageCount();
   const tenant = useTenant();
@@ -186,7 +183,6 @@ export function AppSidebar() {
         items: section.items.filter(item => {
           if (item.adminOnly && !isAdmin) return false;
           if (item.title === 'Business Planning' && inPlanning === false) return false;
-          if (item.title === 'Nominations' && !canAccessNominations) return false;
           if (item.title === 'Client Portals' && !canAccessClientPortals) return false;
           if (item.title === 'Messages' && !canAccessClientPortals) return false;
           return true;
