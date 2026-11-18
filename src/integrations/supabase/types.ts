@@ -6297,6 +6297,38 @@ export type Database = {
           },
         ]
       }
+      submission_slack_channels: {
+        Row: {
+          channel_id: string | null
+          channel_name: string | null
+          form_type: string
+          org_id: string
+          updated_at: string
+        }
+        Insert: {
+          channel_id?: string | null
+          channel_name?: string | null
+          form_type: string
+          org_id: string
+          updated_at?: string
+        }
+        Update: {
+          channel_id?: string | null
+          channel_name?: string | null
+          form_type?: string
+          org_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "submission_slack_channels_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       submissions: {
         Row: {
           agent_name: string | null
@@ -6355,6 +6387,11 @@ export type Database = {
           seller_emails: string | null
           seller_names: string | null
           seller_phones: string | null
+          slack_channel_id: string | null
+          slack_error: string | null
+          slack_files_uploaded: number | null
+          slack_posted_at: string | null
+          slack_ts: string | null
           staging_consult: boolean | null
           status: string
           submission_type: string | null
@@ -6420,6 +6457,11 @@ export type Database = {
           seller_emails?: string | null
           seller_names?: string | null
           seller_phones?: string | null
+          slack_channel_id?: string | null
+          slack_error?: string | null
+          slack_files_uploaded?: number | null
+          slack_posted_at?: string | null
+          slack_ts?: string | null
           staging_consult?: boolean | null
           status?: string
           submission_type?: string | null
@@ -6485,6 +6527,11 @@ export type Database = {
           seller_emails?: string | null
           seller_names?: string | null
           seller_phones?: string | null
+          slack_channel_id?: string | null
+          slack_error?: string | null
+          slack_files_uploaded?: number | null
+          slack_posted_at?: string | null
+          slack_ts?: string | null
           staging_consult?: boolean | null
           status?: string
           submission_type?: string | null

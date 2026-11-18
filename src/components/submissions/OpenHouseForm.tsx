@@ -13,7 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
-import { FileUpload, uploadSubmissionFiles, getFilePublicUrls } from './FileUpload';
+import { FileUpload, uploadSubmissionFiles } from './FileUpload';
 
 const formSchema = z.object({
   property_address: z.string().min(1, 'Property address is required'),
@@ -117,9 +117,6 @@ export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
 
       if (error) throw error;
 
-      // Get signed URLs for attachments to pass to Asana
-      const attachmentUrls = attachments.length > 0 ? await getFilePublicUrls(attachments, attachmentPaths) : [];
-
       toast.success('Open house submission created successfully!');
       form.reset();
       setAttachments([]);
@@ -135,7 +132,6 @@ export function OpenHouseForm({ agents, onSuccess }: OpenHouseFormProps) {
         bmo_rep_needed: data.bmo_rep_needed,
         bmo_flyers_needed: data.bmo_flyers_needed,
         notes: data.notes,
-        attachment_urls: attachmentUrls,
       });
     } catch (error: any) {
       console.error('Error submitting form:', error);

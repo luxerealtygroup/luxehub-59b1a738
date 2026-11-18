@@ -14,7 +14,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { vendorTypes } from './submissionOptions';
-import { FileUpload, uploadSubmissionFiles, getFilePublicUrls } from './FileUpload';
+import { FileUpload, uploadSubmissionFiles } from './FileUpload';
 
 const formSchema = z.object({
   agent_id: z.string().min(1, 'Agent is required'),
@@ -92,9 +92,6 @@ export function InvoiceForm({ agents, onSuccess }: InvoiceFormProps) {
 
       if (error) throw error;
 
-      // Get signed URLs for attachments to pass to Asana
-      const attachmentUrls = attachments.length > 0 ? await getFilePublicUrls(attachments, attachmentPaths) : [];
-
       toast.success('Invoice submission created successfully!');
       form.reset();
       setAttachments([]);
@@ -107,7 +104,6 @@ export function InvoiceForm({ agents, onSuccess }: InvoiceFormProps) {
         property_address: data.property_address,
         agent_name: selectedAgent?.full_name || '',
         notes: data.notes,
-        attachment_urls: attachmentUrls,
       });
     } catch (error: any) {
       console.error('Error submitting form:', error);

@@ -3,3 +3,5 @@
 - Verify secure client invitation claims, team-only realtor creation, dashboard denial, and admin mismatch warnings in preview.
 - [x] Admin read-only team MCP tools
 - [x] Prevent live team data from appearing inside Demo Mode; verify signed-in switching and navigation.
+- [x] Phase 1: add submission Slack tracking/destinations and best-effort posting, preserve Asana storage, verify with mocks and read-only Slack status; no publishing or Slack posts.
+- [ ] Slack delivery verification waits for accessible submission channels, files:write permission and approval to post; invoice destination remains undecided.

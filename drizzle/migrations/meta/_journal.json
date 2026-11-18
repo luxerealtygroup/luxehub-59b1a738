@@ -22,6 +22,13 @@
       "when": 1793646082378,
       "tag": "0002_agent_goals_year_column",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1795029894452,
+      "tag": "0003_submission_slack_tracking",
+      "breakpoints": true
     }
   ]
 }

@@ -15,7 +15,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { listingSubmissionTypes, photographyPackages, occupancyOptions } from './submissionOptions';
-import { FileUpload, uploadSubmissionFiles, copyFilesToClientDocuments, getFilePublicUrls } from './FileUpload';
+import { FileUpload, uploadSubmissionFiles, copyFilesToClientDocuments } from './FileUpload';
 import { FUBClientInput, FUBClient } from './FUBClientInput';
 
 const formSchema = z.object({
@@ -130,9 +130,6 @@ export function ListingForm({ agents, onSuccess }: ListingFormProps) {
         );
       }
 
-      // Get signed URLs for attachments to pass to Asana
-      const attachmentUrls = attachments.length > 0 ? await getFilePublicUrls(attachments, attachmentPaths) : [];
-
       toast.success('Listing submission created successfully!');
       form.reset();
       setSelectedFubClient(null);
@@ -157,7 +154,6 @@ export function ListingForm({ agents, onSuccess }: ListingFormProps) {
         agent_name: selectedAgent?.full_name || '',
         listing_notes: data.notes,
         notes: data.notes,
-        attachment_urls: attachmentUrls,
       });
     } catch (error: any) {
       console.error('Error submitting form:', error);
