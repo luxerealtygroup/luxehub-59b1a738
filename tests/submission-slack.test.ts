@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildMessage, collectFiles } from '../supabase/functions/slack-post-submission/message';
+import { buildMessage, collectFiles } from '../supabase/functions/_shared/submissionSlackMessage';
 import { needsSlackRetry, SLACK_TRACKING_START } from '../src/components/submissions/slackTracking';
 
 describe('Slack submission tracking', () => {

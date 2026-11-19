@@ -116,3 +116,6 @@ verify_jwt = false
 
 [functions.render-report-preview]
 verify_jwt = false
+
+[functions.slack-test-harness]
+verify_jwt = false
