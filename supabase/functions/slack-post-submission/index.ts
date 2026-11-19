@@ -3,7 +3,7 @@ import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { z } from 'npm:zod@3';
 import { requireStaff } from '../_shared/auth.ts';
 import { getSlackToken, SLACK_API } from '../_shared/slack.ts';
-import { buildMessage, collectFiles } from '../_shared/submissionSlackMessage.ts';
+import { buildMessage, collectFiles } from './message.ts';
 
 const schema = z.object({ action: z.enum(['post','status']).default('post'), submission_id: z.string().uuid().optional() }).refine(body => body.action === 'status' || !!body.submission_id, { message: 'submission_id is required for post' });
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
