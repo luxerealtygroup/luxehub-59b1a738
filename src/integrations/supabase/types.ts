@@ -14,18 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      _harness_gate: {
-        Row: {
-          token: string
-        }
-        Insert: {
-          token: string
-        }
-        Update: {
-          token?: string
-        }
-        Relationships: []
-      }
       ac_nominations: {
         Row: {
           created_at: string
