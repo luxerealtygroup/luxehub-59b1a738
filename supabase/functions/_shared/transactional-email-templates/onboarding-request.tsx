@@ -19,7 +19,6 @@ interface Props {
   slackAdminEmail?: string | null
   usesFub?: boolean | null
   usesStripe?: boolean | null
-  usesAsana?: boolean | null
   extraNotes?: string | null
   logoPath?: string | null
   requestId?: string
@@ -57,7 +56,6 @@ const Email = (p: Props) => (
           <Row label="Slack admin" value={`${val(p.slackAdminName)} (${val(p.slackAdminEmail)})`} />
           <Row label="Uses Follow Up Boss" value={yesNo(p.usesFub)} />
           <Row label="Uses Stripe" value={yesNo(p.usesStripe)} />
-          <Row label="Uses Asana" value={yesNo(p.usesAsana)} />
           <Row label="Logo uploaded" value={p.logoPath ? 'Yes' : 'No'} />
           <Row label="Notes" value={val(p.extraNotes)} />
         </Section>
@@ -90,7 +88,6 @@ export const template = {
     slackAdminEmail: 'jordan@example.com',
     usesFub: true,
     usesStripe: false,
-    usesAsana: false,
     extraNotes: 'Looking to launch this fall.',
   },
 } satisfies TemplateEntry

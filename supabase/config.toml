@@ -12,9 +12,6 @@ verify_jwt = false
 [functions.google-calendar]
 verify_jwt = true
 
-[functions.asana-create-task]
-verify_jwt = true
-
 [functions.cma-analyze]
 verify_jwt = false
 

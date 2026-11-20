@@ -175,7 +175,7 @@ export async function getFilePublicUrls(
   
   for (let i = 0; i < filePaths.length; i++) {
     const path = filePaths[i];
-    // Create a signed URL that expires in 1 hour (enough time for Asana to download)
+    // Create a signed URL that expires in 1 hour (enough time for the server to download)
     const { data, error } = await supabase.storage
       .from('client-documents')
       .createSignedUrl(path, 3600); // 1 hour expiry
@@ -183,7 +183,7 @@ export async function getFilePublicUrls(
     if (!data?.signedUrl) {
       console.error('Failed to create signed URL for:', path, error);
     }
-    // Always include the storage path so the Asana function can download the
+    // Always include the storage path so the server function can download the
     // file server-side (service role) even if the signed URL is missing/expired.
     results.push({
       url: data?.signedUrl || '',

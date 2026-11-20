@@ -74,7 +74,6 @@ const GetStarted = () => {
   });
   const [usesFub, setUsesFub] = useState<YesNo>('');
   const [usesStripe, setUsesStripe] = useState<YesNo>('');
-  const [usesAsana, setUsesAsana] = useState<YesNo>('');
   const [logo, setLogo] = useState<File | null>(null);
 
   const set = (k: keyof typeof form) => (
@@ -150,7 +149,6 @@ const GetStarted = () => {
           extraNotes: form.extraNotes,
           usesFub: toBool(usesFub),
           usesStripe: toBool(usesStripe),
-          usesAsana: toBool(usesAsana),
           logoData,
           logoType,
           company_website_confirm: form.honeypot,
@@ -355,7 +353,6 @@ const GetStarted = () => {
                   onChange={setUsesFub}
                 />
                 <YesNoField name="stripe" label="Do you use Stripe?" value={usesStripe} onChange={setUsesStripe} />
-                <YesNoField name="asana" label="Do you use Asana?" value={usesAsana} onChange={setUsesAsana} />
               </div>
 
               <div className="space-y-2">

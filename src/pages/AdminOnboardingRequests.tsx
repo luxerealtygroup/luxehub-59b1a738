@@ -32,7 +32,6 @@ type RequestRow = {
   slack_admin_email: string | null;
   uses_fub: boolean | null;
   uses_stripe: boolean | null;
-  uses_asana: boolean | null;
   extra_notes: string | null;
   admin_notes: string | null;
   org_id: string | null;
@@ -89,7 +88,6 @@ function buildConfigSheet(r: RequestRow) {
     '## Backend secrets to set (values collected directly from the client — never by form)',
     `FOLLOW_UP_BOSS_API_KEY   # required: ${yesNo(r.uses_fub)}`,
     `STRIPE_API_KEY           # required: ${yesNo(r.uses_stripe)}`,
-    `ASANA_ACCESS_TOKEN       # required: ${yesNo(r.uses_asana)}`,
     'SLACK_BOT_TOKEN / SLACK_SIGNING_SECRET / SLACK_ALERT_CHANNEL',
     '',
     '## Setup notes',
@@ -316,7 +314,6 @@ const AdminOnboardingRequests = () => {
                   />
                   <Detail label="Follow Up Boss" value={yesNo(r.uses_fub)} />
                   <Detail label="Stripe" value={yesNo(r.uses_stripe)} />
-                  <Detail label="Asana" value={yesNo(r.uses_asana)} />
                 </dl>
 
                 {r.extra_notes && (

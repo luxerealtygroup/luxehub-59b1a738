@@ -108,7 +108,6 @@ Deno.serve(async (req) => {
     slack_admin_email: slackAdminEmail,
     uses_fub: bool(body.usesFub),
     uses_stripe: bool(body.usesStripe),
-    uses_asana: bool(body.usesAsana),
     extra_notes: str(body.extraNotes, 2000),
   }
 
@@ -145,7 +144,6 @@ Deno.serve(async (req) => {
           slackAdminEmail: record.slack_admin_email,
           usesFub: record.uses_fub,
           usesStripe: record.uses_stripe,
-          usesAsana: record.uses_asana,
           extraNotes: record.extra_notes,
           logoPath: record.logo_path,
           requestId: data.id,
