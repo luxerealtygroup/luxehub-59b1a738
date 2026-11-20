@@ -3074,7 +3074,6 @@ export type Database = {
           status: string
           team_size: string | null
           updated_at: string
-          uses_asana: boolean | null
           uses_fub: boolean | null
           uses_stripe: boolean | null
           website: string | null
@@ -3099,7 +3098,6 @@ export type Database = {
           status?: string
           team_size?: string | null
           updated_at?: string
-          uses_asana?: boolean | null
           uses_fub?: boolean | null
           uses_stripe?: boolean | null
           website?: string | null
@@ -3124,7 +3122,6 @@ export type Database = {
           status?: string
           team_size?: string | null
           updated_at?: string
-          uses_asana?: boolean | null
           uses_fub?: boolean | null
           uses_stripe?: boolean | null
           website?: string | null
@@ -6332,11 +6329,6 @@ export type Database = {
       submissions: {
         Row: {
           agent_name: string | null
-          asana_attachments_sent: number | null
-          asana_attachments_uploaded: number | null
-          asana_pushed_at: string | null
-          asana_task_gid: string | null
-          asana_task_url: string | null
           attachments: Json | null
           bmo_flyers_needed: string | null
           bmo_rep_needed: string | null
@@ -6402,11 +6394,6 @@ export type Database = {
         }
         Insert: {
           agent_name?: string | null
-          asana_attachments_sent?: number | null
-          asana_attachments_uploaded?: number | null
-          asana_pushed_at?: string | null
-          asana_task_gid?: string | null
-          asana_task_url?: string | null
           attachments?: Json | null
           bmo_flyers_needed?: string | null
           bmo_rep_needed?: string | null
@@ -6472,11 +6459,6 @@ export type Database = {
         }
         Update: {
           agent_name?: string | null
-          asana_attachments_sent?: number | null
-          asana_attachments_uploaded?: number | null
-          asana_pushed_at?: string | null
-          asana_task_gid?: string | null
-          asana_task_url?: string | null
           attachments?: Json | null
           bmo_flyers_needed?: string | null
           bmo_rep_needed?: string | null
